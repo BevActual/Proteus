@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Wave A hardware probe — desktop/laptop → capabilities JSON
+# Docs: docs/proteus/HARDWARE.md
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+exec python3 "${ROOT}/services/proteus-hw-probe/proteus_hw_probe.py" "$@"

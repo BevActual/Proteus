@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Dev wrapper — prefer installed libexec, else release/debug build.
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [[ -x /usr/local/libexec/proteus-pkg ]]; then
+  exec /usr/local/libexec/proteus-pkg "$@"
+fi
+if [[ -x "${HERE}/target/release/proteus-pkg" ]]; then
+  exec "${HERE}/target/release/proteus-pkg" "$@"
+fi
+if [[ -x "${HERE}/target/debug/proteus-pkg" ]]; then
+  exec "${HERE}/target/debug/proteus-pkg" "$@"
+fi
+
+echo "proteus-pkg: binary not found — run: cargo build --release -C ${HERE}" >&2
+echo "  (or install via vm/guest/install-proteus-pkg.sh)" >&2
+exit 127

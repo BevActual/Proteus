@@ -1,0 +1,25 @@
+*.qmlc
+*.jsc
+.qml-cache/
+*.pro.user
+.DS_Store
+*~
+*.swp
+.env
+.env.*
+
+# QEMU VM artifacts (large / machine-local)
+vm/iso/*
+!vm/iso/.gitkeep
+vm/disks/*
+!vm/disks/.gitkeep
+vm/vars/*.fd
+vm/vars/*.fd.bak*
+# Ignore boot extract contents but keep the directory placeholder
+vm/boot/*
+!vm/boot/.gitkeep
+vm/*.log
+vm/*.sock
+vm/qmp.sock
+vm/serial.sock
+!vm/vars/.gitkeep

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Launch the Proteus Settings application (one-stop control center).
+set -euo pipefail
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export QS_ICON_THEME="${QS_ICON_THEME:-Papirus-Dark}"
+exec quickshell -p "${DIR}"

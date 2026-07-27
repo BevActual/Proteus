@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Proteus Settings
+Comment=Configure Proteus — style, desktop, and system
+Exec=/usr/local/bin/proteus-settings
+Icon=preferences-system
+Terminal=false
+Type=Application
+Categories=Settings;DesktopSettings;
+StartupNotify=true
+StartupWMClass=quickshell

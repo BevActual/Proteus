@@ -1,0 +1,7 @@
+# Proteus Wayland session — Hyprland + Quickshell from /mnt/proteus
+[Desktop Entry]
+Name=Proteus
+Comment=Bevington Systems Proteus desktop
+Exec=/usr/local/bin/proteus-session
+Type=Application
+DesktopNames=Hyprland

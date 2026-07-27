@@ -1,0 +1,42 @@
+# AGENTS.md
+
+Proteus agent entry. **This repo** = adaptive host OS (shell, Settings, postures,
+VM harness).
+
+| Concern | Where |
+|---------|--------|
+| Positioning / field | [docs/proteus/POSITIONING.md](docs/proteus/POSITIONING.md) |
+| Architecture / HARD RULES | [docs/proteus/ARCHITECTURE.md](docs/proteus/ARCHITECTURE.md) |
+| Postures (host vs hypervisor) | [docs/proteus/POSTURES.md](docs/proteus/POSTURES.md) |
+| Adaptive apps / environment | [docs/proteus/APPLICATIONS.md](docs/proteus/APPLICATIONS.md) |
+| Hardware / sensors / modules | [docs/proteus/HARDWARE.md](docs/proteus/HARDWARE.md) |
+| Hyprland + Quickshell | [docs/proteus/COMPOSITOR.md](docs/proteus/COMPOSITOR.md) |
+| Languages / stack | [docs/proteus/STACK.md](docs/proteus/STACK.md) |
+| Settings IA | [docs/proteus/SETTINGS-IA.md](docs/proteus/SETTINGS-IA.md) |
+| Honest status | [docs/proteus/CURRENT.md](docs/proteus/CURRENT.md) |
+| Ecosystem seat | [docs/shared/ECOSYSTEM.md](docs/shared/ECOSYSTEM.md) |
+| VM dogfood | [vm/README.md](vm/README.md) |
+| Company loop SoT | [`../Mobius/AGENTS.md`](../Mobius/AGENTS.md) · [`../Mobius/docs/ISSUES.md`](../Mobius/docs/ISSUES.md) |
+
+## Product kickoffs
+
+- **`vm`** — boot guest: `./vm/run.sh` (SSH `-p 2222`); install helpers under `vm/guest/`.
+- **`nested`** — host quick shell test: `./scripts/run-nested.sh`.
+- **`probe`** — Wave A hardware JSON: `./services/proteus-hw-probe/proteus-hw-probe` · smoke: `./scripts/hw-probe-smoke.sh`
+- **`settings`** — work in `apps/proteus-settings/` + `shell/shared` (symlink).
+- **`shell`** — Quickshell chrome only; do not grow product apps here ([STACK.md](docs/proteus/STACK.md)).
+- **`loop` / `standing` / …** — follow **Mobius** `AGENTS.md`; Proteus items may be queued there with home: Proteus.
+
+## Gates (honest)
+
+| Change | Gate |
+|--------|------|
+| Shell / Settings | Dogfood in VM or nested; update CURRENT if behavior ships |
+| Guest scripts | Run on guest; don’t leave keybinds under `/root` when using sudo |
+| Docs-only | Keep POSITIONING/CURRENT status legends honest |
+
+## Out (do not invent here)
+
+Meridian hub HTTP API, Mobius referee/queue SoT, Rowena vault/editor, a second
+hypervisor distro, five marketed device SKUs before postures are proven,
+forking Hyprland/Quickshell, Electron as default app stack.

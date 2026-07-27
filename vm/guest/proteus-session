@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# System session wrapper installed to /usr/local/bin/proteus-session
+set -euo pipefail
+
+if ! mountpoint -q /mnt/proteus 2>/dev/null; then
+  mount /mnt/proteus 2>/dev/null || true
+fi
+
+export LANG="${LANG:-en_US.UTF-8}"
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=Hyprland
+export PROTEUS_SURFACE="${PROTEUS_SURFACE:-desktop}"
+
+exec Hyprland
