@@ -264,7 +264,7 @@ Capabilities are **normalized flags** from hardware + session. They describe
 | Flag | Meaning |
 |------|---------|
 | `tiling` / `multi_monitor` | Desktop compositor features |
-| `libvirt` / `containers` | Host workloads |
+| `libvirt` / `containers` | Host workloads app (not Settings) |
 | `home_control` | Speaks to house devices / hubs |
 | `headless` | No local interactive display session |
 | `battery` | Portable power profile |

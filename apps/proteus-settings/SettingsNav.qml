@@ -18,11 +18,11 @@ Singleton {
     if (page.startsWith("desktop-"))
       return "Desktop"
     if (page.startsWith("style-"))
-      return "Style"
+      return "Appearance"
     if (page.startsWith("peripherals-"))
       return "Peripherals"
     if (page.startsWith("packages-"))
-      return "Packages"
+      return "Software"
     return ""
   }
 

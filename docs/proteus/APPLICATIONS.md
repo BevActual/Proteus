@@ -100,7 +100,8 @@ Example sketches:
 
 - **Rowena** — requires `display`; prefers `pointer` or large `display`; primary
   postures `desktop` (+ maybe compact on `phone` device class later).  
-- **Host workloads panel** — requires `libvirt` or `containers`; posture `host`;
+- **Host workloads app** — requires `libvirt` or `containers`; posture `host`;
+  separate from Settings (VM/container *setup* is not a Settings category);
   works headless via CLI/API; GUI facet only when UI session exists.  
 - **Vitals glance** — requires `vitals`; device classes `watch` / band; no
   Hyprland needed.  

@@ -76,18 +76,19 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 
 | Pane | Status |
 |------|--------|
-| Style → sub-list → Accent / Background / Font | `shipped` |
-| Desktop → sub-list → Gaps / Borders / Motion / Dock (`proteus-general.conf`) | `shipped` |
+| Appearance → Accent / Background / Font (`style`) | `shipped` |
+| Desktop → Gaps / Borders / Motion / Dock (`proteus-general.conf`) | `shipped` |
 | Displays (scale / mode / orientation, Identify; Revert parked) | `partial` |
 | Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) | `shipped` |
-| Packages → Updates / Search (propose → confirm → `pkexec proteus-pkg`) | `partial` |
+| Software → Updates / Search (propose → confirm → `pkexec proteus-pkg`) | `partial` |
 | Sound (output + input, peak meter, per-app volume, latency/buffer, test tone) | `partial` |
-| Network (status + open editor) | `partial` |
-| System (session power actions) | `partial` |
-| System → hardware class / capabilities | `shipped` — live probe + refresh |
-| Host workloads | `planned` |
+| Network (status + open editor; Bluetooth / VPN later) | `partial` |
+| About (session power + hardware class / capabilities) | `partial` |
+| Power · Users · Online accounts · Date & time · Privacy | `planned` |
+| Host / VM·container setup | **out of Settings** — separate app later |
 
 Modular panes: `apps/proteus-settings/panes/*` (shell stays in `Settings.qml`).
+North-star IA: [SETTINGS-IA.md](./SETTINGS-IA.md).
 
 ---
 

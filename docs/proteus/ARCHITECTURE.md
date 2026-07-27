@@ -121,7 +121,7 @@ Proteus/
   scripts/            # run-nested, run-desktop
 ```
 
-`services/proteus-pkg` — privileged pacman mutator (pkexec + polkit) for Settings Packages.
+`services/proteus-pkg` — privileged pacman mutator (pkexec + polkit) for Settings Software.
 Optional later: more Rust CLIs (`proteus-net`, etc.) so QML stays thin
 (Meridian-style: apps as clients of helpers). Future first-party apps under
 `apps/` as Tauri projects ([STACK.md](./STACK.md)).

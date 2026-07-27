@@ -4,7 +4,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../shared"
 
-// Packages category — Updates · Search.
+// Software category (page id packages) — Updates · Search.
 ColumnLayout {
   id: root
   Layout.fillWidth: true

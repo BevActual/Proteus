@@ -4,7 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "../shared"
 
-// Style category: list of sub-settings → leaf. Navigation via page + requestGo.
+// Appearance category (page id style): list of sub-settings → leaf. Navigation via page + requestGo.
 ColumnLayout {
   id: root
   Layout.fillWidth: true

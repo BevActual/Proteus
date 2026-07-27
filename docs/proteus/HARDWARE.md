@@ -256,7 +256,7 @@ the resolver maps modules → capabilities.
 | Probe `--cache` | Writes `~/.config/proteus/hw-probe.json` (no QML hex encode) |
 
 Shell and Settings call the probe at startup (`Hardware` singleton
-`Component.onCompleted`). Settings → System shows class + capability chips and
+`Component.onCompleted`). Settings → About shows class + capability chips and
 Refresh.
 
 Emits `schema: proteus.hw.probe/v0` with `device_class`, `modules` (present),

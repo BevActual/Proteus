@@ -14,7 +14,7 @@ Singleton {
   readonly property var settingsCatalog: [
     {
       id: "style",
-      label: "Style",
+      label: "Appearance",
       requires: [],
       requiresAny: []
     },
@@ -50,13 +50,13 @@ Singleton {
     },
     {
       id: "packages",
-      label: "Packages",
+      label: "Software",
       requires: [],
       requiresAny: []
     },
     {
       id: "system",
-      label: "System",
+      label: "About",
       requires: [],
       requiresAny: []
     }

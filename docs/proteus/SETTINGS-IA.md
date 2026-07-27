@@ -32,7 +32,7 @@ Code: `apps/proteus-settings/` (`Settings.qml` shell + `panes/*`; `SettingsNav.q
 | [1. Pattern](#1-pattern) | Elegant UI → inspectable fact |
 | [2. Categories](#2-categories) | Sidebar IA |
 | [3. Containers](#3-containers) | Top-level vs submenu vs sections |
-| [4. Style hub](#4-style-hub) | Drill-in |
+| [4. Appearance hub](#4-appearance-hub) | Drill-in |
 | [5. Keyboard pattern](#5-keyboard-pattern) | Prototype hybrid feature |
 | [6. Desktop + Displays](#6-desktop--displays) | Same hybrid pattern |
 | [7. Growth](#7-growth) | Next panes |
@@ -75,17 +75,26 @@ built-ins before new daemons; use Rust helpers for messy IO —
 
 Left-nav + content pane (macOS System Settings style).
 
+**North-star sidebar order** (stable page IDs in parentheses where shipped):
+
 | Category | Holds | Backend | Status |
 |----------|-------|---------|--------|
-| **Style** | Category page → Accent, Background, Font | `settings.json`, Theme, wallpaper | `shipped` |
-| **Desktop** | Category page → Gaps, Borders & rounding, Motion, Dock | json + hyprctl + `proteus-general.conf` | `shipped` |
-| **Displays** | Per-monitor scale + mode (Apply); conf escape hatch | hyprctl + `proteus-monitors.conf` | `partial` |
-| **Sound** | Output + input volume/mute, default sink/source, input peak meter, per-app volume, latency/buffer, test tone | pactl + `parec` + `pw-metadata` | `partial` |
-| **Network** | Device status + open editor | nmcli / nmtui | `partial` |
-| **Peripherals** | Category → Keyboard, Mouse | keybinds + input hyprctl | `shipped` |
-| **Packages** | Category → Updates, Search (propose → confirm → polkit) | `pacman` + `services/proteus-pkg` | `partial` |
-| **System** | About, hardware caps, lock / logout / reboot / shutdown | probe + hypr / systemctl / loginctl | `partial` |
-| **Host / Workloads** | VMs, containers, services (host posture primary) | libvirt / podman / systemd | `planned` |
+| **Appearance** (`style`) | Category → Accent, Background, Font | `settings.json`, Theme, wallpaper | `shipped` |
+| **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock | json + hyprctl + `proteus-general.conf` | `shipped` |
+| **Displays** (`displays`) | Per-monitor scale + mode (Apply); conf escape hatch | hyprctl + `proteus-monitors.conf` | `partial` |
+| **Sound** (`sound`) | Output + input volume/mute, devices, peak meter, per-app volume, latency/buffer, test tone | pactl + `parec` + `pw-metadata` | `partial` |
+| **Network** (`network`) | Device status + open editor; later Bluetooth, VPN | nmcli / nmtui (+ later) | `partial` |
+| **Peripherals** (`peripherals`) | Category → Keyboard, Mouse; later touchpad / tablet | keybinds + input hyprctl | `shipped` |
+| **Power** | Battery, sleep, lid (laptop-primary) | systemd / UPower | `planned` |
+| **Users** | Accounts, login; session actions peel here from About | accounts / loginctl | `planned` |
+| **Online accounts** | Mail, contacts, cloud storage providers | TBD (not inventing mail/contacts apps here) | `planned` |
+| **Date & time** | Clock, timezone, locale | timedatectl / locale | `planned` |
+| **Privacy** | Permissions when adaptive apps exist | app permissions model | `planned` |
+| **Software** (`packages`) | Category → Updates, Search (propose → confirm → polkit) | `pacman` + `services/proteus-pkg` | `partial` |
+| **About** (`system`) | Hardware caps, lock / logout / reboot / shutdown (until Users exists) | probe + hypr / systemctl / loginctl | `partial` |
+
+VM / container **setup** is **not** a Settings category — a separate host app later.
+About may still show host-relevant hardware facts.
 
 Panes live under `apps/proteus-settings/panes/`. EnvGate capability-gates
 sidebar entries (`display` for Desktop / Displays / Keyboard, audio/network
@@ -106,10 +115,10 @@ Navigation API (`SettingsNav`): `go(id)` in, `back()` out, `goSection(id)` from 
 
 ---
 
-## 4. Style category
+## 4. Appearance hub
 
-Click **Style** in the sidebar → content heading is **Style**, body is the
-sub-settings list:
+Click **Appearance** in the sidebar → content heading is **Appearance**, body is
+the sub-settings list:
 
 | Sub-setting | Role |
 |-------------|------|
@@ -117,9 +126,9 @@ sub-settings list:
 | Background | Image pick + fit mode |
 | Font | UI family + size |
 
-Open a row → leaf controls; **‹ Style** / Esc returns to the list. Desktop
+Open a row → leaf controls; **‹ Appearance** / Esc returns to the list. Desktop
 uses the same pattern. Pane visibility is owned by `Settings.qml` (only one
-category visible at a time).
+category visible at a time). Page id remains `style` / `style-*`.
 
 ---
 
@@ -133,7 +142,7 @@ Reference hybrid leaf under **Peripherals → Keyboard**:
 4. UI: search, categories, record chord, conflict detection, restore defaults
 5. Guest wiring: `vm/guest/install-keybinds.sh`
 
-**Peripherals** category (same drill-in as Style): Keyboard · Mouse.
+**Peripherals** category (same drill-in as Appearance): Keyboard · Mouse.
 Headphones/speakers stay under **Sound**, not Peripherals.
 
 Defaults include launcher (`Super+Space` / `Super+D`), Settings (`Super+,`),
@@ -158,11 +167,19 @@ Templates: `env/proteus-general.conf`, `env/proteus-monitors.conf`. Nested
 
 ## 7. Growth
 
-Next hybrid depth:
+Next category / depth order:
 
-1. **Packages** — deeper UX (progress stream, remove/orphan); mutator shipped  
-2. **Displays** — fix Revert (parked); then drag layout for multi-monitor (scale/mode/orient Apply shipped)  
-3. **Host workloads** — when host posture exists  
+1. **Power** — battery / sleep (laptop)  
+2. **Users** — peel session actions from About  
+3. **Online accounts** — mail / contacts / cloud providers  
+4. **Date & time** — clock, timezone, locale  
+5. **Privacy** — when adaptive apps need permissions  
+6. **Network** — Bluetooth / VPN under Network  
+7. **Peripherals** — touchpad / tablet  
+8. **Displays** — fix Revert (parked); then drag layout for multi-monitor  
+9. **Software** — deeper UX (progress stream, remove/orphan); mutator shipped  
+
+Virt / container setup stays a **separate app**, not a Settings growth item.
 
 ---
 
