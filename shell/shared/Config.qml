@@ -528,6 +528,41 @@ Singleton {
     })
   }
 
+  // Brief peak sample of @DEFAULT_SOURCE@ (0–100). Needs parec; returns 0 if unavailable.
+  function getSourcePeak(callback) {
+    if (sourcePeakProc.running) {
+      if (callback)
+        callback(-1)
+      return
+    }
+    sourcePeakProc.callback = callback
+    sourcePeakProc.running = false
+    sourcePeakProc.running = true
+  }
+
+  function listSinkInputs(callback) {
+    sinkInputsProc.callback = callback
+    sinkInputsProc.running = false
+    sinkInputsProc.running = true
+  }
+
+  function setSinkInputVolume(id, pct) {
+    if (id === undefined || id === null || !String(id).length)
+      return
+    const v = Math.max(0, Math.min(150, Math.round(pct)))
+    Quickshell.execDetached({
+      command: ["pactl", "set-sink-input-volume", String(id), v + "%"]
+    })
+  }
+
+  function setSinkInputMute(id, muted) {
+    if (id === undefined || id === null || !String(id).length)
+      return
+    Quickshell.execDetached({
+      command: ["pactl", "set-sink-input-mute", String(id), muted ? "1" : "0"]
+    })
+  }
+
   function audioLatencyQuantum(id) {
     const key = id && String(id).length ? String(id) : audioLatency
     for (let i = 0; i < audioLatencyProfiles.length; i++) {
@@ -908,6 +943,62 @@ Singleton {
         }
         if (sourcesProc.callback)
           sourcesProc.callback(out)
+      }
+    }
+  }
+
+  Process {
+    id: sourcePeakProc
+    property var callback
+    command: [
+      "bash",
+      "-lc",
+      "if ! command -v parec >/dev/null; then echo 0; exit 0; fi; "
+          + "timeout 0.3 parec --raw --format=s16le --rate=8000 --channels=1 --latency-msec=40 2>/dev/null "
+          + "| head -c 640 "
+          + "| od -An -td2 "
+          + "| awk 'BEGIN{m=0}{for(i=1;i<=NF;i++){v=$i;if(v<0)v=-v;if(v>m)m=v}}END{print int((m*100)/32767)}'"
+    ]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const n = parseInt(text.trim(), 10)
+        if (sourcePeakProc.callback)
+          sourcePeakProc.callback(isNaN(n) ? 0 : Math.max(0, Math.min(100, n)))
+      }
+    }
+  }
+
+  Process {
+    id: sinkInputsProc
+    property var callback
+    command: ["pactl", "list", "sink-inputs"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const chunks = text.split(/\n(?=Sink Input #)/)
+        const out = []
+        for (let i = 0; i < chunks.length; i++) {
+          const block = chunks[i]
+          const idM = block.match(/Sink Input #(\d+)/)
+          if (!idM)
+            continue
+          const volM = block.match(/Volume:[^\n]*?(\d+)%/)
+          const appM = block.match(/application\.name\s*=\s*"([^"]*)"/)
+          const binM = block.match(/application\.process\.binary\s*=\s*"([^"]*)"/)
+          const mediaM = block.match(/media\.name\s*=\s*"([^"]*)"/)
+          const name = (appM && appM[1].length) ? appM[1]
+              : ((binM && binM[1].length) ? binM[1] : ("Stream " + idM[1]))
+          const detail = (mediaM && mediaM[1].length && mediaM[1] !== name) ? mediaM[1]
+              : ((binM && binM[1].length && binM[1] !== name) ? binM[1] : "")
+          out.push({
+            id: idM[1],
+            name: name,
+            detail: detail,
+            volume: volM ? parseInt(volM[1], 10) : 100,
+            muted: /Mute:\s*yes/i.test(block)
+          })
+        }
+        if (sinkInputsProc.callback)
+          sinkInputsProc.callback(out)
       }
     }
   }

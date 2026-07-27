@@ -14,8 +14,10 @@ ColumnLayout {
   property bool muted: false
   property int inputVolume: 50
   property bool inputMuted: false
+  property real inputPeak: 0
   property var sinks: []
   property var sources: []
+  property var apps: []
   property string status: ""
   property string clockSummary: ""
 
@@ -24,6 +26,28 @@ ColumnLayout {
     if (s === "SUSPENDED")
       return "Idle (starts on play)"
     return s
+  }
+
+  function refreshApps() {
+    Config.listSinkInputs(list => {
+      root.apps = list || []
+    })
+  }
+
+  function samplePeak() {
+    if (!root.active || root.inputMuted || !root.sources.length) {
+      root.inputPeak = Math.max(0, root.inputPeak * 0.6)
+      return
+    }
+    Config.getSourcePeak(v => {
+      if (v < 0)
+        return
+      // Soft decay so the bar doesn't flicker between samples.
+      if (v >= root.inputPeak)
+        root.inputPeak = v
+      else
+        root.inputPeak = root.inputPeak * 0.72 + v * 0.28
+    })
   }
 
   function refresh() {
@@ -58,6 +82,7 @@ ColumnLayout {
     Config.listSources(list => {
       root.sources = list || []
     })
+    root.refreshApps()
     Config.getPipeWireClock(info => {
       if (!info || (!info.rate && !info.forceQuantum && !info.quantum)) {
         root.clockSummary = ""
@@ -96,9 +121,25 @@ ColumnLayout {
     onTriggered: root.refresh()
   }
 
+  Timer {
+    id: peakTimer
+    interval: 220
+    repeat: true
+    running: root.active && root.sources.length > 0
+    onTriggered: root.samplePeak()
+  }
+
+  Timer {
+    id: appsTimer
+    interval: 1500
+    repeat: true
+    running: root.active
+    onTriggered: root.refreshApps()
+  }
+
   Text {
     Layout.fillWidth: true
-    text: "Output and input levels, devices, and PipeWire buffer size."
+    text: "Output, input, per-app levels, and PipeWire buffer size."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 12
@@ -390,6 +431,47 @@ ColumnLayout {
     }
   }
 
+  ColumnLayout {
+    Layout.fillWidth: true
+    Layout.maximumWidth: 420
+    spacing: 4
+    visible: root.sources.length > 0
+
+    Text {
+      text: "Input level"
+      color: Theme.textDim
+      font.family: Theme.fontFamily
+      font.pixelSize: 11
+    }
+
+    Rectangle {
+      Layout.fillWidth: true
+      Layout.preferredHeight: 10
+      radius: 3
+      color: Theme.bg
+      border.width: 1
+      border.color: Theme.border
+      clip: true
+
+      Rectangle {
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: parent.width * Math.max(0, Math.min(1, root.inputPeak / 100))
+        color: root.inputMuted ? Theme.textMute
+            : (root.inputPeak > 90 ? Theme.danger : Theme.accent)
+      }
+    }
+
+    Text {
+      text: root.inputMuted ? "Meter paused while muted"
+          : (Math.round(root.inputPeak) + "% peak · speak to test")
+      color: Theme.textMute
+      font.family: Theme.fontFamily
+      font.pixelSize: 10
+    }
+  }
+
   Rectangle {
     Layout.fillWidth: true
     Layout.maximumWidth: 420
@@ -422,6 +504,8 @@ ColumnLayout {
         onToggled: {
           root.inputMuted = checked
           Config.setSourceMute(checked)
+          if (checked)
+            root.inputPeak = 0
         }
       }
     }
@@ -499,6 +583,127 @@ ColumnLayout {
 
   Text {
     Layout.fillWidth: true
+    Layout.topMargin: 8
+    text: "Applications"
+    color: Theme.textDim
+    font.family: Theme.fontFamily
+    font.pixelSize: Theme.fontSizeSm
+  }
+
+  Text {
+    Layout.fillWidth: true
+    Layout.maximumWidth: 420
+    visible: !root.apps.length
+    text: "No playing apps right now. Start audio elsewhere and this list fills in."
+    color: Theme.textMute
+    font.family: Theme.fontFamily
+    font.pixelSize: 11
+    wrapMode: Text.WordWrap
+  }
+
+  Repeater {
+    model: root.apps
+
+    Rectangle {
+      required property var modelData
+      Layout.fillWidth: true
+      Layout.maximumWidth: 420
+      Layout.preferredHeight: appCol.implicitHeight + 20
+      radius: Theme.radiusMd
+      color: Theme.bgPanel
+      border.width: 1
+      border.color: Theme.border
+
+      ColumnLayout {
+        id: appCol
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: Theme.spaceMd
+        spacing: 6
+
+        RowLayout {
+          Layout.fillWidth: true
+          ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 2
+            Text {
+              Layout.fillWidth: true
+              text: modelData.name
+              color: Theme.text
+              font.family: Theme.fontFamily
+              elide: Text.ElideRight
+            }
+            Text {
+              Layout.fillWidth: true
+              visible: !!(modelData.detail && modelData.detail.length)
+              text: modelData.detail
+              color: Theme.textMute
+              font.family: Theme.fontFamily
+              font.pixelSize: 10
+              elide: Text.ElideRight
+            }
+          }
+          Switch {
+            checked: !!modelData.muted
+            onToggled: {
+              Config.setSinkInputMute(modelData.id, checked)
+              const next = root.apps.slice()
+              const idx = next.findIndex(a => String(a.id) === String(modelData.id))
+              if (idx >= 0) {
+                next[idx] = Object.assign({}, next[idx], {
+                  muted: checked
+                })
+                root.apps = next
+              }
+              refreshAppsSoon.restart()
+            }
+          }
+        }
+
+        RowLayout {
+          Layout.fillWidth: true
+          Slider {
+            Layout.fillWidth: true
+            from: 0
+            to: 100
+            stepSize: 1
+            value: modelData.volume
+            enabled: !modelData.muted
+            onMoved: {
+              const v = Math.round(value)
+              Config.setSinkInputVolume(modelData.id, v)
+              // Keep local model responsive until next poll.
+              const next = root.apps.slice()
+              const idx = next.findIndex(a => String(a.id) === String(modelData.id))
+              if (idx >= 0) {
+                next[idx] = Object.assign({}, next[idx], {
+                  volume: v
+                })
+                root.apps = next
+              }
+            }
+          }
+          Text {
+            text: modelData.volume + "%"
+            color: Theme.text
+            font.family: Theme.fontFamily
+            Layout.preferredWidth: 42
+          }
+        }
+      }
+    }
+  }
+
+  Timer {
+    id: refreshAppsSoon
+    interval: 250
+    repeat: false
+    onTriggered: root.refreshApps()
+  }
+
+  Text {
+    Layout.fillWidth: true
     visible: root.status.length > 0
     text: root.status
     color: Theme.textDim
@@ -527,7 +732,7 @@ ColumnLayout {
     Layout.fillWidth: true
     Layout.maximumWidth: 420
     Layout.topMargin: 4
-    text: "Fact: pactl for levels/devices · pw-metadata for buffer quantum."
+    text: "Fact: pactl for devices/apps · parec peak sample for input meter · pw-metadata for buffer."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11

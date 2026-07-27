@@ -58,6 +58,8 @@ Examples:
 | Displays scale / mode / orientation | `hyprctl keyword monitor` + `proteus-monitors.conf` (recommended modes; confirm large jumps; 10s Revert; Identify flash) |
 | Volume / mute / default sink | `pactl` |
 | Input volume / mute / default source | `pactl` |
+| Input level meter | short `parec` peak sample |
+| Per-app volume / mute | `pactl list/set-sink-input-*` |
 | Sound latency / buffer | `settings.json` `audioLatency` → `pw-metadata -n settings 0 clock.force-quantum` (256 / 512 / 1024) |
 | Network (open editor) | NetworkManager UI / `nmtui` |
 | Package updates / search | `pacman -Qu` / `-Ss` · apply `pkexec proteus-pkg` (polkit; terminal fallback) |
@@ -78,7 +80,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Style** | Category page → Accent, Background, Font | `settings.json`, Theme, wallpaper | `shipped` |
 | **Desktop** | Category page → Gaps, Borders & rounding, Motion, Dock | json + hyprctl + `proteus-general.conf` | `shipped` |
 | **Displays** | Per-monitor scale + mode (Apply); conf escape hatch | hyprctl + `proteus-monitors.conf` | `partial` |
-| **Sound** | Output + input volume/mute, default sink/source, latency/buffer (PipeWire quantum), test tone | pactl + `pw-metadata` | `partial` |
+| **Sound** | Output + input volume/mute, default sink/source, input peak meter, per-app volume, latency/buffer, test tone | pactl + `parec` + `pw-metadata` | `partial` |
 | **Network** | Device status + open editor | nmcli / nmtui | `partial` |
 | **Peripherals** | Category → Keyboard, Mouse | keybinds + input hyprctl | `shipped` |
 | **Packages** | Category → Updates, Search (propose → confirm → polkit) | `pacman` + `services/proteus-pkg` | `partial` |
