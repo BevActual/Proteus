@@ -44,7 +44,7 @@ ColumnLayout {
       root.lockColorDraft = Config.lockWallpaperColor
       root.lockBrowseKind = Config.lockBackgroundMode || "match"
       Config.ensureDailySources()
-      Config.ensureLockClockWidget()
+      Widgets.ensureLockClockWidget()
       Config.ensureWallpaperAlbums()
       if (root.lockBrowseKind === "image")
         Config.scanWallpaperFolder()

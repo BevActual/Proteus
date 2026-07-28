@@ -79,8 +79,8 @@ Item {
     id: zones
     surfaceWidth: root.width
     surfaceHeight: root.height
-    stripWidgets: Config.lockStripWidgets
-    clockWidget: Config.lockClockWidget
+    stripWidgets: Widgets.lockStripWidgets
+    clockWidget: Widgets.lockClockWidget
   }
 
   function tryUnlock() {
@@ -129,7 +129,7 @@ Item {
   function enterCustomize() {
     root.customizeMode = true
     root.revealAuth = false
-    root.selectedWidgetId = Config.lockClockWidget ? String(Config.lockClockWidget.id) : ""
+    root.selectedWidgetId = Widgets.lockClockWidget ? String(Widgets.lockClockWidget.id) : ""
   }
 
   function exitCustomize() {
@@ -279,9 +279,9 @@ Item {
         onRequestCustomize: root.enterCustomize()
         onSelectApplet: root.selectedWidgetId = modelData.id
         onDragReorder: normY => {
-          const n = Config.lockStripWidgets.length
+          const n = Widgets.lockStripWidgets.length
           const slot = Math.max(0, Math.min(n, Math.round(normY * Math.max(1, n))))
-          Config.moveLockWidgetToSlot(modelData.id, slot)
+          Widgets.moveLockWidgetToSlot(modelData.id, slot)
         }
       }
     }
@@ -289,7 +289,7 @@ Item {
 
   Text {
     z: 5
-    visible: root.customizeMode && Config.lockStripWidgets.length === 0
+    visible: root.customizeMode && Widgets.lockStripWidgets.length === 0
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.top: parent.top
     anchors.topMargin: zones.stripTop + 8
@@ -313,12 +313,12 @@ Item {
 
   LockClockStyleHud {
     z: 21
-    visible: root.customizeMode && Config.lockClockWidget && root.selectedWidgetId === String(Config.lockClockWidget.id)
+    visible: root.customizeMode && Widgets.lockClockWidget && root.selectedWidgetId === String(Widgets.lockClockWidget.id)
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.bottom: parent.bottom
     anchors.bottomMargin: 28
     width: Math.min(340, parent.width - 40)
-    clockWidget: Config.lockClockWidget
+    clockWidget: Widgets.lockClockWidget
   }
 
   Loader {
@@ -548,7 +548,7 @@ Item {
         root.unlockInProgress = false
         root.exitCustomize()
         passwordField.text = ""
-        Config.ensureLockClockWidget()
+        Widgets.ensureLockClockWidget()
         if (Config.lockBackgroundMode === "image" && Config.lockWallpaperSlideshow)
           Config.advanceLockSlideshow()
       } else {
@@ -574,7 +574,7 @@ Item {
 
   focus: true
   Component.onCompleted: {
-    Config.ensureLockClockWidget()
+    Widgets.ensureLockClockWidget()
     forceActiveFocus()
   }
 }

@@ -3,7 +3,7 @@ import QtQuick.Layouts
 import "../../../shared"
 
 // Current conditions for the system location (Settings → Date & time → Location).
-// Shared by the lock and desktop surfaces — see Config.widgetCatalog.
+// Shared by the lock and desktop surfaces — see Widgets.widgetCatalog.
 Item {
   id: root
   property string size: "sm"

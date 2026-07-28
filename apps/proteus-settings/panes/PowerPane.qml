@@ -79,26 +79,26 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "Idle action"
-      hint: root.policyHint(Power.idleAction, Power.logindDefaulted)
+      hint: root.policyHint(Power.idleAction, Power.idleActionDefaulted)
       showSeparator: true
     }
 
     SettingsFormRow {
       label: "Idle timeout"
-      hint: root.policyHint(Power.idleActionSec, Power.logindDefaulted)
+      hint: root.policyHint(Power.idleActionSec, Power.idleActionSecDefaulted)
       showSeparator: true
     }
 
     SettingsFormRow {
       label: "Lid close"
-      hint: root.policyHint(Power.lidSwitch, Power.logindDefaulted)
+      hint: root.policyHint(Power.lidSwitch, Power.lidSwitchDefaulted)
       showSeparator: true
     }
 
     SettingsFormRow {
       visible: Power.lidSwitchExternalPower.length > 0
       label: "Lid close on AC"
-      hint: root.policyHint(Power.lidSwitchExternalPower, Power.logindDefaulted)
+      hint: root.policyHint(Power.lidSwitchExternalPower, Power.lidSwitchExternalPowerDefaulted)
       showSeparator: true
     }
 

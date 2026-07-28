@@ -33,7 +33,7 @@ Rectangle {
     RowLayout {
       spacing: 6
       Repeater {
-        model: Config.lockClockWeights
+        model: Widgets.lockClockWeights
         Rectangle {
           required property var modelData
           Layout.preferredHeight: 28
@@ -51,7 +51,7 @@ Rectangle {
             anchors.fill: parent
             onClicked: {
               if (root.clockWidget)
-                Config.patchLockWidget(root.clockWidget.id, { clockWeight: modelData.id })
+                Widgets.patchLockWidget(root.clockWidget.id, { clockWeight: modelData.id })
             }
           }
         }
@@ -74,7 +74,7 @@ Rectangle {
             anchors.fill: parent
             onClicked: {
               if (root.clockWidget)
-                Config.patchLockWidget(root.clockWidget.id, { clockColor: String(modelData) })
+                Widgets.patchLockWidget(root.clockWidget.id, { clockColor: String(modelData) })
             }
           }
         }
@@ -92,7 +92,7 @@ Rectangle {
         checked: root.clockWidget ? root.clockWidget.showDate !== false : true
         onToggled: {
           if (root.clockWidget)
-            Config.patchLockWidget(root.clockWidget.id, { showDate: checked })
+            Widgets.patchLockWidget(root.clockWidget.id, { showDate: checked })
         }
       }
     }
@@ -101,7 +101,7 @@ Rectangle {
       spacing: 6
       visible: root.clockWidget && root.clockWidget.showDate !== false
       Repeater {
-        model: Config.lockClockDateStyles
+        model: Widgets.lockClockDateStyles
         Rectangle {
           required property var modelData
           Layout.preferredHeight: 28
@@ -119,7 +119,7 @@ Rectangle {
             anchors.fill: parent
             onClicked: {
               if (root.clockWidget)
-                Config.patchLockWidget(root.clockWidget.id, { dateStyle: modelData.id })
+                Widgets.patchLockWidget(root.clockWidget.id, { dateStyle: modelData.id })
             }
           }
         }
@@ -137,7 +137,7 @@ Rectangle {
         checked: root.clockWidget ? root.clockWidget.clockDepth !== false : true
         onToggled: {
           if (root.clockWidget)
-            Config.patchLockWidget(root.clockWidget.id, { clockDepth: checked })
+            Widgets.patchLockWidget(root.clockWidget.id, { clockDepth: checked })
         }
       }
     }

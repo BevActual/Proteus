@@ -47,7 +47,7 @@ seed_backgrounds() {
   local assets="${ROOT}/shell/assets"
   if [[ -d "${assets}" ]]; then
     shopt -s nullglob
-    for f in "${assets}"/wallpaper*.png; do
+    for f in "${assets}"/wallpaper*.jpg "${assets}"/wallpaper*.png; do
       local base
       base="$(basename "$f")"
       if [[ ! -e "${dest}/${base}" ]]; then

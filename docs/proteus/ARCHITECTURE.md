@@ -87,7 +87,11 @@ Mobius gates; implementation later).
 | Module (today / intended) | Role |
 |---------------------------|------|
 | `Theme.qml` | Chrome tokens (space/radius + accent/font from Config) |
-| `Config.qml` | `settings.json` + hyprctl + `proteus-general.conf` / monitors stub |
+| `Config.qml` | `settings.json` FileView façade + hypr general/chrome; wallpaper/widget array persistence |
+| `Background.qml` | Wallpaper + lock backdrop catalogs, setters, daily fetch, `applyBackground` |
+| `Widgets.qml` | Lock/desktop applet catalog + CRUD (arrays on Config) |
+| `Displays.qml` | Monitors list / apply → `proteus-monitors.conf` |
+| `Audio.qml` · `Power.qml` · `DateTime.qml` · `Weather.qml` | Behavior singletons (prefs still in Config where persisted) |
 | `Hardware.qml` | Wave A probe at session start → capabilities / device class |
 | `Keybinds.qml` | Catalog + overrides → `proteus-keybinds.conf` |
 | `ShellState.qml` | Launcher / open Settings / hardware mirrors |

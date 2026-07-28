@@ -21,11 +21,13 @@ ColumnLayout {
   property int inputVolume: 50
   property bool inputMuted: false
   property real inputPeak: 0
+  property bool sourcePeaksSubscribed: false
   property var sinks: []
   property var sources: []
   property var apps: []
   property string status: ""
   property string clockSummary: ""
+  property string nullSinkHint: ""
 
   readonly property var sections: [
     {
@@ -65,24 +67,21 @@ ColumnLayout {
     })
   }
 
-  function samplePeak() {
-    if (root.inputMuted || !root.sources.length) {
-      root.inputPeak = Math.max(0, root.inputPeak * 0.6)
-      return
+  function syncSourcePeaks() {
+    const want = root.page === "sound-input" && root.sources.length > 0 && !root.inputMuted
+    if (want && !root.sourcePeaksSubscribed) {
+      Audio.subscribeSourcePeaks()
+      root.sourcePeaksSubscribed = true
+    } else if (!want && root.sourcePeaksSubscribed) {
+      Audio.unsubscribeSourcePeaks()
+      root.sourcePeaksSubscribed = false
+      root.inputPeak = 0
     }
-    Audio.getSourcePeak(v => {
-      if (v < 0)
-        return
-      // Soft decay so the bar doesn't flicker between samples.
-      if (v >= root.inputPeak)
-        root.inputPeak = v
-      else
-        root.inputPeak = root.inputPeak * 0.72 + v * 0.28
-    })
   }
 
   function refresh() {
     status = ""
+    nullSinkHint = ""
     Audio.getVolume(v => {
       root.volume = v
     })
@@ -94,6 +93,7 @@ ColumnLayout {
     })
     Audio.getSourceMute(m => {
       root.inputMuted = m
+      root.syncSourcePeaks()
     })
     Audio.listSinks(list => {
       root.sinks = list || []
@@ -104,14 +104,13 @@ ColumnLayout {
       const def = root.sinks.find(s => s.isDefault)
       const better = root.sinks.find(s => s.name && s.name.indexOf("null") < 0)
       if (def && def.name && def.name.indexOf("null") >= 0 && better) {
-        Audio.setDefaultSink(better.name)
-        refreshTimer.restart()
-        return
+        root.nullSinkHint = "Default output is Null (dummy). Pick a real device below."
       }
       root.status = ""
     })
     Audio.listSources(list => {
       root.sources = list || []
+      root.syncSourcePeaks()
     })
     root.refreshApps()
     Audio.getPipeWireClock(info => {
@@ -159,14 +158,31 @@ ColumnLayout {
     onTriggered: root.refresh()
   }
 
-  // Peak sampling spawns a parec pipeline per tick, so it runs only on the
-  // Input leaf rather than the whole Sound category.
+  // Soft-decay display of Audio.sourcePeak while Input leaf is open.
   Timer {
-    id: peakTimer
-    interval: 220
+    id: peakDecayTimer
+    interval: 80
     repeat: true
-    running: root.page === "sound-input" && root.sources.length > 0
-    onTriggered: root.samplePeak()
+    running: root.page === "sound-input" && root.sourcePeaksSubscribed
+    onTriggered: {
+      const v = Audio.sourcePeak
+      if (root.inputMuted || !root.sources.length) {
+        root.inputPeak = Math.max(0, root.inputPeak * 0.6)
+        return
+      }
+      if (v >= root.inputPeak)
+        root.inputPeak = v
+      else
+        root.inputPeak = root.inputPeak * 0.72 + v * 0.28
+    }
+  }
+
+  onPageChanged: root.syncSourcePeaks()
+  Component.onDestruction: {
+    if (root.sourcePeaksSubscribed) {
+      Audio.unsubscribeSourcePeaks()
+      root.sourcePeaksSubscribed = false
+    }
   }
 
   Timer {
@@ -276,6 +292,17 @@ ColumnLayout {
       Layout.maximumWidth: 480
       visible: root.status.length > 0
       text: root.status
+      color: Theme.textDim
+      font.family: Theme.fontFamily
+      font.pixelSize: 12
+      wrapMode: Text.WordWrap
+    }
+
+    Text {
+      Layout.fillWidth: true
+      Layout.maximumWidth: 480
+      visible: root.nullSinkHint.length > 0
+      text: root.nullSinkHint
       color: Theme.textDim
       font.family: Theme.fontFamily
       font.pixelSize: 12
@@ -424,7 +451,7 @@ ColumnLayout {
     Text {
       Layout.fillWidth: true
       Layout.maximumWidth: 480
-      text: "Fact: pactl for devices · parec peak sample for the meter."
+      text: "Fact: pactl for devices · streaming audio-peak.py for the meter."
       color: Theme.textMute
       font.family: Theme.fontFamily
       font.pixelSize: 11

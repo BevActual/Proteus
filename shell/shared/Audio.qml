@@ -108,19 +108,19 @@ Singleton {
     })
   }
 
-  // Brief peak sample of the default sink monitor (0–100). Needs parec.
-  // NOTE: still spawn-per-sample; callers poll this while a meter is visible.
-  // See shell/scripts/audio-peak.py for the streaming form used by the
-  // wallpaper pulse effect — worth moving these two over as a follow-up.
-  function getSinkPeak(callback) {
-    if (sinkPeakProc.running) {
-      if (callback)
-        callback(-1)
-      return
-    }
-    sinkPeakProc.callback = callback
-    sinkPeakProc.running = false
-    sinkPeakProc.running = true
+  // Streaming input peak via shell/scripts/audio-peak.py (one long-lived parec).
+  // Subscribe while a meter is visible — same pattern as BgConfig for wallpaper.
+  property real sourcePeak: 0
+  property int sourcePeakSubscribers: 0
+
+  function subscribeSourcePeaks() {
+    sourcePeakSubscribers = sourcePeakSubscribers + 1
+  }
+
+  function unsubscribeSourcePeaks() {
+    sourcePeakSubscribers = Math.max(0, sourcePeakSubscribers - 1)
+    if (sourcePeakSubscribers === 0)
+      sourcePeak = 0
   }
 
   // ── Input ─────────────────────────────────────────────────────────────────
@@ -167,18 +167,6 @@ Singleton {
     Quickshell.execDetached({
       command: ["pactl", "set-default-source", String(nameOrId)]
     })
-  }
-
-  // Brief peak sample of @DEFAULT_SOURCE@ (0–100). Needs parec; returns 0 if unavailable.
-  function getSourcePeak(callback) {
-    if (sourcePeakProc.running) {
-      if (callback)
-        callback(-1)
-      return
-    }
-    sourcePeakProc.callback = callback
-    sourcePeakProc.running = false
-    sourcePeakProc.running = true
   }
 
   // ── Per-app streams ───────────────────────────────────────────────────────
@@ -320,30 +308,6 @@ Singleton {
   }
 
   Process {
-    id: sinkPeakProc
-    property var callback
-    command: [
-      "bash",
-      "-lc",
-      "if ! command -v parec >/dev/null; then echo 0; exit 0; fi; "
-          + "sink=$(pactl get-default-sink 2>/dev/null); "
-          + "dev=\"@DEFAULT_MONITOR@\"; "
-          + "if [[ -n \"$sink\" ]]; then dev=\"${sink}.monitor\"; fi; "
-          + "timeout 0.3 parec -d \"$dev\" --raw --format=s16le --rate=8000 --channels=1 --latency-msec=40 2>/dev/null "
-          + "| head -c 640 "
-          + "| od -An -td2 "
-          + "| awk 'BEGIN{m=0}{for(i=1;i<=NF;i++){v=$i;if(v<0)v=-v;if(v>m)m=v}}END{print int((m*100)/32767)}'"
-    ]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        const n = parseInt(text.trim(), 10)
-        if (sinkPeakProc.callback)
-          sinkPeakProc.callback(isNaN(n) ? 0 : Math.max(0, Math.min(100, n)))
-      }
-    }
-  }
-
-  Process {
     id: pipewireClockProc
     property var callback
     command: ["pw-metadata", "-n", "settings", "0"]
@@ -435,23 +399,25 @@ Singleton {
     }
   }
 
+  // One long-lived parec reader for the default mic. Idles at 0 when capture
+  // is unavailable so Settings can keep the meter mounted without respawning.
   Process {
     id: sourcePeakProc
-    property var callback
+    running: root.sourcePeakSubscribers > 0
     command: [
-      "bash",
-      "-lc",
-      "if ! command -v parec >/dev/null; then echo 0; exit 0; fi; "
-          + "timeout 0.3 parec --raw --format=s16le --rate=8000 --channels=1 --latency-msec=40 2>/dev/null "
-          + "| head -c 640 "
-          + "| od -An -td2 "
-          + "| awk 'BEGIN{m=0}{for(i=1;i<=NF;i++){v=$i;if(v<0)v=-v;if(v>m)m=v}}END{print int((m*100)/32767)}'"
+      "python3",
+      Config.scriptsDir + "/audio-peak.py",
+      "--device",
+      "@DEFAULT_SOURCE@",
+      "--window-ms",
+      "100"
     ]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        const n = parseInt(text.trim(), 10)
-        if (sourcePeakProc.callback)
-          sourcePeakProc.callback(isNaN(n) ? 0 : Math.max(0, Math.min(100, n)))
+    stdout: SplitParser {
+      splitMarker: "\n"
+      onRead: line => {
+        const v = parseInt(String(line).trim(), 10)
+        if (!isNaN(v))
+          root.sourcePeak = Math.max(0, Math.min(100, v))
       }
     }
   }

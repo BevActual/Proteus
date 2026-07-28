@@ -15,13 +15,13 @@ Item {
     id: layout
     surfaceWidth: root.width
     surfaceHeight: root.height
-    widgets: Config.desktopWidgetsEnabledList
+    widgets: Widgets.desktopWidgetsEnabledList
   }
 
   function enterCustomize() {
     ShellState.enterDesktopCustomize()
-    if (Config.desktopWidgetsEnabledList.length)
-      root.selectedWidgetId = String(Config.desktopWidgetsEnabledList[0].id)
+    if (Widgets.desktopWidgetsEnabledList.length)
+      root.selectedWidgetId = String(Widgets.desktopWidgetsEnabledList[0].id)
   }
 
   function exitCustomize() {
@@ -64,14 +64,14 @@ Item {
         surfaceHeight: root.height
         onRequestCustomize: root.enterCustomize()
         onSelectApplet: root.selectedWidgetId = modelData.id
-        onDragMoved: (nx, ny) => Config.moveDesktopWidget(modelData.id, nx, ny)
+        onDragMoved: (nx, ny) => Widgets.moveDesktopWidget(modelData.id, nx, ny)
       }
     }
   }
 
   Text {
     z: 5
-    visible: root.customizeMode && Config.desktopWidgetsEnabledList.length === 0
+    visible: root.customizeMode && Widgets.desktopWidgetsEnabledList.length === 0
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.verticalCenter: parent.verticalCenter
     text: "Tap Add Widget, then drag anywhere"

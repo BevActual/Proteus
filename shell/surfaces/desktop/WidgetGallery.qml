@@ -7,7 +7,7 @@ import "../../shared"
 // diverged by 14 lines across 364 — all of it per-surface data, not structure.
 //
 // Set `scope` to "lock" or "desktop"; everything else derives from that plus
-// Config.widgetCatalog.
+// Widgets.widgetCatalog.
 Rectangle {
   id: root
   anchors.fill: parent
@@ -21,7 +21,7 @@ Rectangle {
   signal closed()
 
   readonly property bool isLock: root.scope === "lock"
-  readonly property var catalog: root.isLock ? Config.lockWidgetCatalog : Config.desktopWidgetCatalog
+  readonly property var catalog: root.isLock ? Widgets.lockWidgetCatalog : Widgets.desktopWidgetCatalog
   readonly property string sizeHint: root.isLock
       ? "Size for new widgets"
       : "Size for new widgets — place freely on the desktop"
@@ -30,7 +30,7 @@ Rectangle {
       : "Already on desktop — tap to focus size"
 
   function hasType(id) {
-    return root.isLock ? Config.lockHasWidgetType(id) : Config.desktopHasWidgetType(id)
+    return root.isLock ? Widgets.lockHasWidgetType(id) : Widgets.desktopHasWidgetType(id)
   }
 
   // The lock clock is chrome: pinned, always large, and hidden from the gallery
@@ -38,7 +38,7 @@ Rectangle {
   function entryVisible(id) {
     if (!root.isLock)
       return true
-    return id !== "clock" || !Config.lockHasClockWidget
+    return id !== "clock" || !Widgets.lockHasClockWidget
   }
 
   function showsAddedHint(id) {
@@ -50,12 +50,12 @@ Rectangle {
   function addWidget(id) {
     if (root.isLock) {
       if (id === "clock")
-        Config.addLockWidget("clock", "lg")
+        Widgets.addLockWidget("clock", "lg")
       else
-        Config.addLockWidget(id, root.pickSize)
+        Widgets.addLockWidget(id, root.pickSize)
       return
     }
-    Config.addDesktopWidget(id, root.pickSize)
+    Widgets.addDesktopWidget(id, root.pickSize)
   }
 
   function open() {
@@ -123,7 +123,7 @@ Rectangle {
       RowLayout {
         spacing: 8
         Repeater {
-          model: Config.widgetSizes
+          model: Widgets.widgetSizes
           Rectangle {
             required property var modelData
             Layout.preferredHeight: 30

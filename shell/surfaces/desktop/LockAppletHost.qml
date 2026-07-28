@@ -39,10 +39,10 @@ Item {
   Loader {
     id: bodyLoader
     anchors.fill: parent
-    // Component path comes from Config.widgetCatalog — a new applet type needs
+    // Component path comes from Widgets.widgetCatalog — a new applet type needs
     // no change here, only a catalog entry and a file under widgets/.
     source: {
-      const s = Config.widgetSourceFor(root.widgetType)
+      const s = Widgets.widgetSourceFor(root.widgetType)
       return s.length ? Qt.resolvedUrl(s) : ""
     }
   }
@@ -102,7 +102,7 @@ Item {
     }
     MouseArea {
       anchors.fill: parent
-      onClicked: Config.cycleLockWidgetSize(root.widgetId)
+      onClicked: Widgets.cycleLockWidgetSize(root.widgetId)
     }
   }
 
@@ -125,7 +125,7 @@ Item {
     }
     MouseArea {
       anchors.fill: parent
-      onClicked: Config.removeLockWidget(root.widgetId)
+      onClicked: Widgets.removeLockWidget(root.widgetId)
     }
   }
 

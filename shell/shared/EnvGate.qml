@@ -210,6 +210,7 @@ Singleton {
     const isDesktopDrill = p === "desktop" || p.startsWith("desktop-")
     const isPeripheralsDrill = p === "peripherals" || p.startsWith("peripherals-") || p === "keyboard"
     const isPackagesDrill = p === "packages" || p.startsWith("packages-")
+    const isSoundDrill = p === "sound" || p.startsWith("sound-")
     if (isStyleDrill) {
       if (!paneAvailable("style"))
         nav.page = firstAvailablePane()
@@ -227,6 +228,11 @@ Singleton {
     }
     if (isPackagesDrill) {
       if (!paneAvailable("packages"))
+        nav.page = firstAvailablePane()
+      return
+    }
+    if (isSoundDrill) {
+      if (!paneAvailable("sound"))
         nav.page = firstAvailablePane()
       return
     }

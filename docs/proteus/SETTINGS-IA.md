@@ -50,7 +50,7 @@ Examples:
 
 | Control | Fact |
 |---------|------|
-| Accent / wallpaper / lock / font | `settings.json` + Theme + **proteus-bg** (`shell/wallpaper`); Qt FileDialog/FolderDialog in Settings |
+| Accent / wallpaper / lock / font | `settings.json` + Theme + **Background.qml** / **proteus-bg** (`shell/wallpaper`); Qt FileDialog/FolderDialog in Settings |
 | Gaps / borders / rounding / animations | json + `hyprctl` + `~/.config/hypr/proteus-general.conf` |
 | Keyboard shortcuts | `~/.config/proteus/keybinds.json` + `~/.config/hypr/proteus-keybinds.conf` |
 | Mouse sensitivity / accel | json + `hyprctl` input:* (+ general conf `input` block) |
@@ -58,7 +58,7 @@ Examples:
 | Displays scale / mode / orientation | `hyprctl keyword monitor` + `proteus-monitors.conf` (recommended modes; confirm large jumps; 10s Revert; Identify flash) |
 | Volume / mute / default sink | `pactl` |
 | Input volume / mute / default source | `pactl` |
-| Input level meter | short `parec` peak sample |
+| Input level meter | streaming `audio-peak.py` on default source (Settings Input leaf) |
 | Per-app volume / mute | `pactl list/set-sink-input-*` |
 | Sound latency / buffer | `settings.json` `audioLatency` → `pw-metadata -n settings 0 clock.force-quantum` (256 / 512 / 1024) |
 | Network (open editor) | NetworkManager UI / `nmtui` |
@@ -176,14 +176,18 @@ Templates: `env/proteus-general.conf`, `env/proteus-monitors.conf`. Nested
 
 ## 7. Growth
 
-Stub panes are in the sidebar (`power` · `users` · `accounts` · `datetime` ·
-`privacy`) with roadmap checklists. Depth order when filling them:
+**Power** and **Date & time** are `partial` (see §2) — remaining work is
+write-gaps (logind helper, locale set, forecast UI), not greenfield panes.
 
-1. **Power** — battery / sleep (laptop)  
-2. **Users** — peel session actions from About  
-3. **Online accounts** — mail / contacts / cloud providers  
-4. **Date & time** — clock, timezone, locale  
-5. **Privacy** — when adaptive apps need permissions  
+Stub sidebar entries with roadmap checklists: `users` · `accounts` · `privacy`.
+
+Depth order for what’s left:
+
+1. **Users** — peel session actions from About  
+2. **Online accounts** — mail / contacts / cloud providers  
+3. **Privacy** — when adaptive apps need permissions  
+4. **Power** — privileged logind idle/lid writer (read-only today)  
+5. **Date & time** — locale set; weather forecast view  
 6. **Network** — Bluetooth / VPN under Network  
 7. **Peripherals** — touchpad / tablet  
 8. **Displays** — fix Revert (parked); then drag layout for multi-monitor  

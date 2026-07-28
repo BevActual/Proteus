@@ -92,7 +92,10 @@ Singleton {
   property string idleActionSec: ""
   property string lidSwitch: ""
   property string lidSwitchExternalPower: ""
-  property bool logindDefaulted: true
+  property bool idleActionDefaulted: true
+  property bool idleActionSecDefaulted: true
+  property bool lidSwitchDefaulted: true
+  property bool lidSwitchExternalPowerDefaulted: true
   property string logindError: ""
 
   readonly property string logindConfPath: "/etc/systemd/logind.conf"
@@ -148,7 +151,11 @@ Singleton {
           root.idleActionSec = (res.IdleActionSec && res.IdleActionSec.value) || ""
           root.lidSwitch = (res.HandleLidSwitch && res.HandleLidSwitch.value) || ""
           root.lidSwitchExternalPower = (res.HandleLidSwitchExternalPower && res.HandleLidSwitchExternalPower.value) || ""
-          root.logindDefaulted = !!(res.HandleLidSwitch && res.HandleLidSwitch.default)
+          root.idleActionDefaulted = !(res.IdleAction) || !!res.IdleAction.default
+          root.idleActionSecDefaulted = !(res.IdleActionSec) || !!res.IdleActionSec.default
+          root.lidSwitchDefaulted = !(res.HandleLidSwitch) || !!res.HandleLidSwitch.default
+          root.lidSwitchExternalPowerDefaulted = !(res.HandleLidSwitchExternalPower)
+              || !!res.HandleLidSwitchExternalPower.default
           root.logindError = ""
         } catch (e) {
           root.logindError = "Could not read logind.conf"
