@@ -8,6 +8,7 @@ scope: Bevington product frame including Proteus as host OS
 related:
   - ../proteus/POSITIONING.md
   - ../proteus/ARCHITECTURE.md
+  - ../proteus/CHROME.md
   - ../ISSUES.md
   - ../../../Mobius/docs/shared/ECOSYSTEM.md
 ---
@@ -47,7 +48,8 @@ environment under apps**, not a fourth peer writing/AI product.
 - **Proteus** does not own the company Track/queue (Mobius) or model hub (Meridian).
 - **Rowena / Mobius** remain thin clients of Meridian for models.
 - Insights flow both ways: Proteus Settings/chrome patterns can improve Rowena;
-  Rowena tokens/IA and Meridian smoke/gates inform Proteus.
+  Rowena tokens/IA and Meridian smoke/gates inform Proteus. Chrome language SoT:
+  [proteus/CHROME.md](../proteus/CHROME.md) (`Theme.qml` binding).
 - Company licensing sketches (if needed): Mobius / Rowena
   `docs/shared/company-policies.md` — not duplicated here.
 
