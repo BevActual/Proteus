@@ -1,10 +1,17 @@
 # AGENTS.md
 
-Proteus agent entry. **This repo** = adaptive host OS (shell, Settings, postures,
-VM harness).
+Proteus agent entry (federated homes · lock **e**). **This repo** = adaptive
+host OS (shell, Settings, postures, VM harness).
+
+**Company loop SoT** stays in the sibling Mobius repo — do not invent a second
+full PLAYBOOK or queue here. Override sibling paths with `MOBIUS_ROOT` /
+`ROWENA_ROOT` / `MERIDIAN_ROOT` / `PROTEUS_ROOT` when needed.
 
 | Concern | Where |
 |---------|--------|
+| Company queue / Track / Cards | [`../Mobius/docs/ISSUES.md`](../Mobius/docs/ISSUES.md) |
+| Kickoffs (`loop`, `standing`, …) | [`../Mobius/AGENTS.md`](../Mobius/AGENTS.md) |
+| Thin local queue pointer | [docs/ISSUES.md](docs/ISSUES.md) |
 | Positioning / field | [docs/proteus/POSITIONING.md](docs/proteus/POSITIONING.md) |
 | Architecture / HARD RULES | [docs/proteus/ARCHITECTURE.md](docs/proteus/ARCHITECTURE.md) |
 | Postures (host vs hypervisor) | [docs/proteus/POSTURES.md](docs/proteus/POSTURES.md) |
@@ -16,7 +23,12 @@ VM harness).
 | Honest status | [docs/proteus/CURRENT.md](docs/proteus/CURRENT.md) |
 | Ecosystem seat | [docs/shared/ECOSYSTEM.md](docs/shared/ECOSYSTEM.md) |
 | VM dogfood | [vm/README.md](vm/README.md) |
-| Company loop SoT | [`../Mobius/AGENTS.md`](../Mobius/AGENTS.md) · [`../Mobius/docs/ISSUES.md`](../Mobius/docs/ISSUES.md) |
+
+| Sibling | Entry |
+|---------|--------|
+| Mobius (loop SoT) | [`../Mobius/AGENTS.md`](../Mobius/AGENTS.md) · [`../Mobius/docs/ISSUES.md`](../Mobius/docs/ISSUES.md) |
+| Meridian (hub) | [`../Meridian/AGENTS.md`](../Meridian/AGENTS.md) |
+| Rowena (writing) | [`../Rowena/AGENTS.md`](../Rowena/AGENTS.md) |
 
 ## Product kickoffs
 

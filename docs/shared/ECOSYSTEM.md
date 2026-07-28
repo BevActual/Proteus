@@ -2,17 +2,22 @@
 doc: ecosystem
 role: context
 audience: contributors, coding agents
-last_updated: "2026-07-26"
+last_updated: "2026-07-28"
 doc_status: active
 scope: Bevington product frame including Proteus as host OS
 related:
   - ../proteus/POSITIONING.md
   - ../proteus/ARCHITECTURE.md
+  - ../ISSUES.md
+  - ../../../Mobius/docs/shared/ECOSYSTEM.md
 ---
 
 # Ecosystem — Bevington products
 
-Active set around this company orbit:
+**This file is Proteus’s seat map** for the company orbit. Company queue /
+Track SoT remains Mobius ([ISSUES.md](../ISSUES.md) → Mobius). Sibling `docs/shared/ECOSYSTEM.md` copies (Mobius / Meridian / Rowena /
+Proteus) share the **apps + host OS** frame — treat **Proteus as the host
+environment under apps**, not a fourth peer writing/AI product.
 
 | Product | Repo | Role |
 |---------|------|------|
@@ -43,7 +48,9 @@ Active set around this company orbit:
 - **Rowena / Mobius** remain thin clients of Meridian for models.
 - Insights flow both ways: Proteus Settings/chrome patterns can improve Rowena;
   Rowena tokens/IA and Meridian smoke/gates inform Proteus.
+- Company licensing sketches (if needed): Mobius / Rowena
+  `docs/shared/company-policies.md` — not duplicated here.
 
 Company loop kickoffs (`loop`, `standing`, …): **Mobius** `AGENTS.md` /
 `docs/ISSUES.md`. Override sibling roots with `MOBIUS_ROOT` / `ROWENA_ROOT` /
-`MERIDIAN_ROOT` if needed.
+`MERIDIAN_ROOT` / `PROTEUS_ROOT` if needed.

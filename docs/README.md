@@ -12,5 +12,6 @@
 | [proteus/SETTINGS-IA.md](proteus/SETTINGS-IA.md) | Control-center categories and backends |
 | [proteus/CURRENT.md](proteus/CURRENT.md) | What’s built today (honest status) |
 | [shared/ECOSYSTEM.md](shared/ECOSYSTEM.md) | Proteus among Bevington products |
+| [ISSUES.md](ISSUES.md) | Thin pointer → Mobius company queue |
 
 Agent entry: root [AGENTS.md](../AGENTS.md).
