@@ -2,12 +2,13 @@
 doc: settings-ia
 role: reference
 audience: UI, contributors
-last_updated: "2026-07-27"
+last_updated: "2026-07-28"
 doc_status: active
 scope: Settings control-center categories, backends, hybrid UX pattern
 related:
   - ARCHITECTURE.md
   - CURRENT.md
+  - CHROME.md
   - POSTURES.md
   - COMPOSITOR.md
   - STACK.md
@@ -198,6 +199,9 @@ Virt / container setup stays a **separate app**, not a Settings growth item.
 ---
 
 ## 8. UX locks
+
+Canonical chrome language (tokens + patterns): [CHROME.md](./CHROME.md)
+(`Theme.qml` is the live binding).
 
 - Calm chrome: discoverability without permanent label clutter  
 - Accent = selection/action only  

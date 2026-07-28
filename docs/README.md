@@ -10,6 +10,7 @@
 | [proteus/COMPOSITOR.md](proteus/COMPOSITOR.md) | Hyprland backend + Quickshell limits / profiles |
 | [proteus/STACK.md](proteus/STACK.md) | Languages by layer (QML / Tauri / Rust) |
 | [proteus/SETTINGS-IA.md](proteus/SETTINGS-IA.md) | Control-center categories and backends |
+| [proteus/CHROME.md](proteus/CHROME.md) | Company chrome design lock (tokens + patterns) |
 | [proteus/CURRENT.md](proteus/CURRENT.md) | What’s built today (honest status) |
 | [shared/ECOSYSTEM.md](shared/ECOSYSTEM.md) | Proteus among Bevington products |
 | [ISSUES.md](ISSUES.md) | Thin pointer → Mobius company queue |

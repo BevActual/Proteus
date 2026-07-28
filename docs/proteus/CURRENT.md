@@ -2,7 +2,7 @@
 doc: current
 role: status
 audience: contributors, coding agents
-last_updated: "2026-07-27"
+last_updated: "2026-07-28"
 doc_status: active
 scope: Honest inventory of what exists in the repo / guest today
 related:
@@ -10,6 +10,7 @@ related:
   - ARCHITECTURE.md
   - POSTURES.md
   - SETTINGS-IA.md
+  - CHROME.md
   - STACK.md
   - COMPOSITOR.md
   - ../../README.md
@@ -36,7 +37,7 @@ the thesis ahead of code where marked `planned`.
 | [4. Postures](#4-postures) | Loader status |
 | [5. Config facts](#5-config-facts) | On-disk paths |
 | [6. Harness](#6-harness) | VM / nested |
-| [7. Docs locks (ahead of code)](#7-docs-locks-ahead-of-code) | Stack / compositor |
+| [7. Docs locks (ahead of code)](#7-docs-locks-ahead-of-code) | Stack / compositor / chrome |
 | [8. Not yet](#8-not-yet) | Explicit gaps |
 
 ---
@@ -69,7 +70,8 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 | Global shortcuts (launcher, settings, lock) | `shipped` |
 | Hardware probe at session start (`Hardware.qml`) | `shipped` — Wave A |
 | Env gate (launcher / Settings / dock) | `shipped` — `EnvGate.qml` |
-| Theme tokens | `shipped` — space/radius scale + accent/font from Config |
+| Theme tokens | `shipped` — space/radius scale + accent/font from Config; company lock [CHROME.md](./CHROME.md) |
+| Chrome design lock (`CHROME.md`) | `shipped` — principles + token tables + Settings patterns; sibling CSS map `planned` |
 
 ---
 
@@ -155,6 +157,7 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 | Adaptive apps / environment contract | [APPLICATIONS.md](./APPLICATIONS.md) | `planned` — launcher is DesktopEntries only |
 | Hardware module catalog | [HARDWARE.md](./HARDWARE.md) | Wave A probe + `Hardware.qml` session load |
 | Capability / posture resolver | [POSTURES.md](./POSTURES.md) | Probe → caps in shell; posture still stub |
+| Chrome language (company reference) | [CHROME.md](./CHROME.md) | `Theme.qml` + Settings patterns `shipped`; sibling CSS map `planned` |
 
 ---
 
