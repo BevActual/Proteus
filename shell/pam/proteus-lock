@@ -1,0 +1,14 @@
+#%PAM-1.0
+# Proteus lock screen.
+#
+# Deliberately delegates to the distro stack instead of hand-rolling
+# `auth required pam_unix.so`. Including system-auth means whatever the system
+# already enforces — pam_faillock lockout, pam_faildelay, non-local accounts —
+# applies at the lock screen too, rather than being silently bypassed.
+#
+# Install to /etc/pam.d/proteus-lock (see vm/guest/install-lock-pam.sh).
+# check-password.py falls back to the "login" service if this file is absent,
+# so a missing install degrades to the previous behaviour rather than locking
+# the user out.
+auth      include   system-auth
+account   include   system-auth

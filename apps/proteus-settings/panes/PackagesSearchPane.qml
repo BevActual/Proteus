@@ -20,7 +20,7 @@ ColumnLayout {
   property string pendingDetail: ""
 
   readonly property bool confirming: pendingPkg.length > 0
-  readonly property bool applying: Config.packageOpBusy
+  readonly property bool applying: Packages.packageOpBusy
 
   function clearPending() {
     pendingPkg = ""
@@ -60,14 +60,14 @@ ColumnLayout {
     onConfirmed: {
       const pkg = root.pendingPkg
       root.clearPending()
-      Config.openPacmanInstall(pkg)
+      Packages.openPacmanInstall(pkg)
     }
   }
 
   Text {
     Layout.fillWidth: true
     visible: root.applying
-    text: Config.packageOpStatus
+    text: Packages.packageOpStatus
     color: Theme.textDim
     font.family: Theme.fontFamily
     font.pixelSize: 12
@@ -239,7 +239,7 @@ ColumnLayout {
   }
 
   Connections {
-    target: Config
+    target: Packages
     function onPackageOpFinished(ok, message) {
       if (!root.active)
         return

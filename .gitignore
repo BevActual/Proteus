@@ -23,3 +23,7 @@ vm/*.sock
 vm/qmp.sock
 vm/serial.sock
 !vm/vars/.gitkeep
+
+# Python bytecode
+__pycache__/
+*.pyc

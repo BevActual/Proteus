@@ -18,7 +18,7 @@ ColumnLayout {
   property string pendingDetail: ""
 
   readonly property bool confirming: pendingAction.length > 0
-  readonly property bool applying: Config.packageOpBusy
+  readonly property bool applying: Packages.packageOpBusy
 
   function clearPending() {
     pendingAction = ""
@@ -38,9 +38,9 @@ ColumnLayout {
     const a = pendingAction
     clearPending()
     if (a === "sync")
-      Config.openPacmanSync()
+      Packages.openPacmanSync()
     else if (a === "upgrade")
-      Config.openPacmanUpgrade()
+      Packages.openPacmanUpgrade()
   }
 
   Text {
@@ -62,7 +62,7 @@ ColumnLayout {
 
   Text {
     Layout.fillWidth: true
-    text: root.applying ? Config.packageOpStatus : root.status
+    text: root.applying ? Packages.packageOpStatus : root.status
     color: Theme.textDim
     font.family: Theme.fontFamily
     font.pixelSize: 12
@@ -208,7 +208,7 @@ ColumnLayout {
   }
 
   Connections {
-    target: Config
+    target: Packages
     function onPackageOpFinished(ok, message) {
       if (!root.active)
         return
@@ -239,10 +239,10 @@ ColumnLayout {
         root.busy = false
         if (!out.length) {
           root.status = lines.length ? "Could not parse pacman -Qu output." : "System is up to date (local DB)."
-          Config.notePackageUpgrades(0)
+          Packages.notePackageUpgrades(0)
         } else {
           root.status = ""
-          Config.notePackageUpgrades(out.length)
+          Packages.notePackageUpgrades(out.length)
         }
       }
     }

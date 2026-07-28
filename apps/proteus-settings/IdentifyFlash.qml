@@ -13,9 +13,9 @@ Variants {
     screen: modelData
 
     readonly property var hyprMon: Hyprland.monitorFor(modelData)
-    readonly property bool isTarget: Config.identifyActive
+    readonly property bool isTarget: Displays.identifyActive
         && !!hyprMon
-        && hyprMon.name === Config.identifyTarget
+        && hyprMon.name === Displays.identifyTarget
 
     visible: isTarget
     exclusionMode: ExclusionMode.Ignore
@@ -38,7 +38,7 @@ Variants {
 
       Text {
         anchors.centerIn: parent
-        text: Config.identifyTarget
+        text: Displays.identifyTarget
         color: Theme.text
         font.family: Theme.fontFamily
         font.pixelSize: 28

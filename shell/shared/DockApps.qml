@@ -148,9 +148,33 @@ Singleton {
     }
   }
 
+  // Toplevel state drives dock running-dots and the top-bar title
+  // (ActiveWindow). Hyprland already pushes window lifecycle over its event
+  // socket, so resync on those instead of polling in the steady state. The
+  // timer is only a safety net for a missed event, and stops while locked —
+  // nothing renders toplevel data behind the lock surface.
+  Connections {
+    target: Hyprland
+
+    function onRawEvent(event) {
+      switch (event.name) {
+      case "openwindow":
+      case "closewindow":
+      case "movewindow":
+      case "activewindow":
+      case "activewindowv2":
+      case "windowtitle":
+      case "windowtitlev2":
+      case "fullscreen":
+        Hyprland.refreshToplevels()
+        break
+      }
+    }
+  }
+
   Timer {
-    interval: 1500
-    running: true
+    interval: 5000
+    running: !ShellState.sessionLocked
     repeat: true
     onTriggered: Hyprland.refreshToplevels()
   }

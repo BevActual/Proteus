@@ -2,7 +2,7 @@
 doc: compositor
 role: architecture
 audience: architects, contributors, coding agents
-last_updated: "2026-07-26"
+last_updated: "2026-07-27"
 doc_status: active
 scope: Hyprland as backend + Quickshell as chrome runtime; profiles, capabilities, limits
 related:
@@ -187,4 +187,4 @@ compositor chrome for that unit.
 | QS respawn / crash policy | `planned` |
 | Capability resolver | `planned` |
 | Pin QS version in guest docs/ISO | `planned` |
-| Greeter/lock in QS | `planned` (greetd branded today) |
+| Greeter/lock in QS | `partial` — lock screen shipped (PAM); greetd/tuigreet still login |

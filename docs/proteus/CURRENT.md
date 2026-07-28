@@ -2,7 +2,7 @@
 doc: current
 role: status
 audience: contributors, coding agents
-last_updated: "2026-07-26"
+last_updated: "2026-07-27"
 doc_status: active
 scope: Honest inventory of what exists in the repo / guest today
 related:
@@ -60,10 +60,13 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 
 | Feature | Status |
 |---------|--------|
-| Top bar (launcher, workspaces, title, clock, settings) | `shipped` |
+| Top bar (launcher, workspaces, title, clock, settings) | `partial` — status cluster opens Control Center (notifications + quick settings) |
+| Control Center (notifications + quick settings) | `partial` — DND, volume/mute, network editor, battery; toasts; no Settings pane yet |
 | App launcher (`Super+Space` / `Super+D`) | `shipped` |
 | Dock (pins, magnify, running dots) | `shipped` |
-| Global shortcuts (launcher, settings) | `shipped` |
+| Desktop widgets (free place; Customize) | `partial` — long-press empty desktop or `Super+Shift+W`; catalog clock/media/battery; separate from lock |
+| Lock screen (`Super+L`, PAM + `WlSessionLock`) | `shipped` — Customize mode, zone layout, applets; cold boot auto-lock; attempt cooldown after 3 misses |
+| Global shortcuts (launcher, settings, lock) | `shipped` |
 | Hardware probe at session start (`Hardware.qml`) | `shipped` — Wave A |
 | Env gate (launcher / Settings / dock) | `shipped` — `EnvGate.qml` |
 | Theme tokens | `shipped` — space/radius scale + accent/font from Config |
@@ -76,15 +79,15 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 
 | Pane | Status |
 |------|--------|
-| Appearance → Accent / Background / Font (`style`) | `shipped` |
-| Desktop → Gaps / Borders / Motion / Dock (`proteus-general.conf`) | `shipped` |
+| Appearance → Accent / Background / Lock / Font (`style`) | `partial` — lock wallpaper/dim in Settings; widgets via lock Customize (long-press); Kind parity, daily, slideshow, fonts, `proteus-bg` |
+| Desktop → Gaps / Borders / Motion / Dock & menu bar (`proteus-general.conf` + sizes) | `shipped` |
 | Displays (scale / mode / orientation, Identify; Revert parked) | `partial` |
 | Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) | `shipped` |
 | Software → Updates / Search (propose → confirm → `pkexec proteus-pkg`) | `partial` |
 | Sound (output + input, peak meter, per-app volume, latency/buffer, test tone) | `partial` |
 | Network (status + open editor; Bluetooth / VPN later) | `partial` |
 | About (session power + hardware class / capabilities) | `partial` |
-| Power · Users · Online accounts · Date & time · Privacy | `planned` |
+| Power · Users · Online accounts · Date & time · Privacy | `stub` — sidebar + roadmap checklist |
 | Host / VM·container setup | **out of Settings** — separate app later |
 
 Modular panes: `apps/proteus-settings/panes/*` (shell stays in `Settings.qml`).
@@ -111,7 +114,7 @@ Selection today: `PROTEUS_SURFACE` env (default `desktop`). See POSTURES § Load
 
 | Path | Role |
 |------|------|
-| `~/.config/proteus/settings.json` | Theme/desktop prefs (Config.qml) |
+| `~/.config/proteus/settings.json` | Theme/desktop prefs (Config.qml); `lockWidgets[]`, `desktopWidgets[]`, `notificationsDnd` |
 | `~/.config/proteus/keybinds.json` | Shortcut overrides |
 | `~/.config/proteus/hw-probe.json` | Cached Wave A hardware probe |
 | `~/.config/hypr/proteus-keybinds.conf` | Generated Hyprland binds (sourced) |
@@ -134,6 +137,7 @@ Selection today: `PROTEUS_SURFACE` env (default `desktop`). See POSTURES § Load
 | `bash /mnt/proteus/vm/guest/install-settings-app.sh` | Install Settings + keybinds + desktop/displays conf |
 | `bash /mnt/proteus/vm/guest/install-keybinds.sh` | Keybinds file + hypr source (user home) |
 | `bash /mnt/proteus/vm/guest/install-desktop-conf.sh` | `proteus-general.conf` + `proteus-monitors.conf` + sources |
+| `bash /mnt/proteus/vm/guest/install-lock-pam.sh` | `/etc/pam.d/proteus-lock` (falls back to `login` if absent) |
 | `./scripts/run-nested.sh` | Nested Hyprland on host |
 
 SSH default: `ssh -p 2222 andrew@127.0.0.1`

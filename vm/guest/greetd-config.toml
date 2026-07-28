@@ -2,6 +2,12 @@
 # The VT to run the greeter on. Can be the number of a VT, or "next"/"current"
 vt = 1
 
+# Cold boot → Proteus session directly (lock screen is Quickshell, not tuigreet)
+[initial_session]
+command = "/usr/local/bin/proteus-session"
+user = "andrew"
+
+# After logout / unlock to greeter — still offer tuigreet
 [default_session]
-command = "tuigreet --time --remember --remember-user-session --asterisks --greeting 'Proteus — Bevington Systems' --sessions /usr/share/wayland-sessions --cmd /usr/local/bin/proteus-session"
+command = "tuigreet --time --remember --remember-user-session --asterisks --greeting 'Proteus' --sessions /usr/share/wayland-sessions --cmd /usr/local/bin/proteus-session"
 user = "greeter"

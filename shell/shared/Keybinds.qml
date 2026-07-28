@@ -48,6 +48,24 @@ Singleton {
       arg: "proteus:settings"
     },
     {
+      id: "lock",
+      category: "Session",
+      label: "Lock Screen",
+      mods: "SUPER",
+      key: "L",
+      dispatcher: "global",
+      arg: "proteus:lock"
+    },
+    {
+      id: "customize-desktop",
+      category: "Session",
+      label: "Customize Desktop Widgets",
+      mods: "SUPER SHIFT",
+      key: "W",
+      dispatcher: "global",
+      arg: "proteus:customize-desktop"
+    },
+    {
       id: "kill",
       category: "Windows",
       label: "Close Window",

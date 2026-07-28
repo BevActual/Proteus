@@ -21,5 +21,6 @@ systemctl set-default graphical.target
 # Avoid fighting greetd on tty1
 systemctl disable getty@tty1.service 2>/dev/null || true
 
-echo "Greeter installed. Reboot (or: systemctl start greetd) to see the login menu."
-echo "Select session: Proteus — user andrew (or your account)."
+echo "Greeter installed. Reboot to cold-boot into Proteus (autologin andrew → lock screen)."
+echo "After logout, tuigreet still appears. Session: Proteus."
+echo "Apply: sudo bash /mnt/proteus/vm/guest/apply-greeter.sh && sudo systemctl restart greetd"

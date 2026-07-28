@@ -5,13 +5,13 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "../../shared"
 
+// Spotlight-like launcher — soft card, search first, calm rows.
 Item {
   id: root
 
   property bool showUnavailable: search.text.trim().length > 0
 
   readonly property var filtered: {
-    // Re-evaluate when hardware caps change
     const _caps = Hardware.capabilityList
     const q = search.text.trim().toLowerCase()
     const apps = DesktopEntries.applications.values
@@ -60,38 +60,61 @@ Item {
 
   Rectangle {
     anchors.fill: parent
-    color: Theme.bgElevated
-    radius: Theme.radiusLg + 2
-    border.width: 1
-    border.color: Theme.border
+    color: Theme.elevatedFill
+    radius: Theme.radiusXl
+    border.width: 0
+    clip: true
 
     ColumnLayout {
       anchors.fill: parent
-      anchors.margins: 14
-      spacing: 10
+      anchors.margins: Theme.spaceMd
+      spacing: Theme.spaceSm
 
-      TextField {
-        id: search
+      Rectangle {
         Layout.fillWidth: true
-        Layout.preferredHeight: 40
-        placeholderText: "Search apps…"
-        color: Theme.text
-        placeholderTextColor: Theme.textMute
-        font.family: Theme.fontFamily
-        font.pixelSize: 15
-        focus: ShellState.launcherOpen
-        background: Rectangle {
-          radius: Theme.radius
-          color: Theme.bgPanel
-          border.width: 1
-          border.color: search.activeFocus ? Theme.accent : Theme.border
+        Layout.preferredHeight: 44
+        radius: Theme.radiusLg
+        color: Theme.chromeClear ? Theme.bgHover : Theme.panelFill
+        border.width: 0
+
+        RowLayout {
+          anchors.fill: parent
+          anchors.leftMargin: Theme.spaceMd
+          anchors.rightMargin: Theme.spaceMd
+          spacing: Theme.spaceSm
+
+          Text {
+            text: "⌕"
+            color: Theme.textMute
+            font.pixelSize: 16
+          }
+
+          TextField {
+            id: search
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            placeholderText: "Search"
+            color: Theme.text
+            placeholderTextColor: Theme.textMute
+            font.family: Theme.fontFamily
+            font.pixelSize: 16
+            focus: ShellState.launcherOpen
+            background: Item {}
+            onTextChanged: list.currentIndex = 0
+            Keys.onEscapePressed: ShellState.closeLauncher()
+            Keys.onDownPressed: list.incrementCurrentIndex()
+            Keys.onUpPressed: list.decrementCurrentIndex()
+            Keys.onReturnPressed: root.launchIndex(list.currentIndex)
+            Keys.onEnterPressed: root.launchIndex(list.currentIndex)
+          }
         }
-        onTextChanged: list.currentIndex = 0
-        Keys.onEscapePressed: ShellState.closeLauncher()
-        Keys.onDownPressed: list.incrementCurrentIndex()
-        Keys.onUpPressed: list.decrementCurrentIndex()
-        Keys.onReturnPressed: root.launchIndex(list.currentIndex)
-        Keys.onEnterPressed: root.launchIndex(list.currentIndex)
+      }
+
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 1
+        color: Theme.separator
+        opacity: Theme.chromeClear ? 0.35 : 0.8
       }
 
       ListView {
@@ -99,37 +122,50 @@ Item {
         Layout.fillWidth: true
         Layout.fillHeight: true
         clip: true
-        spacing: 2
+        spacing: 1
         model: root.filtered
         currentIndex: 0
         highlightMoveDuration: 80
         keyNavigationEnabled: true
         focus: true
 
-        delegate: Rectangle {
+        delegate: Item {
           required property var modelData
           required property int index
           width: list.width
-          height: 44
-          radius: Theme.radius
-          opacity: modelData.blocked ? 0.55 : 1
-          color: list.currentIndex === index ? Theme.accentSoft : "transparent"
+          height: 46
+
+          Rectangle {
+            anchors.fill: parent
+            radius: Theme.radiusMd
+            opacity: modelData.blocked ? 0.5 : 1
+            color: list.currentIndex === index ? Theme.chromeAccentSoft : (rowMa.containsMouse ? Theme.chromeHover : "transparent")
+          }
 
           RowLayout {
             anchors.fill: parent
-            anchors.leftMargin: 10
-            anchors.rightMargin: 10
+            anchors.leftMargin: Theme.spaceMd
+            anchors.rightMargin: Theme.spaceMd
             spacing: Theme.spaceMd
 
-            IconImage {
-              Layout.preferredWidth: 22
-              Layout.preferredHeight: 22
-              source: Quickshell.iconPath(modelData.entry.icon || "application-x-executable")
+            Rectangle {
+              Layout.preferredWidth: 28
+              Layout.preferredHeight: 28
+              radius: Theme.radiusSm
+              color: Theme.chromeHover
+              border.width: 0
+
+              IconImage {
+                anchors.centerIn: parent
+                width: 18
+                height: 18
+                source: Quickshell.iconPath(modelData.entry.icon || "application-x-executable")
+              }
             }
 
             ColumnLayout {
               Layout.fillWidth: true
-              spacing: 0
+              spacing: 1
 
               Text {
                 Layout.fillWidth: true
@@ -153,6 +189,7 @@ Item {
           }
 
           MouseArea {
+            id: rowMa
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: modelData.blocked ? Qt.ForbiddenCursor : Qt.PointingHandCursor
@@ -167,24 +204,11 @@ Item {
           visible: root.filtered.length === 0
           horizontalAlignment: Text.AlignHCenter
           wrapMode: Text.WordWrap
-          text: search.text.trim().length ? "No apps match that search." : "No applications found."
+          text: search.text.trim().length ? "No apps match." : "No applications found."
           color: Theme.textMute
           font.family: Theme.fontFamily
           font.pixelSize: Theme.fontSize
         }
-      }
-
-      Text {
-        Layout.fillWidth: true
-        text: {
-          const n = filtered.length
-          const hint = search.text.trim().length ? " · unavailable shown when searching" : ""
-          return n + " apps" + hint + " · Esc to close · Enter to launch"
-        }
-        color: Theme.textMute
-        font.family: Theme.fontFamily
-        font.pixelSize: 11
-        horizontalAlignment: Text.AlignHCenter
       }
     }
   }

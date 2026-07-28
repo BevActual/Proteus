@@ -348,12 +348,12 @@ ColumnLayout {
     const prev = previousAll[index]
     const next = all[index]
     root.revertJson = JSON.stringify(previousAll)
-    root.revertRule = Config.monitorRule(prev)
+    root.revertRule = Displays.monitorRule(prev)
     root.revertIndex = index
     root.revertSeconds = 10
     revertTick.restart()
 
-    const nextRule = Config.monitorRule(next)
+    const nextRule = Displays.monitorRule(next)
     root.applyStatus = "Applying… " + nextRule
     runMonitorRule(nextRule, all, "apply")
     applySpecsToUi(all)
@@ -474,7 +474,7 @@ ColumnLayout {
       root.pendingPersist = []
       if (exitCode === 0) {
         if (persist && persist.length)
-          Config.persistMonitorsConf(persist)
+          Displays.persistMonitorsConf(persist)
         if (action === "apply") {
           root.applyStatus = "Applied — press Revert within " + root.revertSeconds + "s"
         } else if (action === "revert") {
@@ -713,7 +713,7 @@ ColumnLayout {
           Button {
             Layout.fillWidth: true
             text: "Identify"
-            onClicked: Config.identifyMonitor(modelData.name)
+            onClicked: Displays.identifyMonitor(modelData.name)
           }
 
           Button {
@@ -801,7 +801,7 @@ ColumnLayout {
       MouseArea {
         anchors.fill: parent
         cursorShape: Qt.PointingHandCursor
-        onClicked: Config.openMonitorsConfInEditor()
+        onClicked: Displays.openMonitorsConfInEditor()
       }
     }
   }
@@ -829,7 +829,7 @@ ColumnLayout {
           }
           root.monitors = parsed.map(m => root.enrichMonitor(m))
           root.status = root.monitors.length ? "" : "No monitors reported."
-          Config.ensureMonitorsConfStub(root.monitors.map(m => root.liveSpec(m)))
+          Displays.ensureMonitorsConfStub(root.monitors.map(m => root.liveSpec(m)))
         } catch (e) {
           root.monitors = []
           root.status = "Could not read monitors (is Hyprland running?)."

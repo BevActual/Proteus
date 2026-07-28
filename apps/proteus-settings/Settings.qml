@@ -21,11 +21,15 @@ Item {
   readonly property var styleChildren: [
     {
       key: "style-accent",
-      label: "Accent color"
+      label: "Accent & chrome"
     },
     {
       key: "style-background",
       label: "Background"
+    },
+    {
+      key: "style-lock",
+      label: "Lock screen"
     },
     {
       key: "style-font",
@@ -48,7 +52,7 @@ Item {
     },
     {
       key: "desktop-dock",
-      label: "Dock"
+      label: "Dock & menu bar"
     }
   ]
 
@@ -104,10 +108,9 @@ Item {
 
   Rectangle {
     anchors.fill: parent
-    color: Theme.bgElevated
+    color: Theme.bg
     radius: Theme.radiusXl
-    border.width: 1
-    border.color: Theme.border
+    border.width: 0
     clip: true
 
     RowLayout {
@@ -115,22 +118,24 @@ Item {
       spacing: 0
 
       Rectangle {
-        Layout.preferredWidth: 176
+        Layout.preferredWidth: 200
         Layout.fillHeight: true
         color: Theme.bgPanel
 
-          ColumnLayout {
+        ColumnLayout {
           anchors.fill: parent
           anchors.margins: Theme.spaceMd
-          spacing: 2
+          spacing: 1
 
           Text {
             text: "Settings"
             color: Theme.text
             font.family: Theme.fontFamily
-            font.pixelSize: 15
+            font.pixelSize: 20
             font.bold: true
-            Layout.bottomMargin: 8
+            Layout.leftMargin: Theme.spaceSm
+            Layout.bottomMargin: Theme.spaceMd
+            Layout.topMargin: Theme.spaceXs
           }
 
           Repeater {
@@ -138,21 +143,37 @@ Item {
 
             Rectangle {
               required property var modelData
+              readonly property bool unfinished: modelData.status === "stub" || modelData.status === "planned" || modelData.status === "partial"
+              readonly property bool selected: root.section === modelData.id
               Layout.fillWidth: true
-              Layout.preferredHeight: 28
-              radius: Theme.radiusSm
-              color: root.section === modelData.id ? Theme.accentSoft : (navMa.containsMouse ? Theme.bgHover : "transparent")
-              border.width: root.section === modelData.id ? 1 : 0
-              border.color: Theme.accent
+              Layout.preferredHeight: 32
+              radius: Theme.radiusMd
+              color: selected ? Theme.accentSoft : (navMa.containsMouse ? Theme.bgHover : "transparent")
+              border.width: 0
 
-              Text {
-                anchors.left: parent.left
+              RowLayout {
+                anchors.fill: parent
                 anchors.leftMargin: Theme.spaceMd
-                anchors.verticalCenter: parent.verticalCenter
-                text: modelData.label
-                color: Theme.text
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSizeSm
+                anchors.rightMargin: Theme.spaceSm
+                spacing: 4
+
+                Text {
+                  Layout.fillWidth: true
+                  text: modelData.label
+                  color: selected ? Theme.accent : Theme.text
+                  font.family: Theme.fontFamily
+                  font.pixelSize: Theme.fontSize
+                  font.bold: selected
+                  elide: Text.ElideRight
+                }
+
+                Text {
+                  visible: unfinished
+                  text: modelData.status === "partial" ? "…" : "·"
+                  color: Theme.textMute
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                }
               }
 
               MouseArea {
@@ -170,18 +191,26 @@ Item {
           }
 
           Text {
+            Layout.leftMargin: Theme.spaceSm
             text: "Proteus"
             color: Theme.textMute
             font.family: Theme.fontFamily
             font.pixelSize: 11
           }
           Text {
+            Layout.leftMargin: Theme.spaceSm
             text: "Bevington Systems"
             color: Theme.textMute
             font.family: Theme.fontFamily
             font.pixelSize: 11
           }
         }
+      }
+
+      Rectangle {
+        Layout.preferredWidth: 1
+        Layout.fillHeight: true
+        color: Theme.separator
       }
 
       ColumnLayout {
@@ -192,42 +221,19 @@ Item {
           Layout.fillWidth: true
           Layout.leftMargin: Theme.spaceLg
           Layout.rightMargin: Theme.spaceLg
-          Layout.topMargin: 14
-          spacing: 10
+          Layout.topMargin: Theme.spaceLg
+          spacing: Theme.spaceMd
 
-          Rectangle {
+          Text {
             visible: root.showBack
-            Layout.preferredWidth: visible ? Math.max(78, backRow.implicitWidth + 22) : 0
-            Layout.preferredHeight: 32
-            radius: Theme.radius
-            color: backMa.containsMouse ? Theme.bgHover : Theme.bgPanel
-            border.width: 1
-            border.color: Theme.accent
-
-            Row {
-              id: backRow
-              anchors.centerIn: parent
-              spacing: 4
-              Text {
-                text: "‹"
-                color: Theme.accent
-                font.pixelSize: 18
-                font.bold: true
-              }
-              Text {
-                text: SettingsNav.backLabel
-                color: Theme.text
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSizeSm
-                font.bold: true
-                anchors.verticalCenter: parent.verticalCenter
-              }
-            }
-
+            text: "‹ " + SettingsNav.backLabel
+            color: Theme.accent
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize
+            font.bold: true
             MouseArea {
-              id: backMa
               anchors.fill: parent
-              hoverEnabled: true
+              anchors.margins: -6
               cursorShape: Qt.PointingHandCursor
               onClicked: SettingsNav.back()
             }
@@ -238,21 +244,21 @@ Item {
             text: root.pageTitle
             color: Theme.text
             font.family: Theme.fontFamily
-            font.pixelSize: 18
+            font.pixelSize: 22
             font.bold: true
           }
 
           Rectangle {
-            Layout.preferredWidth: 32
-            Layout.preferredHeight: 32
-            radius: Theme.radius
+            Layout.preferredWidth: 28
+            Layout.preferredHeight: 28
+            radius: 14
             color: closeMa.containsMouse ? Theme.bgHover : "transparent"
-            border.width: 1
-            border.color: Theme.border
+            border.width: 0
             Text {
               anchors.centerIn: parent
               text: "✕"
               color: Theme.textDim
+              font.pixelSize: 12
             }
             MouseArea {
               id: closeMa
@@ -347,6 +353,126 @@ Item {
               Layout.fillWidth: true
               visible: root.page === "network"
               active: root.page === "network"
+            }
+
+            PlannedPane {
+              Layout.fillWidth: true
+              visible: root.page === "power"
+              status: "stub"
+              summary: "Battery, sleep, and lid behavior for laptop-primary sessions."
+              items: [
+                {
+                  label: "Battery status",
+                  hint: "UPower / capacity + charge state",
+                  done: false
+                },
+                {
+                  label: "Sleep & idle",
+                  hint: "systemd sleep targets + idle timeouts",
+                  done: false
+                },
+                {
+                  label: "Lid close",
+                  hint: "Suspend / lock / ignore",
+                  done: false
+                }
+              ]
+            }
+
+            PlannedPane {
+              Layout.fillWidth: true
+              visible: root.page === "users"
+              status: "stub"
+              summary: "Accounts and login. Session actions will move here from About."
+              items: [
+                {
+                  label: "Local accounts",
+                  hint: "List / add / remove users",
+                  done: false
+                },
+                {
+                  label: "Login & greeter",
+                  hint: "greetd / autologin prefs",
+                  done: false
+                },
+                {
+                  label: "Session actions",
+                  hint: "Lock · logout · reboot · shutdown",
+                  done: false
+                }
+              ]
+            }
+
+            PlannedPane {
+              Layout.fillWidth: true
+              visible: root.page === "accounts"
+              status: "stub"
+              summary: "Mail, contacts, and cloud providers — not inventing those apps here."
+              items: [
+                {
+                  label: "Mail providers",
+                  hint: "Connect account for adaptive mail later",
+                  done: false
+                },
+                {
+                  label: "Contacts",
+                  hint: "Provider sync hooks",
+                  done: false
+                },
+                {
+                  label: "Cloud storage",
+                  hint: "Mount / sync providers",
+                  done: false
+                }
+              ]
+            }
+
+            PlannedPane {
+              Layout.fillWidth: true
+              visible: root.page === "datetime"
+              status: "stub"
+              summary: "Clock, timezone, and locale — timedatectl / locale under the hood."
+              items: [
+                {
+                  label: "Clock & format",
+                  hint: "12/24h, seconds, bar clock",
+                  done: false
+                },
+                {
+                  label: "Timezone",
+                  hint: "timedatectl set-timezone",
+                  done: false
+                },
+                {
+                  label: "Locale",
+                  hint: "Language and region",
+                  done: false
+                }
+              ]
+            }
+
+            PlannedPane {
+              Layout.fillWidth: true
+              visible: root.page === "privacy"
+              status: "stub"
+              summary: "Permissions once adaptive apps need a grant model."
+              items: [
+                {
+                  label: "App permissions",
+                  hint: "Camera · mic · location · files",
+                  done: false
+                },
+                {
+                  label: "Screen recording",
+                  hint: "Portal / capture grants",
+                  done: false
+                },
+                {
+                  label: "Diagnostics",
+                  hint: "What leaves the machine",
+                  done: false
+                }
+              ]
             }
 
             SystemPane {

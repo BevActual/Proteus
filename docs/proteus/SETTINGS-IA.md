@@ -2,7 +2,7 @@
 doc: settings-ia
 role: reference
 audience: UI, contributors
-last_updated: "2026-07-26"
+last_updated: "2026-07-27"
 doc_status: active
 scope: Settings control-center categories, backends, hybrid UX pattern
 related:
@@ -50,7 +50,7 @@ Examples:
 
 | Control | Fact |
 |---------|------|
-| Accent / wallpaper / font | `~/.config/proteus/settings.json` + Theme + swaybg |
+| Accent / wallpaper / lock / font | `settings.json` + Theme + **proteus-bg** (`shell/wallpaper`); Qt FileDialog/FolderDialog in Settings |
 | Gaps / borders / rounding / animations | json + `hyprctl` + `~/.config/hypr/proteus-general.conf` |
 | Keyboard shortcuts | `~/.config/proteus/keybinds.json` + `~/.config/hypr/proteus-keybinds.conf` |
 | Mouse sensitivity / accel | json + `hyprctl` input:* (+ general conf `input` block) |
@@ -79,17 +79,17 @@ Left-nav + content pane (macOS System Settings style).
 
 | Category | Holds | Backend | Status |
 |----------|-------|---------|--------|
-| **Appearance** (`style`) | Category → Accent, Background, Font | `settings.json`, Theme, wallpaper | `shipped` |
-| **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock | json + hyprctl + `proteus-general.conf` | `shipped` |
+| **Appearance** (`style`) | Category → Accent, Background, Lock screen (wallpaper/dim; lock widgets via Customize), Font | `settings.json`, Theme, `proteus-bg` | `partial` |
+| **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar | json + hyprctl + `proteus-general.conf` | `shipped` |
 | **Displays** (`displays`) | Per-monitor scale + mode (Apply); conf escape hatch | hyprctl + `proteus-monitors.conf` | `partial` |
 | **Sound** (`sound`) | Output + input volume/mute, devices, peak meter, per-app volume, latency/buffer, test tone | pactl + `parec` + `pw-metadata` | `partial` |
 | **Network** (`network`) | Device status + open editor; later Bluetooth, VPN | nmcli / nmtui (+ later) | `partial` |
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse; later touchpad / tablet | keybinds + input hyprctl | `shipped` |
-| **Power** | Battery, sleep, lid (laptop-primary) | systemd / UPower | `planned` |
-| **Users** | Accounts, login; session actions peel here from About | accounts / loginctl | `planned` |
-| **Online accounts** | Mail, contacts, cloud storage providers | TBD (not inventing mail/contacts apps here) | `planned` |
-| **Date & time** | Clock, timezone, locale | timedatectl / locale | `planned` |
-| **Privacy** | Permissions when adaptive apps exist | app permissions model | `planned` |
+| **Power** (`power`) | Battery, sleep, lid (laptop-primary) | systemd / UPower | `stub` |
+| **Users** (`users`) | Accounts, login; session actions peel here from About | accounts / loginctl | `stub` |
+| **Online accounts** (`accounts`) | Mail, contacts, cloud storage providers | TBD (not inventing mail/contacts apps here) | `stub` |
+| **Date & time** (`datetime`) | Clock, timezone, locale | timedatectl / locale | `stub` |
+| **Privacy** (`privacy`) | Permissions when adaptive apps exist | app permissions model | `stub` |
 | **Software** (`packages`) | Category → Updates, Search (propose → confirm → polkit) | `pacman` + `services/proteus-pkg` | `partial` |
 | **About** (`system`) | Hardware caps, lock / logout / reboot / shutdown (until Users exists) | probe + hypr / systemctl / loginctl | `partial` |
 
@@ -122,9 +122,12 @@ the sub-settings list:
 
 | Sub-setting | Role |
 |-------------|------|
-| Accent color | Bar, dock, borders |
-| Background | Image pick + fit mode |
-| Font | UI family + size |
+| Accent color | Presets + custom hex + **HSV color graph**; **Dark / Light**; **Transparency** (0–100%, clear chrome at 0%) + **Blur** (Hypr layer blur); bar, dock, borders |
+| Background | Kind hub (Qt dialogs): Color (+ presets + **HSV color graph**) · Image (+ folder slideshow) · Video (Qt Multimedia) · Animated (Drift / Pulse / Orbit / Aurora / Beacon). Applied by **`proteus-bg`** (Hypr `exec-once`) |
+| Lock screen | Wallpaper Kind + dim in Settings; **widgets only via lock Customize** (long-press) |
+| Desktop widgets | **Not in Settings** — unlocked desktop long-press or `Super+Shift+W` → Customize; free place (not stacked); separate `desktopWidgets[]` |
+| Notifications / DND | **Shell Control Center** (top-bar status cluster); no Settings pane yet — deep Sound/Network stay in existing panes |
+| Font | System `fc-list` discovery + size; live preview |
 
 Open a row → leaf controls; **‹ Appearance** / Esc returns to the list. Desktop
 uses the same pattern. Pane visibility is owned by `Settings.qml` (only one
@@ -153,11 +156,11 @@ terminal, workspaces, etc. (`env/proteus-keybinds.conf` template).
 ## 6. Desktop + Displays
 
 Desktop: click sidebar → heading **Desktop** + sub-settings list (Gaps,
-Borders & rounding, Motion, Dock), then leaf pages.
+Borders & rounding, Motion, Dock & menu bar), then leaf pages.
 
 | Pane | Live apply | On-disk fragment | Guest seed |
 |------|------------|------------------|----------|
-| Desktop | `hyprctl keyword` (gaps, border, rounding, animations, accent) | `proteus-general.conf` | `vm/guest/install-desktop-conf.sh` |
+| Desktop | `hyprctl keyword` (gaps, border, rounding, animations) + dock/menu sizes in `settings.json` | `proteus-general.conf` + `settings.json` | `vm/guest/install-desktop-conf.sh` |
 | Displays | Scale + mode + orientation via `hyprctl keyword monitor` | Live `monitor =` lines in `proteus-monitors.conf` | same |
 
 Templates: `env/proteus-general.conf`, `env/proteus-monitors.conf`. Nested
@@ -167,7 +170,8 @@ Templates: `env/proteus-general.conf`, `env/proteus-monitors.conf`. Nested
 
 ## 7. Growth
 
-Next category / depth order:
+Stub panes are in the sidebar (`power` · `users` · `accounts` · `datetime` ·
+`privacy`) with roadmap checklists. Depth order when filling them:
 
 1. **Power** — battery / sleep (laptop)  
 2. **Users** — peel session actions from About  
@@ -188,5 +192,6 @@ Virt / container setup stays a **separate app**, not a Settings growth item.
 - Calm chrome: discoverability without permanent label clutter  
 - Accent = selection/action only  
 - Legibility floor: prefs must not produce unreadable UI  
+- Settings visual language: modern System Settings (grouped lists, soft selection, large titles)  
 - `Super+,` opens Settings (global shortcut + Hyprland bind)  
 - Host posture reuses this app; does not invent a second control center  

@@ -11,52 +11,96 @@ Singleton {
   // When probe is not ready, fail open (show everything) so the session is usable.
   readonly property bool gatingActive: Hardware.ready
 
+  // North-star sidebar order — status: shipped | partial | stub | planned
   readonly property var settingsCatalog: [
     {
       id: "style",
       label: "Appearance",
+      status: "partial",
       requires: [],
       requiresAny: []
     },
     {
       id: "desktop",
       label: "Desktop",
+      status: "shipped",
       requires: ["display"],
       requiresAny: []
     },
     {
       id: "displays",
       label: "Displays",
+      status: "partial",
       requires: ["display"],
       requiresAny: []
     },
     {
       id: "sound",
       label: "Sound",
+      status: "partial",
       requires: [],
       requiresAny: ["speaker", "mic", "qs_pipewire"]
     },
     {
       id: "network",
       label: "Network",
+      status: "partial",
       requires: [],
       requiresAny: ["wifi", "ethernet", "bt"]
     },
     {
       id: "peripherals",
       label: "Peripherals",
+      status: "shipped",
       requires: [],
       requiresAny: ["keyboard", "pointer"]
     },
     {
+      id: "power",
+      label: "Power",
+      status: "stub",
+      requires: [],
+      requiresAny: []
+    },
+    {
+      id: "users",
+      label: "Users",
+      status: "stub",
+      requires: [],
+      requiresAny: []
+    },
+    {
+      id: "accounts",
+      label: "Online accounts",
+      status: "stub",
+      requires: [],
+      requiresAny: []
+    },
+    {
+      id: "datetime",
+      label: "Date & time",
+      status: "stub",
+      requires: [],
+      requiresAny: []
+    },
+    {
+      id: "privacy",
+      label: "Privacy",
+      status: "stub",
+      requires: [],
+      requiresAny: []
+    },
+    {
       id: "packages",
       label: "Software",
+      status: "partial",
       requires: [],
       requiresAny: []
     },
     {
       id: "system",
       label: "About",
+      status: "partial",
       requires: [],
       requiresAny: []
     }

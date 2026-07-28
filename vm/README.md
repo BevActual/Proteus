@@ -68,13 +68,18 @@ On the `hyprland-base` snapshot (and current disk after setup), the guest has a 
 
 Guest config lives under `~/.config/hypr/hyprland.conf` (andrew). A convenience symlink is at `~/.config/quickshell/proteus` → `/mnt/proteus/shell`.
 
-### Login menu (greetd)
+### Login (greetd) + lock screen
 
-The guest uses **greetd + tuigreet** as the display manager (configs in [`vm/guest/`](guest/)):
+Cold boot uses **greetd autologin** (`andrew` → `proteus-session`), then Quickshell
+shows the **Proteus lock screen** (`lockOnSessionStart`, default on). Unlock with
+your user password. `Super+L` locks again anytime.
 
-- Boot the VM → login menu (“Proteus — Bevington Systems”)
-- User: `andrew` · pick session **Proteus** (or Hyprland)
-- Re-apply on a fresh guest: `sudo bash /mnt/proteus/vm/guest/apply-greeter.sh`
+- Config: [`vm/guest/greetd-config.toml`](guest/greetd-config.toml) (`initial_session`)
+- Re-apply: `sudo bash /mnt/proteus/vm/guest/apply-greeter.sh && sudo systemctl restart greetd`
+- After logout, **tuigreet** still appears for account selection
+
+Disable auto-lock on session start by setting `"lockOnSessionStart": false` in
+`~/.config/proteus/settings.json` (Settings UI later).
 
 ### Start a graphical session (manual / debug)
 

@@ -29,7 +29,7 @@ ColumnLayout {
   }
 
   function refreshApps() {
-    Config.listSinkInputs(list => {
+    Audio.listSinkInputs(list => {
       root.apps = list || []
     })
   }
@@ -39,7 +39,7 @@ ColumnLayout {
       root.inputPeak = Math.max(0, root.inputPeak * 0.6)
       return
     }
-    Config.getSourcePeak(v => {
+    Audio.getSourcePeak(v => {
       if (v < 0)
         return
       // Soft decay so the bar doesn't flicker between samples.
@@ -52,19 +52,19 @@ ColumnLayout {
 
   function refresh() {
     status = ""
-    Config.getVolume(v => {
+    Audio.getVolume(v => {
       root.volume = v
     })
-    Config.getMute(m => {
+    Audio.getMute(m => {
       root.muted = m
     })
-    Config.getSourceVolume(v => {
+    Audio.getSourceVolume(v => {
       root.inputVolume = v
     })
-    Config.getSourceMute(m => {
+    Audio.getSourceMute(m => {
       root.inputMuted = m
     })
-    Config.listSinks(list => {
+    Audio.listSinks(list => {
       root.sinks = list || []
       if (!root.sinks.length) {
         root.status = "No output devices (is PipeWire / Pulse running?)."
@@ -73,17 +73,17 @@ ColumnLayout {
       const def = root.sinks.find(s => s.isDefault)
       const better = root.sinks.find(s => s.name && s.name.indexOf("null") < 0)
       if (def && def.name && def.name.indexOf("null") >= 0 && better) {
-        Config.setDefaultSink(better.name)
+        Audio.setDefaultSink(better.name)
         refreshTimer.restart()
         return
       }
       root.status = ""
     })
-    Config.listSources(list => {
+    Audio.listSources(list => {
       root.sources = list || []
     })
     root.refreshApps()
-    Config.getPipeWireClock(info => {
+    Audio.getPipeWireClock(info => {
       if (!info || (!info.rate && !info.forceQuantum && !info.quantum)) {
         root.clockSummary = ""
         return
@@ -94,20 +94,20 @@ ColumnLayout {
       const buf = frames ? (frames + " frames" + (forced ? " forced" : "")) : ""
       root.clockSummary = buf.length ? (rate + " · " + buf) : rate
     })
-    Config.applyAudioLatency()
+    Audio.applyAudioLatency()
   }
 
   function selectSink(name) {
     if (!name || !String(name).length)
       return
-    Config.setDefaultSink(name)
+    Audio.setDefaultSink(name)
     refreshTimer.restart()
   }
 
   function selectSource(name) {
     if (!name || !String(name).length)
       return
-    Config.setDefaultSource(name)
+    Audio.setDefaultSource(name)
     refreshTimer.restart()
   }
 
@@ -172,7 +172,7 @@ ColumnLayout {
       enabled: !root.muted
       onMoved: {
         root.volume = Math.round(value)
-        Config.setVolume(root.volume)
+        Audio.setVolume(root.volume)
       }
     }
     Text {
@@ -213,7 +213,7 @@ ColumnLayout {
         checked: root.muted
         onToggled: {
           root.muted = checked
-          Config.setMute(checked)
+          Audio.setMute(checked)
         }
       }
     }
@@ -324,7 +324,7 @@ ColumnLayout {
     spacing: 8
 
     Repeater {
-      model: Config.audioLatencyProfiles
+      model: Audio.audioLatencyProfiles
 
       Rectangle {
         required property var modelData
@@ -360,7 +360,7 @@ ColumnLayout {
           anchors.fill: parent
           cursorShape: Qt.PointingHandCursor
           onClicked: {
-            Config.setAudioLatency(modelData.id)
+            Audio.setAudioLatency(modelData.id)
             refreshTimer.restart()
           }
         }
@@ -420,7 +420,7 @@ ColumnLayout {
       enabled: !root.inputMuted
       onMoved: {
         root.inputVolume = Math.round(value)
-        Config.setSourceVolume(root.inputVolume)
+        Audio.setSourceVolume(root.inputVolume)
       }
     }
     Text {
@@ -503,7 +503,7 @@ ColumnLayout {
         checked: root.inputMuted
         onToggled: {
           root.inputMuted = checked
-          Config.setSourceMute(checked)
+          Audio.setSourceMute(checked)
           if (checked)
             root.inputPeak = 0
         }
@@ -647,7 +647,7 @@ ColumnLayout {
           Switch {
             checked: !!modelData.muted
             onToggled: {
-              Config.setSinkInputMute(modelData.id, checked)
+              Audio.setSinkInputMute(modelData.id, checked)
               const next = root.apps.slice()
               const idx = next.findIndex(a => String(a.id) === String(modelData.id))
               if (idx >= 0) {
@@ -672,7 +672,7 @@ ColumnLayout {
             enabled: !modelData.muted
             onMoved: {
               const v = Math.round(value)
-              Config.setSinkInputVolume(modelData.id, v)
+              Audio.setSinkInputVolume(modelData.id, v)
               // Keep local model responsive until next poll.
               const next = root.apps.slice()
               const idx = next.findIndex(a => String(a.id) === String(modelData.id))
@@ -719,7 +719,7 @@ ColumnLayout {
 
     Button {
       text: "Test sound"
-      onClicked: Config.playTestSound()
+      onClicked: Audio.playTestSound()
     }
 
     Button {

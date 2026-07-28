@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Proteus reactive / animated desktop background (Quickshell layer-shell).
+set -euo pipefail
+ROOT="${PROTEUS_ROOT:-/mnt/proteus}"
+WALLPAPER="${ROOT}/shell/wallpaper"
+export QS_ICON_THEME="${QS_ICON_THEME:-Papirus-Dark}"
+export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-wayland}"
+exec quickshell -p "${WALLPAPER}"

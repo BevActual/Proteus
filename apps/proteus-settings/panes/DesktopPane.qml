@@ -18,123 +18,27 @@ ColumnLayout {
   readonly property var sections: [
     {
       key: "desktop-gaps",
-      label: "Gaps",
-      hint: "Space between and around windows"
+      label: "Gaps"
     },
     {
       key: "desktop-chrome",
-      label: "Borders & rounding",
-      hint: "Edge weight and corner radius"
+      label: "Borders & rounding"
     },
     {
       key: "desktop-motion",
-      label: "Motion",
-      hint: "Window animations"
+      label: "Motion"
     },
     {
       key: "desktop-dock",
-      label: "Dock",
-      hint: "Bottom app dock"
+      label: "Dock & menu bar"
     }
   ]
 
-  function valueFor(key) {
-    if (key === "desktop-gaps")
-      return Config.gapsIn + " / " + Config.gapsOut
-    if (key === "desktop-chrome")
-      return Config.borderSize + "px · " + Config.rounding
-    if (key === "desktop-motion")
-      return Config.animationsEnabled ? "On" : "Off"
-    if (key === "desktop-dock")
-      return Config.dockEnabled ? "Shown" : "Hidden"
-    return ""
-  }
-
   // —— Category list ——
-  ColumnLayout {
+  SettingsHubList {
     visible: root.page === "desktop"
-    Layout.fillWidth: true
-    Layout.maximumWidth: 420
-    spacing: 6
-
-    Text {
-      Layout.fillWidth: true
-      text: "Choose what to configure."
-      color: Theme.textMute
-      font.family: Theme.fontFamily
-      font.pixelSize: 12
-      wrapMode: Text.WordWrap
-      Layout.bottomMargin: 2
-    }
-
-    Repeater {
-      model: root.sections
-
-      Rectangle {
-        required property var modelData
-        Layout.fillWidth: true
-        Layout.preferredHeight: 44
-        radius: Theme.radiusMd
-        color: rowMa.containsMouse ? Theme.bgHover : Theme.bgPanel
-        border.width: 1
-        border.color: Theme.border
-
-        RowLayout {
-          anchors.fill: parent
-          anchors.leftMargin: Theme.spaceMd
-          anchors.rightMargin: Theme.spaceMd
-          spacing: Theme.spaceSm
-
-          ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 1
-            Text {
-              text: modelData.label
-              color: Theme.text
-              font.family: Theme.fontFamily
-              font.pixelSize: Theme.fontSize
-            }
-            Text {
-              text: modelData.hint
-              color: Theme.textMute
-              font.family: Theme.fontFamily
-              font.pixelSize: 11
-            }
-          }
-
-          Text {
-            text: root.valueFor(modelData.key)
-            color: Theme.textDim
-            font.family: Theme.fontFamily
-            font.pixelSize: 11
-          }
-
-          Text {
-            text: "›"
-            color: Theme.textDim
-            font.pixelSize: 16
-          }
-        }
-
-        MouseArea {
-          id: rowMa
-          anchors.fill: parent
-          hoverEnabled: true
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.requestGo(modelData.key)
-        }
-      }
-    }
-
-    Text {
-      Layout.fillWidth: true
-      Layout.topMargin: 8
-      text: "File: ~/.config/hypr/proteus-general.conf"
-      color: Theme.textMute
-      font.family: Theme.fontFamily
-      font.pixelSize: 11
-      wrapMode: Text.WordWrap
-    }
+    items: root.sections
+    onActivated: key => root.requestGo(key)
   }
 
   // —— Gaps ——
@@ -277,39 +181,128 @@ ColumnLayout {
     }
   }
 
-  // —— Dock ——
+  // —— Dock & menu bar ——
   ColumnLayout {
+    id: dockLeaf
     visible: root.page === "desktop-dock"
     Layout.fillWidth: true
     spacing: Theme.spaceMd
 
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: 48
-      radius: Theme.radiusMd
-      color: Theme.bgPanel
-      border.width: 1
-      border.color: Theme.border
-      RowLayout {
-        anchors.fill: parent
-        anchors.margins: Theme.spaceMd
-        Text {
-          Layout.fillWidth: true
-          text: "Show dock"
-          color: Theme.text
-          font.family: Theme.fontFamily
-        }
+    readonly property var screenOpts: {
+      const _n = Quickshell.screens.length
+      return Config.chromeScreenOptions()
+    }
+
+    function screenIndex(sel) {
+      const opts = screenOpts
+      for (let i = 0; i < opts.length; i++) {
+        if (opts[i].id === sel)
+          return i
+      }
+      return 0
+    }
+
+    SettingsGroup {
+      title: "Dock"
+
+      SettingsFormRow {
+        label: "Show dock"
+        showSeparator: true
         Switch {
           checked: Config.dockEnabled
           onToggled: Config.dockEnabled = checked
+        }
+      }
+
+      SettingsFormRow {
+        label: "Automatically hide"
+        hint: "Reveal at the bottom edge"
+        showSeparator: true
+        Switch {
+          checked: Config.dockAutoHide
+          enabled: Config.dockEnabled
+          onToggled: Config.dockAutoHide = checked
+        }
+      }
+
+      SettingsFormRow {
+        label: "Show on"
+        hint: Config.dockMonitor === "all" ? "Every display" : Config.dockMonitor
+        showSeparator: true
+        ComboBox {
+          id: dockMonBox
+          Layout.preferredWidth: 168
+          enabled: Config.dockEnabled
+          textRole: "label"
+          valueRole: "id"
+          model: root.page === "desktop-dock" ? dockLeaf.screenOpts : []
+          Component.onCompleted: currentIndex = dockLeaf.screenIndex(Config.dockMonitor)
+          onActivated: Config.dockMonitor = String(currentValue || "all")
+        }
+      }
+
+      SettingsFormRow {
+        label: "Icon size"
+        hint: Config.dockIconSize + " px"
+        showSeparator: false
+        Slider {
+          Layout.preferredWidth: 140
+          from: 36
+          to: 72
+          stepSize: 2
+          value: Config.dockIconSize
+          onMoved: Config.dockIconSize = Math.round(value)
+        }
+      }
+    }
+
+    SettingsGroup {
+      title: "Menu bar"
+
+      SettingsFormRow {
+        label: "Automatically hide"
+        hint: "Reveal at the top edge"
+        showSeparator: true
+        Switch {
+          checked: Config.barAutoHide
+          onToggled: Config.barAutoHide = checked
+        }
+      }
+
+      SettingsFormRow {
+        label: "Show on"
+        hint: Config.barMonitor === "all" ? "Every display" : Config.barMonitor
+        showSeparator: true
+        ComboBox {
+          Layout.preferredWidth: 168
+          textRole: "label"
+          valueRole: "id"
+          model: root.page === "desktop-dock" ? dockLeaf.screenOpts : []
+          Component.onCompleted: currentIndex = dockLeaf.screenIndex(Config.barMonitor)
+          onActivated: Config.barMonitor = String(currentValue || "all")
+        }
+      }
+
+      SettingsFormRow {
+        label: "Height"
+        hint: Config.barHeight + " px"
+        showSeparator: false
+        Slider {
+          Layout.preferredWidth: 140
+          from: 28
+          to: 48
+          stepSize: 1
+          value: Config.barHeight
+          onMoved: Config.barHeight = Math.round(value)
         }
       }
     }
 
     Rectangle {
       Layout.fillWidth: true
+      Layout.maximumWidth: 480
       Layout.preferredHeight: 40
-      Layout.topMargin: 8
+      Layout.topMargin: 4
       radius: Theme.radiusMd
       color: Theme.bgPanel
       border.width: 1
