@@ -138,11 +138,22 @@ def main() -> int:
     ser = Serial(SERIAL)
     try:
         log("Waiting for live root shell…")
-        # Boot can take a while with copy-to-ram disabled
-        out = ser.wait_for(["@archiso", "login:"], timeout=300)
-        if "login:" in out and "@archiso" not in out.split("login:")[-1]:
+        # Boot can take a while; serial often stays quiet until poked with Enter.
+        deadline = time.time() + 300
+        out = ""
+        while time.time() < deadline:
+            ser.send("\n")
+            try:
+                out = ser.wait_for(["@archiso", "login:"], timeout=8)
+                break
+            except TimeoutError:
+                continue
+        else:
+            raise TimeoutError("live shell not ready after 300s")
+        if "login:" in out:
             ser.send("root\n")
-            ser.wait_for(["@archiso", "Password:"], timeout=60)
+            # archiso root is passwordless; land on a prompt containing @archiso
+            ser.wait_for(["@archiso"], timeout=60)
         log("Live shell ready")
 
         # Set password + ensure sshd (for later verification path)
@@ -152,10 +163,16 @@ def main() -> int:
         # Confirm share
         ser.cmd("test -f /mnt/proteus/vm/guest-install.sh && echo SHARE_OK", wait=["SHARE_OK", "@archiso"])
         log("Running guest-install.sh (this takes several minutes)…")
-        ser.send("bash /mnt/proteus/vm/guest-install.sh 2>&1 | tee /tmp/guest-install.log; echo EXIT:$?\n")
+        # Marker must not appear in the typed command echo — drain after send.
+        ser.drain(0.5)
+        ser.send(
+            "bash /mnt/proteus/vm/guest-install.sh 2>&1 | tee /tmp/guest-install.log; "
+            "printf '\\n%s\\n' \"PROTEUS_GI_RC:$?\"\n"
+        )
+        ser.drain(1.0)  # drop local echo of the command line (contains PROTEUS_GI_RC:)
         # pacstrap can take a long time
-        result = ser.wait_for(["EXIT:0", "EXIT:"], timeout=1800)
-        if "EXIT:0" not in result:
+        result = ser.wait_for(["PROTEUS_GI_RC:0", "PROTEUS_GI_RC:"], timeout=1800)
+        if "PROTEUS_GI_RC:0" not in result:
             log("Install failed; serial tail follows")
             log(result[-3000:])
             return 1

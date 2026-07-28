@@ -212,12 +212,13 @@ if [[ "${MODE}" == "install" ]]; then
 Download it with:  ./vm/download-iso.sh"
   # Prefer ISO over disk (disk still bootindex=1 in ARGS — override via cdrom bootindex=0 first).
   ARGS+=(-drive if=none,id=proteus-cd,media=cdrom,readonly=on,file="${ISO}")
-  ARGS+=(-device ide-cd,drive=proteus-cd,bootindex=0)
   if [[ "${PROTEUS_VM_DIRECT_KERNEL:-0}" == "1" ]]; then
     [[ -f "${KERNEL}" && -f "${INITRD}" ]] || die "Direct kernel boot needs:
   ${KERNEL}
   ${INITRD}
 Extract from ISO into \$PROTEUS_VM_CACHE/boot/ first."
+    # -kernel claims bootindex 0; attach ISO as data CD only (archiso finds squashfs).
+    ARGS+=(-device ide-cd,drive=proteus-cd)
     ARGS+=(
       -kernel "${KERNEL}"
       -initrd "${INITRD}"
@@ -225,6 +226,7 @@ Extract from ISO into \$PROTEUS_VM_CACHE/boot/ first."
     )
     echo "Install mode: direct kernel + serial console (Arch live)"
   else
+    ARGS+=(-device ide-cd,drive=proteus-cd,bootindex=0)
     ARGS+=(-boot order=d)
     echo "Install mode: booting Arch ISO + disk"
   fi
