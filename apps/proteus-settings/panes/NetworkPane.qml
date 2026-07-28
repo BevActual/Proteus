@@ -3,6 +3,7 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import "../shared"
+import "../kit"
 
 // Network: device status + hand-off to the NetworkManager editor.
 // Bluetooth / VPN land here later (SETTINGS-IA § 2).

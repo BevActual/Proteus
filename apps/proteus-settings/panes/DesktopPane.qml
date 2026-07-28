@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../shared"
+import "../kit"
 
 // Desktop category: list of sub-settings → leaf. Navigation via page + requestGo.
 ColumnLayout {

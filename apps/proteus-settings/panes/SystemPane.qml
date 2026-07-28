@@ -2,6 +2,7 @@ import Quickshell
 import QtQuick
 import QtQuick.Layouts
 import "../shared"
+import "../kit"
 
 // About: what this is, what the probe found, and session power actions.
 // Session actions live here until a Users category exists (SETTINGS-IA § 2).

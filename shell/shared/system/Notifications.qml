@@ -3,6 +3,7 @@ pragma Singleton
 import Quickshell
 import Quickshell.Services.Notifications
 import QtQuick
+import ".."
 
 // Desktop notification host for top-bar Control Center + toasts.
 Singleton {

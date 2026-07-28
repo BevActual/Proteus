@@ -1,4 +1,5 @@
 import QtQuick
+import ".."
 
 // Centered vertical tile stack: clock (chrome) then strip widgets, top → bottom.
 QtObject {

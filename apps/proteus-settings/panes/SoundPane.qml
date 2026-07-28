@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../shared"
+import "../kit"
 
 // Sound category: list of sub-settings → leaf, same drill-in as Appearance.
 // Page ids: sound · sound-output · sound-input · sound-apps · sound-latency.

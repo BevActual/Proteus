@@ -3,6 +3,7 @@ pragma Singleton
 import Quickshell
 import Quickshell.Io
 import QtQuick
+import ".."
 
 // Proteus package operations — pacman queries stay in the Settings panes;
 // this owns the privileged mutator path (services/proteus-pkg via pkexec) and

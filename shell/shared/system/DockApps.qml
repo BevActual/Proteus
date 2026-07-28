@@ -3,6 +3,7 @@ pragma Singleton
 import Quickshell
 import Quickshell.Hyprland
 import QtQuick
+import ".."
 
 Singleton {
   readonly property var pinned: [

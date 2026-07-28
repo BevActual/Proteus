@@ -3,6 +3,7 @@ pragma Singleton
 import Quickshell
 import Quickshell.Io
 import QtQuick
+import ".."
 
 // Proteus display control — monitor rule generation, live apply via hyprctl,
 // and the ~/.config/hypr/proteus-monitors.conf fragment.

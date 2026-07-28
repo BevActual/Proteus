@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "shared"
+import "kit"
 import "panes"
 
 Item {

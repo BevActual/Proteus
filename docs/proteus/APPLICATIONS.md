@@ -126,7 +126,7 @@ with a clear reason (“needs libvirt”, “needs display”).
 | Launcher | Hide gated apps unless searching; search shows them dimmed with reason |
 | Dock | `DockApps.visiblePinned` via optional `requires` / `requiresAny` on pins |
 
-Code: `shell/shared/EnvGate.qml`. Fail-open until `Hardware.ready`.
+Code: `shell/shared/session/EnvGate.qml`. Fail-open until `Hardware.ready`.
 
 This avoids pretending every creative app belongs on a vitals band or that every
 ops tool belongs on the couch.

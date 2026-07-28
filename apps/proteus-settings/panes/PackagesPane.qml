@@ -3,6 +3,7 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import "../shared"
+import "../kit"
 
 // Software category (page id packages) — Updates · Search.
 ColumnLayout {

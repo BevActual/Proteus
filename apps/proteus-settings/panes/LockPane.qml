@@ -4,6 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import "../shared"
+import "../kit"
 
 // Appearance → Lock screen — Kind hub parity with Background + applet gallery.
 ColumnLayout {

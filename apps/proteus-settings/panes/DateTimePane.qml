@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../shared"
+import "../kit"
 
 // Date & time: clock, timezone, network time, locale.
 ColumnLayout {

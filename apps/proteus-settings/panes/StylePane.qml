@@ -4,6 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import "../shared"
+import "../kit"
 
 // Appearance category (page id style): list of sub-settings → leaf. Navigation via page + requestGo.
 ColumnLayout {

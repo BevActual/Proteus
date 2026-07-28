@@ -2,6 +2,7 @@ import Quickshell
 import QtQuick
 import QtQuick.Layouts
 import "../shared"
+import "../kit"
 
 // Peripherals → Keyboard leaf. Reference hybrid feature (SETTINGS-IA § 5):
 // friendly catalog → keybinds.json → generated proteus-keybinds.conf.

@@ -86,10 +86,11 @@ Mobius gates; implementation later).
 
 | Module (today / intended) | Role |
 |---------------------------|------|
-| `Theme.qml` | Chrome tokens (space/radius + accent/font from Config) |
-| `Config.qml` | `settings.json` FileView façade + hypr general/chrome; wallpaper/widget array persistence |
-| `Background.qml` | Wallpaper + lock backdrop catalogs, setters, daily fetch, `applyBackground` |
-| `Widgets.qml` | Lock/desktop applet catalog + CRUD (arrays on Config) |
+| `chrome/Theme.qml` | Chrome tokens (space/radius + accent/font from Config) |
+| `config/Config.qml` | `settings.json` FileView façade; wallpaper/widget array persistence |
+| `config/ConfigHypr.qml` | Hypr general.conf + chrome apply helpers (owned by Config) |
+| `background/Background.qml` | Wallpaper + lock backdrop façade (+ Catalog / Daily / Apply) |
+| `widgets/Widgets.qml` | Lock/desktop applet catalog + CRUD (+ Lock / Desktop helpers) |
 | `Displays.qml` | Monitors list / apply → `proteus-monitors.conf` |
 | `Audio.qml` · `Power.qml` · `DateTime.qml` · `Weather.qml` | Behavior singletons (prefs still in Config where persisted) |
 | `Hardware.qml` | Wave A probe at session start → capabilities / device class |
@@ -112,25 +113,30 @@ Proteus/
   AGENTS.md · README.md
   docs/
     README.md
-    proteus/          # this product
+    proteus/          # this product (incl. FACTS.md · CONFIG-SCHEMA.md · CHROME.md)
     shared/           # ecosystem seat among Bevington apps
   shell/              # Quickshell only
     shell.qml         # picks posture/surface loader
-    shared/           # Theme, Config, Keybinds, …
+    shared/           # qmldir package — chrome/ config/ background/ widgets/ system/ session/
     surfaces/         # DesktopShell, PhoneShell, … (host later)
   apps/
-    proteus-settings/ # control center (Settings.qml + panes/*; shared/ → ../../shell/shared)
-  env/                # nested Hyprland templates + default hypr fragments
-  vm/                 # QEMU dogfood + guest installers
-  scripts/            # run-nested, run-desktop
+    proteus-settings/ # Settings.qml + kit/ + panes/*; shared/ → ../../shell/shared
+  env/                # nested/host Hyprland fragment seeds (see env/README.md)
+  vm/                 # QEMU dogfood + guest/ installers (place facts on guest)
+  services/           # proteus-hw-probe (read) · proteus-pkg (privileged mutate)
+  scripts/            # run-nested, run-desktop, smoke
 ```
+
+Public QML import path is unchanged: `import "../../shared"` / Settings
+`shared` symlink — singletons registered in [`shell/shared/qmldir`](../../shell/shared/qmldir).
+On-disk facts: [FACTS.md](./FACTS.md) · key groups: [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md).
 
 `services/proteus-pkg` — privileged pacman mutator (pkexec + polkit) for Settings Software.
 Optional later: more Rust CLIs (`proteus-net`, etc.) so QML stays thin
 (Meridian-style: apps as clients of helpers). Future first-party apps under
 `apps/` as Tauri projects ([STACK.md](./STACK.md)).
 
-**Wave A hardware probe (sketch):** `services/proteus-hw-probe/` →
+**Wave A hardware probe:** `services/proteus-hw-probe/` →
 `./services/proteus-hw-probe/proteus-hw-probe` ([HARDWARE.md](./HARDWARE.md)).
 
 ---

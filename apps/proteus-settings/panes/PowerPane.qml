@@ -2,6 +2,7 @@ import Quickshell
 import QtQuick
 import QtQuick.Layouts
 import "../shared"
+import "../kit"
 
 // Power: battery state and the effective logind idle / lid policy.
 ColumnLayout {

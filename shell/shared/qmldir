@@ -1,0 +1,25 @@
+# Proteus shared spine — directory import package.
+# Call sites keep `import "../../shared"` / `import "shared"`.
+# Singletons live in domain folders; each file `import ".."` for siblings.
+
+singleton Theme 1.0 chrome/Theme.qml
+singleton Config 1.0 config/Config.qml
+singleton Background 1.0 background/Background.qml
+singleton Widgets 1.0 widgets/Widgets.qml
+
+singleton Audio 1.0 system/Audio.qml
+singleton Power 1.0 system/Power.qml
+singleton DateTime 1.0 system/DateTime.qml
+singleton Weather 1.0 system/Weather.qml
+singleton Displays 1.0 system/Displays.qml
+singleton Packages 1.0 system/Packages.qml
+singleton DockApps 1.0 system/DockApps.qml
+singleton Notifications 1.0 system/Notifications.qml
+singleton Time 1.0 system/Time.qml
+singleton ActiveWindow 1.0 system/ActiveWindow.qml
+
+singleton ShellState 1.0 session/ShellState.qml
+singleton Hardware 1.0 session/Hardware.qml
+singleton EnvGate 1.0 session/EnvGate.qml
+singleton Keybinds 1.0 session/Keybinds.qml
+singleton LockLayoutZones 1.0 session/LockLayoutZones.qml

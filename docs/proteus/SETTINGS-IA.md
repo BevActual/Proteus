@@ -23,8 +23,8 @@ status_legend:
 **proteus-settings** is the product face of “usable custom OS”: Mac-smooth
 controls, Linux facts underneath. Shell ⚙ / dock / `Super+,` only **launch** it.
 
-Code: `apps/proteus-settings/` (`Settings.qml` shell + `panes/*`; `SettingsNav.qml`;
-`shared/` → `shell/shared`).
+Code: `apps/proteus-settings/` (`Settings.qml` shell + `kit/*` form primitives +
+`panes/*`; `SettingsNav.qml`; `shared/` → `shell/shared`).
 
 ## Document map
 
@@ -146,7 +146,7 @@ category visible at a time). Page id remains `style` / `style-*`.
 
 Reference hybrid leaf under **Peripherals → Keyboard**:
 
-1. Friendly catalog in `shell/shared/Keybinds.qml`
+1. Friendly catalog in `shell/shared/session/Keybinds.qml`
 2. Overrides in `~/.config/proteus/keybinds.json`
 3. Generated `~/.config/hypr/proteus-keybinds.conf` sourced by Hyprland
 4. UI: search, categories, record chord, conflict detection, restore defaults

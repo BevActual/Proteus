@@ -20,7 +20,8 @@ full PLAYBOOK or queue here. Override sibling paths with `MOBIUS_ROOT` /
 | Hyprland + Quickshell | [docs/proteus/COMPOSITOR.md](docs/proteus/COMPOSITOR.md) |
 | Languages / stack | [docs/proteus/STACK.md](docs/proteus/STACK.md) |
 | Settings IA | [docs/proteus/SETTINGS-IA.md](docs/proteus/SETTINGS-IA.md) |
-| Chrome / design lock | [docs/proteus/CHROME.md](docs/proteus/CHROME.md) · [`Theme.qml`](shell/shared/Theme.qml) |
+| Chrome / design lock | [docs/proteus/CHROME.md](docs/proteus/CHROME.md) · [`Theme.qml`](shell/shared/chrome/Theme.qml) |
+| System facts / schema | [docs/proteus/FACTS.md](docs/proteus/FACTS.md) · [CONFIG-SCHEMA.md](docs/proteus/CONFIG-SCHEMA.md) |
 | Honest status | [docs/proteus/CURRENT.md](docs/proteus/CURRENT.md) |
 | Ecosystem seat | [docs/shared/ECOSYSTEM.md](docs/shared/ECOSYSTEM.md) |
 | VM dogfood | [vm/README.md](vm/README.md) |

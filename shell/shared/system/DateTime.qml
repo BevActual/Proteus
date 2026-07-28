@@ -3,6 +3,7 @@ pragma Singleton
 import Quickshell
 import Quickshell.Io
 import QtQuick
+import ".."
 
 // Clock, timezone and locale — thin wrapper over timedatectl / localectl.
 //

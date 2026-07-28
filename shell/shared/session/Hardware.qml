@@ -3,6 +3,7 @@ pragma Singleton
 import Quickshell
 import Quickshell.Io
 import QtQuick
+import ".."
 
 // Wave A hardware probe → capabilities for shell / Settings.
 // Spec: docs/proteus/HARDWARE.md · services/proteus-hw-probe/

@@ -2,6 +2,7 @@ import Quickshell
 import QtQuick
 import QtQuick.Layouts
 import "../shared"
+import "../kit"
 
 // Peripherals category: Keyboard · Mouse (headphones stay under Sound).
 ColumnLayout {
