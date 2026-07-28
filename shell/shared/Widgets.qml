@@ -2,7 +2,6 @@ pragma Singleton
 
 import Quickshell
 import QtQuick
-import ".."
 
 // Lock + desktop applet catalog and CRUD.
 //
@@ -197,7 +196,7 @@ Singleton {
     return desktopWidgetsList.filter(w => !!w.enabled)
   }
 
-  // Forwarders — WidgetsLock / WidgetsDesktop
+  // Forwarders
   function lockWidgetIdNew() { return lockApi.lockWidgetIdNew() }
   function lockWidgetSpanForSize(size) { return lockApi.lockWidgetSpanForSize(size) }
   function normalizeLockWidget(w) { return lockApi.normalizeLockWidget(w) }

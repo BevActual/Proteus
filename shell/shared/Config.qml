@@ -4,7 +4,6 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import QtQuick
-import ".."
 
 Singleton {
   id: root
@@ -88,16 +87,6 @@ Singleton {
   property alias fontSize: adapter.fontSize
   property alias fontSizeSm: adapter.fontSizeSm
 
-  // Runtime wallpaper state lives on Background; aliased for existing call sites.
-  property alias wallpaperFolderEntries: Background.wallpaperFolderEntries
-  property alias wallpaperFolderScanning: Background.wallpaperFolderScanning
-  property alias wallpaperDailyFetching: Background.wallpaperDailyFetching
-  property alias wallpaperDailyError: Background.wallpaperDailyError
-  property alias lockDailyFetching: Background.lockDailyFetching
-  property alias lockDailyError: Background.lockDailyError
-  property alias lockSlideshowPath: Background.lockSlideshowPath
-  property alias lockSlideshowIndex: Background.lockSlideshowIndex
-  // Gate FileView writes until settings.json has been loaded (and daily sources hydrated).
   property bool settingsReady: false
 
   // System fonts discovered via fc-list (falls back to built-in list)
@@ -154,46 +143,6 @@ Singleton {
   readonly property string generalConfPath: Quickshell.env("HOME") + "/.config/hypr/proteus-general.conf"
   readonly property string settingsJsonPath: Quickshell.env("HOME") + "/.config/proteus/settings.json"
 
-
-  // Wallpaper domain — behaviour in Background.qml; thin aliases for call sites.
-  readonly property alias lockBackgroundModes: Background.lockBackgroundModes
-  readonly property alias defaultLockDailyDir: Background.defaultLockDailyDir
-  readonly property alias activeLockWallpaperAlbum: Background.activeLockWallpaperAlbum
-  readonly property alias lockWallpaperFolderResolved: Background.lockWallpaperFolderResolved
-  readonly property alias lockBackdropKind: Background.lockBackdropKind
-  readonly property alias lockEffectiveFillMode: Background.lockEffectiveFillMode
-  readonly property alias lockBackdropVideoPath: Background.lockBackdropVideoPath
-  readonly property alias lockBackdropReactiveId: Background.lockBackdropReactiveId
-  readonly property alias lockBackdropPath: Background.lockBackdropPath
-  readonly property alias lockActiveImagePath: Background.lockActiveImagePath
-  readonly property alias lockBackdropColor: Background.lockBackdropColor
-  readonly property alias lockDimClamped: Background.lockDimClamped
-  readonly property alias lockDailySourceResolved: Background.lockDailySourceResolved
-  readonly property alias lockBackgroundSummary: Background.lockBackgroundSummary
-  readonly property alias wallpaperKinds: Background.wallpaperKinds
-  readonly property alias wallpaperColors: Background.wallpaperColors
-  readonly property alias wallpaperReactives: Background.wallpaperReactives
-  readonly property alias wallpaperDailyProviders: Background.wallpaperDailyProviders
-  readonly property alias wallpaperDailyAuthModes: Background.wallpaperDailyAuthModes
-  readonly property alias defaultWallpaperFolder: Background.defaultWallpaperFolder
-  readonly property alias defaultDailyWallpaperDir: Background.defaultDailyWallpaperDir
-  readonly property alias wallpaperAlbumsList: Background.wallpaperAlbumsList
-  readonly property alias activeWallpaperAlbum: Background.activeWallpaperAlbum
-  readonly property alias wallpaperFolderResolved: Background.wallpaperFolderResolved
-  readonly property alias activeAlbumLabel: Background.activeAlbumLabel
-  readonly property alias wallpaperDir: Background.wallpaperDir
-  readonly property alias wallpaperDailySourcesList: Background.wallpaperDailySourcesList
-  readonly property alias activeDailySource: Background.activeDailySource
-  readonly property alias activeDailySourceLabel: Background.activeDailySourceLabel
-  readonly property alias dailyWallpaperProviderLabel: Background.dailyWallpaperProviderLabel
-  readonly property alias assetsDir: Background.assetsDir
-  readonly property alias wallpapers: Background.wallpapers
-  readonly property alias wallpaperPath: Background.wallpaperPath
-  readonly property alias wallpaperBasename: Background.wallpaperBasename
-  readonly property alias wallpaperVideoBasename: Background.wallpaperVideoBasename
-  readonly property alias wallpaperReactiveLabel: Background.wallpaperReactiveLabel
-  readonly property alias wallpaperKindLabel: Background.wallpaperKindLabel
-  readonly property alias wallpaperSummary: Background.wallpaperSummary
 
   readonly property var accents: [
     {

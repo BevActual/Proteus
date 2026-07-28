@@ -10,7 +10,7 @@ related:
   - CURRENT.md
   - ARCHITECTURE.md
   - ../shared/ECOSYSTEM.md
-  - ../../shell/shared/chrome/Theme.qml
+  - ../../shell/shared/Theme.qml
 status_legend:
   shipped: Live in Theme.qml / Settings panes today
   planned: Named for sibling binding; not exported yet
@@ -22,7 +22,7 @@ status_legend:
 sibling apps should match for *frames* (lists, sheets, bars, chrome). Product
 *canvases* (e.g. Rowena writing modes) stay free — **chrome ≠ canvas**.
 
-**Live binding:** [`shell/shared/chrome/Theme.qml`](../../shell/shared/chrome/Theme.qml)  
+**Live binding:** [`shell/shared/Theme.qml`](../../shell/shared/Theme.qml)  
 **IA / UX locks:** [SETTINGS-IA.md](./SETTINGS-IA.md) §8  
 **Out this door:** Theme value churn, Rowena CSS retarget, shared token JSON
 export, new Settings panes ([Mobius #1025](../../../Mobius/docs/ISSUES.md)).

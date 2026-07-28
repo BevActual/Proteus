@@ -354,7 +354,7 @@ ColumnLayout {
     SettingsGroup {
       title: "Kind"
       Repeater {
-        model: Config.wallpaperKinds
+        model: Background.wallpaperKinds
         SettingsFormRow {
           required property var modelData
           required property int index
@@ -371,7 +371,7 @@ ColumnLayout {
             return "Built-in animated backgrounds"
           }
           interactive: true
-          showSeparator: index < Config.wallpaperKinds.length - 1
+          showSeparator: index < Background.wallpaperKinds.length - 1
           onActivated: {
             root.browseKind = modelData.id
             if (modelData.id === "image")
@@ -414,7 +414,7 @@ ColumnLayout {
           if (root.browseKind === "daily" && Config.wallpaperDailyPath.length)
             return "file://" + Config.wallpaperDailyPath
           if (root.browseKind === "image")
-            return "file://" + Config.wallpaperPath
+            return "file://" + Background.wallpaperPath
           return ""
         }
         fillMode: root.wallpaperFillMode
@@ -446,7 +446,7 @@ ColumnLayout {
             anchors.horizontalCenter: parent.horizontalCenter
           }
           Text {
-            text: Config.wallpaperVideoBasename.length ? Config.wallpaperVideoBasename : "No file chosen"
+            text: Background.wallpaperVideoBasename.length ? Background.wallpaperVideoBasename : "No file chosen"
             color: Theme.textDim
             font.family: Theme.fontFamily
             font.pixelSize: 11
@@ -474,7 +474,7 @@ ColumnLayout {
         }
         Text {
           anchors.centerIn: parent
-          text: Config.wallpaperReactiveLabel
+          text: Background.wallpaperReactiveLabel
           color: Theme.text
           font.family: Theme.fontFamily
           font.pixelSize: Theme.fontSize
@@ -501,7 +501,7 @@ ColumnLayout {
             anchors.margins: Theme.spaceMd
             spacing: Theme.spaceSm
             Repeater {
-              model: Config.wallpaperColors
+              model: Background.wallpaperColors
               Column {
                 required property var modelData
                 spacing: 4
@@ -593,13 +593,13 @@ ColumnLayout {
       Connections {
         target: Config
         function onWallpaperDailySourceIdChanged() {
-          const src = Config.activeDailySource
+          const src = Background.activeDailySource
           dailyNameInput.text = src ? (src.label || "") : ""
           dailyUrlInput.text = src ? (src.url || "") : ""
           dailyKeyInput.text = src ? (src.apiKey || "") : ""
         }
         function onWallpaperDailySourcesChanged() {
-          const src = Config.activeDailySource
+          const src = Background.activeDailySource
           if (!dailyNameInput.activeFocus)
             dailyNameInput.text = src ? (src.label || "") : ""
           if (!dailyUrlInput.activeFocus)
@@ -629,11 +629,11 @@ ColumnLayout {
           label: "Add custom feed…"
           hint: "Your URL · optional API key / auth"
           interactive: true
-          showSeparator: Config.wallpaperDailySourcesList.length > 0
+          showSeparator: Background.wallpaperDailySourcesList.length > 0
           onActivated: Config.addDailySource("custom")
         }
         Repeater {
-          model: Config.wallpaperDailySourcesList
+          model: Background.wallpaperDailySourcesList
           SettingsFormRow {
             required property var modelData
             required property int index
@@ -647,14 +647,14 @@ ColumnLayout {
               return "Custom · " + (modelData.url || "no URL")
             }
             interactive: true
-            showSeparator: index < Config.wallpaperDailySourcesList.length - 1
+            showSeparator: index < Background.wallpaperDailySourcesList.length - 1
             onActivated: Config.setDailySource(modelData.id, true)
             Row {
               spacing: 8
               Text {
                 anchors.verticalCenter: parent.verticalCenter
                 visible: Config.wallpaperDailySourceId === modelData.id
-                    || (Config.activeDailySource && String(Config.activeDailySource.id) === String(modelData.id))
+                    || (Background.activeDailySource && String(Background.activeDailySource.id) === String(modelData.id))
                     || (!String(Config.wallpaperDailySourceId || "").length && index === 0)
                 text: "✓"
                 color: Theme.accent
@@ -662,7 +662,7 @@ ColumnLayout {
               }
               Text {
                 anchors.verticalCenter: parent.verticalCenter
-                visible: Config.wallpaperDailySourcesList.length > 1
+                visible: Background.wallpaperDailySourcesList.length > 1
                 text: "Remove"
                 color: Theme.danger
                 font.family: Theme.fontFamily
@@ -681,7 +681,7 @@ ColumnLayout {
 
       SettingsGroup {
         title: "Configure"
-        visible: Config.activeDailySource !== null
+        visible: Background.activeDailySource !== null
         SettingsFormRow {
           label: "Name"
           hint: "Shown in the sources list"
@@ -708,10 +708,10 @@ ColumnLayout {
               font.pixelSize: 12
               verticalAlignment: TextInput.AlignVCenter
               clip: true
-              Component.onCompleted: text = Config.activeDailySource ? (Config.activeDailySource.label || "") : ""
+              Component.onCompleted: text = Background.activeDailySource ? (Background.activeDailySource.label || "") : ""
               onEditingFinished: {
-                if (Config.activeDailySource)
-                  Config.renameDailySource(Config.activeDailySource.id, text)
+                if (Background.activeDailySource)
+                  Config.renameDailySource(Background.activeDailySource.id, text)
               }
             }
           }
@@ -722,10 +722,10 @@ ColumnLayout {
           Layout.rightMargin: Theme.spaceMd
           Layout.topMargin: Theme.spaceSm
           text: {
-            const p = Config.activeDailySource ? String(Config.activeDailySource.provider || "") : ""
-            for (let i = 0; i < Config.wallpaperDailyProviders.length; i++) {
-              if (Config.wallpaperDailyProviders[i].id === p)
-                return Config.wallpaperDailyProviders[i].hint
+            const p = Background.activeDailySource ? String(Background.activeDailySource.provider || "") : ""
+            for (let i = 0; i < Background.wallpaperDailyProviders.length; i++) {
+              if (Background.wallpaperDailyProviders[i].id === p)
+                return Background.wallpaperDailyProviders[i].hint
             }
             return "Feed type"
           }
@@ -743,20 +743,20 @@ ColumnLayout {
             anchors.verticalCenter: parent.verticalCenter
             anchors.leftMargin: Theme.spaceMd
             anchors.rightMargin: Theme.spaceMd
-            options: Config.wallpaperDailyProviders
-            selected: Config.activeDailySource ? String(Config.activeDailySource.provider || "bing") : "bing"
+            options: Background.wallpaperDailyProviders
+            selected: Background.activeDailySource ? String(Background.activeDailySource.provider || "bing") : "bing"
             onActivated: id => Config.setWallpaperDailyProvider(id)
           }
         }
         SettingsFormRow {
-          visible: Config.activeDailySource && Config.activeDailySource.provider === "bing"
+          visible: Background.activeDailySource && Background.activeDailySource.provider === "bing"
           label: "Market"
           hint: "Bing locale, e.g. en-US · en-GB"
           showSeparator: true
           TextInput {
             Layout.preferredWidth: 88
             Layout.preferredHeight: 28
-            text: Config.activeDailySource ? (Config.activeDailySource.market || "en-US") : "en-US"
+            text: Background.activeDailySource ? (Background.activeDailySource.market || "en-US") : "en-US"
             color: Theme.text
             font.family: Theme.fontFamily
             font.pixelSize: 12
@@ -766,17 +766,17 @@ ColumnLayout {
           }
         }
         SettingsFormRow {
-          visible: Config.activeDailySource
-              && (Config.activeDailySource.provider === "custom" || Config.activeDailySource.provider === "unsplash")
+          visible: Background.activeDailySource
+              && (Background.activeDailySource.provider === "custom" || Background.activeDailySource.provider === "unsplash")
           label: "Feed URL"
-          hint: Config.activeDailySource && Config.activeDailySource.provider === "unsplash"
+          hint: Background.activeDailySource && Background.activeDailySource.provider === "unsplash"
               ? "Optional override · {api_key} allowed"
               : "Image URL or JSON feed · {api_key} ok"
           showSeparator: true
         }
         Item {
-          visible: Config.activeDailySource
-              && (Config.activeDailySource.provider === "custom" || Config.activeDailySource.provider === "unsplash")
+          visible: Background.activeDailySource
+              && (Background.activeDailySource.provider === "custom" || Background.activeDailySource.provider === "unsplash")
           Layout.fillWidth: true
           Layout.preferredHeight: 36
           Rectangle {
@@ -797,19 +797,19 @@ ColumnLayout {
               font.pixelSize: 12
               verticalAlignment: TextInput.AlignVCenter
               clip: true
-              Component.onCompleted: text = Config.activeDailySource ? (Config.activeDailySource.url || "") : ""
+              Component.onCompleted: text = Background.activeDailySource ? (Background.activeDailySource.url || "") : ""
               onEditingFinished: Config.setWallpaperDailyUrl(text)
             }
           }
         }
         SettingsFormRow {
-          visible: Config.activeDailySource && Config.activeDailySource.provider === "custom"
+          visible: Background.activeDailySource && Background.activeDailySource.provider === "custom"
           label: "Auth"
           hint: "How the API key is sent"
           showSeparator: true
         }
         Item {
-          visible: Config.activeDailySource && Config.activeDailySource.provider === "custom"
+          visible: Background.activeDailySource && Background.activeDailySource.provider === "custom"
           Layout.fillWidth: true
           Layout.preferredHeight: 40
           SettingsSegmented {
@@ -818,21 +818,21 @@ ColumnLayout {
             anchors.verticalCenter: parent.verticalCenter
             anchors.leftMargin: Theme.spaceMd
             anchors.rightMargin: Theme.spaceMd
-            options: Config.wallpaperDailyAuthModes
-            selected: Config.activeDailySource ? String(Config.activeDailySource.auth || "none") : "none"
+            options: Background.wallpaperDailyAuthModes
+            selected: Background.activeDailySource ? String(Background.activeDailySource.auth || "none") : "none"
             onActivated: id => Config.setWallpaperDailyAuth(id)
           }
         }
         SettingsFormRow {
-          visible: Config.activeDailySource && Config.activeDailySource.provider !== "bing"
+          visible: Background.activeDailySource && Background.activeDailySource.provider !== "bing"
           label: "API key"
-          hint: Config.activeDailySource && Config.activeDailySource.provider === "unsplash"
+          hint: Background.activeDailySource && Background.activeDailySource.provider === "unsplash"
               ? "Unsplash Access Key (required)"
               : "Optional for Custom"
           showSeparator: true
         }
         Item {
-          visible: Config.activeDailySource && Config.activeDailySource.provider !== "bing"
+          visible: Background.activeDailySource && Background.activeDailySource.provider !== "bing"
           Layout.fillWidth: true
           Layout.preferredHeight: 36
           Rectangle {
@@ -854,7 +854,7 @@ ColumnLayout {
               echoMode: TextInput.Password
               verticalAlignment: TextInput.AlignVCenter
               clip: true
-              Component.onCompleted: text = Config.activeDailySource ? (Config.activeDailySource.apiKey || "") : ""
+              Component.onCompleted: text = Background.activeDailySource ? (Background.activeDailySource.apiKey || "") : ""
               onEditingFinished: Config.setWallpaperDailyApiKey(text)
             }
           }
@@ -878,26 +878,26 @@ ColumnLayout {
           }
         }
         SettingsFormRow {
-          label: Config.wallpaperDailyFetching ? "Fetching…" : "Apply / fetch now"
-          hint: Config.wallpaperDailyError.length
-              ? Config.wallpaperDailyError
+          label: Background.wallpaperDailyFetching ? "Fetching…" : "Apply / fetch now"
+          hint: Background.wallpaperDailyError.length
+              ? Background.wallpaperDailyError
               : (Config.wallpaperKind === "daily"
-                  ? ("Using " + Config.activeDailySourceLabel
+                  ? ("Using " + Background.activeDailySourceLabel
                       + (Config.wallpaperDailyFetchedAt.length
                           ? (" · last " + Config.wallpaperDailyFetchedAt)
                           : ""))
-                  : ("Fetch “" + Config.activeDailySourceLabel + "” and set desktop"))
-          interactive: !Config.wallpaperDailyFetching
+                  : ("Fetch “" + Background.activeDailySourceLabel + "” and set desktop"))
+          interactive: !Background.wallpaperDailyFetching
           showSeparator: Config.wallpaperDailyCopyright.length > 0 || Config.wallpaperDailyTitle.length > 0
           onActivated: Config.setWallpaperDaily()
           Text {
-            visible: Config.wallpaperKind === "daily" && !Config.wallpaperDailyFetching
+            visible: Config.wallpaperKind === "daily" && !Background.wallpaperDailyFetching
             text: "✓"
             color: Theme.accent
             font.pixelSize: 14
           }
           Text {
-            visible: Config.wallpaperDailyFetching
+            visible: Background.wallpaperDailyFetching
             text: "…"
             color: Theme.textMute
             font.pixelSize: 12
@@ -931,7 +931,7 @@ ColumnLayout {
             anchors.margins: Theme.spaceMd
             spacing: Theme.spaceSm
             Repeater {
-              model: Config.wallpapers
+              model: Background.wallpapers
               Rectangle {
                 required property var modelData
                 width: 112
@@ -976,7 +976,7 @@ ColumnLayout {
           label: "Add album…"
           hint: "A folder of images (slideshow collection)"
           interactive: true
-          showSeparator: Config.wallpaperAlbumsList.length > 0
+          showSeparator: Background.wallpaperAlbumsList.length > 0
           onActivated: folderDialog.open()
           Text {
             text: "›"
@@ -985,14 +985,14 @@ ColumnLayout {
           }
         }
         Repeater {
-          model: Config.wallpaperAlbumsList
+          model: Background.wallpaperAlbumsList
           SettingsFormRow {
             required property var modelData
             required property int index
             label: modelData.label || "Album"
             hint: modelData.path
             interactive: true
-            showSeparator: index < Config.wallpaperAlbumsList.length - 1
+            showSeparator: index < Background.wallpaperAlbumsList.length - 1
             onActivated: Config.setWallpaperAlbum(modelData.id)
             Row {
               spacing: 8
@@ -1006,7 +1006,7 @@ ColumnLayout {
               }
               Text {
                 anchors.verticalCenter: parent.verticalCenter
-                visible: Config.wallpaperAlbumsList.length > 1
+                visible: Background.wallpaperAlbumsList.length > 1
                 text: "Remove"
                 color: Theme.danger
                 font.family: Theme.fontFamily
@@ -1026,24 +1026,24 @@ ColumnLayout {
       SettingsGroup {
         title: "Album images"
         SettingsFormRow {
-          label: Config.activeAlbumLabel
-          hint: Config.wallpaperFolderResolved
-          showSeparator: Config.wallpaperFolderEntries.length > 0 || Config.wallpaperFolderScanning
+          label: Background.activeAlbumLabel
+          hint: Background.wallpaperFolderResolved
+          showSeparator: Background.wallpaperFolderEntries.length > 0 || Background.wallpaperFolderScanning
           Text {
-            visible: Config.wallpaperFolderScanning
+            visible: Background.wallpaperFolderScanning
             text: "…"
             color: Theme.textMute
             font.pixelSize: 12
           }
         }
         Item {
-          visible: Config.wallpaperFolderEntries.length > 0 || (!Config.wallpaperFolderScanning && Config.wallpaperFolderResolved.length > 0)
+          visible: Background.wallpaperFolderEntries.length > 0 || (!Background.wallpaperFolderScanning && Background.wallpaperFolderResolved.length > 0)
           Layout.fillWidth: true
-          Layout.preferredHeight: Config.wallpaperFolderEntries.length > 0
+          Layout.preferredHeight: Background.wallpaperFolderEntries.length > 0
               ? folderFlow.implicitHeight + Theme.spaceMd * 2
               : 48
           Text {
-            visible: Config.wallpaperFolderEntries.length === 0 && !Config.wallpaperFolderScanning
+            visible: Background.wallpaperFolderEntries.length === 0 && !Background.wallpaperFolderScanning
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
@@ -1056,14 +1056,14 @@ ColumnLayout {
           }
           Flow {
             id: folderFlow
-            visible: Config.wallpaperFolderEntries.length > 0
+            visible: Background.wallpaperFolderEntries.length > 0
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.margins: Theme.spaceMd
             spacing: Theme.spaceSm
             Repeater {
-              model: Config.wallpaperFolderEntries
+              model: Background.wallpaperFolderEntries
               Rectangle {
                 required property var modelData
                 width: 112
@@ -1106,7 +1106,7 @@ ColumnLayout {
         SettingsFormRow {
           label: "Slideshow"
           hint: Config.wallpaperSlideshow
-              ? (Config.activeAlbumLabel + " · " + Config.wallpaperSlideshowSecs + "s")
+              ? (Background.activeAlbumLabel + " · " + Config.wallpaperSlideshowSecs + "s")
               : "Off"
           showSeparator: Config.wallpaperSlideshow
           Switch {
@@ -1117,7 +1117,7 @@ ColumnLayout {
         SettingsFormRow {
           visible: Config.wallpaperSlideshow
           label: "Uses active album"
-          hint: Config.activeAlbumLabel
+          hint: Background.activeAlbumLabel
           showSeparator: true
         }
         SettingsFormRow {
@@ -1136,14 +1136,14 @@ ColumnLayout {
         SettingsFormRow {
           visible: Config.wallpaperSlideshow
           label: "Shuffle"
-          showSeparator: Config.wallpaperSlideshow && Config.wallpaperFolderEntries.length < 2
+          showSeparator: Config.wallpaperSlideshow && Background.wallpaperFolderEntries.length < 2
           Switch {
             checked: Config.wallpaperShuffle
             onToggled: Config.setWallpaperShuffle(checked)
           }
         }
         SettingsFormRow {
-          visible: Config.wallpaperSlideshow && Config.wallpaperFolderEntries.length < 2
+          visible: Config.wallpaperSlideshow && Background.wallpaperFolderEntries.length < 2
           label: "Needs two or more images in the album"
           showSeparator: false
         }
@@ -1165,7 +1165,7 @@ ColumnLayout {
         SettingsFormRow {
           visible: Config.wallpaperId === "custom"
           label: "Clear custom"
-          hint: Config.wallpaperBasename
+          hint: Background.wallpaperBasename
           interactive: true
           showSeparator: false
           onActivated: Config.clearCustomWallpaper()
@@ -1239,7 +1239,7 @@ ColumnLayout {
         }
         SettingsFormRow {
           label: "Choose video"
-          hint: Config.wallpaperVideoBasename.length ? Config.wallpaperVideoBasename : "No video selected"
+          hint: Background.wallpaperVideoBasename.length ? Background.wallpaperVideoBasename : "No video selected"
           interactive: true
           showSeparator: Config.wallpaperVideoPath.length > 0
           onActivated: videoFileDialog.open()
@@ -1268,14 +1268,14 @@ ColumnLayout {
       SettingsGroup {
         title: "Style"
         Repeater {
-          model: Config.wallpaperReactives
+          model: Background.wallpaperReactives
           SettingsFormRow {
             required property var modelData
             required property int index
             label: modelData.label
             hint: modelData.hint
             interactive: true
-            showSeparator: index < Config.wallpaperReactives.length - 1
+            showSeparator: index < Background.wallpaperReactives.length - 1
             onActivated: Config.setWallpaperReactive(modelData.id)
             Text {
               visible: Config.wallpaperReactiveId === modelData.id

@@ -62,7 +62,7 @@ Rectangle {
           spacing: 4
 
           Repeater {
-            model: Config.lockBackgroundModes
+            model: Background.lockBackgroundModes
             Rectangle {
               required property var modelData
               Layout.fillWidth: true

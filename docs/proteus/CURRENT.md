@@ -72,7 +72,7 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 | Env gate (launcher / Settings / dock) | `shipped` — `EnvGate.qml` |
 | Theme tokens | `shipped` — space/radius scale + accent/font from Config; company lock [CHROME.md](./CHROME.md) |
 | Chrome design lock (`CHROME.md`) | `shipped` — principles + token tables + Settings patterns; sibling CSS map `planned` |
-| Shared package layout (`qmldir` domains) | `shipped` — chrome/config/background/widgets/system/session; Settings `kit/` |
+| Shared package layout (flat + helpers) | `shipped` — Config/Background ownership split; Settings `kit/`; guest dogfood OK |
 
 ---
 
@@ -96,7 +96,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Host / VM·container setup | **out of Settings** — separate app later |
 
 Modular panes: `apps/proteus-settings/panes/*` · form kit: `kit/*` (shell stays in `Settings.qml`).
-Shared spine: domain folders under `shell/shared/` behind `qmldir` — [FACTS.md](./FACTS.md).
+Shared spine: flat `shell/shared/` + named helpers — [FACTS.md](./FACTS.md).
 North-star IA: [SETTINGS-IA.md](./SETTINGS-IA.md).
 
 ---
@@ -159,7 +159,7 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 | Adaptive apps / environment contract | [APPLICATIONS.md](./APPLICATIONS.md) | `planned` — launcher is DesktopEntries only |
 | Hardware module catalog | [HARDWARE.md](./HARDWARE.md) | Wave A probe + `Hardware.qml` session load |
 | Capability / posture resolver | [POSTURES.md](./POSTURES.md) | Probe → caps in shell; posture still stub |
-| Chrome language (company reference) | [CHROME.md](./CHROME.md) | `chrome/Theme.qml` + Settings `kit/` patterns `shipped`; sibling CSS map `planned` |
+| Chrome language (company reference) | [CHROME.md](./CHROME.md) | `Theme.qml` + Settings `kit/` patterns `shipped`; sibling CSS map `planned` |
 | Facts / Config schema | [FACTS.md](./FACTS.md) · [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md) | Layout + docs `shipped` |
 
 ---

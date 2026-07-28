@@ -86,18 +86,19 @@ Mobius gates; implementation later).
 
 | Module (today / intended) | Role |
 |---------------------------|------|
-| `chrome/Theme.qml` | Chrome tokens (space/radius + accent/font from Config) |
-| `config/Config.qml` | `settings.json` FileView façade; wallpaper/widget array persistence |
-| `config/ConfigHypr.qml` | Hypr general.conf + chrome apply helpers (owned by Config) |
-| `background/Background.qml` | Wallpaper + lock backdrop façade (+ Catalog / Daily / Apply) |
-| `widgets/Widgets.qml` | Lock/desktop applet catalog + CRUD (+ Lock / Desktop helpers) |
+| `Theme.qml` | Chrome tokens (space/radius + accent/font from Config) |
+| `Config.qml` | Sole `settings.json` FileView + adapter keys (no aliases to Background) |
+| `ConfigHypr.qml` | Hypr general.conf + chrome apply helpers (child of Config) |
+| `Background.qml` | Wallpaper + lock backdrop façade; reads/writes `Config.*` fields |
+| `BackgroundCatalog/Daily/Apply.qml` | Catalog tables · daily fetch · apply backends |
+| `Widgets.qml` | Lock/desktop applet catalog + CRUD (+ `WidgetsLock` / `WidgetsDesktop`) |
 | `Displays.qml` | Monitors list / apply → `proteus-monitors.conf` |
-| `Audio.qml` · `Power.qml` · `DateTime.qml` · `Weather.qml` | Behavior singletons (prefs still in Config where persisted) |
+| `Audio.qml` · `Power.qml` · `DateTime.qml` · `Weather.qml` | Behavior singletons (prefs in Config where persisted) |
 | `Hardware.qml` | Wave A probe at session start → capabilities / device class |
 | `Keybinds.qml` | Catalog + overrides → `proteus-keybinds.conf` |
 | `ShellState.qml` | Launcher / open Settings / hardware mirrors |
 | `Posture` *(intended)* | Resolver: capabilities + role → posture template |
-| `Capabilities` *(intended)* | Device-environment flags (`display`, `vitals`, `mic`, …) — **probe feeds this today via Hardware** |
+| `Capabilities` *(intended)* | Device-environment flags — **probe feeds this today via Hardware** |
 
 One **Config schema** for all postures. Postures change job template; **device
 environments** (capability kits) change which chrome/engines/panes exist —
@@ -117,7 +118,7 @@ Proteus/
     shared/           # ecosystem seat among Bevington apps
   shell/              # Quickshell only
     shell.qml         # picks posture/surface loader
-    shared/           # qmldir package — chrome/ config/ background/ widgets/ system/ session/
+    shared/           # flat pragma-Singleton package + named helpers (see FACTS.md)
     surfaces/         # DesktopShell, PhoneShell, … (host later)
   apps/
     proteus-settings/ # Settings.qml + kit/ + panes/*; shared/ → ../../shell/shared
@@ -127,8 +128,9 @@ Proteus/
   scripts/            # run-nested, run-desktop, smoke
 ```
 
-Public QML import path is unchanged: `import "../../shared"` / Settings
-`shared` symlink — singletons registered in [`shell/shared/qmldir`](../../shell/shared/qmldir).
+Public QML import path: `import "../../shared"` / Settings `shared` symlink.
+**Keep singletons + their helpers in one directory** (Quickshell load-order);
+do not put façades in domain subdirs behind `qmldir` without a proven cold start.
 On-disk facts: [FACTS.md](./FACTS.md) · key groups: [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md).
 
 `services/proteus-pkg` — privileged pacman mutator (pkexec + polkit) for Settings Software.

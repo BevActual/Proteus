@@ -4,7 +4,6 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Services.UPower
 import QtQuick
-import ".."
 
 // Battery state (UPower) plus the logind idle / lid policy.
 //

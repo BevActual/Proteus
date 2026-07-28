@@ -251,7 +251,7 @@ the resolver maps modules → capabilities.
 | `services/proteus-hw-probe/proteus_hw_probe.py` | Probe logic |
 | `services/proteus-hw-probe/proteus-hw-probe` | CLI wrapper |
 | `scripts/hw-probe-smoke.sh` | JSON shape gate |
-| `shell/shared/session/Hardware.qml` | Session-start probe + read cache; `Hardware.has("wifi")` |
+| `shell/shared/Hardware.qml` | Session-start probe + read cache; `Hardware.has("wifi")` |
 | `ShellState` | Mirrors class / caps; `refreshHardware()` |
 | Probe `--cache` | Writes `~/.config/proteus/hw-probe.json` (no QML hex encode) |
 

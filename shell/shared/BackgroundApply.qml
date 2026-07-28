@@ -1,7 +1,6 @@
 import Quickshell
 import Quickshell.Io
 import QtQuick
-import ".."
 
 // Folder scan + applyBackground backends. host = Background singleton.
 Item {
@@ -73,7 +72,7 @@ Item {
   }
 
   function applyWallpaper() {
-    applyBackground()
+    host.applyBackground()
   }
   Process {
     id: wallpaperScanProc

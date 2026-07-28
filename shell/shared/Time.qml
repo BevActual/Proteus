@@ -2,7 +2,6 @@ pragma Singleton
 
 import Quickshell
 import QtQuick
-import ".."
 
 Singleton {
   // Menu-bar clock — weekday + 12h time (macOS-adjacent, not 24h military)

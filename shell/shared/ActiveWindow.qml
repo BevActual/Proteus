@@ -3,7 +3,6 @@ pragma Singleton
 import Quickshell
 import Quickshell.Hyprland
 import QtQuick
-import ".."
 
 Singleton {
   readonly property string text: {

@@ -63,7 +63,7 @@ Item {
   }
 
   readonly property int wallpaperFillMode: {
-    switch (Config.lockEffectiveFillMode) {
+    switch (Background.lockEffectiveFillMode) {
     case "fit":
       return Image.PreserveAspectFit
     case "stretch":
@@ -152,10 +152,10 @@ Item {
     color: "#000000"
 
     Image {
-      visible: Config.lockBackdropKind === "image" && Config.lockActiveImagePath.length
+      visible: Background.lockBackdropKind === "image" && Background.lockActiveImagePath.length
       anchors.fill: parent
-      source: Config.lockActiveImagePath.length
-          ? ("file://" + Config.lockActiveImagePath + "#" + Config.lockWallpaperId + "," + Config.lockSlideshowPath)
+      source: Background.lockActiveImagePath.length
+          ? ("file://" + Background.lockActiveImagePath + "#" + Config.lockWallpaperId + "," + Background.lockSlideshowPath)
           : ""
       fillMode: root.wallpaperFillMode
       asynchronous: true
@@ -163,14 +163,14 @@ Item {
     }
 
     Rectangle {
-      visible: Config.lockBackdropKind === "color"
+      visible: Background.lockBackdropKind === "color"
       anchors.fill: parent
-      color: Config.lockBackdropColor
+      color: Background.lockBackdropColor
     }
 
     Item {
       anchors.fill: parent
-      visible: Config.lockBackdropKind === "video"
+      visible: Background.lockBackdropKind === "video"
       Rectangle {
         anchors.fill: parent
         color: "#0a0e14"
@@ -179,7 +179,7 @@ Item {
         id: videoOut
         anchors.fill: parent
         fillMode: VideoOutput.PreserveAspectCrop
-        visible: Config.lockBackdropVideoPath.length > 0
+        visible: Background.lockBackdropVideoPath.length > 0
       }
       MediaPlayer {
         id: lockVideo
@@ -187,12 +187,12 @@ Item {
         audioOutput: AudioOutput {
           muted: true
         }
-        source: (Config.lockBackdropKind === "video" && Config.lockBackdropVideoPath.length)
-            ? ("file://" + Config.lockBackdropVideoPath)
+        source: (Background.lockBackdropKind === "video" && Background.lockBackdropVideoPath.length)
+            ? ("file://" + Background.lockBackdropVideoPath)
             : ""
         loops: MediaPlayer.Infinite
         onSourceChanged: {
-          if (Config.lockBackdropKind === "video" && source.toString().length && ShellState.sessionLocked)
+          if (Background.lockBackdropKind === "video" && source.toString().length && ShellState.sessionLocked)
             play()
           else
             stop()
@@ -201,7 +201,7 @@ Item {
       Connections {
         target: ShellState
         function onSessionLockedChanged() {
-          if (ShellState.sessionLocked && Config.lockBackdropKind === "video" && lockVideo.source.toString().length)
+          if (ShellState.sessionLocked && Background.lockBackdropKind === "video" && lockVideo.source.toString().length)
             lockVideo.play()
           else
             lockVideo.stop()
@@ -212,12 +212,12 @@ Item {
     Loader {
       id: reactiveLoader
       anchors.fill: parent
-      active: Config.lockBackdropKind === "reactive"
+      active: Background.lockBackdropKind === "reactive"
       source: Qt.resolvedUrl("../../wallpaper/ReactiveBg.qml")
       onLoaded: {
         if (!item)
           return
-        item.effectId = Config.lockBackdropReactiveId
+        item.effectId = Background.lockBackdropReactiveId
         item.customAccent = true
         item.accentColor = Theme.accent
       }
@@ -227,14 +227,14 @@ Item {
       Binding {
         target: reactiveLoader.item
         property: "effectId"
-        value: Config.lockBackdropReactiveId
+        value: Background.lockBackdropReactiveId
         when: !!reactiveLoader.item
       }
     }
 
     Rectangle {
       anchors.fill: parent
-      color: Qt.rgba(0, 0, 0, root.customizeMode ? Math.min(0.72, Config.lockDimClamped + 0.25) : Config.lockDimClamped * 0.55)
+      color: Qt.rgba(0, 0, 0, root.customizeMode ? Math.min(0.72, Background.lockDimClamped + 0.25) : Background.lockDimClamped * 0.55)
     }
   }
 

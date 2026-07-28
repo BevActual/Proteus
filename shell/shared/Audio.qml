@@ -3,7 +3,6 @@ pragma Singleton
 import Quickshell
 import Quickshell.Io
 import QtQuick
-import ".."
 
 // Proteus audio control — thin wrapper over pactl / pw-metadata.
 //

@@ -33,11 +33,25 @@ Seed templates for nested/host sessions: [`env/`](../../env/) — see
 [`env/README.md`](../../env/README.md). Guest installers that **place** those
 facts: [`vm/guest/`](../../vm/guest/).
 
+## Ownership (hard)
+
+| Module | Owns | Must not |
+|--------|------|----------|
+| **Config** | One `settings.json` FileView + adapter keys; Hypr/chrome apply via `ConfigHypr` | `property alias` to Background/Widgets |
+| **Background** | Wallpaper/lock backdrop catalogs, derived paths, setters, fetch/apply | Persisting keys (read/write `Config.*` fields) |
+| **Widgets** | Applet catalog + lock/desktop CRUD | Own FileView |
+| **Theme** | Chrome tokens from Config accent/font/mode | System facts |
+
+**Why flat `shell/shared/`:** Quickshell directory imports + `property alias`
+across singletons in *subdirectories* (or via `qmldir`) hit load-order cycles.
+Keep **pragma Singleton** files and their helpers in the **same package
+directory**. Name helpers clearly (`BackgroundDaily.qml`, `ConfigHypr.qml`, …).
+
 ## QML façade vs services
 
 | Kind | Stack | Rule |
 |------|-------|------|
-| Preference / chrome state | QML (`shell/shared/…`) | One Config schema; domain façades mutate via FileView or thin helpers |
+| Preference / chrome state | QML (`shell/shared/…`) | One Config schema; façades mutate via FileView or thin helpers |
 | Read-only discovery | Python OK (`services/proteus-hw-probe`) | JSON out; no privileged write |
 | Privileged mutation | Rust CLI (`services/proteus-pkg`, …) + polkit | Settings proposes → confirm → helper |
 
@@ -46,15 +60,18 @@ second `settings-*.json` per posture.
 
 ## Shared package layout
 
-Public API stays `import "../../shared"` (Settings: `shared` symlink).
+Public API: `import "../../shared"` (Settings: `shared` → `../../shell/shared`).
 
 ```
-shell/shared/qmldir          # registers singletons
-  chrome/Theme.qml
-  config/Config.qml + ConfigHypr.qml
-  background/Background.qml + Catalog/Daily/Apply
-  widgets/Widgets.qml + Lock/Desktop
-  system/…  session/…
+shell/shared/
+  Theme.qml Config.qml ConfigHypr.qml
+  Background.qml BackgroundCatalog.qml BackgroundDaily.qml BackgroundApply.qml
+  Widgets.qml WidgetsLock.qml WidgetsDesktop.qml
+  Audio.qml Power.qml DateTime.qml Weather.qml Displays.qml …
+  ShellState.qml Hardware.qml EnvGate.qml Keybinds.qml LockLayoutZones.qml
+apps/proteus-settings/
+  kit/     # SettingsFormRow · Group · HubList · Segmented
+  panes/   # product panes
 ```
 
 Schema key groups: [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md).

@@ -2,7 +2,6 @@ pragma Singleton
 
 import Quickshell
 import QtQuick
-import ".."
 
 // Gate Settings panes / launcher / dock by Hardware capabilities.
 // Spec: docs/proteus/APPLICATIONS.md · HARDWARE.md

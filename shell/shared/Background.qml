@@ -3,7 +3,6 @@ pragma Singleton
 import Quickshell
 import Quickshell.Io
 import QtQuick
-import ".."
 
 // Desktop + lock wallpaper / daily sources / apply background.
 //
@@ -35,52 +34,11 @@ Singleton {
   readonly property alias wallpaperDailyAuthModes: catalog.wallpaperDailyAuthModes
 
 
-  // Persisted wallpaper / lock backdrop keys — owned by Config FileView.
-  property alias lockBackgroundMode: Config.lockBackgroundMode
-  property alias lockWallpaperId: Config.lockWallpaperId
-  property alias lockWallpaperCustomPath: Config.lockWallpaperCustomPath
-  property alias lockWallpaperColor: Config.lockWallpaperColor
-  property alias lockDailySourceId: Config.lockDailySourceId
-  property alias lockDailyPath: Config.lockDailyPath
-  property alias lockDim: Config.lockDim
-  property alias lockWallpaperVideoPath: Config.lockWallpaperVideoPath
-  property alias lockWallpaperReactiveId: Config.lockWallpaperReactiveId
-  property alias lockWallpaperMode: Config.lockWallpaperMode
-  property alias lockWallpaperAlbumId: Config.lockWallpaperAlbumId
-  property alias lockWallpaperSlideshow: Config.lockWallpaperSlideshow
-  property alias lockWallpaperSlideshowSecs: Config.lockWallpaperSlideshowSecs
-  property alias lockWallpaperShuffle: Config.lockWallpaperShuffle
-  property alias wallpaperKind: Config.wallpaperKind
-  property alias wallpaperColor: Config.wallpaperColor
-  property alias wallpaperId: Config.wallpaperId
-  property alias wallpaperCustomPath: Config.wallpaperCustomPath
-  property alias wallpaperMode: Config.wallpaperMode
-  property alias wallpaperFolder: Config.wallpaperFolder
-  property alias wallpaperAlbumId: Config.wallpaperAlbumId
-  property alias wallpaperAlbums: Config.wallpaperAlbums
-  property alias wallpaperVideoPath: Config.wallpaperVideoPath
-  property alias wallpaperReactiveId: Config.wallpaperReactiveId
-  property alias wallpaperSlideshow: Config.wallpaperSlideshow
-  property alias wallpaperSlideshowSecs: Config.wallpaperSlideshowSecs
-  property alias wallpaperShuffle: Config.wallpaperShuffle
-  property alias wallpaperDailyProvider: Config.wallpaperDailyProvider
-  property alias wallpaperDailyUrl: Config.wallpaperDailyUrl
-  property alias wallpaperDailyApiKey: Config.wallpaperDailyApiKey
-  property alias wallpaperDailyAuth: Config.wallpaperDailyAuth
-  property alias wallpaperDailyMarket: Config.wallpaperDailyMarket
-  property alias wallpaperDailyRefreshHours: Config.wallpaperDailyRefreshHours
-  property alias wallpaperDailyPath: Config.wallpaperDailyPath
-  property alias wallpaperDailyTitle: Config.wallpaperDailyTitle
-  property alias wallpaperDailyCopyright: Config.wallpaperDailyCopyright
-  property alias wallpaperDailyFetchedAt: Config.wallpaperDailyFetchedAt
-  property alias wallpaperDailySources: Config.wallpaperDailySources
-  property alias wallpaperDailySourceId: Config.wallpaperDailySourceId
-
   readonly property string defaultLockDailyDir: defaultWallpaperFolder + "/daily/lock"
 
   readonly property var activeLockWallpaperAlbum: {
     const list = wallpaperAlbumsList
-    const id = String(lockWallpaperAlbumId || "")
+    const id = String(Config.lockWallpaperAlbumId || "")
     for (let i = 0; i < list.length; i++) {
       if (String(list[i].id) === id)
         return list[i]
@@ -97,7 +55,7 @@ Singleton {
 
   // Effective lock backdrop kind (match → desktop; else lock-specific).
   readonly property string lockBackdropKind: {
-    const m = String(lockBackgroundMode || "match")
+    const m = String(Config.lockBackgroundMode || "match")
     if (m === "color")
       return "color"
     if (m === "image" || m === "daily")
@@ -107,7 +65,7 @@ Singleton {
     if (m === "reactive")
       return "reactive"
     // match
-    const k = String(wallpaperKind || "image")
+    const k = String(Config.wallpaperKind || "image")
     if (k === "color")
       return "color"
     if (k === "video")
@@ -122,45 +80,45 @@ Singleton {
   }
 
   readonly property string lockEffectiveFillMode: {
-    const m = String(lockBackgroundMode || "match")
+    const m = String(Config.lockBackgroundMode || "match")
     if (m === "match")
-      return String(wallpaperMode || "fill")
-    return String(lockWallpaperMode || "fill")
+      return String(Config.wallpaperMode || "fill")
+    return String(Config.lockWallpaperMode || "fill")
   }
 
   readonly property string lockBackdropVideoPath: {
-    const m = String(lockBackgroundMode || "match")
+    const m = String(Config.lockBackgroundMode || "match")
     if (m === "video")
-      return String(lockWallpaperVideoPath || "")
-    if (m === "match" && wallpaperKind === "video")
-      return String(wallpaperVideoPath || "")
+      return String(Config.lockWallpaperVideoPath || "")
+    if (m === "match" && Config.wallpaperKind === "video")
+      return String(Config.wallpaperVideoPath || "")
     return ""
   }
 
   readonly property string lockBackdropReactiveId: {
-    const m = String(lockBackgroundMode || "match")
+    const m = String(Config.lockBackgroundMode || "match")
     if (m === "reactive")
-      return String(lockWallpaperReactiveId || "drift")
-    if (m === "match" && wallpaperKind === "reactive")
-      return String(wallpaperReactiveId || "drift")
+      return String(Config.lockWallpaperReactiveId || "drift")
+    if (m === "match" && Config.wallpaperKind === "reactive")
+      return String(Config.wallpaperReactiveId || "drift")
     return "drift"
   }
 
   readonly property string lockBackdropPath: {
     // Still-image path only (built-in / custom / daily). Album slideshow uses lockActiveImagePath.
-    const m = String(lockBackgroundMode || "match")
+    const m = String(Config.lockBackgroundMode || "match")
     if (m === "daily") {
-      if (lockDailyPath && String(lockDailyPath).length)
-        return String(lockDailyPath)
-      if (wallpaperDailyPath && String(wallpaperDailyPath).length)
-        return String(wallpaperDailyPath)
+      if (Config.lockDailyPath && String(Config.lockDailyPath).length)
+        return String(Config.lockDailyPath)
+      if (Config.wallpaperDailyPath && String(Config.wallpaperDailyPath).length)
+        return String(Config.wallpaperDailyPath)
       return wallpapers[0].path
     }
     if (m === "image") {
-      if (lockWallpaperId === "custom" && lockWallpaperCustomPath && String(lockWallpaperCustomPath).length)
-        return String(lockWallpaperCustomPath)
+      if (Config.lockWallpaperId === "custom" && Config.lockWallpaperCustomPath && String(Config.lockWallpaperCustomPath).length)
+        return String(Config.lockWallpaperCustomPath)
       for (let i = 0; i < wallpapers.length; i++) {
-        if (wallpapers[i].id === lockWallpaperId)
+        if (wallpapers[i].id === Config.lockWallpaperId)
           return wallpapers[i].path
       }
       return wallpapers[0].path
@@ -173,31 +131,31 @@ Singleton {
   }
 
   readonly property string lockActiveImagePath: {
-    const m = String(lockBackgroundMode || "match")
+    const m = String(Config.lockBackgroundMode || "match")
     if (m === "match") {
-      if (wallpaperKind === "image" && wallpaperSlideshow && lockSlideshowPath && lockSlideshowPath.length)
+      if (Config.wallpaperKind === "image" && Config.wallpaperSlideshow && lockSlideshowPath && lockSlideshowPath.length)
         return lockSlideshowPath
       // When matching desktop slideshow, prefer desktop path; LockSurface may still advance lock cursor unused.
       return wallpaperPath
     }
-    if (m === "image" && lockWallpaperSlideshow && lockSlideshowPath && lockSlideshowPath.length)
+    if (m === "image" && Config.lockWallpaperSlideshow && lockSlideshowPath && lockSlideshowPath.length)
       return lockSlideshowPath
     return lockBackdropPath
   }
 
   readonly property string lockBackdropColor: {
-    const m = String(lockBackgroundMode || "match")
+    const m = String(Config.lockBackgroundMode || "match")
     if (m === "color") {
-      const h = Config.normalizeAccentHex(lockWallpaperColor)
+      const h = Config.normalizeAccentHex(Config.lockWallpaperColor)
       return h.length ? h : "#0f1419"
     }
-    if (m === "match" && wallpaperKind === "color")
-      return wallpaperColor
+    if (m === "match" && Config.wallpaperKind === "color")
+      return Config.wallpaperColor
     return "#0f1419"
   }
 
   readonly property real lockDimClamped: {
-    const d = Number(lockDim)
+    const d = Number(Config.lockDim)
     if (isNaN(d))
       return 0.35
     return Math.max(0, Math.min(0.75, d))
@@ -205,7 +163,7 @@ Singleton {
 
   readonly property var lockDailySourceResolved: {
     const list = wallpaperDailySourcesList
-    const id = String(lockDailySourceId || "")
+    const id = String(Config.lockDailySourceId || "")
     if (id.length) {
       for (let i = 0; i < list.length; i++) {
         if (String(list[i].id) === id)
@@ -216,21 +174,21 @@ Singleton {
   }
 
   readonly property string lockBackgroundSummary: {
-    const m = String(lockBackgroundMode || "match")
+    const m = String(Config.lockBackgroundMode || "match")
     if (m === "match")
       return "Match desktop · " + wallpaperSummary
     if (m === "color")
       return "Color · " + lockBackdropColor
     if (m === "video") {
-      const p = String(lockWallpaperVideoPath || "")
+      const p = String(Config.lockWallpaperVideoPath || "")
       const i = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"))
       const base = i >= 0 ? p.slice(i + 1) : p
       return "Video · " + (base.length ? base : "none")
     }
     if (m === "reactive") {
-      let label = String(lockWallpaperReactiveId || "drift")
+      let label = String(Config.lockWallpaperReactiveId || "drift")
       for (let i = 0; i < wallpaperReactives.length; i++) {
-        if (wallpaperReactives[i].id === lockWallpaperReactiveId) {
+        if (wallpaperReactives[i].id === Config.lockWallpaperReactiveId) {
           label = wallpaperReactives[i].label
           break
         }
@@ -242,13 +200,13 @@ Singleton {
       const label = src && src.label ? String(src.label) : "Daily"
       return "Daily · " + label
     }
-    if (lockWallpaperSlideshow)
-      return "Image · slideshow · " + lockWallpaperSlideshowSecs + "s"
-    if (lockWallpaperId === "custom")
-      return "Image · custom · " + lockWallpaperMode
+    if (Config.lockWallpaperSlideshow)
+      return "Image · slideshow · " + Config.lockWallpaperSlideshowSecs + "s"
+    if (Config.lockWallpaperId === "custom")
+      return "Image · custom · " + Config.lockWallpaperMode
     for (let i = 0; i < wallpapers.length; i++) {
-      if (wallpapers[i].id === lockWallpaperId)
-        return "Image · " + wallpapers[i].label + " · " + lockWallpaperMode
+      if (wallpapers[i].id === Config.lockWallpaperId)
+        return "Image · " + wallpapers[i].label + " · " + Config.lockWallpaperMode
     }
     return "Image"
   }
@@ -257,7 +215,7 @@ Singleton {
   readonly property string defaultDailyWallpaperDir: defaultWallpaperFolder + "/daily"
 
   readonly property var wallpaperAlbumsList: {
-    const raw = wallpaperAlbums
+    const raw = Config.wallpaperAlbums
     if (Array.isArray(raw) && raw.length)
       return raw
     return []
@@ -265,7 +223,7 @@ Singleton {
 
   readonly property var activeWallpaperAlbum: {
     const list = wallpaperAlbumsList
-    const id = String(wallpaperAlbumId || "")
+    const id = String(Config.wallpaperAlbumId || "")
     for (let i = 0; i < list.length; i++) {
       if (String(list[i].id) === id)
         return list[i]
@@ -279,7 +237,7 @@ Singleton {
     const album = activeWallpaperAlbum
     if (album && album.path && String(album.path).length)
       return String(album.path)
-    const f = (wallpaperFolder && String(wallpaperFolder).length) ? String(wallpaperFolder) : defaultWallpaperFolder
+    const f = (Config.wallpaperFolder && String(Config.wallpaperFolder).length) ? String(Config.wallpaperFolder) : defaultWallpaperFolder
     return f
   }
 
@@ -309,7 +267,7 @@ Singleton {
 
 
   readonly property var wallpaperDailySourcesList: {
-    const raw = wallpaperDailySources
+    const raw = Config.wallpaperDailySources
     if (Array.isArray(raw) && raw.length)
       return raw
     return []
@@ -319,7 +277,7 @@ Singleton {
     const list = wallpaperDailySourcesList
     if (!list.length)
       return null
-    const id = String(wallpaperDailySourceId || "")
+    const id = String(Config.wallpaperDailySourceId || "")
     for (let i = 0; i < list.length; i++) {
       if (String(list[i].id) === id)
         return list[i]
@@ -336,7 +294,7 @@ Singleton {
 
   readonly property string dailyWallpaperProviderLabel: {
     const src = activeDailySource
-    const pid = src && src.provider ? String(src.provider) : String(wallpaperDailyProvider || "bing")
+    const pid = src && src.provider ? String(src.provider) : String(Config.wallpaperDailyProvider || "bing")
     for (let i = 0; i < wallpaperDailyProviders.length; i++) {
       if (wallpaperDailyProviders[i].id === pid)
         return wallpaperDailyProviders[i].label
@@ -385,12 +343,12 @@ Singleton {
   ]
 
   readonly property string wallpaperPath: {
-    if ((wallpaperKind === "daily" || wallpaperId === "daily") && wallpaperDailyPath && wallpaperDailyPath.length)
-      return wallpaperDailyPath
-    if (wallpaperId === "custom" && wallpaperCustomPath && wallpaperCustomPath.length)
-      return wallpaperCustomPath
+    if ((Config.wallpaperKind === "daily" || Config.wallpaperId === "daily") && Config.wallpaperDailyPath && Config.wallpaperDailyPath.length)
+      return Config.wallpaperDailyPath
+    if (Config.wallpaperId === "custom" && Config.wallpaperCustomPath && Config.wallpaperCustomPath.length)
+      return Config.wallpaperCustomPath
     for (let i = 0; i < wallpapers.length; i++) {
-      if (wallpapers[i].id === wallpaperId)
+      if (wallpapers[i].id === Config.wallpaperId)
         return wallpapers[i].path
     }
     return wallpapers[0].path
@@ -403,49 +361,49 @@ Singleton {
   }
 
   readonly property string wallpaperVideoBasename: {
-    const p = wallpaperVideoPath || ""
+    const p = Config.wallpaperVideoPath || ""
     const i = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"))
     return i >= 0 ? p.slice(i + 1) : p
   }
 
   readonly property string wallpaperReactiveLabel: {
     for (let i = 0; i < wallpaperReactives.length; i++) {
-      if (wallpaperReactives[i].id === wallpaperReactiveId)
+      if (wallpaperReactives[i].id === Config.wallpaperReactiveId)
         return wallpaperReactives[i].label
     }
-    return wallpaperReactiveId
+    return Config.wallpaperReactiveId
   }
 
   readonly property string wallpaperKindLabel: {
     for (let i = 0; i < wallpaperKinds.length; i++) {
-      if (wallpaperKinds[i].id === wallpaperKind)
+      if (wallpaperKinds[i].id === Config.wallpaperKind)
         return wallpaperKinds[i].label
     }
-    return wallpaperKind
+    return Config.wallpaperKind
   }
 
   readonly property string wallpaperSummary: {
-    if (wallpaperKind === "color")
-      return "Color · " + wallpaperColor
-    if (wallpaperKind === "video")
+    if (Config.wallpaperKind === "color")
+      return "Color · " + Config.wallpaperColor
+    if (Config.wallpaperKind === "video")
       return "Video · " + (wallpaperVideoBasename.length ? wallpaperVideoBasename : "none")
-    if (wallpaperKind === "reactive")
+    if (Config.wallpaperKind === "reactive")
       return "Animated · " + wallpaperReactiveLabel
-    if (wallpaperKind === "daily" || wallpaperId === "daily") {
-      const t = wallpaperDailyTitle && wallpaperDailyTitle.length
-          ? wallpaperDailyTitle
+    if (Config.wallpaperKind === "daily" || Config.wallpaperId === "daily") {
+      const t = Config.wallpaperDailyTitle && Config.wallpaperDailyTitle.length
+          ? Config.wallpaperDailyTitle
           : activeDailySourceLabel
       return "Daily · " + activeDailySourceLabel + (t !== activeDailySourceLabel ? (" · " + t) : "")
     }
-    if (wallpaperSlideshow)
-      return "Image · slideshow · " + wallpaperSlideshowSecs + "s"
-    if (wallpaperId === "custom")
-      return "Image · " + (wallpaperBasename.length ? wallpaperBasename : "Custom") + " · " + wallpaperMode
+    if (Config.wallpaperSlideshow)
+      return "Image · slideshow · " + Config.wallpaperSlideshowSecs + "s"
+    if (Config.wallpaperId === "custom")
+      return "Image · " + (wallpaperBasename.length ? wallpaperBasename : "Custom") + " · " + Config.wallpaperMode
     for (let i = 0; i < wallpapers.length; i++) {
-      if (wallpapers[i].id === wallpaperId)
-        return "Image · " + wallpapers[i].label + " · " + wallpaperMode
+      if (wallpapers[i].id === Config.wallpaperId)
+        return "Image · " + wallpapers[i].label + " · " + Config.wallpaperMode
     }
-    return "Image · " + wallpaperMode
+    return "Image · " + Config.wallpaperMode
   }
 
   // Forwarders — setters → BackgroundDaily

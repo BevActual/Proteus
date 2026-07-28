@@ -2,7 +2,6 @@ pragma Singleton
 
 import Quickshell
 import QtQuick
-import ".."
 
 Singleton {
   // Proteus tokens — Apple-inspired System Settings surfaces + chrome opacity

@@ -2,9 +2,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import QtQuick
-import ".."
 
-// Hyprland general.conf + chrome apply helpers. host = Config singleton.
 Item {
   id: hypr
   property var host

@@ -1,8 +1,6 @@
 import Quickshell
 import QtQuick
-import ".."
 
-// Lock applet CRUD / hydrate. host = Widgets singleton.
 QtObject {
   id: lockApi
   property var host

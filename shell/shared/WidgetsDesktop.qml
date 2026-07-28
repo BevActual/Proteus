@@ -1,8 +1,6 @@
 import Quickshell
 import QtQuick
-import ".."
 
-// Desktop applet CRUD / hydrate. host = Widgets singleton.
 QtObject {
   id: deskApi
   property var host
@@ -12,7 +10,7 @@ QtObject {
   }
 
   function desktopWidgetSpanForSize(size) {
-    return lockWidgetSpanForSize(size)
+    return host.lockWidgetSpanForSize(size)
   }
 
   function clamp01(v, fallback) {

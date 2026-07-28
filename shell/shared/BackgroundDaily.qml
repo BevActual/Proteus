@@ -1,9 +1,8 @@
 import Quickshell
 import Quickshell.Io
 import QtQuick
-import ".."
 
-// Daily wallpaper sources / fetch / hydrate. host = Background singleton.
+// Daily wallpaper sources / fetch. host = Background singleton.
 QtObject {
   id: daily
   property var host
@@ -90,10 +89,10 @@ QtObject {
   }
 
   function refreshLockDailyWallpaper() {
-    if (host.apply.lockDailyFetchProc.running)
+    if (lockDailyFetchProc.running)
       return
     ensureDailySources()
-    let src = lockDailySourceResolved
+    let src = host.lockDailySourceResolved
     if (!src)
       src = host.activeDailySource
 
@@ -103,24 +102,24 @@ QtObject {
       host.lockDailyFetching = false
       return
     }
-    if (!String(host.lockDailySourceId || "").length)
-      host.lockDailySourceId = String(src.id)
+    if (!String(Config.lockDailySourceId || "").length)
+      Config.lockDailySourceId = String(src.id)
 
     host.lockDailyFetching = true
     host.lockDailyError = ""
-    host.lockBackgroundMode = "daily"
+    Config.lockBackgroundMode = "daily"
     Config.flushSettings()
 
-    host.apply.lockDailyFetchProc.command = plan.command
+    lockDailyFetchProc.command = plan.command
     // Key goes through the environment — argv is world-readable via /proc.
-    host.apply.lockDailyFetchProc.environment = ({ "PROTEUS_DAILY_API_KEY": plan.apiKey })
-    host.apply.lockDailyFetchProc.running = false
-    host.apply.lockDailyFetchProc.running = true
+    lockDailyFetchProc.environment = ({ "PROTEUS_DAILY_API_KEY": plan.apiKey })
+    lockDailyFetchProc.running = false
+    lockDailyFetchProc.running = true
   }
 
   function setWallpaperKind(kind) {
     // Browse-only helper (Settings UI uses local browseKind). Do not apply —
-    // writing host.wallpaperKind alone would hot-reload the desktop background.
+    // writing Config.wallpaperKind alone would hot-reload the desktop background.
     const k = String(kind || "")
     if (k !== "color" && k !== "image" && k !== "daily" && k !== "video" && k !== "reactive")
       return
@@ -132,15 +131,15 @@ QtObject {
     const n = Config.normalizeAccentHex(hex)
     if (!n.length)
       return false
-    host.wallpaperColor = n
-    host.wallpaperKind = "color"
+    Config.wallpaperColor = n
+    Config.wallpaperKind = "color"
     host.applyBackground()
     return true
   }
 
   function setWallpaper(id) {
-    host.wallpaperId = id
-    host.wallpaperKind = "image"
+    Config.wallpaperId = id
+    Config.wallpaperKind = "image"
     host.applyBackground()
   }
 
@@ -176,7 +175,7 @@ QtObject {
 
   function setWallpaperDailyRefreshHours(hours) {
     const n = Math.max(1, Math.min(48, Math.round(Number(hours) || 6)))
-    host.wallpaperDailyRefreshHours = n
+    Config.wallpaperDailyRefreshHours = n
     Config.flushSettings()
   }
 
@@ -229,9 +228,9 @@ QtObject {
       if (raw && String(raw).trim().length) {
         const d = JSON.parse(String(raw))
         if (Array.isArray(d.wallpaperDailySources) && d.wallpaperDailySources.length) {
-          host.wallpaperDailySources = d.wallpaperDailySources.map(s => normalizeDailySource(s))
+          Config.wallpaperDailySources = d.wallpaperDailySources.map(s => normalizeDailySource(s))
           if (d.wallpaperDailySourceId)
-            host.wallpaperDailySourceId = String(d.wallpaperDailySourceId)
+            Config.wallpaperDailySourceId = String(d.wallpaperDailySourceId)
         }
       }
     } catch (e) {
@@ -243,7 +242,7 @@ QtObject {
     const list = host.wallpaperDailySourcesList
     if (!list.length)
       return null
-    const id = String(host.wallpaperDailySourceId || "")
+    const id = String(Config.wallpaperDailySourceId || "")
     for (let i = 0; i < list.length; i++) {
       if (String(list[i].id) === id)
         return list[i]
@@ -252,9 +251,9 @@ QtObject {
   }
 
   function ensureDailySources() {
-    let list = Array.isArray(host.wallpaperDailySources) ? host.wallpaperDailySources.slice() : []
+    let list = Array.isArray(Config.wallpaperDailySources) ? Config.wallpaperDailySources.slice() : []
     if (list.length) {
-      const id = String(host.wallpaperDailySourceId || "")
+      const id = String(Config.wallpaperDailySourceId || "")
       let found = false
       for (let i = 0; i < list.length; i++) {
         if (String(list[i].id) === id) {
@@ -263,27 +262,27 @@ QtObject {
         }
       }
       if (!found)
-        host.wallpaperDailySourceId = String(list[0].id)
+        Config.wallpaperDailySourceId = String(list[0].id)
       syncDailyLegacyFromActive()
       return list
     }
     // Migrate legacy flat fields into one source
-    const legacy = defaultDailySource(host.wallpaperDailyProvider || "bing")
-    if (host.wallpaperDailyUrl && String(host.wallpaperDailyUrl).length)
-      legacy.url = String(host.wallpaperDailyUrl)
-    if (host.wallpaperDailyApiKey && String(host.wallpaperDailyApiKey).length)
-      legacy.apiKey = String(host.wallpaperDailyApiKey)
-    if (host.wallpaperDailyAuth && String(host.wallpaperDailyAuth).length)
-      legacy.auth = String(host.wallpaperDailyAuth)
-    if (host.wallpaperDailyMarket && String(host.wallpaperDailyMarket).length)
-      legacy.market = String(host.wallpaperDailyMarket)
+    const legacy = defaultDailySource(Config.wallpaperDailyProvider || "bing")
+    if (Config.wallpaperDailyUrl && String(Config.wallpaperDailyUrl).length)
+      legacy.url = String(Config.wallpaperDailyUrl)
+    if (Config.wallpaperDailyApiKey && String(Config.wallpaperDailyApiKey).length)
+      legacy.apiKey = String(Config.wallpaperDailyApiKey)
+    if (Config.wallpaperDailyAuth && String(Config.wallpaperDailyAuth).length)
+      legacy.auth = String(Config.wallpaperDailyAuth)
+    if (Config.wallpaperDailyMarket && String(Config.wallpaperDailyMarket).length)
+      legacy.market = String(Config.wallpaperDailyMarket)
     if (legacy.provider === "bing")
       legacy.label = "Bing"
     else if (legacy.provider === "unsplash")
       legacy.label = "Unsplash"
     list = [legacy]
-    host.wallpaperDailySources = list
-    host.wallpaperDailySourceId = legacy.id
+    Config.wallpaperDailySources = list
+    Config.wallpaperDailySourceId = legacy.id
     syncDailyLegacyFromActive()
     return list
   }
@@ -292,20 +291,20 @@ QtObject {
     const src = resolveActiveDailySource()
     if (!src)
       return
-    host.wallpaperDailyProvider = String(src.provider || "bing")
-    host.wallpaperDailyUrl = String(src.url || "")
-    host.wallpaperDailyApiKey = String(src.apiKey || "")
-    host.wallpaperDailyAuth = String(src.auth || "none")
-    host.wallpaperDailyMarket = String(src.market || "en-US")
+    Config.wallpaperDailyProvider = String(src.provider || "bing")
+    Config.wallpaperDailyUrl = String(src.url || "")
+    Config.wallpaperDailyApiKey = String(src.apiKey || "")
+    Config.wallpaperDailyAuth = String(src.auth || "none")
+    Config.wallpaperDailyMarket = String(src.market || "en-US")
   }
 
   function patchActiveDailySource(patch) {
     ensureDailySources()
-    let sid = String(host.wallpaperDailySourceId || "")
+    let sid = String(Config.wallpaperDailySourceId || "")
     const resolved = resolveActiveDailySource()
     if (resolved)
       sid = String(resolved.id)
-    host.wallpaperDailySourceId = sid
+    Config.wallpaperDailySourceId = sid
     const list = host.wallpaperDailySourcesList.map(s => {
       if (String(s.id) !== sid)
         return s
@@ -335,7 +334,7 @@ QtObject {
         next.market = String(patch.market || "en-US")
       return next
     })
-    host.wallpaperDailySources = list
+    Config.wallpaperDailySources = list
     syncDailyLegacyFromActive()
     Config.flushSettings()
   }
@@ -351,7 +350,7 @@ QtObject {
       src.label = base + " " + n
       n++
     }
-    host.wallpaperDailySources = host.wallpaperDailySourcesList.concat([src])
+    Config.wallpaperDailySources = host.wallpaperDailySourcesList.concat([src])
     setDailySource(src.id, false)
   }
 
@@ -370,12 +369,12 @@ QtObject {
       found = list[0]
     if (!found)
       return
-    const changed = String(host.wallpaperDailySourceId) !== String(found.id)
-    host.wallpaperDailySourceId = String(found.id)
+    const changed = String(Config.wallpaperDailySourceId) !== String(found.id)
+    Config.wallpaperDailySourceId = String(found.id)
     syncDailyLegacyFromActive()
     host.wallpaperDailyError = ""
     Config.flushSettings()
-    if (fetchIfActive && changed && (host.wallpaperKind === "daily" || host.wallpaperId === "daily"))
+    if (fetchIfActive && changed && (Config.wallpaperKind === "daily" || Config.wallpaperId === "daily"))
       refreshDailyWallpaper(true)
   }
 
@@ -385,9 +384,9 @@ QtObject {
     let list = host.wallpaperDailySourcesList.filter(s => String(s.id) !== sid)
     if (!list.length)
       list = [defaultDailySource("bing")]
-    host.wallpaperDailySources = list
-    if (String(host.wallpaperDailySourceId) === sid || !list.some(s => String(s.id) === String(host.wallpaperDailySourceId)))
-      setDailySource(list[0].id, host.wallpaperKind === "daily" || host.wallpaperId === "daily")
+    Config.wallpaperDailySources = list
+    if (String(Config.wallpaperDailySourceId) === sid || !list.some(s => String(s.id) === String(Config.wallpaperDailySourceId)))
+      setDailySource(list[0].id, Config.wallpaperKind === "daily" || Config.wallpaperId === "daily")
     else {
       syncDailyLegacyFromActive()
       Config.flushSettings()
@@ -400,7 +399,7 @@ QtObject {
     if (!sid.length || !name.length)
       return
     ensureDailySources()
-    host.wallpaperDailySources = host.wallpaperDailySourcesList.map(s => {
+    Config.wallpaperDailySources = host.wallpaperDailySourcesList.map(s => {
       if (String(s.id) !== sid)
         return s
       return {
@@ -419,14 +418,14 @@ QtObject {
 
   function setWallpaperDaily() {
     ensureDailySources()
-    host.wallpaperSlideshow = false
-    host.wallpaperId = "daily"
-    host.wallpaperKind = "daily"
+    Config.wallpaperSlideshow = false
+    Config.wallpaperId = "daily"
+    Config.wallpaperKind = "daily"
     refreshDailyWallpaper(true)
   }
 
   function refreshDailyWallpaper(applyAfter) {
-    if (host.apply.wallpaperDailyFetchProc.running)
+    if (wallpaperDailyFetchProc.running)
       return
     ensureDailySources()
     const src = resolveActiveDailySource()
@@ -438,8 +437,8 @@ QtObject {
       return
     }
     // Keep sourceId aligned with the resolved profile
-    if (String(host.wallpaperDailySourceId) !== String(src.id))
-      host.wallpaperDailySourceId = String(src.id)
+    if (String(Config.wallpaperDailySourceId) !== String(src.id))
+      Config.wallpaperDailySourceId = String(src.id)
     syncDailyLegacyFromActive()
 
     host.wallpaperDailyFetching = true
@@ -447,36 +446,36 @@ QtObject {
     Config.flushSettings()
 
     // Source fields go on the CLI so fetch does not race FileView writeAdapter.
-    host.apply.wallpaperDailyFetchProc.command = plan.command
+    wallpaperDailyFetchProc.command = plan.command
     // Key goes through the environment — argv is world-readable via /proc.
-    host.apply.wallpaperDailyFetchProc.environment = ({ "PROTEUS_DAILY_API_KEY": plan.apiKey })
-    host.apply.wallpaperDailyFetchProc.applyAfter = !!applyAfter
-    host.apply.wallpaperDailyFetchProc.running = false
-    host.apply.wallpaperDailyFetchProc.running = true
+    wallpaperDailyFetchProc.environment = ({ "PROTEUS_DAILY_API_KEY": plan.apiKey })
+    wallpaperDailyFetchProc.applyAfter = !!applyAfter
+    wallpaperDailyFetchProc.running = false
+    wallpaperDailyFetchProc.running = true
   }
 
 
-  // Lock / album setters (from façade)
+  // Lock / album / wallpaper setters
   function setWallpaperSlideshow(on) {
-    host.wallpaperSlideshow = !!on
-    if (host.wallpaperKind === "image")
+    Config.wallpaperSlideshow = !!on
+    if (Config.wallpaperKind === "image")
       host.applyBackground()
   }
 
   function setWallpaperSlideshowSecs(secs) {
     const n = Math.max(5, Math.min(600, Math.round(secs)))
-    host.wallpaperSlideshowSecs = n
+    Config.wallpaperSlideshowSecs = n
   }
 
   function setWallpaperShuffle(on) {
-    host.wallpaperShuffle = !!on
+    Config.wallpaperShuffle = !!on
   }
 
   function setLockDim(v) {
     const n = Number(v)
     if (isNaN(n))
       return
-    host.lockDim = Math.round(Math.max(0, Math.min(0.75, n)) * 100) / 100
+    Config.lockDim = Math.round(Math.max(0, Math.min(0.75, n)) * 100) / 100
     Config.flushSettings()
   }
 
@@ -484,16 +483,16 @@ QtObject {
     const m = String(mode || "match")
     if (m !== "match" && m !== "image" && m !== "color" && m !== "daily" && m !== "video" && m !== "reactive")
       return
-    host.lockBackgroundMode = m
+    Config.lockBackgroundMode = m
     Config.flushSettings()
     if (m === "daily") {
       ensureDailySources()
-      if (!String(host.lockDailySourceId || "").length && activeDailySource)
-        host.lockDailySourceId = String(activeDailySource.id)
-      if (!(host.lockDailyPath && String(host.lockDailyPath).length) && !(wallpaperDailyPath && String(wallpaperDailyPath).length))
+      if (!String(Config.lockDailySourceId || "").length && host.activeDailySource)
+        Config.lockDailySourceId = String(host.activeDailySource.id)
+      if (!(Config.lockDailyPath && String(Config.lockDailyPath).length) && !(Config.wallpaperDailyPath && String(Config.wallpaperDailyPath).length))
         refreshLockDailyWallpaper()
     }
-    if (m === "image" && host.lockWallpaperSlideshow)
+    if (m === "image" && Config.lockWallpaperSlideshow)
       advanceLockSlideshow()
   }
 
@@ -502,9 +501,9 @@ QtObject {
     const m = String(mode || "fill")
     if (allowed.indexOf(m) < 0)
       return
-    host.lockWallpaperMode = m
-    if (host.lockBackgroundMode === "match")
-      host.lockBackgroundMode = "image"
+    Config.lockWallpaperMode = m
+    if (Config.lockBackgroundMode === "match")
+      Config.lockBackgroundMode = "image"
     Config.flushSettings()
   }
 
@@ -523,19 +522,19 @@ QtObject {
       album = list[0]
     if (!album)
       return
-    host.lockWallpaperAlbumId = String(album.id)
-    host.lockBackgroundMode = "image"
+    Config.lockWallpaperAlbumId = String(album.id)
+    Config.lockBackgroundMode = "image"
     Config.flushSettings()
     scanWallpaperFolder(album.path)
-    if (host.lockWallpaperSlideshow)
+    if (Config.lockWallpaperSlideshow)
       advanceLockSlideshow()
   }
 
   function setLockWallpaperSlideshow(on) {
-    host.lockWallpaperSlideshow = !!on
-    host.lockBackgroundMode = "image"
+    Config.lockWallpaperSlideshow = !!on
+    Config.lockBackgroundMode = "image"
     Config.flushSettings()
-    if (host.lockWallpaperSlideshow) {
+    if (Config.lockWallpaperSlideshow) {
       scanWallpaperFolder()
       advanceLockSlideshow()
     } else {
@@ -545,12 +544,12 @@ QtObject {
 
   function setLockWallpaperSlideshowSecs(secs) {
     const n = Math.max(5, Math.min(600, Math.round(Number(secs) || 60)))
-    host.lockWallpaperSlideshowSecs = n
+    Config.lockWallpaperSlideshowSecs = n
     Config.flushSettings()
   }
 
   function setLockWallpaperShuffle(on) {
-    host.lockWallpaperShuffle = !!on
+    Config.lockWallpaperShuffle = !!on
     Config.flushSettings()
   }
 
@@ -558,8 +557,8 @@ QtObject {
     const p = String(path || "").trim()
     if (!p.length)
       return
-    host.lockWallpaperVideoPath = p
-    host.lockBackgroundMode = "video"
+    Config.lockWallpaperVideoPath = p
+    Config.lockBackgroundMode = "video"
     Config.flushSettings()
   }
 
@@ -572,8 +571,8 @@ QtObject {
     }
     if (!ok)
       return
-    host.lockWallpaperReactiveId = rid
-    host.lockBackgroundMode = "reactive"
+    Config.lockWallpaperReactiveId = rid
+    Config.lockBackgroundMode = "reactive"
     Config.flushSettings()
   }
 
@@ -583,7 +582,7 @@ QtObject {
       host.lockSlideshowPath = lockBackdropPath
       return
     }
-    if (host.lockWallpaperShuffle) {
+    if (Config.lockWallpaperShuffle) {
       host.lockSlideshowIndex = Math.floor(Math.random() * list.length)
     } else {
       host.lockSlideshowIndex = (host.lockSlideshowIndex + 1) % list.length
@@ -594,8 +593,8 @@ QtObject {
 
   function setLockWallpaper(id) {
     const sid = String(id || "default")
-    host.lockWallpaperId = sid
-    host.lockBackgroundMode = "image"
+    Config.lockWallpaperId = sid
+    Config.lockBackgroundMode = "image"
     Config.flushSettings()
   }
 
@@ -603,9 +602,9 @@ QtObject {
     const p = String(path || "").trim()
     if (!p.length)
       return
-    host.lockWallpaperCustomPath = p
-    host.lockWallpaperId = "custom"
-    host.lockBackgroundMode = "image"
+    Config.lockWallpaperCustomPath = p
+    Config.lockWallpaperId = "custom"
+    Config.lockBackgroundMode = "image"
     Config.flushSettings()
   }
 
@@ -613,8 +612,8 @@ QtObject {
     const n = Config.normalizeAccentHex(hex)
     if (!n.length)
       return false
-    host.lockWallpaperColor = n
-    host.lockBackgroundMode = "color"
+    Config.lockWallpaperColor = n
+    Config.lockBackgroundMode = "color"
     Config.flushSettings()
     return true
   }
@@ -622,7 +621,7 @@ QtObject {
   function setLockDailySource(id) {
     ensureDailySources()
     const sid = String(id || "")
-    const list = wallpaperDailySourcesList
+    const list = host.wallpaperDailySourcesList
     let found = null
     for (let i = 0; i < list.length; i++) {
       if (String(list[i].id) === sid) {
@@ -633,12 +632,12 @@ QtObject {
     if (!found && list.length)
       found = list[0]
     if (!found) {
-      lockDailyError = "Add a daily source under Background → Daily first"
+      host.lockDailyError = "Add a daily source under Background → Daily first"
       return
     }
-    host.lockDailySourceId = String(found.id)
-    host.lockBackgroundMode = "daily"
-    lockDailyError = ""
+    Config.lockDailySourceId = String(found.id)
+    Config.lockBackgroundMode = "daily"
+    host.lockDailyError = ""
     Config.flushSettings()
     refreshLockDailyWallpaper()
   }
@@ -653,21 +652,21 @@ QtObject {
     const p = String(path || "").trim()
     if (!p.length)
       return
-    host.wallpaperCustomPath = p
-    host.wallpaperId = "custom"
-    host.wallpaperKind = "image"
+    Config.wallpaperCustomPath = p
+    Config.wallpaperId = "custom"
+    Config.wallpaperKind = "image"
     host.applyBackground()
   }
 
   function clearCustomWallpaper() {
-    host.wallpaperId = "default"
-    host.wallpaperKind = "image"
+    Config.wallpaperId = "default"
+    Config.wallpaperKind = "image"
     host.applyBackground()
   }
 
   function setWallpaperMode(mode) {
-    host.wallpaperMode = mode
-    if (host.wallpaperKind === "image")
+    Config.wallpaperMode = mode
+    if (Config.wallpaperKind === "image")
       host.applyBackground()
   }
 
@@ -692,12 +691,12 @@ QtObject {
   }
 
   function ensureWallpaperAlbums() {
-    let list = Array.isArray(host.wallpaperAlbums) ? host.wallpaperAlbums.slice() : []
+    let list = Array.isArray(Config.wallpaperAlbums) ? Config.wallpaperAlbums.slice() : []
     if (list.length)
       return list
     // Migrate legacy single folder (or default library) into one album
-    const path = (host.wallpaperFolder && String(host.wallpaperFolder).length)
-        ? String(host.wallpaperFolder)
+    const path = (Config.wallpaperFolder && String(Config.wallpaperFolder).length)
+        ? String(Config.wallpaperFolder)
         : host.defaultWallpaperFolder
     list = [
       {
@@ -706,11 +705,11 @@ QtObject {
         path: path
       }
     ]
-    host.wallpaperAlbums = list
-    if (!String(host.wallpaperAlbumId || "").length)
-      host.wallpaperAlbumId = list[0].id
-    if (!String(host.wallpaperFolder || "").length)
-      host.wallpaperFolder = path
+    Config.wallpaperAlbums = list
+    if (!String(Config.wallpaperAlbumId || "").length)
+      Config.wallpaperAlbumId = list[0].id
+    if (!String(Config.wallpaperFolder || "").length)
+      Config.wallpaperFolder = path
     return list
   }
 
@@ -733,7 +732,7 @@ QtObject {
         path: p
       }
     ])
-    host.wallpaperAlbums = list
+    Config.wallpaperAlbums = list
     setWallpaperAlbum(id)
   }
 
@@ -752,11 +751,11 @@ QtObject {
       album = list[0]
     if (!album)
       return
-    host.wallpaperAlbumId = String(album.id)
-    host.wallpaperFolder = String(album.path || "")
-    host.wallpaperKind = "image"
+    Config.wallpaperAlbumId = String(album.id)
+    Config.wallpaperFolder = String(album.path || "")
+    Config.wallpaperKind = "image"
     scanWallpaperFolder()
-    if (host.wallpaperSlideshow)
+    if (Config.wallpaperSlideshow)
       host.applyBackground()
   }
 
@@ -773,8 +772,8 @@ QtObject {
         }
       ]
     }
-    host.wallpaperAlbums = list
-    if (String(host.wallpaperAlbumId) === sid || !list.some(a => String(a.id) === String(host.wallpaperAlbumId)))
+    Config.wallpaperAlbums = list
+    if (String(Config.wallpaperAlbumId) === sid || !list.some(a => String(a.id) === String(Config.wallpaperAlbumId)))
       setWallpaperAlbum(list[0].id)
     else
       scanWallpaperFolder()
@@ -794,21 +793,21 @@ QtObject {
         path: a.path
       }
     })
-    host.wallpaperAlbums = list
+    Config.wallpaperAlbums = list
   }
 
   function setWallpaperVideo(path) {
     const p = String(path || "").trim()
     if (!p.length)
       return
-    host.wallpaperVideoPath = p
-    host.wallpaperKind = "video"
+    Config.wallpaperVideoPath = p
+    Config.wallpaperKind = "video"
     host.applyBackground()
   }
 
   function clearWallpaperVideo() {
-    host.wallpaperVideoPath = ""
-    host.wallpaperKind = "image"
+    Config.wallpaperVideoPath = ""
+    Config.wallpaperKind = "image"
     host.applyBackground()
   }
 
@@ -821,8 +820,8 @@ QtObject {
     }
     if (!ok)
       return
-    host.wallpaperReactiveId = rid
-    host.wallpaperKind = "reactive"
+    Config.wallpaperReactiveId = rid
+    Config.wallpaperKind = "reactive"
     host.applyBackground()
   }
 

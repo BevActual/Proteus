@@ -1,9 +1,8 @@
 import QtQuick
 
-// Static wallpaper / lock backdrop catalogs. Owned by Background singleton.
+// Static wallpaper / lock backdrop catalogs (flat shared package).
 QtObject {
   id: catalog
-
   readonly property var lockBackgroundModes: [
     {
       id: "match",

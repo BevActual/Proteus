@@ -17,7 +17,7 @@ ColumnLayout {
   // Widgets are edited on the lock screen (long-press Customize), not here.
 
   readonly property int wallpaperFillMode: {
-    switch (Config.lockEffectiveFillMode) {
+    switch (Background.lockEffectiveFillMode) {
     case "fit":
       return Image.PreserveAspectFit
     case "stretch":
@@ -75,16 +75,16 @@ ColumnLayout {
     radius: Theme.radiusLg
     color: {
       if (root.lockBrowseKind === "color" || (root.lockBrowseKind === "match" && Config.wallpaperKind === "color"))
-        return Config.lockBackdropColor
+        return Background.lockBackdropColor
       return Theme.bgPanel
     }
     clip: true
 
     Image {
       visible: (root.lockBrowseKind === "image" || root.lockBrowseKind === "daily" || root.lockBrowseKind === "match")
-          && Config.lockBackdropKind === "image"
+          && Background.lockBackdropKind === "image"
       anchors.fill: parent
-      source: Config.lockActiveImagePath.length ? ("file://" + Config.lockActiveImagePath) : ""
+      source: Background.lockActiveImagePath.length ? ("file://" + Background.lockActiveImagePath) : ""
       fillMode: root.wallpaperFillMode
       asynchronous: true
       cache: false
@@ -92,7 +92,7 @@ ColumnLayout {
 
     Rectangle {
       anchors.fill: parent
-      color: Qt.rgba(0, 0, 0, Config.lockDimClamped)
+      color: Qt.rgba(0, 0, 0, Background.lockDimClamped)
     }
 
     Text {
@@ -100,7 +100,7 @@ ColumnLayout {
       visible: root.lockBrowseKind === "video" || root.lockBrowseKind === "reactive"
           || (root.lockBrowseKind === "match" && (Config.wallpaperKind === "video" || Config.wallpaperKind === "reactive"))
       text: root.lockBrowseKind === "reactive" || (root.lockBrowseKind === "match" && Config.wallpaperKind === "reactive")
-          ? ("Animated · " + Config.lockBackdropReactiveId)
+          ? ("Animated · " + Background.lockBackdropReactiveId)
           : "Video backdrop"
       color: Qt.rgba(1, 1, 1, 0.7)
       font.family: Theme.fontFamily
@@ -112,7 +112,7 @@ ColumnLayout {
       anchors.bottom: parent.bottom
       anchors.margins: 10
       z: 3
-      text: Config.lockBackgroundSummary
+      text: Background.lockBackgroundSummary
       color: Theme.text
       font.family: Theme.fontFamily
       font.pixelSize: 11
@@ -134,7 +134,7 @@ ColumnLayout {
   SettingsGroup {
     title: "Kind"
     Repeater {
-      model: Config.lockBackgroundModes
+      model: Background.lockBackgroundModes
       SettingsFormRow {
         required property var modelData
         required property int index
@@ -153,7 +153,7 @@ ColumnLayout {
           return "Built-in animated backgrounds"
         }
         interactive: true
-        showSeparator: index < Config.lockBackgroundModes.length - 1
+        showSeparator: index < Background.lockBackgroundModes.length - 1
         onActivated: {
           root.lockBrowseKind = modelData.id
           if (modelData.id === "match" || modelData.id === "color" || modelData.id === "daily" || modelData.id === "reactive")
@@ -202,7 +202,7 @@ ColumnLayout {
           anchors.margins: Theme.spaceMd
           spacing: Theme.spaceSm
           Repeater {
-            model: Config.wallpaperColors
+            model: Background.wallpaperColors
             Column {
               required property var modelData
               spacing: 4
@@ -285,7 +285,7 @@ ColumnLayout {
           anchors.margins: Theme.spaceMd
           spacing: Theme.spaceSm
           Repeater {
-            model: Config.wallpapers
+            model: Background.wallpapers
             Rectangle {
               required property var modelData
               width: 112
@@ -329,14 +329,14 @@ ColumnLayout {
     SettingsGroup {
       title: "Albums"
       Repeater {
-        model: Config.wallpaperAlbumsList
+        model: Background.wallpaperAlbumsList
         SettingsFormRow {
           required property var modelData
           required property int index
           label: modelData.label || "Album"
           hint: modelData.path || ""
           interactive: true
-          showSeparator: index < Config.wallpaperAlbumsList.length - 1
+          showSeparator: index < Background.wallpaperAlbumsList.length - 1
           onActivated: {
             Config.setLockWallpaperAlbum(modelData.id)
             root.lockBrowseKind = "image"
@@ -448,7 +448,7 @@ ColumnLayout {
         Layout.leftMargin: Theme.spaceMd
         Layout.rightMargin: Theme.spaceMd
         Layout.topMargin: Theme.spaceSm
-        text: Config.wallpaperDailySourcesList.length
+        text: Background.wallpaperDailySourcesList.length
             ? "Uses feeds from Background → Daily. Lock keeps its own cache."
             : "Add a feed under Appearance → Background → Daily first."
         color: Theme.textMute
@@ -457,7 +457,7 @@ ColumnLayout {
         wrapMode: Text.WordWrap
       }
       Repeater {
-        model: Config.wallpaperDailySourcesList
+        model: Background.wallpaperDailySourcesList
         SettingsFormRow {
           required property var modelData
           label: modelData.label || modelData.provider || "Source"
@@ -471,8 +471,8 @@ ColumnLayout {
           Text {
             text: (Config.lockDailySourceId === modelData.id
                     || (!String(Config.lockDailySourceId || "").length
-                        && Config.lockDailySourceResolved
-                        && String(Config.lockDailySourceResolved.id) === String(modelData.id)))
+                        && Background.lockDailySourceResolved
+                        && String(Background.lockDailySourceResolved.id) === String(modelData.id)))
                 ? "●" : "○"
             color: Theme.accent
             font.pixelSize: 12
@@ -480,10 +480,10 @@ ColumnLayout {
         }
       }
       SettingsFormRow {
-        label: Config.lockDailyFetching ? "Fetching…" : "Fetch now"
-        hint: Config.lockDailyError.length ? Config.lockDailyError
+        label: Background.lockDailyFetching ? "Fetching…" : "Fetch now"
+        hint: Background.lockDailyError.length ? Background.lockDailyError
             : (Config.lockDailyPath.length ? ("Cached · " + Config.lockDailyPath) : "Download into lock daily cache")
-        interactive: !Config.lockDailyFetching && Config.wallpaperDailySourcesList.length > 0
+        interactive: !Background.lockDailyFetching && Background.wallpaperDailySourcesList.length > 0
         showSeparator: false
         onActivated: {
           Config.refreshLockDailyWallpaper()
@@ -523,14 +523,14 @@ ColumnLayout {
     SettingsGroup {
       title: "Style"
       Repeater {
-        model: Config.wallpaperReactives
+        model: Background.wallpaperReactives
         SettingsFormRow {
           required property var modelData
           required property int index
           label: modelData.label
           hint: modelData.hint || ""
           interactive: true
-          showSeparator: index < Config.wallpaperReactives.length - 1
+          showSeparator: index < Background.wallpaperReactives.length - 1
           onActivated: {
             Config.setLockWallpaperReactive(modelData.id)
             root.lockBrowseKind = "reactive"
@@ -550,13 +550,13 @@ ColumnLayout {
     title: "Appearance"
     SettingsFormRow {
       label: "Dim"
-      hint: Math.round(Config.lockDimClamped * 100) + "%"
+      hint: Math.round(Background.lockDimClamped * 100) + "%"
       showSeparator: false
       Slider {
         from: 0
         to: 0.75
         stepSize: 0.05
-        value: Config.lockDimClamped
+        value: Background.lockDimClamped
         onMoved: Config.setLockDim(value)
       }
     }
