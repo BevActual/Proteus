@@ -27,7 +27,7 @@ Item {
     out += "  col.inactive_border = rgba(2a3544aa)\n"
     out += "}\n\n"
     out += "decoration {\n"
-    out += "  host.rounding = " + host.rounding + "\n"
+    out += "  rounding = " + host.rounding + "\n"
     out += "  blur {\n"
     out += "    enabled = " + (host.chromeBlur ? "true" : "false") + "\n"
     out += "    size = " + (host.chromeBlur ? "10" : "0") + "\n"
@@ -63,7 +63,7 @@ Item {
       command: ["hyprctl", "keyword", "general:col.active_border", "rgba(" + c + "cc)"]
     })
     Quickshell.execDetached({
-      command: ["hyprctl", "keyword", "decoration:host.rounding", String(host.rounding)]
+      command: ["hyprctl", "keyword", "decoration:rounding", String(host.rounding)]
     })
     Quickshell.execDetached({
       command: ["hyprctl", "keyword", "animations:enabled", host.animationsEnabled ? "true" : "false"]
