@@ -76,14 +76,43 @@ if missing_fixture:
     )
     sys.exit(1)
 
-# Warn-only: Config keys not mentioned in CONFIG-SCHEMA.md
+# Config keys not covered by CONFIG-SCHEMA.md.
+#
+# The doc is a grouped inventory listing representative keys plus prefix
+# patterns (`location*`, `dock/bar*`, `lock wallpaper*`), so a plain substring
+# test reports keys that are in fact documented. Honour the convention the doc
+# already uses: literal backticked names, plus `prefix*` globs where `/`
+# separates alternatives and spaces are dropped (`lock wallpaper*` covers
+# lockWallpaperId).
 schema_text = schema_path.read_text() if schema_path.is_file() else ""
-undocumented = sorted(k for k in config_keys if k not in schema_text)
+
+literals = set(re.findall(r"`([A-Za-z][A-Za-z0-9_]*)`", schema_text))
+# Wildcards count whether or not they are backticked, and `/` separates
+# alternatives (`dock/bar*` → dock, bar).
+prefixes = []
+for pattern in re.findall(r"([A-Za-z][A-Za-z0-9_]*(?:[ /][A-Za-z][A-Za-z0-9_]*)*)\*", schema_text):
+    for alt in pattern.split("/"):
+        alt = alt.strip().replace(" ", "").lower()
+        if alt:
+            prefixes.append(alt)
+
+
+def documented(key):
+    if key in literals:
+        return True
+    low = key.lower()
+    return any(low.startswith(p) for p in prefixes)
+
+
+undocumented = sorted(k for k in config_keys if not documented(k))
 if undocumented:
     print(
-        "config-schema-smoke: WARN Config keys not mentioned in CONFIG-SCHEMA.md:",
-        ", ".join(undocumented[:20]) + ("…" if len(undocumented) > 20 else ""),
+        "config-schema-smoke: FAIL Config keys absent from CONFIG-SCHEMA.md:",
+        ", ".join(undocumented),
+        file=sys.stderr,
     )
+    sys.exit(1)
+print(f"config-schema-smoke: OK schema covers all {len(config_keys)} Config keys")
 
 print(f"config-schema-smoke: OK Config={len(config_keys)} keys; fixture⊆Config ({len(fixture_keys)} keys)")
 PY

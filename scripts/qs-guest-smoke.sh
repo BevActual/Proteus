@@ -34,6 +34,10 @@ if [[ -d "${XDG_RUNTIME_DIR}/hypr" ]]; then
   export HYPRLAND_INSTANCE_SIGNATURE="$(ls "${XDG_RUNTIME_DIR}/hypr" | head -1)"
 fi
 export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
+# This restarts the session shell, and a cold start re-arms the auto-lock.
+# Without this the suite leaves the guest at a password prompt every run,
+# which makes it unusable unattended. Only the automatic lock is suppressed.
+export PROTEUS_SKIP_SESSION_LOCK=1
 
 pkill -f "quickshell -p /mnt/proteus/shell$" 2>/dev/null || true
 pkill -f "quickshell -p /mnt/proteus/apps/proteus-settings" 2>/dev/null || true

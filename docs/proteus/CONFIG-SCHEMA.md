@@ -20,12 +20,12 @@ One schema for all postures; panes enable/disable by capability.
 
 | Group | Keys (representative) | Behaviour façade |
 |-------|----------------------|------------------|
-| Desktop / Hypr | `gapsIn`, `gapsOut`, `borderSize`, `rounding`, `animationsEnabled`, mouse* | `Config` / `ConfigHypr` → `proteus-general.conf` |
-| Chrome | `accentId`, `accentCustom`, `chromeMode`, `chromeOpacity`, `chromeBlur`, dock/bar* | Theme + ConfigHypr |
-| Lock prefs | `lockOnSessionStart`, `lockDim`, `lockBackgroundMode`, lock wallpaper* | Background |
+| Desktop / Hypr | `gapsIn`, `gapsOut`, `borderSize`, `rounding`, `animationsEnabled`, `mouse*` | `Config` / `ConfigHypr` → `proteus-general.conf` |
+| Chrome | `accentId`, `accentCustom`, `chromeMode`, `chromeOpacity`, `chromeBlur`, `dock*`, `bar*` | Theme + ConfigHypr |
+| Lock prefs | `lockOnSessionStart`, `lockDim`, `lockBackgroundMode`, `lockWallpaper*`, `lockDaily*` | Background |
 | Lock/desktop applets | `lockWidgets[]`, `desktopWidgets[]`, `lockShowClock` | Widgets |
-| Wallpaper | `wallpaperKind`, albums, daily*, video/reactive* | Background |
-| Audio prefs | `audioLatency`, … | Audio |
+| Wallpaper | `wallpaperKind`, `wallpaperId`, `wallpaperMode`, `wallpaperColor`, `wallpaperCustomPath`, `wallpaperFolder`, `wallpaperShuffle`, `wallpaperAlbum*`, `wallpaperSlideshow*`, `wallpaperDaily*`, `wallpaperVideo*`, `wallpaperReactive*` | Background |
+| Audio prefs | `audioLatency` | Audio |
 | Location / weather | `location*`, `weatherUnits` | Weather / DateTime |
 | Font | `fontFamily`, `fontSize`, `fontSizeSm` | Theme / Style pane |
 | Notifications | `notificationsDnd` | Notifications |

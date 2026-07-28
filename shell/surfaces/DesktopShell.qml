@@ -10,6 +10,16 @@ import "desktop"
 Scope {
   id: root
 
+  // Suppresses ONLY the automatic cold-boot lock, so the smoke suite can
+  // cold-start the shell without stranding the guest at a password prompt it
+  // cannot answer. Super+L, the lock surface and its cooldown are unaffected.
+  // Deliberately named for what it does rather than hidden behind a generic
+  // "smoke mode" flag — it is a lock behaviour change and should read as one.
+  readonly property bool skipSessionLock: {
+    const v = Quickshell.env("PROTEUS_SKIP_SESSION_LOCK")
+    return v === "1" || v === "true"
+  }
+
   GlobalShortcut {
     appid: "proteus"
     name: "launcher"
@@ -79,6 +89,10 @@ Scope {
       if (!ShellState.sessionStartLockPending)
         return
       ShellState.sessionStartLockPending = false
+      if (root.skipSessionLock) {
+        console.warn("session lock skipped — PROTEUS_SKIP_SESSION_LOCK is set")
+        return
+      }
       ShellState.lockSession()
     }
   }
