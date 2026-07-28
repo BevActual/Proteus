@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Proteus">
+  <!-- Transparent-plate variant for light/dark chrome -->
+  <defs>
+    <linearGradient id="strandA" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7eb6ff"/>
+      <stop offset="50%" stop-color="#3d8bfd"/>
+      <stop offset="100%" stop-color="#1a5fd0"/>
+    </linearGradient>
+    <linearGradient id="strandB" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#5eead4"/>
+      <stop offset="55%" stop-color="#2dd4bf"/>
+      <stop offset="100%" stop-color="#0f766e"/>
+    </linearGradient>
+  </defs>
+  <g stroke="#3d8bfd" stroke-width="2.2" stroke-linecap="round" opacity="0.45">
+    <line x1="48" y1="28" x2="80" y2="28"/>
+    <line x1="42" y1="44" x2="86" y2="44"/>
+    <line x1="40" y1="60" x2="88" y2="60"/>
+    <line x1="42" y1="76" x2="86" y2="76"/>
+    <line x1="48" y1="92" x2="80" y2="92"/>
+  </g>
+  <path fill="none" stroke="url(#strandA)" stroke-width="5.5" stroke-linecap="round"
+        d="M 52 18 C 28 32, 28 48, 52 60 C 76 72, 76 88, 52 102 C 40 109, 36 114, 40 118"/>
+  <path fill="none" stroke="url(#strandB)" stroke-width="5.5" stroke-linecap="round"
+        d="M 76 18 C 100 32, 100 48, 76 60 C 52 72, 52 88, 76 102 C 88 109, 92 114, 88 118"/>
+  <circle cx="52" cy="22" r="3.2" fill="#3d8bfd"/>
+  <circle cx="76" cy="22" r="3.2" fill="#2dd4bf"/>
+  <circle cx="40" cy="44" r="3" fill="#3d8bfd"/>
+  <circle cx="88" cy="44" r="3" fill="#2dd4bf"/>
+  <circle cx="52" cy="60" r="3.4" fill="#3d8bfd"/>
+  <circle cx="76" cy="60" r="3.4" fill="#2dd4bf"/>
+  <circle cx="40" cy="76" r="3" fill="#3d8bfd"/>
+  <circle cx="88" cy="76" r="3" fill="#2dd4bf"/>
+  <circle cx="52" cy="98" r="3.2" fill="#3d8bfd"/>
+  <circle cx="76" cy="98" r="3.2" fill="#2dd4bf"/>
+</svg>

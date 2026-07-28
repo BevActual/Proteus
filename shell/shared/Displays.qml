@@ -146,7 +146,7 @@ Singleton {
 
   function openMonitorsConfInEditor() {
     Quickshell.execDetached({
-      command: ["bash", "-lc", "mkdir -p \"$HOME/.config/hypr\"; touch \"$HOME/.config/hypr/proteus-monitors.conf\"; (command -v xdg-open >/dev/null && xdg-open \"$HOME/.config/hypr/proteus-monitors.conf\") || exec foot -e nvim \"$HOME/.config/hypr/proteus-monitors.conf\""]
+      command: ["bash", "-lc", "mkdir -p \"$HOME/.config/hypr\"; touch \"$HOME/.config/hypr/proteus-monitors.conf\"; (command -v xdg-open >/dev/null && xdg-open \"$HOME/.config/hypr/proteus-monitors.conf\") || exec ghostty -e nvim \"$HOME/.config/hypr/proteus-monitors.conf\""]
     })
   }
 

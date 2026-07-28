@@ -13,38 +13,38 @@ Singleton {
       special: "launcher"
     },
     {
-      id: "foot",
+      id: "terminal",
       label: "Terminal",
       icon: "utilities-terminal",
-      desktopId: "foot",
-      match: "foot",
-      command: ["foot"]
+      desktopId: "com.mitchellh.ghostty",
+      match: "ghostty",
+      command: ["ghostty"]
     },
     {
       id: "files",
       label: "Files",
       icon: "system-file-manager",
-      desktopId: "thunar",
-      match: "thunar",
-      command: ["thunar"],
+      desktopId: "org.gnome.Nautilus",
+      match: "nautilus",
+      command: ["nautilus"],
       requires: ["display"]
     },
     {
       id: "browser",
       label: "Browser",
-      icon: "firefox",
-      desktopId: "firefox",
-      match: "firefox",
-      command: ["firefox"],
+      icon: "chromium",
+      desktopId: "chromium",
+      match: "chromium",
+      command: ["chromium"],
       requires: ["display"]
     },
     {
       id: "editor",
       label: "Editor",
       icon: "accessories-text-editor",
-      desktopId: "org.kde.kate",
-      match: "kate",
-      command: ["kate"],
+      desktopId: "mousepad",
+      match: "mousepad",
+      command: ["mousepad"],
       requires: ["display"]
     },
     {

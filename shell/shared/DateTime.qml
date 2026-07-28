@@ -83,7 +83,7 @@ Singleton {
 
   function openLocaleConf() {
     Quickshell.execDetached({
-      command: ["bash", "-lc", "(command -v xdg-open >/dev/null && xdg-open /etc/locale.conf) || exec foot -e less /etc/locale.conf"]
+      command: ["bash", "-lc", "(command -v xdg-open >/dev/null && xdg-open /etc/locale.conf) || exec ghostty -e less /etc/locale.conf"]
     })
   }
 

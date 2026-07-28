@@ -18,7 +18,7 @@ Singleton {
       mods: "SUPER",
       key: "Return",
       dispatcher: "exec",
-      arg: "foot"
+      arg: "ghostty"
     },
     {
       id: "launcher",
@@ -199,6 +199,42 @@ Singleton {
       key: "6",
       dispatcher: "movetoworkspace",
       arg: "6"
+    },
+    {
+      id: "screenshot-region",
+      category: "Capture",
+      label: "Screenshot region (annotate)",
+      mods: "SUPER SHIFT",
+      key: "S",
+      dispatcher: "exec",
+      arg: "proteus-screenshot region"
+    },
+    {
+      id: "screenshot-screen",
+      category: "Capture",
+      label: "Screenshot screen (annotate)",
+      mods: "",
+      key: "Print",
+      dispatcher: "exec",
+      arg: "proteus-screenshot screen"
+    },
+    {
+      id: "clipboard-history",
+      category: "Capture",
+      label: "Clipboard history",
+      mods: "SUPER SHIFT",
+      key: "V",
+      dispatcher: "exec",
+      arg: "proteus-clipboard"
+    },
+    {
+      id: "color-picker",
+      category: "Capture",
+      label: "Color picker",
+      mods: "SUPER SHIFT",
+      key: "C",
+      dispatcher: "exec",
+      arg: "proteus-colorpick"
     }
   ]
 
@@ -453,15 +489,17 @@ Singleton {
 
   function bindLine(entry) {
     const e = effective(entry)
-    const mods = e.mods
+    const mods = String(e.mods || "").trim()
     const key = e.key
+    // Hyprland: empty mods → "bind = , Print, …"
+    const modPart = mods.length ? mods : ""
     if (entry.dispatcher === "exec")
-      return "bind = " + mods + ", " + key + ", exec, " + entry.arg
+      return "bind = " + modPart + ", " + key + ", exec, " + entry.arg
     if (entry.dispatcher === "global")
-      return "bind = " + mods + ", " + key + ", global, " + entry.arg
+      return "bind = " + modPart + ", " + key + ", global, " + entry.arg
     if (entry.arg && entry.arg.length)
-      return "bind = " + mods + ", " + key + ", " + entry.dispatcher + ", " + entry.arg
-    return "bind = " + mods + ", " + key + ", " + entry.dispatcher + ","
+      return "bind = " + modPart + ", " + key + ", " + entry.dispatcher + ", " + entry.arg
+    return "bind = " + modPart + ", " + key + ", " + entry.dispatcher + ","
   }
 
   function confText() {
@@ -511,7 +549,7 @@ Singleton {
 
   function openConfInEditor() {
     Quickshell.execDetached({
-      command: ["bash", "-lc", "mkdir -p \"$HOME/.config/hypr\"; touch \"$HOME/.config/hypr/proteus-keybinds.conf\"; (command -v xdg-open >/dev/null && xdg-open \"$HOME/.config/hypr/proteus-keybinds.conf\") || exec foot -e nvim \"$HOME/.config/hypr/proteus-keybinds.conf\""]
+      command: ["bash", "-lc", "mkdir -p \"$HOME/.config/hypr\"; touch \"$HOME/.config/hypr/proteus-keybinds.conf\"; (command -v xdg-open >/dev/null && xdg-open \"$HOME/.config/hypr/proteus-keybinds.conf\") || exec ghostty -e nvim \"$HOME/.config/hypr/proteus-keybinds.conf\""]
     })
   }
 

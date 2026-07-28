@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Interim color picker (hyprpicker → clipboard).
+# Replace with first-party Proteus picker later.
+set -euo pipefail
+
+need() { command -v "$1" >/dev/null 2>&1 || { notify-send -a Proteus "Color" "Missing $1" 2>/dev/null || echo "missing $1" >&2; exit 1; }; }
+need hyprpicker
+
+color="$(hyprpicker -a)" || exit 0
+[[ -n "${color}" ]] || exit 0
+notify-send -a Proteus "Color" "${color}" 2>/dev/null || true

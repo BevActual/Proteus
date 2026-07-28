@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Interim clipboard history (cliphist + fuzzel).
+# Replace with first-party Proteus clipboard UI later.
+set -euo pipefail
+
+need() { command -v "$1" >/dev/null 2>&1 || { notify-send -a Proteus "Clipboard" "Missing $1" 2>/dev/null || echo "missing $1" >&2; exit 1; }; }
+need cliphist
+need fuzzel
+need wl-copy
+
+sel="$(cliphist list | fuzzel --dmenu --prompt 'Clipboard> ')" || exit 0
+[[ -n "${sel}" ]] || exit 0
+cliphist decode <<<"${sel}" | wl-copy
+notify-send -a Proteus "Clipboard" "Copied" 2>/dev/null || true

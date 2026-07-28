@@ -114,7 +114,7 @@ Item {
 
   function openGeneralConfInEditor() {
     Quickshell.execDetached({
-      command: ["bash", "-lc", "mkdir -p \"$HOME/.config/hypr\"; touch \"$HOME/.config/hypr/proteus-general.conf\"; (command -v xdg-open >/dev/null && xdg-open \"$HOME/.config/hypr/proteus-general.conf\") || exec foot -e nvim \"$HOME/.config/hypr/proteus-general.conf\""]
+      command: ["bash", "-lc", "mkdir -p \"$HOME/.config/hypr\"; touch \"$HOME/.config/hypr/proteus-general.conf\"; (command -v xdg-open >/dev/null && xdg-open \"$HOME/.config/hypr/proteus-general.conf\") || exec ghostty -e nvim \"$HOME/.config/hypr/proteus-general.conf\""]
     })
   }
 
@@ -125,7 +125,7 @@ Item {
         "-lc",
         "mkdir -p \"$HOME/.config/proteus\"; touch \"$HOME/.config/proteus/settings.json\"; "
             + "(command -v xdg-open >/dev/null && xdg-open \"$HOME/.config/proteus/settings.json\") "
-            + "|| exec foot -e nvim \"$HOME/.config/proteus/settings.json\""
+            + "|| exec ghostty -e nvim \"$HOME/.config/proteus/settings.json\""
       ]
     })
   }

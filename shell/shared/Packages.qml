@@ -47,7 +47,7 @@ Singleton {
       command: [
         "bash",
         "-lc",
-        "exec foot -e bash -lc " + JSON.stringify(cmd + '; echo; read -r -p \"Press Enter to close…\" _')
+        "exec ghostty -e bash -lc " + JSON.stringify(cmd + '; echo; read -r -p \"Press Enter to close…\" _')
       ]
     })
   }

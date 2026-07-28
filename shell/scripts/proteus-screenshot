@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Interim screenshot → annotate (grim + slurp + satty).
+# Replace with first-party Proteus capture chrome later.
+set -euo pipefail
+
+outdir="${XDG_PICTURES_DIR:-${HOME}/Pictures}/Screenshots"
+mkdir -p "${outdir}"
+# satty strftime in -o
+out="${outdir}/proteus-%Y%m%d-%H%M%S.png"
+
+mode="${1:-region}" # region | screen
+
+need() { command -v "$1" >/dev/null 2>&1 || { notify-send -a Proteus "Screenshot" "Missing $1" 2>/dev/null || echo "missing $1" >&2; exit 1; }; }
+need grim
+need satty
+need wl-copy
+
+case "${mode}" in
+  screen|full)
+    grim - | satty --filename - \
+      --output-filename "${out}" \
+      --early-exit copy,save \
+      --copy-command wl-copy \
+      --actions-on-enter save-to-clipboard
+    ;;
+  region|*)
+    need slurp
+    geom="$(slurp)" || exit 0
+    grim -g "${geom}" - | satty --filename - \
+      --output-filename "${out}" \
+      --early-exit copy,save \
+      --copy-command wl-copy \
+      --actions-on-enter save-to-clipboard
+    ;;
+esac

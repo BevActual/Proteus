@@ -251,7 +251,7 @@ Singleton {
       return
     }
     Quickshell.execDetached({
-      command: ["foot", "-e", "nmtui"]
+      command: ["ghostty", "-e", "nmtui"]
     })
   }
 

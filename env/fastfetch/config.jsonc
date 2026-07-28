@@ -1,0 +1,52 @@
+{
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+  "logo": {
+    "type": "file",
+    "source": "~/.config/fastfetch/proteus-helix.txt",
+    "color": {
+      "1": "90",
+      "2": "blue"
+    },
+    "padding": {
+      "top": 1,
+      "right": 2
+    }
+  },
+  "display": {
+    "separator": "  "
+  },
+  "modules": [
+    "title",
+    "separator",
+    "os",
+    "host",
+    {
+      "type": "kernel",
+      "format": "{release}"
+    },
+    "uptime",
+    "packages",
+    "shell",
+    "de",
+    "wm",
+    "theme",
+    "icons",
+    "terminal",
+    {
+      "type": "terminalfont",
+      "format": "{/name}{-}{/}{name}{?size} {size}{?}"
+    },
+    "cpu",
+    {
+      "type": "gpu",
+      "key": "GPU",
+      "format": "{name}"
+    },
+    {
+      "type": "memory",
+      "format": "{used} / {total}"
+    },
+    "break",
+    "colors"
+  ]
+}
