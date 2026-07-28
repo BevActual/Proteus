@@ -87,7 +87,9 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Sound → Output / Input / Applications / Latency & buffer (`sound`) | `partial` — category hub; peak meter, per-app volume, test tone |
 | Network (status + open editor; Bluetooth / VPN later) | `partial` |
 | About (session power + hardware class / capabilities) | `partial` |
-| Power · Users · Online accounts · Date & time · Privacy | `stub` — sidebar + roadmap checklist |
+| Power (battery via UPower; logind idle/lid read-only + conf escape hatch) | `partial` — writing lid/idle needs a privileged helper |
+| Date & time (clock, timezone search, NTP, locale) | `partial` — timezone/NTP writes are polkit-gated |
+| Users · Online accounts · Privacy | `stub` — sidebar + roadmap checklist |
 | Host / VM·container setup | **out of Settings** — separate app later |
 
 Modular panes: `apps/proteus-settings/panes/*` (shell stays in `Settings.qml`).

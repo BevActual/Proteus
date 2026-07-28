@@ -368,28 +368,10 @@ Item {
               active: root.page === "network"
             }
 
-            PlannedPane {
+            PowerPane {
               Layout.fillWidth: true
               visible: root.page === "power"
-              status: "stub"
-              summary: "Battery, sleep, and lid behavior for laptop-primary sessions."
-              items: [
-                {
-                  label: "Battery status",
-                  hint: "UPower / capacity + charge state",
-                  done: false
-                },
-                {
-                  label: "Sleep & idle",
-                  hint: "systemd sleep targets + idle timeouts",
-                  done: false
-                },
-                {
-                  label: "Lid close",
-                  hint: "Suspend / lock / ignore",
-                  done: false
-                }
-              ]
+              active: root.page === "power"
             }
 
             PlannedPane {
@@ -440,28 +422,10 @@ Item {
               ]
             }
 
-            PlannedPane {
+            DateTimePane {
               Layout.fillWidth: true
               visible: root.page === "datetime"
-              status: "stub"
-              summary: "Clock, timezone, and locale — timedatectl / locale under the hood."
-              items: [
-                {
-                  label: "Clock & format",
-                  hint: "12/24h, seconds, bar clock",
-                  done: false
-                },
-                {
-                  label: "Timezone",
-                  hint: "timedatectl set-timezone",
-                  done: false
-                },
-                {
-                  label: "Locale",
-                  hint: "Language and region",
-                  done: false
-                }
-              ]
+              active: root.page === "datetime"
             }
 
             PlannedPane {

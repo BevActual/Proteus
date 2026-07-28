@@ -58,7 +58,7 @@ Singleton {
     {
       id: "power",
       label: "Power",
-      status: "stub",
+      status: "partial",
       requires: [],
       requiresAny: []
     },
@@ -79,7 +79,7 @@ Singleton {
     {
       id: "datetime",
       label: "Date & time",
-      status: "stub",
+      status: "partial",
       requires: [],
       requiresAny: []
     },
