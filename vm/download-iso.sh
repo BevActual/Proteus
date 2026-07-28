@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
-# Download the latest Arch Linux x86_64 ISO (+ checksum) into vm/iso/
+# Download the latest Arch Linux x86_64 ISO (+ checksum) into PROTEUS_VM_CACHE/iso/
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ISO_DIR="${ROOT}/vm/iso"
+# shellcheck source=lib.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+proteus_vm_migrate_legacy
+proteus_vm_ensure_dirs
+
+ISO_DIR="${PROTEUS_VM_ISO_DIR}"
 MIRROR="${ARCH_MIRROR:-https://geo.mirror.pkgbuild.com}"
 ISO_LIST_URL="${MIRROR}/iso/latest/"
-
-mkdir -p "${ISO_DIR}"
 
 need() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -20,6 +22,7 @@ need curl
 need grep
 need sed
 
+echo "Cache: ${PROTEUS_VM_CACHE}"
 echo "Resolving latest Arch ISO from ${ISO_LIST_URL} …"
 html="$(curl -fsSL "${ISO_LIST_URL}")"
 iso_name="$(printf '%s\n' "${html}" | grep -oE 'archlinux-[0-9]{4}\.[0-9]{2}\.[0-9]{2}-x86_64\.iso' | head -1 || true)"

@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
-# Create the Proteus guest qcow2 disk (default 40G).
+# Create the Proteus guest qcow2 disk (default 40G) under PROTEUS_VM_CACHE/disks/
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DISK_DIR="${ROOT}/vm/disks"
-DISK="${DISK_DIR}/proteus.qcow2"
+# shellcheck source=lib.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+proteus_vm_migrate_legacy
+proteus_vm_ensure_dirs
+
+DISK_DIR="${PROTEUS_VM_DISK_DIR}"
+DISK="${PROTEUS_VM_DISK}"
 SIZE="${1:-40G}"
 
 if ! command -v qemu-img >/dev/null 2>&1; then
@@ -13,8 +17,6 @@ if ! command -v qemu-img >/dev/null 2>&1; then
   echo "Or the fuller set: sudo pacman -S qemu-desktop" >&2
   exit 1
 fi
-
-mkdir -p "${DISK_DIR}"
 
 if [[ -f "${DISK}" ]]; then
   echo "Disk already exists: ${DISK}"
@@ -25,6 +27,7 @@ if [[ -f "${DISK}" ]]; then
   exit 0
 fi
 
+echo "Cache: ${PROTEUS_VM_CACHE}"
 echo "Creating ${DISK} (${SIZE}) …"
 qemu-img create -f qcow2 "${DISK}" "${SIZE}"
 qemu-img info "${DISK}"

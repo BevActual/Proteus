@@ -11,11 +11,19 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 VM = ROOT / "vm"
-SERIAL = VM / "serial.sock"
-QMP = VM / "qmp.sock"
+_cache = Path(
+    os.environ.get(
+        "PROTEUS_VM_CACHE",
+        Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "proteus-vm",
+    )
+)
+RUNTIME = _cache / "runtime"
+RUNTIME.mkdir(parents=True, exist_ok=True)
+SERIAL = Path(os.environ.get("PROTEUS_VM_SERIAL_SOCK", RUNTIME / "serial.sock"))
+QMP = Path(os.environ.get("PROTEUS_VM_QMP_SOCK", RUNTIME / "qmp.sock"))
 SSH_PORT = os.environ.get("PROTEUS_VM_SSH_PORT", "2222")
 PASSWORD = "proteus"
-LOG = VM / "auto-install.log"
+LOG = Path(os.environ.get("PROTEUS_VM_AUTO_INSTALL_LOG", RUNTIME / "auto-install.log"))
 
 
 def log(msg: str) -> None:

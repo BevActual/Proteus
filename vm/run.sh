@@ -8,6 +8,9 @@
 #   ./vm/run.sh restore <name>   # apply snapshot
 #   ./vm/run.sh snapshots        # list snapshots
 #
+# Artifacts (ISO, qcow2, OVMF vars, boot extract) live under
+#   PROTEUS_VM_CACHE (default: ~/.cache/proteus-vm) — see vm/lib.sh
+#
 # Automation (optional env):
 #   PROTEUS_VM_DISPLAY=none|gtk|gtk,gl=on|…   (default: gtk,gl=on,zoom-to-fit=on)
 #   PROTEUS_VM_GL=0|1               (default 1 — virtio-vga-gl; set 0 for plain virtio-vga)
@@ -15,22 +18,27 @@
 #   PROTEUS_VM_AUDIO_BUFFER=μs      (default 200000 — out/in buffer-length; raise if crackle)
 #   PROTEUS_VM_AUDIO_TIMER=μs       (default 20000 — audiodev timer-period)
 #   PROTEUS_VM_SOUND=hda|virtio     (default hda — ich9-hda; virtio = virtio-sound-pci)
-#   PROTEUS_VM_QMP=1                unix QMP at vm/qmp.sock
-#   PROTEUS_VM_SERIAL=1             unix serial at vm/serial.sock
+#   PROTEUS_VM_QMP=1                unix QMP at $PROTEUS_VM_CACHE/runtime/qmp.sock
+#   PROTEUS_VM_SERIAL=1             unix serial at $PROTEUS_VM_CACHE/runtime/serial.sock
 #   PROTEUS_VM_DIRECT_KERNEL=1      install: boot extracted kernel + ttyS0
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VM_DIR="${ROOT}/vm"
-ISO="${VM_DIR}/iso/archlinux-x86_64.iso"
-DISK="${VM_DIR}/disks/proteus.qcow2"
-VARS="${VM_DIR}/vars/proteus_VARS.fd"
+# shellcheck source=lib.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+proteus_vm_migrate_legacy
+proteus_vm_ensure_dirs
+
+ROOT="${PROTEUS_ROOT}"
+VM_DIR="${PROTEUS_VM_DIR}"
+ISO="${PROTEUS_VM_ISO}"
+DISK="${PROTEUS_VM_DISK}"
+VARS="${PROTEUS_VM_VARS}"
 OVMF_CODE="${OVMF_CODE:-/usr/share/edk2/x64/OVMF_CODE.4m.fd}"
 OVMF_VARS_TEMPLATE="${OVMF_VARS_TEMPLATE:-/usr/share/edk2/x64/OVMF_VARS.4m.fd}"
-KERNEL="${VM_DIR}/boot/vmlinuz-linux"
-INITRD="${VM_DIR}/boot/initramfs-linux.img"
-QMP_SOCK="${VM_DIR}/qmp.sock"
-SERIAL_SOCK="${VM_DIR}/serial.sock"
+KERNEL="${PROTEUS_VM_KERNEL}"
+INITRD="${PROTEUS_VM_INITRD}"
+QMP_SOCK="${PROTEUS_VM_QMP_SOCK}"
+SERIAL_SOCK="${PROTEUS_VM_SERIAL_SOCK}"
 
 CPUS="${PROTEUS_VM_CPUS:-6}"
 MEM="${PROTEUS_VM_MEM:-8G}"
@@ -86,7 +94,7 @@ need qemu-system-x86_64
 need qemu-img
 
 ensure_vars() {
-  mkdir -p "${VM_DIR}/vars"
+  mkdir -p "${PROTEUS_VM_VARS_DIR}"
   if [[ ! -f "${VARS}" ]]; then
     [[ -f "${OVMF_VARS_TEMPLATE}" ]] || die "OVMF vars template not found: ${OVMF_VARS_TEMPLATE}"
     cp "${OVMF_VARS_TEMPLATE}" "${VARS}"
@@ -122,7 +130,7 @@ case "${MODE}" in
     ;;
   install|run) ;;
   -h|--help|help)
-    sed -n '2,16p' "$0"
+    sed -n '2,20p' "$0"
     exit 0
     ;;
   *)
@@ -159,6 +167,7 @@ ARGS=(
   -virtfs local,path="${ROOT}",mount_tag=proteus,security_model=mapped-xattr,id=proteus
 )
 
+echo "  cache: ${PROTEUS_VM_CACHE}"
 echo "  gpu:   ${VGA_DEV}  display: ${DISPLAY_OPT}"
 if [[ "${USE_GL}" != "1" ]]; then
   echo "  note:  PROTEUS_VM_GL=0 — software virtio-vga (Hyprland will feel laggy)"
@@ -208,7 +217,7 @@ Download it with:  ./vm/download-iso.sh"
     [[ -f "${KERNEL}" && -f "${INITRD}" ]] || die "Direct kernel boot needs:
   ${KERNEL}
   ${INITRD}
-Extract from ISO into vm/boot/ first."
+Extract from ISO into \$PROTEUS_VM_CACHE/boot/ first."
     ARGS+=(
       -kernel "${KERNEL}"
       -initrd "${INITRD}"
