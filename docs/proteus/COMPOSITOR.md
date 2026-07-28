@@ -132,7 +132,7 @@ Do **not** fork Quickshell — wrap it; upstream bugs when we hit them.
 Posture switch = **select profile + reload** (+ retarget Quickshell), not a new distro.
 Locked postures: [POSTURES.md](./POSTURES.md).
 
-Nested template today: `env/hyprland.conf` sources `proteus-monitors.conf`,
+Nested template today: `env/hypr/hyprland.conf` sources `proteus-monitors.conf`,
 `proteus-general.conf`, and `proteus-keybinds.conf`.
 
 ---

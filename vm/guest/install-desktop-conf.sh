@@ -17,8 +17,8 @@ seed() {
   fi
 }
 
-seed "${ROOT}/env/proteus-general.conf" "${HYPR_DIR}/proteus-general.conf"
-seed "${ROOT}/env/proteus-monitors.conf" "${HYPR_DIR}/proteus-monitors.conf"
+seed "${ROOT}/env/hypr/proteus-general.conf" "${HYPR_DIR}/proteus-general.conf"
+seed "${ROOT}/env/hypr/proteus-monitors.conf" "${HYPR_DIR}/proteus-monitors.conf"
 
 ensure_source() {
   local needle="$1" comment="$2"
@@ -71,7 +71,7 @@ fi
 
 # Keybinds: replace if missing, corrupt (NULs), or missing required binds
 KB="${HOME}/.config/hypr/proteus-keybinds.conf"
-KB_TMPL="${ROOT}/env/proteus-keybinds.conf"
+KB_TMPL="${ROOT}/env/hypr/proteus-keybinds.conf"
 kb_corrupt=0
 if [[ -f "${KB}" ]] && grep -q $'\0' "${KB}" 2>/dev/null; then
   kb_corrupt=1

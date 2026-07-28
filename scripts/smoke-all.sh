@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# smoke-all — host smoke suite; guest QS load when SSH up or PROTEUS_GUEST=1
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+run() {
+  echo "── $1 ──"
+  "${ROOT}/scripts/$1"
+}
+
+run layout-smoke.sh
+run config-schema-smoke.sh
+run hw-probe-smoke.sh
+run install-smoke.sh
+
+# Guest: always attempt (skips if SSH down unless PROTEUS_GUEST=1)
+run qs-guest-smoke.sh
+
+echo "smoke-all: OK"

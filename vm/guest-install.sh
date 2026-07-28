@@ -116,7 +116,7 @@ Options=trans=virtio,version=9p2000.L,msize=262144,_netdev
 [Install]
 WantedBy=multi-user.target
 MOUNT
-# Do not enable by default — document manual mount; optional enable later
+systemctl enable mnt-proteus.mount
 CHROOT
 
 sync

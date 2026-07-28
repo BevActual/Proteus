@@ -12,16 +12,43 @@ sudo pacman -S qemu-desktop qemu-img edk2-ovmf
 
 (`qemu-desktop` pulls GTK display + virtio bits. `edk2-ovmf` provides UEFI firmware.)
 
+## Layout (modular)
+
+| In repo (`vm/`) | Outside repo (cache) |
+|-----------------|----------------------|
+| `run.sh`, `download-iso.sh`, `create-disk.sh`, `lib.sh` | ISO, qcow2, OVMF vars, boot extract, socks/logs |
+| `guest/` installers | — |
+| `README.md` | — |
+
+Default cache: **`~/.cache/proteus-vm`** (`$XDG_CACHE_HOME/proteus-vm`). Override with `PROTEUS_VM_CACHE`. First run of any harness script migrates legacy `vm/iso|disks|boot|vars` into the cache (no overwrite).
+
 ## Quick start
 
 ```bash
 # From the Proteus repo root
-./vm/download-iso.sh      # Arch ISO -> vm/iso/ (gitignored)
-./vm/create-disk.sh       # 40G qcow2 -> vm/disks/proteus.qcow2
+./vm/download-iso.sh      # Arch ISO -> $PROTEUS_VM_CACHE/iso/
+./vm/create-disk.sh       # 40G qcow2 -> $PROTEUS_VM_CACHE/disks/proteus.qcow2
 ./vm/run.sh install       # boot ISO + disk (install Arch)
 # after install + reboot from disk:
 ./vm/run.sh               # daily boot
 ```
+
+### Recommended: base + light overlay
+
+```bash
+./vm/provision.sh prepare     # ISO + disk in PROTEUS_VM_CACHE
+./vm/run.sh install           # if disk empty — Arch live + guest-install.sh
+./vm/run.sh                   # boot installed disk
+./vm/provision.sh             # SSH → overlay (Hyprland/QS/desktop kit)
+./vm/run.sh snapshot hyprland-base
+PROTEUS_GUEST=1 ./scripts/smoke-all.sh
+```
+
+Overlay stages: [`vm/install/`](install/). Knobs: `PROTEUS_INSTALL_DESKTOP=0`,
+`PROTEUS_INSTALL_SKIP=…`, `PROTEUS_INSTALL_RESUME=1`.
+`./vm/bootstrap.sh` requires **SSH public-key** auth (no password polling).
+Empty qcow → `./vm/provision.sh` exits before overlay (`PROTEUS_PROVISION_FORCE=1` to override).
+Existing [`vm/guest/`](guest/) scripts remain the mutators the stages call.
 
 ## Guest: first Arch install
 
@@ -61,7 +88,7 @@ On the `hyprland-base` snapshot (and current disk after setup), the guest has a 
 
 - **Compositor:** `hyprland`, `xdg-desktop-portal-hyprland`
 - **Shell:** `quickshell` (autostarts `quickshell -p /mnt/proteus/shell`)
-- **Terminal:** `foot`
+- **Terminal:** `ghostty`
 - **GPU:** `mesa`, `vulkan-virtio` (virtio-vga)
 - **Session:** `seatd` (enabled), `polkit`, PipeWire (`pipewire`, `pipewire-pulse`, `wireplumber`)
 - **Qt:** `qt6-base`, `qt6-declarative`, `qt6-wayland`, `qt6-svg`
@@ -93,7 +120,7 @@ If greetd is not running, log in on a TTY and run:
 
 Optional auto-start on tty1: `touch ~/.proteus-autostart-hyprland` (see `~/.bash_profile`). SSH logins are unaffected.
 
-Useful binds: `Super+Return` foot, `Super+Space` launcher, `Super+,` Settings, `Super+Shift+E` exit Hyprland. Rebind in **Settings → Keyboard** (writes `~/.config/hypr/proteus-keybinds.conf`). Desktop/Displays write `proteus-general.conf` / `proteus-monitors.conf`. First-time guest wiring:
+Useful binds: `Super+Return` Ghostty, `Super+Space` launcher, `Super+,` Settings, `Super+Shift+E` exit Hyprland. Rebind in **Settings → Keyboard** (writes `~/.config/hypr/proteus-keybinds.conf`). Desktop/Displays write `proteus-general.conf` / `proteus-monitors.conf`. First-time guest wiring:
 
 ```bash
 bash /mnt/proteus/vm/guest/install-keybinds.sh
@@ -135,6 +162,7 @@ Shut the guest down cleanly before snapshot/restore when possible.
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
+| `PROTEUS_VM_CACHE` | `~/.cache/proteus-vm` | ISO, disks, vars, boot, runtime socks/logs |
 | `PROTEUS_VM_CPUS` | `6` | vCPU count |
 | `PROTEUS_VM_MEM` | `8G` | RAM |
 | `PROTEUS_VM_SSH_PORT` | `2222` | Host port → guest `:22` |
@@ -147,10 +175,14 @@ Shut the guest down cleanly before snapshot/restore when possible.
 | `ARCH_MIRROR` | geo mirror | ISO download base |
 | `OVMF_CODE` / `OVMF_VARS_TEMPLATE` | `/usr/share/edk2/x64/…` | UEFI firmware paths |
 
-## What is gitignored
+## Cache layout (`PROTEUS_VM_CACHE`)
 
-- `vm/iso/` — ISO + checksums
-- `vm/disks/` — qcow2 images
-- `vm/vars/*.fd` — per-VM UEFI NVRAM
+| Path | Role |
+|------|------|
+| `iso/` | Arch ISO + checksums |
+| `disks/` | qcow2 images |
+| `vars/` | per-VM UEFI NVRAM |
+| `boot/` | extracted kernel/initrd (direct-kernel install) |
+| `runtime/` | qmp/serial socks, qemu logs |
 
-Scripts and docs are what you push; disks/ISOs stay on the machine.
+Repo `vm/` stays harness + `guest/` only. Scripts and docs are what you push; disks/ISOs stay on the machine.

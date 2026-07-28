@@ -156,7 +156,7 @@ Reference hybrid leaf under **Peripherals → Keyboard**:
 Headphones/speakers stay under **Sound**, not Peripherals.
 
 Defaults include launcher (`Super+Space` / `Super+D`), Settings (`Super+,`),
-terminal, workspaces, etc. (`env/proteus-keybinds.conf` template).
+terminal, workspaces, etc. (`env/hypr/proteus-keybinds.conf` template).
 
 ---
 
@@ -170,8 +170,8 @@ Borders & rounding, Motion, Dock & menu bar), then leaf pages.
 | Desktop | `hyprctl keyword` (gaps, border, rounding, animations) + dock/menu sizes in `settings.json` | `proteus-general.conf` + `settings.json` | `vm/guest/install-desktop-conf.sh` |
 | Displays | Scale + mode + orientation via `hyprctl keyword monitor` | Live `monitor =` lines in `proteus-monitors.conf` | same |
 
-Templates: `env/proteus-general.conf`, `env/proteus-monitors.conf`. Nested
-`env/hyprland.conf` sources both plus keybinds.
+Templates: `env/hypr/proteus-general.conf`, `env/hypr/proteus-monitors.conf`. Nested
+`env/hypr/hyprland.conf` sources both plus keybinds.
 
 ---
 

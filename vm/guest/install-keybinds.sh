@@ -3,7 +3,7 @@
 # Safe to run repeatedly on the guest or nested host.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-SRC="${ROOT}/env/proteus-keybinds.conf"
+SRC="${ROOT}/env/hypr/proteus-keybinds.conf"
 HYPR_DIR="${HOME}/.config/hypr"
 HYPR="${HYPR_DIR}/hyprland.conf"
 DEST="${HYPR_DIR}/proteus-keybinds.conf"

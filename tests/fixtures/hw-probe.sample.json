@@ -1,0 +1,33 @@
+{
+  "schema": "proteus.hw.probe/v0",
+  "wave": "A",
+  "device_class": "desktop",
+  "chassis": "desktop",
+  "posture_hint": "desktop",
+  "modules": {
+    "audio.mic": true,
+    "audio.speaker": true,
+    "display.panel": true,
+    "engine.hyprland": true,
+    "engine.pipewire": true,
+    "input.keyboard": true,
+    "input.pointer": true,
+    "net.ethernet": true,
+    "power.ac": true,
+    "session.local_seat": true,
+    "session.wayland": true
+  },
+  "modules_absent": [],
+  "capabilities": {
+    "display": true,
+    "ethernet": true,
+    "keyboard": true,
+    "mic": true,
+    "pointer": true,
+    "qs_pipewire": true,
+    "speaker": true,
+    "tiling": true
+  },
+  "capabilities_false": [],
+  "details": {}
+}

@@ -1,0 +1,28 @@
+# Proteus desktop kit — default apps for a livable dogfood session.
+# Installed by desktop.sh when PROTEUS_INSTALL_DESKTOP=1 (default) or
+# skipped with PROTEUS_INSTALL_DESKTOP=0.
+# Keep out of proteus-base.packages.
+
+# Browser (default)
+chromium
+
+# Files (placeholder until a first-party Proteus files app)
+nautilus
+gvfs
+gvfs-mtp
+gvfs-smb
+tumbler
+ffmpegthumbnailer
+
+# Viewers
+imv
+mpv
+evince
+
+# Small utilities
+gnome-calculator
+mousepad
+file-roller
+unzip
+pavucontrol
+satty

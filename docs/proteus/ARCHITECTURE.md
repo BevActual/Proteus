@@ -122,10 +122,11 @@ Proteus/
     surfaces/         # DesktopShell, PhoneShell, … (host later)
   apps/
     proteus-settings/ # Settings.qml + kit/ + panes/*; shared/ → ../../shell/shared
-  env/                # nested/host Hyprland fragment seeds (see env/README.md)
-  vm/                 # QEMU dogfood + guest/ installers (place facts on guest)
+  env/                # seeds: hypr/ · ghostty/ · fastfetch/ (see env/README.md)
+  vm/                 # QEMU harness + guest/ mutators + install/ overlay; ISO/qcow in PROTEUS_VM_CACHE
   services/           # proteus-hw-probe (read) · proteus-pkg (privileged mutate)
-  scripts/            # run-nested, run-desktop, smoke
+  scripts/            # run-nested, run-desktop, *-smoke.sh, smoke-all
+  tests/              # fixtures for schema/layout smokes (not a QML unit runner)
 ```
 
 Public QML import path: `import "../../shared"` / Settings `shared` symlink.
@@ -182,7 +183,9 @@ Do not reimplement Meridian providers or Mobius queue inside Proteus.
 
 | Change | Gate |
 |--------|------|
-| Shell / Settings QML | Dogfood in VM (`./vm/run.sh`) or nested (`./scripts/run-nested.sh`) |
+| Shell / Settings QML | Dogfood in VM (`./vm/run.sh`) or nested (`./scripts/run-nested.sh`); `./scripts/qs-guest-smoke.sh` when guest up |
+| Layout / Config keys | `./scripts/layout-smoke.sh` · `./scripts/config-schema-smoke.sh` · fixtures in `tests/` |
+| Host smoke suite | `./scripts/smoke-all.sh` |
 | Guest installers | `vm/guest/*.sh` on running guest |
 | Keybinds | Settings → Keyboard round-trip + `~/.config/hypr/proteus-keybinds.conf` |
 | Desktop / Displays | Settings → `proteus-general.conf` / `proteus-monitors.conf` |

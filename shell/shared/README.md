@@ -1,0 +1,25 @@
+# shell/shared/ — shared spine (flat)
+
+Quickshell **directory import** package. Settings reaches it via
+`apps/proteus-settings/shared` → here.
+
+## Hard rule
+
+Keep **pragma Singleton** façades and their helpers in **this directory**.
+Do not put them in domain subdirs (`chrome/`, `config/`, …) or behind
+`qmldir` — that hits load-order cycles (`Invalid alias reference`).
+
+## Naming
+
+| Prefix | Role |
+|--------|------|
+| `Theme` | Chrome tokens |
+| `Config` / `ConfigHypr` | `settings.json` FileView + Hypr apply |
+| `Background*` | Wallpaper / lock backdrop (Catalog · Daily · Apply) |
+| `Widgets*` | Lock / desktop applets (Lock · Desktop) |
+| Others | System / session façades (`Hardware`, `EnvGate`, `Keybinds`, …) |
+
+**Ownership:** Config owns FileView only — no `property alias` to Background.
+Background reads/writes `Config.*` fields. Details: [FACTS.md](../../docs/proteus/FACTS.md).
+
+Gate: `./scripts/layout-smoke.sh` · full suite: `./scripts/smoke-all.sh`

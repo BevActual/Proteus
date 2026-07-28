@@ -73,6 +73,7 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 | Theme tokens | `shipped` — space/radius scale + accent/font from Config; company lock [CHROME.md](./CHROME.md) |
 | Chrome design lock (`CHROME.md`) | `shipped` — principles + token tables + Settings patterns; sibling CSS map `planned` |
 | Shared package layout (flat + helpers) | `shipped` — Config/Background ownership split; Settings `kit/`; guest dogfood OK |
+| Smoke suite (`scripts/*-smoke.sh`) | `shipped` — layout · config-schema · hw-probe · install; optional qs-guest |
 
 ---
 
@@ -127,10 +128,10 @@ Selection today: `PROTEUS_SURFACE` env (default `desktop`). See POSTURES § Load
 | `~/.config/hypr/proteus-general.conf` | Gaps, borders, rounding, animations (sourced) |
 | `~/.config/hypr/proteus-monitors.conf` | Displays live `monitor =` lines (sourced) |
 | `~/.config/hypr/hyprland.conf` | Guest/session compositor config |
-| `env/hyprland.conf` | Nested template (sources general / monitors / keybinds) |
-| `env/proteus-keybinds.conf` | Default binds template |
-| `env/proteus-general.conf` | Default desktop fragment |
-| `env/proteus-monitors.conf` | Default monitors stub |
+| `env/hypr/hyprland.conf` | Nested template (sources general / monitors / keybinds) |
+| `env/hypr/proteus-keybinds.conf` | Default binds template |
+| `env/hypr/proteus-general.conf` | Default desktop fragment |
+| `env/hypr/proteus-monitors.conf` | Default monitors stub |
 
 ---
 
@@ -138,13 +139,23 @@ Selection today: `PROTEUS_SURFACE` env (default `desktop`). See POSTURES § Load
 
 | Command | Role |
 |---------|------|
-| `./vm/run.sh` | Boot installed guest |
+| `./vm/run.sh` | Boot installed guest (disk under `PROTEUS_VM_CACHE`, default `~/.cache/proteus-vm`) |
 | `./vm/run.sh snapshot\|restore` | qcow2 snapshots (`hyprland-base`, …) |
+| `./vm/download-iso.sh` / `create-disk.sh` | Fetch ISO / create disk in cache |
+| `./vm/provision.sh` | Prepare ISO/disk hints + SSH overlay (`bootstrap.sh`) |
+| `./vm/bootstrap.sh` | SSH guest → light overlay (`vm/install/bootstrap.sh`) |
+| `bash /mnt/proteus/vm/install/bootstrap.sh` | On guest: staged overlay (skip/resume/only knobs; keep base packages thin) |
+| `./vm/install/check.sh` | Host tree/`bash -n` gate for overlay stages |
 | `bash /mnt/proteus/vm/guest/install-settings-app.sh` | Install Settings + keybinds + desktop/displays conf |
 | `bash /mnt/proteus/vm/guest/install-keybinds.sh` | Keybinds file + hypr source (user home) |
 | `bash /mnt/proteus/vm/guest/install-desktop-conf.sh` | `proteus-general.conf` + `proteus-monitors.conf` + sources |
 | `bash /mnt/proteus/vm/guest/install-lock-pam.sh` | `/etc/pam.d/proteus-lock` (falls back to `login` if absent) |
 | `./scripts/run-nested.sh` | Nested Hyprland on host |
+| `./scripts/smoke-all.sh` | Host smokes (layout · config · hw-probe · install); guest QS if SSH or `PROTEUS_GUEST=1` |
+| `./scripts/layout-smoke.sh` | Flat `shell/shared/` + Settings `kit/` structure |
+| `./scripts/config-schema-smoke.sh` | Config FileView keys ↔ `tests/fixtures/settings.minimal.json` |
+| `./scripts/install-smoke.sh` | Overlay installer tree check |
+| `./scripts/qs-guest-smoke.sh` | Guest cold-start `SHELL_OK` / `SETTINGS_OK` |
 
 SSH default: `ssh -p 2222 andrew@127.0.0.1`
 
@@ -174,8 +185,7 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 - Second personal posture beyond stub  
 - First-party Tauri app under `apps/`  
 - More Rust helper CLIs under `services/` (Wave A probe is Python; `proteus-pkg` mutator shipped)  
-- Smoke script suite (Meridian-style `*-smoke.sh`) beyond hw-probe  
 - Adaptive app manifests (declarative) + richer launcher filtering  
-- ISO / installer productization  
+- ISO / installer productization (dogfood overlay in `vm/install/` is enough for now)  
 
 When shipping a feature, update this file in the same change.

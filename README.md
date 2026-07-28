@@ -75,7 +75,7 @@ Shell-only experiments (does not replace the VM for distro work):
 ```
 docs/            # POSITIONING, ARCHITECTURE, POSTURES, CURRENT, …
 vm/              # QEMU/KVM Arch guest harness
-env/             # Nested Hyprland + default keybinds template
+env/             # Seeds: hypr/ · ghostty/ · fastfetch/
 scripts/         # run-nested.sh, run-desktop.sh
 shell/           # Quickshell (chrome)
   shared/        # Theme, Config, Keybinds, ShellState, …

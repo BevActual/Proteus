@@ -1,0 +1,64 @@
+# Proteus dogfood overlay — session base (Arch official repos only).
+# One package per line; comments and blanks ignored.
+# Thin: chrome stack that makes Hyprland + Quickshell honest.
+# Desktop apps (browser, files, …) → proteus-desktop.packages
+
+# Compositor / session
+hyprland
+xdg-desktop-portal-hyprland
+xdg-desktop-portal
+xdg-desktop-portal-gtk
+xdg-utils
+seatd
+polkit
+greetd
+greetd-tuigreet
+hypridle
+
+# Shell chrome
+quickshell
+qt6-base
+qt6-declarative
+qt6-wayland
+qt6-svg
+qt6-multimedia
+
+# Terminal + clipboard + screenshots
+ghostty
+wl-clipboard
+cliphist
+grim
+slurp
+hyprpicker
+libnotify
+fuzzel
+mesa
+# vulkan-virtio lives in hardware/virt.sh (VM only)
+
+# Fonts / icons
+ttf-dejavu
+noto-fonts
+noto-fonts-emoji
+papirus-icon-theme
+
+# Audio / media keys
+pipewire
+pipewire-pulse
+wireplumber
+pipewire-alsa
+pipewire-jack
+playerctl
+
+# Laptop / power / brightness (no-op harmlessly on desktop/VM)
+brightnessctl
+power-profiles-daemon
+
+# Network / Bluetooth (Settings + Control Center)
+networkmanager
+nm-connection-editor
+bluez
+bluez-utils
+blueman
+
+# Terminal open: fastfetch + DNA helix (Ghostty)
+fastfetch
