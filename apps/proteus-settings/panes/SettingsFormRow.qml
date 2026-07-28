@@ -13,13 +13,18 @@ Item {
   property string hint: ""
   property bool showSeparator: true
   property bool interactive: false
+  // Optional row tint for transient state (e.g. Keyboard recording a chord).
+  // Takes precedence over hover; leave fully transparent to opt out.
+  property color highlight: "transparent"
+  property color labelColor: Theme.text
   signal activated()
 
   default property alias trailing: trail.data
 
   Rectangle {
     anchors.fill: parent
-    color: ma.containsMouse && root.interactive ? Theme.bgHover : "transparent"
+    color: root.highlight.a > 0 ? root.highlight
+        : (ma.containsMouse && root.interactive ? Theme.bgHover : "transparent")
   }
 
   MouseArea {
@@ -45,7 +50,7 @@ Item {
       Text {
         Layout.fillWidth: true
         text: root.label
-        color: Theme.text
+        color: root.labelColor
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSize
         elide: Text.ElideRight

@@ -78,23 +78,35 @@ Item {
     }
   ]
 
+  readonly property var soundChildren: [
+    {
+      key: "sound-output",
+      label: "Output"
+    },
+    {
+      key: "sound-input",
+      label: "Input"
+    },
+    {
+      key: "sound-apps",
+      label: "Applications"
+    },
+    {
+      key: "sound-latency",
+      label: "Latency & buffer"
+    }
+  ]
+
+  // Every hub's leaf pages, flattened — the title lookup used to walk each
+  // list separately, so adding a hub meant another near-identical loop.
+  readonly property var allChildren: styleChildren
+      .concat(desktopChildren, peripheralsChildren, packagesChildren, soundChildren)
+
   readonly property string pageTitle: {
     const p = page
-    for (let i = 0; i < styleChildren.length; i++) {
-      if (styleChildren[i].key === p)
-        return styleChildren[i].label
-    }
-    for (let d = 0; d < desktopChildren.length; d++) {
-      if (desktopChildren[d].key === p)
-        return desktopChildren[d].label
-    }
-    for (let k = 0; k < peripheralsChildren.length; k++) {
-      if (peripheralsChildren[k].key === p)
-        return peripheralsChildren[k].label
-    }
-    for (let g = 0; g < packagesChildren.length; g++) {
-      if (packagesChildren[g].key === p)
-        return packagesChildren[g].label
+    for (let i = 0; i < allChildren.length; i++) {
+      if (allChildren[i].key === p)
+        return allChildren[i].label
     }
     for (let j = 0; j < panes.length; j++) {
       if (panes[j].id === p)
@@ -345,8 +357,9 @@ Item {
             SoundPane {
               id: soundPane
               Layout.fillWidth: true
-              visible: root.page === "sound"
-              active: root.page === "sound"
+              visible: root.section === "sound"
+              page: root.page
+              onRequestGo: id => SettingsNav.go(id)
             }
 
             NetworkPane {

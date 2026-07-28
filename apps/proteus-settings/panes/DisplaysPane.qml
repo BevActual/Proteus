@@ -514,8 +514,12 @@ ColumnLayout {
     }
   }
 
+  // —— View ——————————————————————————————————————————————————————————————
+  // Presentation only; every spec/apply/revert decision above is unchanged.
+
   Text {
     Layout.fillWidth: true
+    Layout.maximumWidth: 480
     text: "Scale, resolution, and orientation. Large jumps ask for confirm; Revert is offered for 10s."
     color: Theme.textMute
     font.family: Theme.fontFamily
@@ -539,6 +543,7 @@ ColumnLayout {
 
   Text {
     Layout.fillWidth: true
+    Layout.maximumWidth: 480
     text: root.status
     color: Theme.textDim
     font.family: Theme.fontFamily
@@ -547,42 +552,20 @@ ColumnLayout {
     visible: root.monitors.length === 0 && !root.confirming
   }
 
-  RowLayout {
-    Layout.fillWidth: true
-    Layout.maximumWidth: 520
+  SettingsGroup {
     visible: root.monitors.length > 0 && !root.confirming
-    spacing: Theme.spaceSm
+    title: "Modes"
 
-    Text {
-      Layout.fillWidth: true
-      text: root.showAllModes
-          ? ("Showing all modes (" + (root.monitors[0] && root.monitors[0].allModes ? root.monitors[0].allModes.length : "?") + ")")
-          : "Showing recommended modes"
-      color: Theme.textDim
-      font.family: Theme.fontFamily
-      font.pixelSize: 12
-    }
-
-    Rectangle {
-      Layout.preferredWidth: showLab.implicitWidth + 20
-      Layout.preferredHeight: 28
-      radius: Theme.radius
-      color: Theme.bgPanel
-      border.width: 1
-      border.color: Theme.border
-      Text {
-        id: showLab
-        anchors.centerIn: parent
-        text: root.showAllModes ? "Recommended" : "Show all"
-        color: Theme.text
-        font.family: Theme.fontFamily
-        font.pixelSize: 11
-      }
-      MouseArea {
-        anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        onClicked: {
-          root.showAllModes = !root.showAllModes
+    SettingsFormRow {
+      label: "Show all modes"
+      hint: root.showAllModes
+          ? ((root.monitors[0] && root.monitors[0].allModes ? root.monitors[0].allModes.length : "?") + " reported by the display")
+          : "Recommended only — hides odd virtual modes"
+      showSeparator: false
+      Switch {
+        checked: root.showAllModes
+        onToggled: {
+          root.showAllModes = checked
           root.reindexModesAfterToggle()
         }
       }
@@ -592,159 +575,131 @@ ColumnLayout {
   Repeater {
     model: root.monitors
 
-    Rectangle {
-      id: monCard
+    SettingsGroup {
+      id: monGroup
       required property var modelData
       required property int index
-      Layout.fillWidth: true
-      Layout.maximumWidth: 520
-      Layout.preferredHeight: monCol.implicitHeight + 24
-      radius: Theme.radiusMd
-      color: Theme.bgPanel
-      border.width: modelData.focused ? 2 : 1
-      border.color: modelData.focused ? Theme.accent : Theme.border
       visible: !root.confirming
+      title: monGroup.modelData.name + (monGroup.modelData.focused ? " · active" : "")
 
-      ColumnLayout {
-        id: monCol
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.margins: Theme.spaceMd
-        spacing: 8
+      readonly property bool revertable: root.canRevert && root.revertIndex === monGroup.index
 
-        RowLayout {
-          Layout.fillWidth: true
-          Text {
-            Layout.fillWidth: true
-            text: modelData.name || "Display"
-            color: Theme.text
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSize
-            font.bold: true
-          }
-          Text {
-            visible: !!modelData.focused
-            text: "Active"
-            color: Theme.accent
-            font.family: Theme.fontFamily
-            font.pixelSize: 11
-          }
-        }
+      SettingsFormRow {
+        visible: !!(monGroup.modelData.description || monGroup.modelData.make)
+        label: "Display"
+        hint: [monGroup.modelData.make, monGroup.modelData.model, monGroup.modelData.description]
+            .filter(s => s && String(s).length).join(" · ")
+        showSeparator: true
+      }
 
-        Text {
-          Layout.fillWidth: true
-          visible: !!(modelData.description || modelData.make)
-          text: [modelData.make, modelData.model, modelData.description].filter(s => s && String(s).length).join(" · ")
-          color: Theme.textMute
-          font.family: Theme.fontFamily
-          font.pixelSize: 11
-          wrapMode: Text.WordWrap
-        }
-
-        Text {
-          text: "Resolution"
-          color: Theme.textDim
-          font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSizeSm
-        }
-
+      SettingsFormRow {
+        label: "Resolution"
+        showSeparator: true
         ComboBox {
-          Layout.fillWidth: true
-          model: root.modesFor(modelData)
-          currentIndex: modelData.modeIndex
+          Layout.preferredWidth: 180
+          model: root.modesFor(monGroup.modelData)
+          currentIndex: monGroup.modelData.modeIndex
           onActivated: idx => {
             const copy = root.monitors.slice()
-            const row = Object.assign({}, copy[monCard.index])
+            const row = Object.assign({}, copy[monGroup.index])
             row.modeIndex = idx
             row.dirty = true
-            copy[monCard.index] = row
+            copy[monGroup.index] = row
             root.monitors = copy
           }
         }
+      }
 
-        Text {
-          text: "Scale"
-          color: Theme.textDim
-          font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSizeSm
-        }
-
+      SettingsFormRow {
+        label: "Scale"
+        showSeparator: true
         ComboBox {
-          Layout.fillWidth: true
-          model: modelData.scaleChoices.map(s => Number(s).toFixed(2))
-          currentIndex: modelData.scaleIndex
+          Layout.preferredWidth: 120
+          model: monGroup.modelData.scaleChoices.map(s => Number(s).toFixed(2))
+          currentIndex: monGroup.modelData.scaleIndex
           onActivated: idx => {
             const copy = root.monitors.slice()
-            const row = Object.assign({}, copy[monCard.index])
+            const row = Object.assign({}, copy[monGroup.index])
             row.scaleIndex = idx
             row.dirty = true
-            copy[monCard.index] = row
+            copy[monGroup.index] = row
             root.monitors = copy
           }
         }
+      }
 
-        Text {
-          text: "Orientation"
-          color: Theme.textDim
-          font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSizeSm
-        }
-
+      SettingsFormRow {
+        label: "Orientation"
+        showSeparator: true
         ComboBox {
-          Layout.fillWidth: true
+          Layout.preferredWidth: 120
           model: root.transformChoices.map(t => t.label)
-          currentIndex: modelData.transformIndex
+          currentIndex: monGroup.modelData.transformIndex
           onActivated: idx => {
             const copy = root.monitors.slice()
-            const row = Object.assign({}, copy[monCard.index])
+            const row = Object.assign({}, copy[monGroup.index])
             row.transformIndex = idx
             row.transform = root.transformChoices[idx].value
             row.dirty = true
-            copy[monCard.index] = row
+            copy[monGroup.index] = row
             root.monitors = copy
           }
         }
+      }
 
-        RowLayout {
-          Layout.fillWidth: true
-          spacing: Theme.spaceSm
+      SettingsFormRow {
+        label: "Identify"
+        hint: "Flash this display and focus it"
+        showSeparator: true
+        interactive: true
+        onActivated: Displays.identifyMonitor(monGroup.modelData.name)
+        Text {
+          text: "Flash"
+          color: Theme.accent
+          font.family: Theme.fontFamily
+          font.pixelSize: 12
+        }
+      }
 
-          Button {
-            Layout.fillWidth: true
-            text: "Identify"
-            onClicked: Displays.identifyMonitor(modelData.name)
-          }
+      // `dirty` was tracked but never surfaced — Apply now reflects it.
+      SettingsFormRow {
+        label: "Apply"
+        hint: monGroup.modelData.dirty
+            ? "Pending changes on this display"
+            : "No changes to apply"
+        showSeparator: monGroup.revertable
+        interactive: monGroup.modelData.dirty
+        labelColor: monGroup.modelData.dirty ? Theme.accent : Theme.textMute
+        onActivated: root.requestApply(monGroup.index)
+        Text {
+          text: monGroup.modelData.dirty ? "›" : ""
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSize
+        }
+      }
 
-          Button {
-            Layout.fillWidth: true
-            text: "Apply"
-            onClicked: root.requestApply(monCard.index)
-          }
-
-          Button {
-            Layout.fillWidth: true
-            text: root.canRevert ? ("Revert " + root.revertSeconds + "s") : "Revert"
-            enabled: root.canRevert && root.revertIndex === monCard.index
-            onClicked: root.revertLast()
-          }
+      SettingsFormRow {
+        visible: monGroup.revertable
+        label: "Revert"
+        hint: "Restore the previous mode — " + root.revertSeconds + "s left"
+        showSeparator: false
+        interactive: true
+        labelColor: Theme.danger
+        onActivated: root.revertLast()
+        Text {
+          text: root.revertSeconds + "s"
+          color: Theme.danger
+          font.family: Theme.fontFamily
+          font.pixelSize: 12
         }
       }
     }
   }
 
-  // Status only — Revert lives on the monitor row (Controls.Button)
   Text {
     Layout.fillWidth: true
-    visible: root.canRevert
-    text: "Revert is enabled on the monitor row (" + root.revertSeconds + "s left)."
-    color: Theme.textDim
-    font.family: Theme.fontFamily
-    font.pixelSize: 12
-  }
-
-  Text {
-    Layout.fillWidth: true
+    Layout.maximumWidth: 480
     visible: root.applyStatus.length > 0 && !root.confirming
     text: root.applyStatus
     color: Theme.textDim
@@ -753,61 +708,44 @@ ColumnLayout {
     wrapMode: Text.WordWrap
   }
 
-  RowLayout {
-    Layout.fillWidth: true
-    Layout.maximumWidth: 520
-    Layout.topMargin: 4
-    spacing: Theme.spaceSm
+  SettingsGroup {
     visible: !root.confirming
 
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: 40
-      radius: Theme.radiusMd
-      color: Theme.bgPanel
-      border.width: 1
-      border.color: Theme.border
-      Text {
-        anchors.centerIn: parent
-        text: "Refresh"
-        color: Theme.text
-        font.family: Theme.fontFamily
-        font.pixelSize: 12
+    SettingsFormRow {
+      label: "Refresh"
+      hint: "Re-read hyprctl monitors"
+      showSeparator: true
+      interactive: true
+      onActivated: {
+        root.clearRevert()
+        root.refresh()
       }
-      MouseArea {
-        anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        onClicked: {
-          root.clearRevert()
-          root.refresh()
-        }
+      Text {
+        text: "›"
+        color: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
       }
     }
 
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: 40
-      radius: Theme.radiusMd
-      color: Theme.bgPanel
-      border.width: 1
-      border.color: Theme.border
+    SettingsFormRow {
+      label: "Edit monitors conf…"
+      hint: "~/.config/hypr/proteus-monitors.conf"
+      showSeparator: false
+      interactive: true
+      onActivated: Displays.openMonitorsConfInEditor()
       Text {
-        anchors.centerIn: parent
-        text: "Edit monitors conf…"
-        color: Theme.text
+        text: "›"
+        color: Theme.textMute
         font.family: Theme.fontFamily
-        font.pixelSize: 12
-      }
-      MouseArea {
-        anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        onClicked: Displays.openMonitorsConfInEditor()
+        font.pixelSize: Theme.fontSize
       }
     }
   }
 
   Text {
     Layout.fillWidth: true
+    Layout.maximumWidth: 480
     text: "Fact: hyprctl monitors · Apply: hyprctl keyword monitor … + ~/.config/hypr/proteus-monitors.conf"
     color: Theme.textMute
     font.family: Theme.fontFamily

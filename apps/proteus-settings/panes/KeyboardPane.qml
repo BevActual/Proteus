@@ -3,16 +3,25 @@ import QtQuick
 import QtQuick.Layouts
 import "../shared"
 
+// Peripherals → Keyboard leaf. Reference hybrid feature (SETTINGS-IA § 5):
+// friendly catalog → keybinds.json → generated proteus-keybinds.conf.
 ColumnLayout {
   id: root
   Layout.fillWidth: true
-  spacing: 12
+  spacing: Theme.spaceMd
 
   // Parent Settings Item — needed so key capture receives events while recording
   property Item focusHost
 
+  function rowsFor(category) {
+    // listRevision is read so the binding re-evaluates after an edit.
+    const _ = Keybinds.listRevision
+    return Keybinds.rowsForCategory(category)
+  }
+
   Text {
     Layout.fillWidth: true
+    Layout.maximumWidth: 480
     text: "Customize shortcuts like macOS — each one writes a real Hyprland bind."
     color: Theme.textMute
     font.family: Theme.fontFamily
@@ -22,11 +31,13 @@ ColumnLayout {
 
   Rectangle {
     Layout.fillWidth: true
+    Layout.maximumWidth: 480
     Layout.preferredHeight: 36
-    radius: Theme.radius
-    color: Theme.bgPanel
+    radius: Theme.radiusMd
+    color: Theme.bgElevated
     border.width: 1
-    border.color: Theme.border
+    border.color: kbSearch.activeFocus ? Theme.accent : Theme.border
+
     TextInput {
       id: kbSearch
       anchors.fill: parent
@@ -40,6 +51,7 @@ ColumnLayout {
       clip: true
       text: Keybinds.search
       onTextChanged: Keybinds.search = text
+
       Text {
         anchors.fill: parent
         verticalAlignment: Text.AlignVCenter
@@ -54,6 +66,7 @@ ColumnLayout {
 
   Text {
     Layout.fillWidth: true
+    Layout.maximumWidth: 480
     visible: Keybinds.statusMessage.length > 0
     text: Keybinds.statusMessage
     color: Keybinds.recordingId.length ? Theme.accent : Theme.textDim
@@ -64,111 +77,84 @@ ColumnLayout {
 
   Repeater {
     model: Keybinds.categories
-    ColumnLayout {
-      required property var modelData
-      Layout.fillWidth: true
-      spacing: 6
-      visible: {
-        const _ = Keybinds.listRevision
-        return Keybinds.rowsForCategory(modelData).length > 0
-      }
 
-      Text {
-        text: modelData
-        color: Theme.textDim
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSizeSm
-        font.bold: true
-        Layout.topMargin: 6
-      }
+    SettingsGroup {
+      id: catGroup
+      required property var modelData
+      title: catGroup.modelData
+      visible: root.rowsFor(catGroup.modelData).length > 0
 
       Repeater {
-        model: {
-          const _ = Keybinds.listRevision
-          return Keybinds.rowsForCategory(modelData)
-        }
-        Rectangle {
+        model: root.rowsFor(catGroup.modelData)
+
+        SettingsFormRow {
+          id: bindRow
           required property var modelData
-          Layout.fillWidth: true
-          Layout.preferredHeight: 52
-          radius: Theme.radiusMd
-          color: Keybinds.recordingId === modelData.id ? Theme.accentSoft : Theme.bgPanel
-          border.width: 1
-          border.color: Keybinds.recordingId === modelData.id ? Theme.accent : (Keybinds.conflictId === modelData.id ? Theme.danger : Theme.border)
+          required property int index
 
-          RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 14
-            anchors.rightMargin: 10
-            spacing: 10
+          readonly property bool recording: Keybinds.recordingId === modelData.id
+          readonly property bool conflicted: Keybinds.conflictId === modelData.id
+          readonly property bool custom: Keybinds.isCustom(modelData.id)
 
-            ColumnLayout {
-              Layout.fillWidth: true
-              spacing: 2
-              Text {
-                text: modelData.label
-                color: Theme.text
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSize
-              }
-              Text {
-                visible: Keybinds.isCustom(modelData.id)
-                text: "Custom"
-                color: Theme.accent
-                font.family: Theme.fontFamily
-                font.pixelSize: 10
-              }
+          label: modelData.label
+          hint: bindRow.conflicted ? "Already used by another shortcut"
+              : (bindRow.custom ? "Custom" : "")
+          showSeparator: bindRow.index < root.rowsFor(catGroup.modelData).length - 1
+          highlight: bindRow.recording ? Theme.accentSoft : "transparent"
+
+          // Chord chip — click to record a new combination.
+          Rectangle {
+            Layout.preferredHeight: 30
+            Layout.preferredWidth: Math.max(96, chordLab.implicitWidth + 20)
+            radius: Theme.radius
+            color: bindRow.recording ? Theme.accent : Theme.bgHover
+            border.width: 1
+            border.color: bindRow.conflicted ? Theme.danger : Theme.border
+
+            Text {
+              id: chordLab
+              anchors.centerIn: parent
+              text: bindRow.recording ? "Type shortcut…" : Keybinds.chordFor(bindRow.modelData)
+              color: Theme.text
+              font.family: Theme.fontFamily
+              font.pixelSize: 12
+              font.bold: bindRow.recording
             }
 
-            Rectangle {
-              Layout.preferredHeight: 30
-              Layout.preferredWidth: Math.max(96, chordLab.implicitWidth + 20)
-              radius: Theme.radius
-              color: Keybinds.recordingId === modelData.id ? Theme.accent : Theme.bgElevated
-              border.width: 1
-              border.color: Theme.border
-              Text {
-                id: chordLab
-                anchors.centerIn: parent
-                text: Keybinds.recordingId === modelData.id ? "Type shortcut…" : Keybinds.chordFor(modelData)
-                color: Theme.text
-                font.family: Theme.fontFamily
-                font.pixelSize: 12
-                font.bold: Keybinds.recordingId === modelData.id
-              }
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  if (root.focusHost)
-                    root.focusHost.forceActiveFocus()
-                  Keybinds.startRecording(modelData.id)
-                }
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                if (root.focusHost)
+                  root.focusHost.forceActiveFocus()
+                Keybinds.startRecording(bindRow.modelData.id)
               }
             }
+          }
 
-            Rectangle {
-              visible: Keybinds.isCustom(modelData.id)
-              Layout.preferredWidth: 56
-              Layout.preferredHeight: 28
-              radius: Theme.radius
-              color: resetMa.containsMouse ? Theme.bgHover : "transparent"
-              border.width: 1
-              border.color: Theme.border
-              Text {
-                anchors.centerIn: parent
-                text: "Reset"
-                color: Theme.textDim
-                font.family: Theme.fontFamily
-                font.pixelSize: 11
-              }
-              MouseArea {
-                id: resetMa
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: Keybinds.resetOne(modelData.id)
-              }
+          Rectangle {
+            visible: bindRow.custom
+            Layout.preferredWidth: 56
+            Layout.preferredHeight: 28
+            radius: Theme.radius
+            color: resetMa.containsMouse ? Theme.bgHover : "transparent"
+            border.width: 1
+            border.color: Theme.border
+
+            Text {
+              anchors.centerIn: parent
+              text: "Reset"
+              color: Theme.textDim
+              font.family: Theme.fontFamily
+              font.pixelSize: 11
+            }
+
+            MouseArea {
+              id: resetMa
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: Keybinds.resetOne(bindRow.modelData.id)
             }
           }
         }
@@ -176,57 +162,41 @@ ColumnLayout {
     }
   }
 
-  RowLayout {
-    Layout.fillWidth: true
-    Layout.topMargin: Theme.spaceSm
-    spacing: Theme.spaceSm
-
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: 40
-      radius: Theme.radiusMd
-      color: Theme.bgPanel
-      border.width: 1
-      border.color: Theme.border
+  SettingsGroup {
+    SettingsFormRow {
+      label: "Edit config file…"
+      hint: "~/.config/hypr/proteus-keybinds.conf"
+      showSeparator: true
+      interactive: true
+      onActivated: Keybinds.openConfInEditor()
       Text {
-        anchors.centerIn: parent
-        text: "Edit config file…"
-        color: Theme.text
+        text: "›"
+        color: Theme.textMute
         font.family: Theme.fontFamily
-        font.pixelSize: 12
-      }
-      MouseArea {
-        anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        onClicked: Keybinds.openConfInEditor()
+        font.pixelSize: Theme.fontSize
       }
     }
 
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: 40
-      radius: Theme.radiusMd
-      color: Theme.bgPanel
-      border.width: 1
-      border.color: Theme.border
+    SettingsFormRow {
+      label: "Restore all defaults"
+      hint: "Discards every custom shortcut"
+      showSeparator: false
+      interactive: true
+      labelColor: Theme.danger
+      onActivated: Keybinds.resetAll()
       Text {
-        anchors.centerIn: parent
-        text: "Restore all defaults"
-        color: Theme.text
+        text: "›"
+        color: Theme.textMute
         font.family: Theme.fontFamily
-        font.pixelSize: 12
-      }
-      MouseArea {
-        anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        onClicked: Keybinds.resetAll()
+        font.pixelSize: Theme.fontSize
       }
     }
   }
 
   Text {
     Layout.fillWidth: true
-    text: "File: ~/.config/hypr/proteus-keybinds.conf"
+    Layout.maximumWidth: 480
+    text: "Fact: keybinds.json → proteus-keybinds.conf, sourced by Hyprland."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11

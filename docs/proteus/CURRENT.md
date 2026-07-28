@@ -84,7 +84,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Displays (scale / mode / orientation, Identify; Revert parked) | `partial` |
 | Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) | `shipped` |
 | Software → Updates / Search (propose → confirm → `pkexec proteus-pkg`) | `partial` |
-| Sound (output + input, peak meter, per-app volume, latency/buffer, test tone) | `partial` |
+| Sound → Output / Input / Applications / Latency & buffer (`sound`) | `partial` — category hub; peak meter, per-app volume, test tone |
 | Network (status + open editor; Bluetooth / VPN later) | `partial` |
 | About (session power + hardware class / capabilities) | `partial` |
 | Power · Users · Online accounts · Date & time · Privacy | `stub` — sidebar + roadmap checklist |

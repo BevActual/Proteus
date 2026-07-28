@@ -82,7 +82,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Appearance** (`style`) | Category → Accent, Background, Lock screen (wallpaper/dim; lock widgets via Customize), Font | `settings.json`, Theme, `proteus-bg` | `partial` |
 | **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar | json + hyprctl + `proteus-general.conf` | `shipped` |
 | **Displays** (`displays`) | Per-monitor scale + mode (Apply); conf escape hatch | hyprctl + `proteus-monitors.conf` | `partial` |
-| **Sound** (`sound`) | Output + input volume/mute, devices, peak meter, per-app volume, latency/buffer, test tone | pactl + `parec` + `pw-metadata` | `partial` |
+| **Sound** (`sound`) | Category → Output (volume/mute/device/test tone), Input (level, meter, device), Applications (per-app volume), Latency & buffer | pactl + `parec` + `pw-metadata` | `partial` |
 | **Network** (`network`) | Device status + open editor; later Bluetooth, VPN | nmcli / nmtui (+ later) | `partial` |
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse; later touchpad / tablet | keybinds + input hyprctl | `shipped` |
 | **Power** (`power`) | Battery, sleep, lid (laptop-primary) | systemd / UPower | `stub` |

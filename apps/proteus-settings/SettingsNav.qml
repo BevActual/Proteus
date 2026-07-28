@@ -9,32 +9,54 @@ Singleton {
 
   property string page: "style"
 
-  readonly property bool canGoBack: page.startsWith("style-")
-      || page.startsWith("desktop-")
-      || page.startsWith("peripherals-")
-      || page.startsWith("packages-")
+  // Categories that drill in: page ids are "<id>" for the list and "<id>-*" for
+  // each leaf. Registering a hub here is all that back / breadcrumb / sidebar
+  // highlighting need — they used to hardcode the same four prefixes each.
+  readonly property var hubs: [
+    {
+      id: "style",
+      label: "Appearance"
+    },
+    {
+      id: "desktop",
+      label: "Desktop"
+    },
+    {
+      id: "peripherals",
+      label: "Peripherals"
+    },
+    {
+      id: "packages",
+      label: "Software"
+    },
+    {
+      id: "sound",
+      label: "Sound"
+    }
+  ]
 
-  readonly property string backLabel: {
-    if (page.startsWith("desktop-"))
-      return "Desktop"
-    if (page.startsWith("style-"))
-      return "Appearance"
-    if (page.startsWith("peripherals-"))
-      return "Peripherals"
-    if (page.startsWith("packages-"))
-      return "Software"
-    return ""
+  // The hub a leaf page belongs to, or null on a top-level page.
+  readonly property var activeHub: {
+    for (let i = 0; i < hubs.length; i++) {
+      if (page.startsWith(hubs[i].id + "-"))
+        return hubs[i]
+    }
+    return null
   }
 
+  readonly property bool canGoBack: !!activeHub
+
+  readonly property string backLabel: activeHub ? String(activeHub.label) : ""
+
   readonly property string section: {
-    if (page === "style" || page.startsWith("style-"))
-      return "style"
-    if (page === "desktop" || page.startsWith("desktop-"))
-      return "desktop"
-    if (page === "peripherals" || page.startsWith("peripherals-") || page === "keyboard")
+    // Legacy top-level Keyboard lives under Peripherals.
+    if (page === "keyboard")
       return "peripherals"
-    if (page === "packages" || page.startsWith("packages-"))
-      return "packages"
+    for (let i = 0; i < hubs.length; i++) {
+      const id = hubs[i].id
+      if (page === id || page.startsWith(id + "-"))
+        return id
+    }
     return page
   }
 
@@ -48,23 +70,15 @@ Singleton {
   }
 
   function back() {
-    if (page.startsWith("style-")) {
-      page = "style"
-      return true
-    }
-    if (page.startsWith("desktop-")) {
-      page = "desktop"
-      return true
-    }
-    if (page.startsWith("peripherals-") || page === "keyboard") {
+    if (page === "keyboard") {
       page = "peripherals"
       return true
     }
-    if (page.startsWith("packages-")) {
-      page = "packages"
-      return true
-    }
-    return false
+    const hub = activeHub
+    if (!hub)
+      return false
+    page = String(hub.id)
+    return true
   }
 
   function goSection(id) {
