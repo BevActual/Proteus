@@ -210,6 +210,7 @@ Item {
     }
 
     Loader {
+      id: reactiveLoader
       anchors.fill: parent
       active: Config.lockBackdropKind === "reactive"
       source: Qt.resolvedUrl("../../wallpaper/ReactiveBg.qml")
@@ -220,11 +221,14 @@ Item {
         item.customAccent = true
         item.accentColor = Theme.accent
       }
+      // Must be qualified: bare `item` resolves up the scope chain to the
+      // enclosing DesktopShell, not this Loader, so the binding silently
+      // targeted the wrong object and live effect changes never applied.
       Binding {
-        target: item
+        target: reactiveLoader.item
         property: "effectId"
         value: Config.lockBackdropReactiveId
-        when: !!item
+        when: !!reactiveLoader.item
       }
     }
 

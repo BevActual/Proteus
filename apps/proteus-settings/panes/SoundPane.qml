@@ -46,9 +46,6 @@ ColumnLayout {
     }
   ]
 
-  readonly property var defaultSink: root.sinks.find(s => s.isDefault) || null
-  readonly property var defaultSource: root.sources.find(s => s.isDefault) || null
-
   function formatState(state) {
     const s = state || "unknown"
     if (s === "SUSPENDED")
