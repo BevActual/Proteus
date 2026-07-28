@@ -13,6 +13,16 @@ ColumnLayout {
   property bool active: false
   property string zoneQuery: ""
   property bool pickingZone: false
+  property string placeQuery: ""
+  property bool pickingPlace: false
+
+  // Geocoding is a network call per keystroke otherwise.
+  Timer {
+    id: placeDebounce
+    interval: 350
+    repeat: false
+    onTriggered: Weather.searchPlaces(root.placeQuery)
+  }
 
   readonly property var zoneResults: root.pickingZone
       ? DateTime.searchTimezones(root.zoneQuery, 40)
@@ -36,6 +46,9 @@ ColumnLayout {
     } else {
       root.pickingZone = false
       root.zoneQuery = ""
+      root.pickingPlace = false
+      root.placeQuery = ""
+      Weather.clearSearch()
     }
   }
 
@@ -176,6 +189,171 @@ ColumnLayout {
     }
   }
 
+  // Location is system state, not a per-widget setting: set it once and every
+  // surface that needs "where am I" uses it. Explicit search only — coarse IP
+  // geolocation is what puts weather in the wrong town with no way to fix it.
+  SettingsGroup {
+    title: "Location"
+
+    SettingsFormRow {
+      label: "Place"
+      hint: Config.locationName.length
+          ? (Config.locationName + " · "
+             + Number(Config.locationLatitude).toFixed(3) + ", "
+             + Number(Config.locationLongitude).toFixed(3))
+          : "Not set — weather and sunrise need this"
+      showSeparator: root.pickingPlace || Config.locationName.length > 0
+      interactive: true
+      onActivated: {
+        root.pickingPlace = !root.pickingPlace
+        root.placeQuery = ""
+        Weather.clearSearch()
+      }
+      Text {
+        text: root.pickingPlace ? "Cancel" : (Config.locationName.length ? "Change" : "Set")
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+
+    Item {
+      visible: root.pickingPlace
+      Layout.fillWidth: true
+      Layout.preferredHeight: 44
+
+      Rectangle {
+        anchors.fill: parent
+        anchors.leftMargin: Theme.spaceMd
+        anchors.rightMargin: Theme.spaceMd
+        anchors.topMargin: Theme.spaceXs
+        anchors.bottomMargin: Theme.spaceSm
+        radius: Theme.radiusMd
+        color: Theme.bgHover
+        border.width: 1
+        border.color: placeSearch.activeFocus ? Theme.accent : Theme.border
+
+        TextInput {
+          id: placeSearch
+          anchors.fill: parent
+          anchors.leftMargin: Theme.spaceMd
+          anchors.rightMargin: Theme.spaceMd
+          verticalAlignment: TextInput.AlignVCenter
+          color: Theme.text
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSize
+          selectByMouse: true
+          clip: true
+          text: root.placeQuery
+          onTextChanged: {
+            root.placeQuery = text
+            placeDebounce.restart()
+          }
+          Keys.onReturnPressed: Weather.searchPlaces(root.placeQuery)
+
+          Text {
+            anchors.fill: parent
+            verticalAlignment: Text.AlignVCenter
+            text: Weather.searching ? "Searching…" : "Town or city — then pick the right one"
+            color: Theme.textMute
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize
+            visible: !placeSearch.text.length && !placeSearch.activeFocus
+          }
+        }
+      }
+    }
+
+    Repeater {
+      model: root.pickingPlace ? Weather.searchResults : []
+
+      SettingsFormRow {
+        required property var modelData
+        required property int index
+        // Region and country are what separate five Springfields.
+        label: modelData.label
+        hint: Number(modelData.latitude).toFixed(3) + ", "
+            + Number(modelData.longitude).toFixed(3)
+            + (modelData.timezone.length ? (" · " + modelData.timezone) : "")
+        showSeparator: index < Weather.searchResults.length - 1
+        interactive: true
+        onActivated: {
+          Weather.setLocation(modelData)
+          root.pickingPlace = false
+          root.placeQuery = ""
+          Weather.clearSearch()
+        }
+        Text {
+          text: "Use"
+          color: Theme.accent
+          font.family: Theme.fontFamily
+          font.pixelSize: 12
+        }
+      }
+    }
+
+    SettingsFormRow {
+      visible: root.pickingPlace && Weather.searchError.length > 0
+      label: Weather.searchError
+      labelColor: Theme.textMute
+      hint: "Try a nearby larger town"
+      showSeparator: false
+    }
+
+    SettingsFormRow {
+      visible: !root.pickingPlace && Config.locationName.length > 0
+      label: "Units"
+      hint: Weather.imperial ? "Fahrenheit and miles per hour" : "Celsius and kilometres per hour"
+      showSeparator: true
+      SettingsSegmented {
+        Layout.preferredWidth: 160
+        options: [
+          {
+            id: "metric",
+            label: "°C"
+          },
+          {
+            id: "imperial",
+            label: "°F"
+          }
+        ]
+        selected: Config.weatherUnits
+        onActivated: id => Weather.setUnits(id)
+      }
+    }
+
+    SettingsFormRow {
+      visible: !root.pickingPlace && Config.locationName.length > 0
+      label: "Conditions"
+      hint: Weather.summary
+      showSeparator: true
+      interactive: true
+      onActivated: Weather.refresh()
+      Text {
+        text: Weather.loading ? "…" : "Refresh"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+
+    SettingsFormRow {
+      visible: !root.pickingPlace && Config.locationName.length > 0
+      label: "Clear location"
+      hint: "Stops weather lookups entirely"
+      labelColor: Theme.danger
+      showSeparator: false
+      interactive: true
+      onActivated: Weather.clearLocation()
+      Text {
+        text: "›"
+        color: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+      }
+    }
+  }
+
   SettingsGroup {
     title: "Locale"
 
@@ -221,7 +399,8 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Fact: timedatectl set-timezone / set-ntp (polkit-gated) · localectl status."
+    text: "Fact: timedatectl set-timezone / set-ntp (polkit-gated) · localectl status · "
+        + "weather from api.open-meteo.com (no API key). Only the coordinates you set are sent."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11

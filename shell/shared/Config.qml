@@ -23,6 +23,11 @@ Singleton {
   property alias mouseSensitivity: adapter.mouseSensitivity
   property alias mouseAccelFlat: adapter.mouseAccelFlat
   property alias audioLatency: adapter.audioLatency
+  property alias locationName: adapter.locationName
+  property alias locationLatitude: adapter.locationLatitude
+  property alias locationLongitude: adapter.locationLongitude
+  property alias locationTimezone: adapter.locationTimezone
+  property alias weatherUnits: adapter.weatherUnits
   property alias accentId: adapter.accentId
   property alias accentCustom: adapter.accentCustom
   property alias chromeMode: adapter.chromeMode
@@ -398,6 +403,16 @@ Singleton {
       defaultSize: "sm",
       unique: true,
       source: "widgets/BatteryWidget.qml"
+    },
+    {
+      id: "weather",
+      label: "Weather",
+      hint: "Conditions for your location",
+      category: "Outside",
+      icon: "⛅",
+      defaultSize: "md",
+      unique: true,
+      source: "widgets/WeatherWidget.qml"
     }
   ]
 
@@ -2701,6 +2716,15 @@ Singleton {
       property bool mouseAccelFlat: false
       // low | balanced | high → PipeWire clock.force-quantum 256 / 512 / 1024
       property string audioLatency: "high"
+      // One system location, set once and shared by every surface that needs
+      // "where am I" — weather today, sunrise/sunset later. Stored as precise
+      // coordinates from an explicit place search, never inferred from IP.
+      property string locationName: ""
+      property real locationLatitude: 0
+      property real locationLongitude: 0
+      property string locationTimezone: ""
+      // metric | imperial
+      property string weatherUnits: "metric"
       property string accentId: "blue"
       property string accentCustom: "#3d8bfd"
       property string chromeMode: "dark"

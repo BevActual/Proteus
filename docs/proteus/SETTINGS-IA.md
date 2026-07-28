@@ -65,6 +65,8 @@ Examples:
 | Package updates / search | `pacman -Qu` / `-Ss` · apply `pkexec proteus-pkg` (polkit; terminal fallback) |
 | Timezone / network time | `timedatectl set-timezone` / `set-ntp` (polkit-gated; errors surfaced in-pane) |
 | Locale | `localectl status` (read-only + `/etc/locale.conf` escape hatch) |
+| Location | Explicit place search → precise lat/lon in `settings.json` (**never IP-inferred**); Open-Meteo geocoding |
+| Weather | `api.open-meteo.com` current conditions for the stored location — no API key; only those coordinates are sent |
 | Battery charge / health / estimate | UPower display device (`Quickshell.Services.UPower`) |
 | Idle / lid policy | `/etc/systemd/logind.conf` — **read-only**; commented keys reported as shipped defaults |
 
@@ -92,7 +94,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Power** (`power`) | Battery charge / health / estimate (UPower); logind idle + lid policy read-only with conf escape hatch | UPower / `logind.conf` | `partial` |
 | **Users** (`users`) | Accounts, login; session actions peel here from About | accounts / loginctl | `stub` |
 | **Online accounts** (`accounts`) | Mail, contacts, cloud storage providers | TBD (not inventing mail/contacts apps here) | `stub` |
-| **Date & time** (`datetime`) | Live clock, searchable timezone picker, network time toggle, locale | `timedatectl` / `localectl` | `partial` |
+| **Date & time** (`datetime`) | Live clock, searchable timezone picker, network time toggle, locale, **Location** (shared system place + units) | `timedatectl` / `localectl` / Open-Meteo | `partial` |
 | **Privacy** (`privacy`) | Permissions when adaptive apps exist | app permissions model | `stub` |
 | **Software** (`packages`) | Category → Updates, Search (propose → confirm → polkit) | `pacman` + `services/proteus-pkg` | `partial` |
 | **About** (`system`) | Hardware caps, lock / logout / reboot / shutdown (until Users exists) | probe + hypr / systemctl / loginctl | `partial` |

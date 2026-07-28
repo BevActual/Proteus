@@ -64,7 +64,7 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 | Control Center (notifications + quick settings) | `partial` — DND, volume/mute, network editor, battery; toasts; no Settings pane yet |
 | App launcher (`Super+Space` / `Super+D`) | `shipped` |
 | Dock (pins, magnify, running dots) | `shipped` |
-| Desktop widgets (free place; Customize) | `partial` — long-press empty desktop or `Super+Shift+W`; catalog clock/media/battery; separate from lock |
+| Desktop widgets (free place; Customize) | `partial` — long-press empty desktop or `Super+Shift+W`; catalog clock/media/battery/weather; separate from lock |
 | Lock screen (`Super+L`, PAM + `WlSessionLock`) | `shipped` — Customize mode, zone layout, applets; cold boot auto-lock; attempt cooldown after 3 misses |
 | Global shortcuts (launcher, settings, lock) | `shipped` |
 | Hardware probe at session start (`Hardware.qml`) | `shipped` — Wave A |
@@ -88,7 +88,8 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Network (status + open editor; Bluetooth / VPN later) | `partial` |
 | About (session power + hardware class / capabilities) | `partial` |
 | Power (battery via UPower; logind idle/lid read-only + conf escape hatch) | `partial` — writing lid/idle needs a privileged helper |
-| Date & time (clock, timezone search, NTP, locale) | `partial` — timezone/NTP writes are polkit-gated |
+| Date & time (clock, timezone search, NTP, locale, location) | `partial` — timezone/NTP writes are polkit-gated |
+| Weather (Open-Meteo, keyless; system location shared by all surfaces) | `partial` — current conditions + widget; no forecast view |
 | Users · Online accounts · Privacy | `stub` — sidebar + roadmap checklist |
 | Host / VM·container setup | **out of Settings** — separate app later |
 
