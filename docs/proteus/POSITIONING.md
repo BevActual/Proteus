@@ -2,7 +2,7 @@
 doc: positioning
 role: external-summary
 audience: contributors, partners, future public copy
-last_updated: "2026-07-26"
+last_updated: "2026-07-29"
 doc_status: active
 scope: Product thesis, field comparison, differentiator, non-goals
 related:

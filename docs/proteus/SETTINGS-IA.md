@@ -2,7 +2,7 @@
 doc: settings-ia
 role: reference
 audience: UI, contributors
-last_updated: "2026-07-28"
+last_updated: "2026-07-29"
 doc_status: active
 scope: Settings control-center categories, backends, hybrid UX pattern
 related:
@@ -95,7 +95,7 @@ Left-nav + content pane (macOS System Settings style).
 | Category | Holds | Backend | Status |
 |----------|-------|---------|--------|
 | **Appearance** (`style`) | Category → Accent, Background, Lock screen, Icons (plate + dock pins), Font | `settings.json`, Theme, `proteus-bg` | `partial` |
-| **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar | json + hyprctl + `proteus-general.conf` | `shipped` |
+| **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Launcher (Spotlight tags/recents) | json + hyprctl + `proteus-general.conf` · `launcherRecents` / `launcherTagCatalog` / `launcherAppTags` | `shipped` |
 | **Displays** (`displays`) | Per-monitor scale + mode + layout canvas (Apply); conf escape hatch | hyprctl + `proteus-monitors.conf` | `partial` |
 | **Sound** (`sound`) | Category → Output (volume/mute/device/test tone), Input (level, meter, device), Applications (per-app volume), Latency & buffer | pactl + `parec` + `pw-metadata` | `partial` |
 | **Network** (`network`) | Hostname; Wi‑Fi scan/connect; Bluetooth; Tailscale; NM VPN | hostnamectl / nmcli / bluetoothctl / tailscale | `partial` |
@@ -126,7 +126,8 @@ caps for Sound / Network).
 | **Leaf page** | One control; **‹ Category** / Esc returns to the list |
 
 Navigation API (`SettingsNav`): `go(id)` in, `back()` out, `goSection(id)` from sidebar,
-`canGoBack` / `backLabel` for the header button.
+`canGoBack` / `backLabel` for the header button. Category panes load via
+`kit/StickyPaneLoader` (compile on first visit, keep alive after).
 
 ---
 
@@ -172,11 +173,11 @@ terminal, workspaces, etc. (`env/hypr/proteus-keybinds.conf` template).
 ## 6. Desktop + Displays
 
 Desktop: click sidebar → heading **Desktop** + sub-settings list (Gaps,
-Borders & rounding, Motion, Dock & menu bar), then leaf pages.
+Borders & rounding, Motion, Dock & menu bar, Launcher), then leaf pages.
 
 | Pane | Live apply | On-disk fragment | Guest seed |
 |------|------------|------------------|----------|
-| Desktop | `hyprctl keyword` (gaps, border, rounding, animations) + dock/menu sizes in `settings.json` | `proteus-general.conf` + `settings.json` | `vm/guest/install-desktop-conf.sh` |
+| Desktop | `hyprctl keyword` (gaps, border, rounding, animations) + dock/menu sizes + Launcher tags/recents in `settings.json` | `proteus-general.conf` + `settings.json` (`launcherRecents`, `launcherTagCatalog`, `launcherAppTags`) | `vm/guest/install-desktop-conf.sh` |
 | Displays | Scale + mode + orientation + layout via `hyprctl keyword monitor` | Live `monitor =` lines in `proteus-monitors.conf` | same |
 
 Templates: `env/hypr/proteus-general.conf`, `env/hypr/proteus-monitors.conf`. Nested

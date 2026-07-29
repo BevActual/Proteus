@@ -120,7 +120,7 @@ If greetd is not running, log in on a TTY and run:
 
 Optional auto-start on tty1: `touch ~/.proteus-autostart-hyprland` (see `~/.bash_profile`). SSH logins are unaffected.
 
-Useful binds: `Super+Return` Ghostty, `Super+Space` launcher, `Super+,` Settings, `Super+Shift+E` exit Hyprland. Rebind in **Settings → Keyboard** (writes `~/.config/hypr/proteus-keybinds.conf`). Desktop/Displays write `proteus-general.conf` / `proteus-monitors.conf`. First-time guest wiring:
+Useful binds: `Super+Return` → `proteus-terminal` (Ghostty + VM GL workaround), `Super+Space` launcher, `Super+,` Settings, `Super+Shift+E` exit Hyprland. Rebind in **Settings → Keyboard** (writes `~/.config/hypr/proteus-keybinds.conf`). Desktop/Displays write `proteus-general.conf` / `proteus-monitors.conf`. First-time guest wiring:
 
 ```bash
 bash /mnt/proteus/vm/guest/install-keybinds.sh
@@ -129,6 +129,7 @@ bash /mnt/proteus/vm/guest/install-desktop-conf.sh
 # Build mutator on the host first if needed:
 #   (cd services/proteus-pkg && cargo build --release)
 bash /mnt/proteus/vm/guest/install-settings-app.sh
+# (also runs hide-system-apps.sh — pavucontrol/blueman/nm-editor hidden from launcher)
 # or just the package helper:
 #   sudo bash /mnt/proteus/vm/guest/install-proteus-pkg.sh
 ```

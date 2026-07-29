@@ -2,7 +2,7 @@
 doc: hardware
 role: reference
 audience: architects, contributors, hardware / driver planners
-last_updated: "2026-07-26"
+last_updated: "2026-07-29"
 doc_status: active
 scope: Device classes we target + capability/module catalog (sensors, I/O, compute, radios)
 related:
@@ -251,13 +251,14 @@ the resolver maps modules → capabilities.
 | `services/proteus-hw-probe/proteus_hw_probe.py` | Probe logic |
 | `services/proteus-hw-probe/proteus-hw-probe` | CLI wrapper |
 | `scripts/hw-probe-smoke.sh` | JSON shape gate |
-| `shell/shared/Hardware.qml` | Session-start probe + read cache; `Hardware.has("wifi")` |
+| `shell/shared/Hardware.qml` | Cache-first; shell live-probes + deferred refresh; Settings cache-only; `Hardware.has("wifi")` |
 | `ShellState` | Mirrors class / caps; `refreshHardware()` |
 | Probe `--cache` | Writes `~/.config/proteus/hw-probe.json` (no QML hex encode) |
 
-Shell and Settings call the probe at startup (`Hardware` singleton
-`Component.onCompleted`). Settings → About shows class + capability chips and
-Refresh.
+Shell loads cache then runs a live probe in the background (`Hardware`
+singleton `Component.onCompleted` + deferred refresh). Settings is a separate
+QS process and skips the live probe (`isSettingsApp`) so open stays instant —
+About still shows class + capability chips from cache (Refresh can re-run).
 
 Emits `schema: proteus.hw.probe/v0` with `device_class`, `modules` (present),
 `capabilities` (true flags), plus `details` (DRM connectors, session env).

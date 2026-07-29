@@ -2,7 +2,7 @@
 doc: ecosystem
 role: context
 audience: contributors, coding agents
-last_updated: "2026-07-28"
+last_updated: "2026-07-29"
 doc_status: active
 scope: Bevington product frame including Proteus as host OS
 related:

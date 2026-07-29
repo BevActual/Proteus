@@ -2,7 +2,7 @@
 doc: postures
 role: architecture
 audience: architects, contributors, coding agents
-last_updated: "2026-07-26"
+last_updated: "2026-07-29"
 doc_status: active
 scope: Locked posture set; host vs home vs hypervisor; session modes; resolver
 related:

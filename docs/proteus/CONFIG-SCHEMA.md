@@ -2,7 +2,7 @@
 doc: config-schema
 role: reference
 audience: coding agents, contributors
-last_updated: "2026-07-28"
+last_updated: "2026-07-29"
 doc_status: active
 scope: settings.json key groups (documentation of existing FileView — not a new format)
 related:

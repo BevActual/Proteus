@@ -2,7 +2,7 @@
 doc: applications
 role: architecture
 audience: architects, contributors, app authors
-last_updated: "2026-07-28"
+last_updated: "2026-07-29"
 doc_status: active
 scope: Adaptive apps — one identity, environment-shaped; not every app on every kit
 related:

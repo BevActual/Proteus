@@ -72,6 +72,9 @@
   "fontSize": 13,
   "fontSizeSm": 12,
   "dockPins": "",
+  "launcherRecents": "",
+  "launcherTagCatalog": "",
+  "launcherAppTags": "",
   "iconPlateMode": "default",
   "iconPlateCustom": "#5c5c5e",
   "iconOverrides": ""

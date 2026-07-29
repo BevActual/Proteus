@@ -2,7 +2,7 @@
 doc: chrome
 role: reference
 audience: UI, contributors, coding agents
-last_updated: "2026-07-28"
+last_updated: "2026-07-29"
 doc_status: active
 scope: Proteus chrome language — principles, tokens, Settings patterns (company reference)
 related:

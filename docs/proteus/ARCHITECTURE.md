@@ -2,7 +2,7 @@
 doc: architecture
 role: agent-map
 audience: coding agents, contributors
-last_updated: "2026-07-26"
+last_updated: "2026-07-29"
 doc_status: active
 scope: Layers, ownership, repo layout, HARD RULES
 related:
@@ -94,7 +94,7 @@ Mobius gates; implementation later).
 | `Widgets.qml` | Lock/desktop applet catalog + CRUD (+ `WidgetsLock` / `WidgetsDesktop`) |
 | `Displays.qml` | Monitors list / apply → `proteus-monitors.conf` |
 | `Audio.qml` · `Power.qml` · `DateTime.qml` · `Weather.qml` | Behavior singletons (prefs in Config where persisted) |
-| `Hardware.qml` | Wave A probe at session start → capabilities / device class |
+| `Hardware.qml` | Wave A: cache-first; shell live-probes (+ deferred refresh); Settings QS cache-only (`isSettingsApp`) → caps / device class |
 | `Keybinds.qml` | Catalog + overrides → `proteus-keybinds.conf` |
 | `ShellState.qml` | Launcher / open Settings / hardware mirrors |
 | `Posture` *(intended)* | Resolver: capabilities + role → posture template |

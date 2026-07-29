@@ -2,7 +2,7 @@
 doc: facts
 role: reference
 audience: coding agents, contributors
-last_updated: "2026-07-28"
+last_updated: "2026-07-29"
 doc_status: active
 scope: On-disk truth paths; QML façade vs services mutators
 related:
@@ -72,7 +72,7 @@ shell/shared/
   Audio.qml Power.qml DateTime.qml Weather.qml Displays.qml …
   ShellState.qml Hardware.qml EnvGate.qml Keybinds.qml LockLayoutZones.qml
 apps/proteus-settings/
-  kit/     # SettingsFormRow · Group · HubList · Segmented
+  kit/     # SettingsFormRow · Group · HubList · Segmented · StickyPaneLoader
   panes/   # product panes
 ```
 

@@ -2,7 +2,7 @@
 doc: current
 role: status
 audience: contributors, coding agents
-last_updated: "2026-07-28"
+last_updated: "2026-07-29"
 doc_status: active
 scope: Honest inventory of what exists in the repo / guest today
 related:
@@ -85,7 +85,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Pane | Status |
 |------|--------|
 | Appearance → Accent / Background / Lock / Icons / Font (`style`) | `partial` — lock wallpaper/dim in Settings; widgets via lock Customize (long-press); Kind parity, daily, slideshow, fonts, `proteus-bg` |
-| Desktop → Gaps / Borders / Motion / Dock & menu bar (`proteus-general.conf` + sizes) | `shipped` |
+| Desktop → Gaps / Borders / Motion / Dock & menu bar / Launcher (`proteus-general.conf` + sizes + Spotlight tags/recents) | `shipped` |
 | Displays (scale / mode / orientation, Identify; layout canvas) | `partial` — drag layout + full-snapshot Revert; multi-monitor dogfood preferred |
 | Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) | `shipped` |
 | Software → Updates / Search / AUR / Flatpak / AppImages / Orphans (propose → confirm; live progress; Snap Out) | `partial` — optional guest: `yay`/`paru`, `flatpak` + Flathub; AppImages need no helper |
@@ -98,6 +98,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Privacy (permission categories) | `partial` — listed; not enforced |
 | About (hardware class / capabilities) | `partial` — session actions → Users |
 | Host / VM·container setup | **out of Settings** — separate app later |
+| Cold-start (open feel) | `shipped` — async `shell.qml` → `Settings.qml`; `kit/StickyPaneLoader` (active category first, sticky after visit); Keyboard/Keybinds deferred; Settings QS skips live hw-probe (`Hardware.isSettingsApp` → cache only) |
 
 Modular panes: `apps/proteus-settings/panes/*` · form kit: `kit/*` (shell stays in `Settings.qml`).
 Shared spine: flat `shell/shared/` + named helpers — [FACTS.md](./FACTS.md).

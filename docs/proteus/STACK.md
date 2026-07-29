@@ -2,7 +2,7 @@
 doc: stack
 role: reference
 audience: contributors, coding agents
-last_updated: "2026-07-26"
+last_updated: "2026-07-29"
 doc_status: active
 scope: Languages and runtimes by layer — what to build in what
 related:

@@ -2,7 +2,7 @@
 doc: compositor
 role: architecture
 audience: architects, contributors, coding agents
-last_updated: "2026-07-28"
+last_updated: "2026-07-29"
 doc_status: active
 scope: Hyprland as backend + Quickshell as chrome runtime; profiles, capabilities, limits
 related:
@@ -189,7 +189,7 @@ compositor chrome for that unit.
 |------|--------|
 | Guest Hyprland + QS shell | `shipped` |
 | Settings → keybinds → hypr conf | `shipped` |
-| Settings → gaps/borders via hyprctl | `partial` |
+| Settings → gaps/borders via hyprctl | `shipped` |
 | Per-posture hypr profiles | `partial` — desktop + media/host/home stubs + `set-hypr-profile.sh`; wearable/xr/vehicle planned |
 | QS respawn / crash policy | `partial` — `proteus-qs` backoff; not systemd supervisor |
 | Capability resolver | `planned` |
