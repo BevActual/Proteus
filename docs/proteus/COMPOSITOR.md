@@ -117,7 +117,7 @@ Do **not** fork Quickshell — wrap it; upstream bugs when we hit them.
 
 `partial` — desktop profile + active pointer `shipped`; media stub `shipped`;
 other postures still `planned`. Keyboard + Desktop fragments `shipped`; Displays
-stub `partial`:
+layout canvas `partial` (drag + full-snapshot Revert):
 
 ```
 ~/.config/hypr/

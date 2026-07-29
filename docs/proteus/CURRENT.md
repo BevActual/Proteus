@@ -85,7 +85,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 |------|--------|
 | Appearance → Accent / Background / Lock / Font (`style`) | `partial` — lock wallpaper/dim in Settings; widgets via lock Customize (long-press); Kind parity, daily, slideshow, fonts, `proteus-bg` |
 | Desktop → Gaps / Borders / Motion / Dock & menu bar (`proteus-general.conf` + sizes) | `shipped` |
-| Displays (scale / mode / orientation, Identify; Revert parked) | `partial` |
+| Displays (scale / mode / orientation, Identify; layout canvas) | `partial` — drag layout + full-snapshot Revert; multi-monitor dogfood preferred |
 | Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) | `shipped` |
 | Software → Updates / Search (propose → confirm → `pkexec proteus-pkg`) | `partial` |
 | Sound → Output / Input / Applications / Latency & buffer (`sound`) | `partial` — category hub; streaming input peak meter, per-app volume, test tone |
@@ -182,8 +182,7 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 ## 8. Not yet
 
 - Remaining posture hypr profiles beyond desktop (+ media stub)
-- Full Displays drag-layout editor (scale/mode Apply shipped)
-- Displays **Revert** button (Apply works; Revert unreliable in VM — parked)  
+- Displays **Revert** edge cases on fragile VM hotplug (full-snapshot Revert shipped; re-verify after sleep/hotplug)
 - Quickshell respawn policy + version pin in guest/ISO  
 - Host posture chrome or workload panes  
 - Second personal posture beyond stub  

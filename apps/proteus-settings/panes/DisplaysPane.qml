@@ -23,11 +23,14 @@ ColumnLayout {
   readonly property bool confirming: pendingIndex >= 0
 
   // Snapshot to restore after Apply (10s window). Store as JSON text — QML var arrays are flaky.
+  // Full-set snapshot (revertJson) is SoT; revertRule kept for log/status only.
   property string revertJson: ""
   property string revertRule: ""
   property int revertIndex: -1
   property int revertSeconds: 0
-  readonly property bool canRevert: revertIndex >= 0 && revertSeconds > 0 && revertRule.length > 0
+  readonly property bool canRevert: revertIndex >= 0 && revertSeconds > 0 && revertJson.length > 0
+  property bool layoutDirty: false
+  property int layoutSelected: 0
 
   readonly property var scaleChoices: [1, 1.25, 1.5, 1.75, 2]
   readonly property var transformChoices: [
@@ -354,10 +357,30 @@ ColumnLayout {
     root.revertSeconds = 10
     revertTick.restart()
 
-    const nextRule = Displays.monitorRule(next)
-    root.applyStatus = "Applying… " + nextRule
-    runMonitorRule(nextRule, all, "apply")
-    applySpecsToUi(all)
+    // Apply every monitor rule so x/y + siblings stay consistent (VM Revert fix).
+    const rules = all.map(s => Displays.monitorRule(s))
+    root.applyStatus = "Applying… " + Displays.monitorRule(next)
+    runMonitorRules(rules, all, "apply")
+  }
+
+  function applyLayout() {
+    if (!root.monitors.length)
+      return
+    clearPending()
+    const previousAll = []
+    const all = []
+    for (let i = 0; i < root.monitors.length; i++) {
+      previousAll.push(liveSpec(root.monitors[i]))
+      all.push(draftSpec(root.monitors[i]))
+    }
+    root.revertJson = JSON.stringify(previousAll)
+    root.revertRule = Displays.monitorRule(previousAll[0] || {})
+    root.revertIndex = 0
+    root.revertSeconds = 10
+    revertTick.restart()
+    const rules = all.map(s => Displays.monitorRule(s))
+    root.applyStatus = "Applying layout…"
+    runMonitorRules(rules, all, "apply")
   }
 
   function applySpecsToUi(all) {
@@ -397,29 +420,33 @@ ColumnLayout {
   property string pendingHyprAction: "" // apply | revert
   property var pendingPersist: []
 
-  function runMonitorRule(rule, persistList, action) {
+  function runMonitorRules(rules, persistList, action) {
     pendingHyprAction = action || ""
     pendingPersist = persistList || []
-    const safe = String(rule).replace(/'/g, "'\\''")
+    const list = rules || []
+    if (!list.length) {
+      root.applyStatus = "Nothing to apply."
+      return
+    }
     const act = String(action || "set").replace(/'/g, "")
-    hyprMonProc.command = [
-      "bash",
-      "-lc",
-      "mkdir -p \"$HOME/.cache\"; "
-          + "echo \"$(date -Iseconds) " + act + " => " + safe + "\" >> \"$HOME/.cache/proteus-displays.log\"; "
-          + "out=$(hyprctl keyword monitor '" + safe + "' 2>&1); ec=$?; "
-          + "echo \"out:$out\" >> \"$HOME/.cache/proteus-displays.log\"; "
-          + "echo \"exit:$ec\" >> \"$HOME/.cache/proteus-displays.log\"; "
-          + "if [ \"$ec\" -ne 0 ]; then echo \"$out\" >&2; fi; exit $ec"
-    ]
+    let script = "mkdir -p \"$HOME/.cache\"; ec=0; "
+    for (let i = 0; i < list.length; i++) {
+      const safe = String(list[i]).replace(/'/g, "'\\''")
+      script += "echo \"$(date -Iseconds) " + act + " => " + safe + "\" >> \"$HOME/.cache/proteus-displays.log\"; "
+      script += "out=$(hyprctl keyword monitor '" + safe + "' 2>&1); ec=$?; "
+      script += "echo \"out:$out\" >> \"$HOME/.cache/proteus-displays.log\"; "
+      script += "echo \"exit:$ec\" >> \"$HOME/.cache/proteus-displays.log\"; "
+      script += "if [ \"$ec\" -ne 0 ]; then echo \"$out\" >&2; exit $ec; fi; "
+    }
+    script += "exit 0"
+    hyprMonProc.command = ["bash", "-lc", script]
     hyprMonProc.running = false
     hyprMonProc.running = true
   }
 
   function revertLast() {
-    const rule = root.revertRule
     const snap = root.revertJson
-    if (!(root.revertIndex >= 0) || !rule.length) {
+    if (!(root.revertIndex >= 0) || !snap.length) {
       root.applyStatus = "Nothing to revert."
       return
     }
@@ -429,11 +456,83 @@ ColumnLayout {
     } catch (e) {
       all = []
     }
-    root.applyStatus = "Reverting… " + rule
+    if (!all.length) {
+      root.applyStatus = "Revert snapshot empty — refresh and re-Apply."
+      return
+    }
+    const rules = []
+    for (let i = 0; i < all.length; i++)
+      rules.push(Displays.monitorRule(all[i]))
+    root.applyStatus = "Reverting… " + rules.length + " monitor(s)"
     revertTick.stop()
-    runMonitorRule(rule, all, "revert")
-    if (all.length)
-      applySpecsToUi(all)
+    // UI updates only after hyprctl succeeds (VM reliability).
+    runMonitorRules(rules, all, "revert")
+  }
+
+  function layoutBounds() {
+    let minX = 0, minY = 0, maxX = 1, maxY = 1
+    if (!root.monitors.length)
+      return { minX: 0, minY: 0, maxX: 1920, maxY: 1080 }
+    minX = Infinity
+    minY = Infinity
+    maxX = -Infinity
+    maxY = -Infinity
+    for (let i = 0; i < root.monitors.length; i++) {
+      const s = draftSpec(root.monitors[i])
+      minX = Math.min(minX, s.x)
+      minY = Math.min(minY, s.y)
+      maxX = Math.max(maxX, s.x + s.width)
+      maxY = Math.max(maxY, s.y + s.height)
+    }
+    if (!isFinite(minX))
+      return { minX: 0, minY: 0, maxX: 1920, maxY: 1080 }
+    return { minX: minX, minY: minY, maxX: maxX, maxY: maxY }
+  }
+
+  function snapLayout(index, nx, ny) {
+    const thresh = 24
+    let x = Math.round(nx)
+    let y = Math.round(ny)
+    for (let i = 0; i < root.monitors.length; i++) {
+      if (i === index)
+        continue
+      const o = draftSpec(root.monitors[i])
+      const self = draftSpec(root.monitors[index])
+      // Snap left/right edges
+      if (Math.abs(x - o.x) < thresh)
+        x = o.x
+      if (Math.abs(x - (o.x + o.width)) < thresh)
+        x = o.x + o.width
+      if (Math.abs((x + self.width) - o.x) < thresh)
+        x = o.x - self.width
+      if (Math.abs((x + self.width) - (o.x + o.width)) < thresh)
+        x = o.x + o.width - self.width
+      // Snap top/bottom
+      if (Math.abs(y - o.y) < thresh)
+        y = o.y
+      if (Math.abs(y - (o.y + o.height)) < thresh)
+        y = o.y + o.height
+      if (Math.abs((y + self.height) - o.y) < thresh)
+        y = o.y - self.height
+      if (Math.abs((y + self.height) - (o.y + o.height)) < thresh)
+        y = o.y + o.height - self.height
+    }
+    return { x: x, y: y }
+  }
+
+  function setMonitorPos(index, x, y) {
+    if (index < 0 || index >= root.monitors.length)
+      return
+    const snapped = snapLayout(index, x, y)
+    const copy = root.monitors.slice()
+    const row = Object.assign({}, copy[index])
+    row.x = snapped.x
+    row.y = snapped.y
+    row.dirty = true
+    copy[index] = row
+    root.monitors = copy
+    root.layoutDirty = true
+    root.layoutSelected = index
   }
 
   function clearRevert() {
@@ -442,6 +541,10 @@ ColumnLayout {
     revertIndex = -1
     revertSeconds = 0
     revertTick.stop()
+  }
+
+  function clearLayoutDirty() {
+    layoutDirty = false
   }
 
   Timer {
@@ -474,8 +577,11 @@ ColumnLayout {
       root.pendingHyprAction = ""
       root.pendingPersist = []
       if (exitCode === 0) {
-        if (persist && persist.length)
+        if (persist && persist.length) {
           Displays.persistMonitorsConf(persist)
+          root.applySpecsToUi(persist)
+          root.clearLayoutDirty()
+        }
         if (action === "apply") {
           root.applyStatus = "Applied — press Revert within " + root.revertSeconds + "s"
         } else if (action === "revert") {
@@ -488,9 +594,11 @@ ColumnLayout {
         return
       }
       root.applyStatus = "hyprctl failed (exit " + exitCode + ") — see ~/.cache/proteus-displays.log"
-      if (action === "apply")
-        root.clearRevert()
-      else if (action === "revert" && root.revertRule.length) {
+      if (action === "apply") {
+        // Keep revert window so the user can still try Revert / Refresh.
+        root.revertSeconds = Math.max(root.revertSeconds, 8)
+        revertTick.restart()
+      } else if (action === "revert" && root.revertJson.length) {
         root.revertSeconds = Math.max(root.revertSeconds, 8)
         revertTick.restart()
       }
@@ -521,7 +629,7 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Scale, resolution, and orientation. Large jumps ask for confirm; Revert is offered for 10s."
+    text: "Arrange displays on the canvas, then scale/mode below. Apply writes hyprctl + proteus-monitors.conf; Revert is offered for 10s (full snapshot)."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 12
@@ -551,6 +659,137 @@ ColumnLayout {
     font.pixelSize: 12
     wrapMode: Text.WordWrap
     visible: root.monitors.length === 0 && !root.confirming
+  }
+
+  SettingsGroup {
+    visible: root.monitors.length > 0 && !root.confirming
+    title: "Layout"
+
+    Item {
+      id: canvasHost
+      Layout.fillWidth: true
+      Layout.preferredHeight: 200
+      Layout.maximumWidth: 520
+
+      readonly property var bounds: root.layoutBounds()
+      readonly property real worldW: Math.max(1, bounds.maxX - bounds.minX)
+      readonly property real worldH: Math.max(1, bounds.maxY - bounds.minY)
+      readonly property real pad: 12
+      readonly property real scale: Math.min(
+            (width - pad * 2) / worldW,
+            (height - pad * 2) / worldH)
+
+      Rectangle {
+        anchors.fill: parent
+        radius: Theme.radiusSm
+        color: Theme.bgElevated
+        border.width: 1
+        border.color: Theme.border
+      }
+
+      Repeater {
+        model: root.monitors
+
+        Rectangle {
+          id: monRect
+          required property var modelData
+          required property int index
+
+          readonly property var spec: root.draftSpec(monRect.modelData)
+          x: canvasHost.pad + (spec.x - canvasHost.bounds.minX) * canvasHost.scale
+          y: canvasHost.pad + (spec.y - canvasHost.bounds.minY) * canvasHost.scale
+          width: Math.max(36, spec.width * canvasHost.scale)
+          height: Math.max(24, spec.height * canvasHost.scale)
+          radius: 4
+          color: monRect.index === root.layoutSelected ? Theme.accentSoft : Theme.bg
+          border.width: monRect.index === root.layoutSelected ? 2 : 1
+          border.color: monRect.index === root.layoutSelected ? Theme.accent : Theme.border
+
+          Text {
+            anchors.centerIn: parent
+            width: parent.width - 8
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
+            text: monRect.modelData.name + (monRect.modelData.focused ? " ·" : "")
+            color: Theme.text
+            font.family: Theme.fontFamily
+            font.pixelSize: 11
+          }
+
+          MouseArea {
+            id: dragArea
+            anchors.fill: parent
+            cursorShape: Qt.SizeAllCursor
+            property real grabDX: 0
+            property real grabDY: 0
+            property bool didDrag: false
+            onPressed: mouse => {
+              root.layoutSelected = monRect.index
+              grabDX = mouse.x
+              grabDY = mouse.y
+              didDrag = false
+            }
+            onPositionChanged: mouse => {
+              if (!pressed)
+                return
+              const p = mapToItem(canvasHost, mouse.x, mouse.y)
+              const nx = p.x - grabDX
+              const ny = p.y - grabDY
+              if (Math.abs(nx - monRect.x) > 2 || Math.abs(ny - monRect.y) > 2)
+                didDrag = true
+              monRect.x = nx
+              monRect.y = ny
+            }
+            onReleased: {
+              if (!didDrag)
+                return
+              const b = canvasHost.bounds
+              const sc = Math.max(0.0001, canvasHost.scale)
+              const wx = b.minX + (monRect.x - canvasHost.pad) / sc
+              const wy = b.minY + (monRect.y - canvasHost.pad) / sc
+              root.setMonitorPos(monRect.index, wx, wy)
+            }
+            onClicked: {
+              if (didDrag)
+                return
+              root.layoutSelected = monRect.index
+              Displays.identifyMonitor(monRect.modelData.name)
+            }
+          }
+        }
+      }
+    }
+
+    SettingsFormRow {
+      label: "Apply layout"
+      hint: root.layoutDirty ? "Pending position changes" : "No layout changes"
+      showSeparator: true
+      interactive: root.layoutDirty || root.monitors.length > 1
+      labelColor: root.layoutDirty ? Theme.accent : Theme.textMute
+      onActivated: root.applyLayout()
+      Text {
+        text: root.layoutDirty ? "›" : ""
+        color: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+      }
+    }
+
+    SettingsFormRow {
+      visible: root.canRevert
+      label: "Revert"
+      hint: "Restore previous layout/modes — " + root.revertSeconds + "s left"
+      showSeparator: false
+      interactive: true
+      labelColor: Theme.danger
+      onActivated: root.revertLast()
+      Text {
+        text: root.revertSeconds + "s"
+        color: Theme.danger
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
   }
 
   SettingsGroup {
@@ -768,6 +1007,7 @@ ColumnLayout {
           }
           root.monitors = parsed.map(m => root.enrichMonitor(m))
           root.status = root.monitors.length ? "" : "No monitors reported."
+          root.clearLayoutDirty()
           Displays.ensureMonitorsConfStub(root.monitors.map(m => root.liveSpec(m)))
         } catch (e) {
           root.monitors = []

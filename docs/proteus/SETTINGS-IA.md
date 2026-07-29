@@ -56,7 +56,7 @@ Examples:
 | Keyboard shortcuts | `~/.config/proteus/keybinds.json` + `~/.config/hypr/proteus-keybinds.conf` |
 | Mouse sensitivity / accel | json + `hyprctl` input:* (+ general conf `input` block) |
 | Displays (list) | `hyprctl monitors -j` |
-| Displays scale / mode / orientation | `hyprctl keyword monitor` + `proteus-monitors.conf` (recommended modes; confirm large jumps; 10s Revert; Identify flash) |
+| Displays scale / mode / orientation / layout | `hyprctl keyword monitor` + `proteus-monitors.conf` (recommended modes; confirm large jumps; 10s full-snapshot Revert; Identify flash; drag layout canvas) |
 | Volume / mute / default sink | `pactl` |
 | Input volume / mute / default source | `pactl` |
 | Input level meter | streaming `audio-peak.py` on default source (Settings Input leaf) |
@@ -88,7 +88,7 @@ Left-nav + content pane (macOS System Settings style).
 |----------|-------|---------|--------|
 | **Appearance** (`style`) | Category → Accent, Background, Lock screen (wallpaper/dim; lock widgets via Customize), Font | `settings.json`, Theme, `proteus-bg` | `partial` |
 | **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar | json + hyprctl + `proteus-general.conf` | `shipped` |
-| **Displays** (`displays`) | Per-monitor scale + mode (Apply); conf escape hatch | hyprctl + `proteus-monitors.conf` | `partial` |
+| **Displays** (`displays`) | Per-monitor scale + mode + layout canvas (Apply); conf escape hatch | hyprctl + `proteus-monitors.conf` | `partial` |
 | **Sound** (`sound`) | Category → Output (volume/mute/device/test tone), Input (level, meter, device), Applications (per-app volume), Latency & buffer | pactl + `parec` + `pw-metadata` | `partial` |
 | **Network** (`network`) | Device status + open editor; later Bluetooth, VPN | nmcli / nmtui (+ later) | `partial` |
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse; later touchpad / tablet | keybinds + input hyprctl | `shipped` |
@@ -168,7 +168,7 @@ Borders & rounding, Motion, Dock & menu bar), then leaf pages.
 | Pane | Live apply | On-disk fragment | Guest seed |
 |------|------------|------------------|----------|
 | Desktop | `hyprctl keyword` (gaps, border, rounding, animations) + dock/menu sizes in `settings.json` | `proteus-general.conf` + `settings.json` | `vm/guest/install-desktop-conf.sh` |
-| Displays | Scale + mode + orientation via `hyprctl keyword monitor` | Live `monitor =` lines in `proteus-monitors.conf` | same |
+| Displays | Scale + mode + orientation + layout via `hyprctl keyword monitor` | Live `monitor =` lines in `proteus-monitors.conf` | same |
 
 Templates: `env/hypr/proteus-general.conf`, `env/hypr/proteus-monitors.conf`. Nested
 `env/hypr/hyprland.conf` sources both plus keybinds.
@@ -191,7 +191,7 @@ Depth order for what’s left:
 5. **Date & time** — locale set; weather forecast view  
 6. **Network** — Bluetooth / VPN under Network  
 7. **Peripherals** — touchpad / tablet  
-8. **Displays** — fix Revert (parked); then drag layout for multi-monitor  
+8. **Displays** — layout canvas + drag Apply shipped; re-verify Revert after sleep/hotplug  
 9. **Software** — deeper UX (progress stream, remove/orphan); mutator shipped  
 
 Virt / container setup stays a **separate app**, not a Settings growth item.
