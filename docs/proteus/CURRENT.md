@@ -69,11 +69,11 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 | Lock screen (`Super+L`, PAM + `WlSessionLock`) | `shipped` — Customize mode, zone layout, applets; cold boot auto-lock; attempt cooldown after 3 misses |
 | Global shortcuts (launcher, settings, lock) | `shipped` |
 | Hardware probe at session start (`Hardware.qml`) | `shipped` — Wave A |
-| Env gate (launcher / Settings / dock) | `shipped` — `EnvGate.qml` |
+| Env gate (launcher / Settings / dock) | `shipped` — `EnvGate.qml` (+ `env/apps` manifests) |
 | Theme tokens | `shipped` — space/radius scale + accent/font from Config; company lock [CHROME.md](./CHROME.md) |
 | Chrome design lock (`CHROME.md`) | `shipped` — principles + token tables + Settings patterns; sibling CSS map `planned` |
 | Shared package layout (flat + helpers) | `shipped` — Config/Background ownership split; Settings `kit/`; guest dogfood OK |
-| Smoke suite (`scripts/*-smoke.sh`) | `shipped` — layout · config-schema · hw-probe · install; optional qs-guest |
+| Smoke suite (`scripts/*-smoke.sh`) | `shipped` — layout · config-schema · app-manifest · hw-probe · install; optional qs-guest |
 
 ---
 
@@ -171,7 +171,7 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 |------|-----|-------------|
 | Stack split (QML / Tauri / Rust) | [STACK.md](./STACK.md) | Settings+shell = QML; no Tauri apps yet |
 | Hyprland as backend + QS limits | [COMPOSITOR.md](./COMPOSITOR.md) | Keybinds + general + posture profile pointer `shipped`; monitors stub `partial`; other postures `planned` |
-| Adaptive apps / environment contract | [APPLICATIONS.md](./APPLICATIONS.md) | `planned` — launcher is DesktopEntries only |
+| Adaptive apps / environment contract | [APPLICATIONS.md](./APPLICATIONS.md) | `partial` — `env/apps` manifests + EnvGate prefer; postures unused |
 | Hardware module catalog | [HARDWARE.md](./HARDWARE.md) | Wave A probe + `Hardware.qml` session load |
 | Capability / posture resolver | [POSTURES.md](./POSTURES.md) | Probe → caps in shell; posture still stub |
 | Chrome language (company reference) | [CHROME.md](./CHROME.md) | `Theme.qml` + Settings `kit/` patterns `shipped`; sibling CSS map `planned` |
@@ -188,7 +188,7 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 - Second personal posture beyond stub  
 - First-party Tauri app under `apps/`  
 - More Rust helper CLIs under `services/` (Wave A probe is Python; `proteus-pkg` mutator shipped)  
-- Adaptive app manifests (declarative) + richer launcher filtering  
+- Posture / prefers / device_classes enforcement on manifests (schema only today)  
 - ISO / installer productization (dogfood overlay in `vm/install/` is enough for now)  
 - Settings UI for posture profile picker (CLI `set-hypr-profile.sh` only)  
 

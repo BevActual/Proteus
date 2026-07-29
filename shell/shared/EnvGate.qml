@@ -1,15 +1,29 @@
 pragma Singleton
 
 import Quickshell
+import Quickshell.Io
 import QtQuick
 
 // Gate Settings panes / launcher / dock by Hardware capabilities.
 // Spec: docs/proteus/APPLICATIONS.md · HARDWARE.md
+// App manifests: env/apps/catalog.json (preferred over appRules heuristics).
 Singleton {
   id: root
 
   // When probe is not ready, fail open (show everything) so the session is usable.
   readonly property bool gatingActive: Hardware.ready
+
+  // Declarative manifests from env/apps/catalog.json (empty until load).
+  property var appManifests: []
+  property bool manifestsReady: false
+  property string manifestsError: ""
+
+  readonly property string catalogPath: {
+    const shell = Quickshell.shellRoot
+    if (shell && shell.length)
+      return shell + "/../env/apps/catalog.json"
+    return "/mnt/proteus/env/apps/catalog.json"
+  }
 
   // North-star sidebar order — status: shipped | partial | stub | planned
   readonly property var settingsCatalog: [
@@ -251,9 +265,90 @@ Singleton {
     return String(c)
   }
 
+  function normalizeDesktopId(id) {
+    let s = String(id || "").toLowerCase().trim()
+    if (s.endsWith(".desktop"))
+      s = s.slice(0, -8)
+    return s
+  }
+
+  function applyCatalog(obj) {
+    const list = (obj && obj.manifests) ? obj.manifests : []
+    if (!Array.isArray(list)) {
+      manifestsError = "catalog.manifests must be an array"
+      appManifests = []
+      manifestsReady = false
+      return
+    }
+    appManifests = list
+    manifestsError = ""
+    manifestsReady = true
+  }
+
+  function loadManifests() {
+    const path = catalogPath
+    catalogProc.command = [
+      "bash",
+      "-lc",
+      "test -f " + shellQuote(path) + " && cat " + shellQuote(path) + " || echo ''"
+    ]
+    catalogProc.running = false
+    catalogProc.running = true
+  }
+
+  function shellQuote(s) {
+    return "'" + String(s).replace(/'/g, "'\\''") + "'"
+  }
+
+  function manifestForApp(entry) {
+    if (!entry || !appManifests || !appManifests.length)
+      return null
+    const id = normalizeDesktopId(entry.id)
+    const hay = [
+      entry.id || "",
+      entry.name || "",
+      entry.genericName || "",
+      entry.execString || entry.exec || ""
+    ].join(" ")
+    for (let i = 0; i < appManifests.length; i++) {
+      const m = appManifests[i]
+      if (!m)
+        continue
+      if (m.id && normalizeDesktopId(m.id) === id)
+        return m
+      const ids = m.desktopIds || []
+      for (let j = 0; j < ids.length; j++) {
+        if (normalizeDesktopId(ids[j]) === id)
+          return m
+      }
+      if (m.match) {
+        try {
+          if (new RegExp(m.match, "i").test(hay))
+            return m
+        } catch (e) {
+          // ignore bad regex in catalog
+        }
+      }
+    }
+    return null
+  }
+
+  function ruleFromManifest(m) {
+    if (!m)
+      return null
+    return {
+      requires: m.requires || [],
+      requiresAny: m.requiresAny || [],
+      reason: m.reason || "Unavailable on this device"
+    }
+  }
+
   function ruleForApp(entry) {
     if (!entry)
       return null
+    const fromMan = ruleFromManifest(manifestForApp(entry))
+    if (fromMan)
+      return fromMan
     const hay = [
       entry.id || "",
       entry.name || "",
@@ -279,6 +374,30 @@ Singleton {
       }
     }
     return null
+  }
+
+  Component.onCompleted: loadManifests()
+
+  Process {
+    id: catalogProc
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const text = this.text
+        if (!text || !String(text).trim().length) {
+          root.manifestsError = "catalog missing"
+          root.appManifests = []
+          root.manifestsReady = false
+          return
+        }
+        try {
+          root.applyCatalog(JSON.parse(String(text).trim()))
+        } catch (e) {
+          root.manifestsError = "catalog parse failed"
+          root.appManifests = []
+          root.manifestsReady = false
+        }
+      }
+    }
   }
 
   function appAvailable(entry) {

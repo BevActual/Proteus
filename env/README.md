@@ -6,6 +6,7 @@ for guest overlay install.
 | Path | Role |
 |------|------|
 | `hypr/` | Hyprland nested template + proteus-*.conf fragments |
+| `apps/` | App capability manifests (`catalog.json` · schema) for EnvGate |
 | `ghostty/` | Minimal Ghostty seed (no opacity/blur) |
 | `fastfetch/` | P monogram + modules on shell start |
 | `shell/proteus-bashrc.sh` | Run fastfetch when Ghostty opens |

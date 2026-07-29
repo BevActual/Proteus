@@ -2,7 +2,7 @@
 doc: applications
 role: architecture
 audience: architects, contributors, app authors
-last_updated: "2026-07-26"
+last_updated: "2026-07-28"
 doc_status: active
 scope: Adaptive apps — one identity, environment-shaped; not every app on every kit
 related:
@@ -84,17 +84,24 @@ Likewise: a **TV** is a device class that often runs **media** posture; a
 
 ## 3. App contract
 
-`planned`
+`partial` — Wave A manifests ship under `env/apps/`; EnvGate enforces
+`requires` / `requiresAny` when a desktop entry matches. `prefers` /
+`postures` / `device_classes` / `adapts` remain docs-forward (schema allows;
+gating ignores).
 
 Each app declares a contract (manifest / metadata):
 
 | Field | Meaning |
 |-------|---------|
 | **requires** | Capabilities that must be present or the app doesn’t offer itself |
+| **requiresAny** | At least one of these capabilities must be present |
 | **prefers** | Soft hints (larger display, pointer, …) for layout defaults |
 | **postures** | Where it is allowed or primary (`host`, `media`, `desktop`, …) |
 | **device_classes** | Optional allow/deny (e.g. vitals UI on `watch` / `phone` only) |
 | **adapts** | Which UI facets change (nav density, input, panes) |
+
+On disk: `env/apps/schema.json` + `env/apps/catalog.json`. EnvGate loads the
+catalog at session start (`catalogPath` via `shellRoot/../env/apps/…`).
 
 Example sketches:
 
@@ -123,10 +130,12 @@ with a clear reason (“needs libvirt”, “needs display”).
 | Surface | Gate |
 |---------|------|
 | Settings sidebar | `EnvGate.availableSettingsPanes()` — Sound needs audio caps; Network needs wifi/ethernet/bt; … |
-| Launcher | Hide gated apps unless searching; search shows them dimmed with reason |
+| Launcher | Hide gated apps unless searching; search shows them dimmed with reason (`Launcher.qml` → `EnvGate.appAvailable`) |
 | Dock | `DockApps.visiblePinned` via optional `requires` / `requiresAny` on pins |
+| App manifests | `env/apps/catalog.json` preferred over `appRules` / category heuristics |
 
-Code: `shell/shared/EnvGate.qml`. Fail-open until `Hardware.ready`.
+Code: `shell/shared/EnvGate.qml`. Fail-open until `Hardware.ready`. Missing
+catalog → heuristics only (`manifestsReady` false).
 
 This avoids pretending every creative app belongs on a vitals band or that every
 ops tool belongs on the couch.
@@ -169,9 +178,9 @@ adaptive app can honor the contract.
 | Item | Status |
 |------|--------|
 | Environment tuple (docs) | `planned` / locked in prose |
-| App capability manifest | `planned` |
-| Launcher filtering by contract | `planned` |
-| DesktopEntries launcher (no contract) | `shipped` (desktop) |
+| App capability manifest | `partial` — `env/apps/` schema + catalog; EnvGate load |
+| Launcher filtering by contract | `partial` — manifest match + heuristic fallback |
+| DesktopEntries launcher | `shipped` (desktop) |
 
 ---
 

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://proteus.local/schemas/app-manifest.json",
+  "title": "Proteus app capability manifest",
+  "description": "Declarative capability contract for launcher / EnvGate gating. Spec: docs/proteus/APPLICATIONS.md.",
+  "type": "object",
+  "required": ["id"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable manifest id (often matches a desktop id stem)."
+    },
+    "desktopIds": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Desktop entry ids to match (with or without .desktop)."
+    },
+    "match": {
+      "type": "string",
+      "description": "Optional case-insensitive regex against id/name/genericName/exec when desktopIds miss."
+    },
+    "requires": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Capabilities that must all be present (Hardware.has)."
+    },
+    "requiresAny": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "At least one of these capabilities must be present."
+    },
+    "reason": {
+      "type": "string",
+      "description": "Human string shown when search surfaces a blocked app."
+    },
+    "prefers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Soft hints for shaping (v1 unused by EnvGate)."
+    },
+    "postures": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Posture allow-list (v1 unused by EnvGate)."
+    },
+    "device_classes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional device-class allow-list (v1 unused by EnvGate)."
+    }
+  }
+}

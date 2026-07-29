@@ -1,0 +1,34 @@
+{
+  "schema": "env/apps/schema.json",
+  "version": 1,
+  "manifests": [
+    {
+      "id": "pavucontrol",
+      "desktopIds": ["pavucontrol", "org.pulseaudio.pavucontrol"],
+      "match": "pavucontrol",
+      "requiresAny": ["speaker", "mic", "qs_pipewire"],
+      "reason": "Needs audio"
+    },
+    {
+      "id": "nm-connection-editor",
+      "desktopIds": ["nm-connection-editor", "nm-connection-editor.desktop"],
+      "match": "nm-connection|nmtui",
+      "requiresAny": ["wifi", "ethernet"],
+      "reason": "Needs network"
+    },
+    {
+      "id": "blueman-manager",
+      "desktopIds": ["blueman-manager", "blueman-manager.desktop"],
+      "match": "blueman|blueberry",
+      "requiresAny": ["bt"],
+      "reason": "Needs Bluetooth"
+    },
+    {
+      "id": "virt-manager",
+      "desktopIds": ["virt-manager", "virt-manager.desktop"],
+      "match": "virt-manager|gnome-boxes",
+      "requiresAny": ["libvirt", "containers"],
+      "reason": "Needs virtualization"
+    }
+  ]
+}
