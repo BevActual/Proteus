@@ -269,6 +269,24 @@ Singleton {
     })
   }
 
+  function tailscaleUp() {
+    Quickshell.execDetached({
+      command: ["tailscale", "up"]
+    })
+  }
+
+  function tailscaleDown() {
+    Quickshell.execDetached({
+      command: ["tailscale", "down"]
+    })
+  }
+
+  function openTailscaleStatus() {
+    Quickshell.execDetached({
+      command: ["ghostty", "-e", "bash", "-lc", "tailscale status; echo; read -n1 -s -r -p 'Press any key…'"]
+    })
+  }
+
   function setAccentCustom(hex) {
     const n = normalizeAccentHex(hex)
     if (!n.length)

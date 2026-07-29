@@ -24,6 +24,27 @@ ColumnLayout {
   property var vpnConnections: []
   property string vpnStatus: "Checking VPN…"
 
+  property bool tsAvailable: false
+  property string tsState: ""
+  property string tsHint: "Checking Tailscale…"
+  property string tsIp: ""
+  property int tsPeers: 0
+  property bool tsBusy: false
+
+  readonly property bool tsRunning: tsState === "Running"
+  readonly property bool tsNeedsLogin: tsState === "NeedsLogin" || tsState === "NoState"
+  readonly property string tsActionLabel: {
+    if (!tsAvailable)
+      return ""
+    if (tsBusy)
+      return "Working…"
+    if (tsRunning)
+      return "Disconnect"
+    if (tsNeedsLogin)
+      return "Log in"
+    return "Connect"
+  }
+
   function stateHint(dev) {
     const parts = [dev.type, dev.state]
     if (dev.connection && dev.connection.length)
@@ -44,6 +65,19 @@ ColumnLayout {
     kick(devProc)
     kick(btProc)
     kick(vpnProc)
+    kick(tsProc)
+  }
+
+  function runTailscaleAction() {
+    if (!tsAvailable || tsBusy)
+      return
+    tsBusy = true
+    if (tsRunning)
+      Config.tailscaleDown()
+    else
+      Config.tailscaleUp()
+    // Re-read status shortly after kick
+    tsRefresh.restart()
   }
 
   onActiveChanged: {
@@ -119,6 +153,70 @@ ColumnLayout {
   }
 
   SettingsGroup {
+    title: "Tailscale"
+
+    SettingsFormRow {
+      label: "Status"
+      hint: root.tsHint
+      showSeparator: true
+      Text {
+        visible: root.tsAvailable && root.tsRunning
+        text: "Connected"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+
+    SettingsFormRow {
+      visible: root.tsAvailable && (root.tsIp.length > 0 || root.tsPeers > 0)
+      label: "This device"
+      hint: root.tsIp.length ? root.tsIp : "—"
+      showSeparator: true
+      Text {
+        visible: root.tsPeers > 0
+        text: root.tsPeers + (root.tsPeers === 1 ? " peer" : " peers")
+        color: Theme.textDim
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+
+    SettingsFormRow {
+      visible: root.tsAvailable
+      label: root.tsActionLabel
+      hint: root.tsNeedsLogin
+          ? "Opens Tailscale login (browser or CLI)"
+          : (root.tsRunning ? "tailscale down" : "tailscale up")
+      showSeparator: true
+      interactive: root.tsAvailable && !root.tsBusy && root.tsActionLabel.length > 0
+      onActivated: root.runTailscaleAction()
+      Text {
+        text: "›"
+        color: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+      }
+    }
+
+    SettingsFormRow {
+      label: root.tsAvailable ? "Open Tailscale status" : "Tailscale not installed"
+      hint: root.tsAvailable
+          ? "tailscale status in a terminal"
+          : "Install tailscale · Headscale = set login-server via CLI"
+      showSeparator: false
+      interactive: root.tsAvailable
+      onActivated: Config.openTailscaleStatus()
+      Text {
+        text: root.tsAvailable ? "›" : ""
+        color: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+      }
+    }
+  }
+
+  SettingsGroup {
     title: "VPN"
 
     SettingsFormRow {
@@ -180,7 +278,7 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Fact: nmcli · bluetoothctl · nm-connection-editor / blueman. No in-pane pairing or WireGuard wizard."
+    text: "Fact: nmcli · bluetoothctl · tailscale status · editors for NM/blueman. No pairing / WireGuard / Headscale admin UI."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11
@@ -242,6 +340,69 @@ ColumnLayout {
         } catch (e) {
           root.btAvailable = false
           root.btHint = "Could not read Bluetooth status"
+        }
+      }
+    }
+  }
+
+  Timer {
+    id: tsRefresh
+    interval: 1200
+    repeat: false
+    onTriggered: {
+      root.tsBusy = false
+      root.kick(tsProc)
+    }
+  }
+
+  Process {
+    id: tsProc
+    command: [
+      "python3",
+      "-c",
+      "import json,shutil,subprocess\n"
+          + "o={'available':False,'state':'','hint':'Tailscale not installed','ip':'','peers':0}\n"
+          + "if not shutil.which('tailscale'):\n"
+          + "  print(json.dumps(o)); raise SystemExit\n"
+          + "o['available']=True\n"
+          + "r=subprocess.run(['tailscale','status','--json'],capture_output=True,text=True)\n"
+          + "if r.returncode!=0:\n"
+          + "  err=(r.stderr or r.stdout or 'tailscale status failed').strip().splitlines()\n"
+          + "  o['hint']=err[0] if err else 'tailscale status failed'; o['state']='Error'; print(json.dumps(o)); raise SystemExit\n"
+          + "try: d=json.loads(r.stdout or '{}')\n"
+          + "except Exception: o['hint']='Could not parse status'; o['state']='Error'; print(json.dumps(o)); raise SystemExit\n"
+          + "st=d.get('BackendState') or ''\n"
+          + "o['state']=st\n"
+          + "self=d.get('Self') or {}\n"
+          + "ips=self.get('TailscaleIPs') or []\n"
+          + "o['ip']=(ips[0] if ips else '')\n"
+          + "peers=d.get('Peer') or {}\n"
+          + "o['peers']=len(peers) if isinstance(peers,dict) else 0\n"
+          + "dns=(self.get('DNSName') or '').rstrip('.')\n"
+          + "if st=='Running':\n"
+          + "  bits=[dns] if dns else []; bits.append(o['ip'] or 'online')\n"
+          + "  o['hint']=' · '.join([b for b in bits if b])\n"
+          + "elif st=='NeedsLogin': o['hint']='Needs login'\n"
+          + "elif st=='Stopped': o['hint']='Stopped'\n"
+          + "else: o['hint']=st or 'Unknown'\n"
+          + "print(json.dumps(o))"
+    ]
+    running: false
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const o = JSON.parse(String(this.text || "").trim() || "{}")
+          root.tsAvailable = !!o.available
+          root.tsState = o.state || ""
+          root.tsHint = o.hint || ""
+          root.tsIp = o.ip || ""
+          root.tsPeers = Number(o.peers) || 0
+        } catch (e) {
+          root.tsAvailable = false
+          root.tsHint = "Could not read Tailscale status"
+          root.tsState = ""
+          root.tsIp = ""
+          root.tsPeers = 0
         }
       }
     }
