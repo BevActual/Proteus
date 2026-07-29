@@ -39,7 +39,7 @@ Item {
         + "pkill -x proteus-bg 2>/dev/null || true; "
         + "pkill -f 'quickshell -p .*/shell/wallpaper' 2>/dev/null || true; "
         + "for i in 1 2 3 4 5 6 7 8 9 10; do "
-        + "  pgrep -x swaybg >/dev/null || pgrep -x mpvpaper >/dev/null || pgrep -x proteus-bg >/dev/null || break; "
+        + "  pgrep -x swaybg >/dev/null || pgrep -x mpvpaper >/dev/null || pgrep -x proteus-bg >/dev/null || pgrep -f 'quickshell -p .*/shell/wallpaper' >/dev/null || break; "
         + "  sleep 0.05; "
         + "done; "
   }
@@ -51,6 +51,7 @@ Item {
     // (that breaks video loops and reactive animations on every pick).
     Config.flushSettings()
     const wallDir = Config.shellQuote(host.wallpaperDir)
+    const rootEnv = Config.shellQuote(Quickshell.env("PROTEUS_ROOT") || "/mnt/proteus")
     Quickshell.execDetached({
       command: [
         "bash",
@@ -62,10 +63,18 @@ Item {
             + "  touch \"$HOME/.config/proteus/settings.json\" 2>/dev/null || true; "
             + "  exit 0; "
             + "fi; "
-            + "if [[ -x /usr/local/bin/proteus-bg ]]; then exec /usr/local/bin/proteus-bg; "
-            + "elif [[ -x \"$HOME/.local/bin/proteus-bg\" ]]; then exec \"$HOME/.local/bin/proteus-bg\"; "
-            + "elif [[ -x /mnt/proteus/vm/guest/proteus-bg ]]; then exec /mnt/proteus/vm/guest/proteus-bg; "
-            + "elif command -v proteus-bg >/dev/null 2>&1; then exec proteus-bg; "
+            // Prefer hyprctl so the wallpaper process gets a real Wayland display
+            // (bare exec from odd parents can fail and leave Hyprland's splash visible).
+            + "BG=\"\"; "
+            + "if [[ -x /usr/local/bin/proteus-bg ]]; then BG=/usr/local/bin/proteus-bg; "
+            + "elif [[ -x \"$HOME/.local/bin/proteus-bg\" ]]; then BG=\"$HOME/.local/bin/proteus-bg\"; "
+            + "elif [[ -x /mnt/proteus/vm/guest/proteus-bg ]]; then BG=/mnt/proteus/vm/guest/proteus-bg; "
+            + "elif command -v proteus-bg >/dev/null 2>&1; then BG=$(command -v proteus-bg); fi; "
+            + "CMD=\"env QT_QPA_PLATFORM=wayland PROTEUS_ROOT=" + rootEnv + " \${BG:-quickshell -p " + wallDir + "}\"; "
+            + "if command -v hyprctl >/dev/null 2>&1 && [[ -n \"${HYPRLAND_INSTANCE_SIGNATURE:-}\" || -d \"${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/hypr\" ]]; then "
+            + "  export HYPRLAND_INSTANCE_SIGNATURE=\"${HYPRLAND_INSTANCE_SIGNATURE:-$(ls -1t \"${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/hypr\" 2>/dev/null | head -1)}\"; "
+            + "  hyprctl dispatch exec \"$CMD\"; "
+            + "elif [[ -n \"$BG\" ]]; then exec \"$BG\"; "
             + "else exec quickshell -p " + wallDir + "; fi"
       ]
     })

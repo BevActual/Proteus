@@ -5,7 +5,7 @@ import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Software category (page id packages) — Updates · Search.
+// Software category (page id packages) — Updates · Search · AUR · Flatpak · AppImages · Orphans.
 ColumnLayout {
   id: root
   Layout.fillWidth: true
@@ -14,16 +14,40 @@ ColumnLayout {
   property string page: "packages"
   signal requestGo(string id)
 
-  readonly property var sections: [
-    {
-      key: "packages-updates",
-      label: "Updates"
-    },
-    {
-      key: "packages-search",
-      label: "Search"
-    }
-  ]
+  readonly property var sections: {
+    const _ = Packages.packageUpgradeCount
+    return [
+      {
+        key: "packages-updates",
+        label: "Updates",
+        hint: Packages.packageUpgradeCount < 0
+            ? ""
+            : (Packages.packageUpgradeCount === 0
+                ? "Up to date"
+                : (Packages.packageUpgradeCount + " available"))
+      },
+      {
+        key: "packages-search",
+        label: "Search"
+      },
+      {
+        key: "packages-aur",
+        label: "AUR"
+      },
+      {
+        key: "packages-flatpak",
+        label: "Flatpak"
+      },
+      {
+        key: "packages-appimages",
+        label: "AppImages"
+      },
+      {
+        key: "packages-orphans",
+        label: "Orphans"
+      }
+    ]
+  }
 
   function warmCount() {
     if (Packages.packageUpgradeCount >= 0)
@@ -56,6 +80,11 @@ ColumnLayout {
         const lines = text.trim().split("\n").filter(l => l.length && l.indexOf("->") >= 0)
         Packages.notePackageUpgrades(lines.length)
       }
+    }
+    onExited: (exitCode, exitStatus) => {
+      // No upgrades → pacman -Qu exits 1 with empty stdout
+      if (Packages.packageUpgradeCount < 0 && exitCode !== 0)
+        Packages.notePackageUpgrades(0)
     }
   }
 }

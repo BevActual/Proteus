@@ -200,7 +200,7 @@ ColumnLayout {
 
   Text {
     Layout.fillWidth: true
-    text: "Fact: pacman -Qu · Apply: pkexec proteus-pkg (after confirm)"
+    text: "Fact: pacman -Qu · Apply: pkexec proteus-pkg sync|upgrade (live progress)"
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11

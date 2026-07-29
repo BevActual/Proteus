@@ -1,3 +1,5 @@
+//@ pragma IconTheme Papirus-Dark
+
 import Quickshell
 import QtQuick
 import "surfaces"

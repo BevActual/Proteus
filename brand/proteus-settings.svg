@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Settings">
+  <!-- Gear glyph only — transparent; dock SquircleIcon supplies the plate -->
+  <defs>
+    <linearGradient id="gearFace" x1="28%" y1="5%" x2="75%" y2="95%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="38%" stop-color="#e8eef6"/>
+      <stop offset="100%" stop-color="#9aa6b8"/>
+    </linearGradient>
+    <linearGradient id="gearShade" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#1a2030" stop-opacity="0.22"/>
+    </linearGradient>
+    <linearGradient id="hub" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#c5cedb"/>
+      <stop offset="100%" stop-color="#5a6578"/>
+    </linearGradient>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="2.5" stdDeviation="2" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#soft)" transform="translate(64 64)">
+    <path fill="url(#gearFace)"
+          d="M -8.41 -31.39 L -4.92 -32.13 L -4.50 -40.75 L 4.50 -40.75 L 4.92 -32.13 L 8.41 -31.39 L 11.81 -30.28 L 16.48 -37.54 L 24.27 -33.04 L 20.32 -25.36 L 22.98 -22.98 L 25.36 -20.32 L 33.04 -24.27 L 37.54 -16.48 L 30.28 -11.81 L 31.39 -8.41 L 32.13 -4.92 L 40.75 -4.50 L 40.75 4.50 L 32.13 4.92 L 31.39 8.41 L 30.28 11.81 L 37.54 16.48 L 33.04 24.27 L 25.36 20.32 L 22.98 22.98 L 20.32 25.36 L 24.27 33.04 L 16.48 37.54 L 11.81 30.28 L 8.41 31.39 L 4.92 32.13 L 4.50 40.75 L -4.50 40.75 L -4.92 32.13 L -8.41 31.39 L -11.81 30.28 L -16.48 37.54 L -24.27 33.04 L -20.32 25.36 L -22.98 22.98 L -25.36 20.32 L -33.04 24.27 L -37.54 16.48 L -30.28 11.81 L -31.39 8.41 L -32.13 4.92 L -40.75 4.50 L -40.75 -4.50 L -32.13 -4.92 L -31.39 -8.41 L -30.28 -11.81 L -37.54 -16.48 L -33.04 -24.27 L -25.36 -20.32 L -22.98 -22.98 L -20.32 -25.36 L -24.27 -33.04 L -16.48 -37.54 L -11.81 -30.28 Z"/>
+    <path fill="url(#gearShade)"
+          d="M -8.41 -31.39 L -4.92 -32.13 L -4.50 -40.75 L 4.50 -40.75 L 4.92 -32.13 L 8.41 -31.39 L 11.81 -30.28 L 16.48 -37.54 L 24.27 -33.04 L 20.32 -25.36 L 22.98 -22.98 L 25.36 -20.32 L 33.04 -24.27 L 37.54 -16.48 L 30.28 -11.81 L 31.39 -8.41 L 32.13 -4.92 L 40.75 -4.50 L 40.75 4.50 L 32.13 4.92 L 31.39 8.41 L 30.28 11.81 L 37.54 16.48 L 33.04 24.27 L 25.36 20.32 L 22.98 22.98 L 20.32 25.36 L 24.27 33.04 L 16.48 37.54 L 11.81 30.28 L 8.41 31.39 L 4.92 32.13 L 4.50 40.75 L -4.50 40.75 L -4.92 32.13 L -8.41 31.39 L -11.81 30.28 L -16.48 37.54 L -24.27 33.04 L -20.32 25.36 L -22.98 22.98 L -25.36 20.32 L -33.04 24.27 L -37.54 16.48 L -30.28 11.81 L -31.39 8.41 L -32.13 4.92 L -40.75 4.50 L -40.75 -4.50 L -32.13 -4.92 L -31.39 -8.41 L -30.28 -11.81 L -37.54 -16.48 L -33.04 -24.27 L -25.36 -20.32 L -22.98 -22.98 L -20.32 -25.36 L -24.27 -33.04 L -16.48 -37.54 L -11.81 -30.28 Z"/>
+    <circle r="17.5" fill="url(#hub)"/>
+    <circle r="11" fill="#1e2430"/>
+    <circle r="11" fill="none" stroke="#e8eef6" stroke-opacity="0.3" stroke-width="1.1"/>
+    <circle r="4.8" fill="#6aa6ff"/>
+  </g>
+</svg>

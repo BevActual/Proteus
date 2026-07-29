@@ -18,7 +18,7 @@ Singleton {
       mods: "SUPER",
       key: "Return",
       dispatcher: "exec",
-      arg: "ghostty"
+      arg: "proteus-terminal"
     },
     {
       id: "launcher",
@@ -549,7 +549,7 @@ Singleton {
 
   function openConfInEditor() {
     Quickshell.execDetached({
-      command: ["bash", "-lc", "mkdir -p \"$HOME/.config/hypr\"; touch \"$HOME/.config/hypr/proteus-keybinds.conf\"; (command -v xdg-open >/dev/null && xdg-open \"$HOME/.config/hypr/proteus-keybinds.conf\") || exec ghostty -e nvim \"$HOME/.config/hypr/proteus-keybinds.conf\""]
+      command: ["bash", "-lc", "mkdir -p \"$HOME/.config/hypr\"; touch \"$HOME/.config/hypr/proteus-keybinds.conf\"; (command -v xdg-open >/dev/null && xdg-open \"$HOME/.config/hypr/proteus-keybinds.conf\") || exec proteus-terminal -e nvim \"$HOME/.config/hypr/proteus-keybinds.conf\""]
     })
   }
 

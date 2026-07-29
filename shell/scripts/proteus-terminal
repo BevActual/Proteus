@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# proteus-terminal — launch Ghostty with a VM-safe GL path when needed.
+#
+# Ghostty ≥1.2 requires OpenGL 4.3. virtio-vga-gl in the Proteus QEMU guest
+# often tops out at 4.2, so the window fails with OpenGLOutdated. On VMs we
+# either bump the advertised Mesa version (prefer hardware) or force llvmpipe.
+set -euo pipefail
+
+is_vm() {
+  local vendor product
+  vendor="$(tr -d '\0' </sys/class/dmi/id/sys_vendor 2>/dev/null || true)"
+  product="$(tr -d '\0' </sys/class/dmi/id/product_name 2>/dev/null || true)"
+  [[ "${vendor}${product}" =~ [Qq][Ee][Mm][Uu]|[Vv]irtual|[Vv]Mware|[Bb]ox|[Xx]en|[Bb]ochs ]]
+}
+
+run_ghostty() {
+  local -a env=()
+  if [[ "${PROTEUS_TERMINAL_SOFTGL:-}" == "1" || "${PROTEUS_TERMINAL_SOFTGL:-}" == "true" ]]; then
+    env+=(LIBGL_ALWAYS_SOFTWARE=1)
+  elif is_vm; then
+    # Prefer hardware with a Mesa version override (works on virtio-gl 4.2).
+    # Soft-GL via PROTEUS_TERMINAL_SOFTGL=1 if override misbehaves.
+    env+=(MESA_GL_VERSION_OVERRIDE=4.3 MESA_GLSL_VERSION_OVERRIDE=430)
+  fi
+  if ((${#env[@]})); then
+    exec env "${env[@]}" ghostty "$@"
+  fi
+  exec ghostty "$@"
+}
+
+if command -v ghostty >/dev/null 2>&1; then
+  run_ghostty "$@"
+fi
+
+# Fallbacks if Ghostty is missing
+for t in foot kitty alacritty xfce4-terminal kgx gnome-terminal xterm; do
+  if command -v "$t" >/dev/null 2>&1; then
+    exec "$t" "$@"
+  fi
+done
+
+echo "proteus-terminal: no terminal found (install ghostty)" >&2
+exit 127

@@ -3,7 +3,7 @@
 Privileged pacman mutator for Proteus Settings. Settings confirms the action in-app, then runs:
 
 ```bash
-pkexec /usr/local/libexec/proteus-pkg <sync|upgrade|install> [package]
+pkexec /usr/local/libexec/proteus-pkg <sync|upgrade|install|remove|orphans> [package]
 ```
 
 ## Commands
@@ -13,8 +13,11 @@ pkexec /usr/local/libexec/proteus-pkg <sync|upgrade|install> [package]
 | `sync` | `pacman -Sy --noconfirm` |
 | `upgrade` | `pacman -Syu --noconfirm` |
 | `install <pkg>` | `pacman -S --noconfirm --needed -- <pkg>` |
+| `remove <pkg>` | `pacman -Rns --noconfirm -- <pkg>` |
+| `orphans` | `pacman -Rns --noconfirm -- $(pacman -Qdtq)` (no-op if empty) |
 
 Package names are validated (`[a-zA-Z0-9@.+_-]+`). Must run as root (via `pkexec`).
+Stdout/stderr from pacman are flushed line-by-line so Settings can show live progress.
 
 ## Build / install
 

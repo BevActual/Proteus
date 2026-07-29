@@ -1,6 +1,20 @@
 #!/usr/bin/env bash
 # Launch the Proteus Settings application (one-stop control center).
+# Optional: proteus-settings --page=network   or   PROTEUS_SETTINGS_PAGE=network
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export QS_ICON_THEME="${QS_ICON_THEME:-Papirus-Dark}"
+
+for arg in "$@"; do
+  case "$arg" in
+    --page=*)
+      export PROTEUS_SETTINGS_PAGE="${arg#--page=}"
+      ;;
+    --page)
+      echo "proteus-settings: --page requires --page=<id>" >&2
+      exit 2
+      ;;
+  esac
+done
+
 exec quickshell -p "${DIR}"

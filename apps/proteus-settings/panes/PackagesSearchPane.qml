@@ -5,7 +5,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "../shared"
 
-// Packages → Search: pacman -Ss; propose → confirm → pkexec proteus-pkg install.
+// Packages → Search: pacman -Ss; install/remove via confirm → pkexec proteus-pkg.
 ColumnLayout {
   id: root
   Layout.fillWidth: true
@@ -18,6 +18,8 @@ ColumnLayout {
   property string query: ""
   property string pendingPkg: ""
   property string pendingDetail: ""
+  property string pendingAction: "" // install | remove
+  property var installedSet: ({})
 
   readonly property bool confirming: pendingPkg.length > 0
   readonly property bool applying: Packages.packageOpBusy
@@ -25,6 +27,11 @@ ColumnLayout {
   function clearPending() {
     pendingPkg = ""
     pendingDetail = ""
+    pendingAction = ""
+  }
+
+  function isInstalled(name) {
+    return !!(installedSet && installedSet[name])
   }
 
   function search() {
@@ -43,9 +50,14 @@ ColumnLayout {
     searchProc.running = true
   }
 
+  function refreshInstalled() {
+    installedProc.running = false
+    installedProc.running = true
+  }
+
   Text {
     Layout.fillWidth: true
-    text: "Search the sync databases. Install proposes here, then authenticates via polkit."
+    text: "Search the sync databases. Install or remove proposes here, then authenticates via polkit."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 12
@@ -54,13 +66,17 @@ ColumnLayout {
 
   PackagesConfirm {
     open: root.confirming
-    title: "Install package?"
+    title: root.pendingAction === "remove" ? "Remove package?" : "Install package?"
     detail: root.pendingDetail
     onCancelled: root.clearPending()
     onConfirmed: {
       const pkg = root.pendingPkg
+      const act = root.pendingAction
       root.clearPending()
-      Packages.openPacmanInstall(pkg)
+      if (act === "remove")
+        Packages.openPacmanRemove(pkg)
+      else
+        Packages.openPacmanInstall(pkg)
     }
   }
 
@@ -146,7 +162,7 @@ ColumnLayout {
     font.family: Theme.fontFamily
     font.pixelSize: 12
     wrapMode: Text.WordWrap
-    visible: root.results.length === 0 && !root.confirming
+    visible: root.results.length === 0 && !root.confirming && !root.applying
   }
 
   Repeater {
@@ -154,6 +170,7 @@ ColumnLayout {
 
     Rectangle {
       required property var modelData
+      readonly property bool installed: root.isInstalled(modelData.name)
       Layout.fillWidth: true
       Layout.maximumWidth: 520
       Layout.preferredHeight: pkgCol.implicitHeight + 20
@@ -183,6 +200,14 @@ ColumnLayout {
             elide: Text.ElideRight
           }
           Text {
+            visible: installed
+            text: "Installed"
+            color: Theme.accent
+            font.family: Theme.fontFamily
+            font.pixelSize: 11
+            font.bold: true
+          }
+          Text {
             text: modelData.version
             color: Theme.textDim
             font.family: Theme.fontFamily
@@ -201,16 +226,16 @@ ColumnLayout {
         }
 
         Rectangle {
-          Layout.preferredWidth: installLab.implicitWidth + 20
+          Layout.preferredWidth: actionLab.implicitWidth + 20
           Layout.preferredHeight: 28
           radius: Theme.radiusSm
           color: Theme.accentSoft
           border.width: 1
           border.color: Theme.accent
           Text {
-            id: installLab
+            id: actionLab
             anchors.centerIn: parent
-            text: "Install…"
+            text: installed ? "Remove…" : "Install…"
             color: Theme.text
             font.family: Theme.fontFamily
             font.pixelSize: 11
@@ -221,7 +246,15 @@ ColumnLayout {
             cursorShape: Qt.PointingHandCursor
             onClicked: {
               root.pendingPkg = modelData.name
-              root.pendingDetail = "Install " + modelData.repo + "/" + modelData.name + " (" + modelData.version + ") via proteus-pkg install (polkit)."
+              if (installed) {
+                root.pendingAction = "remove"
+                root.pendingDetail = "Remove " + modelData.repo + "/" + modelData.name
+                    + " via proteus-pkg remove → pacman -Rns (package + unneeded deps)."
+              } else {
+                root.pendingAction = "install"
+                root.pendingDetail = "Install " + modelData.repo + "/" + modelData.name
+                    + " (" + modelData.version + ") via proteus-pkg install (polkit)."
+              }
             }
           }
         }
@@ -231,7 +264,7 @@ ColumnLayout {
 
   Text {
     Layout.fillWidth: true
-    text: "Fact: pacman -Ss · Apply: pkexec proteus-pkg install <pkg>"
+    text: "Fact: pacman -Ss / -Q · Apply: pkexec proteus-pkg install|remove <pkg>"
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11
@@ -244,8 +277,26 @@ ColumnLayout {
       if (!root.active)
         return
       root.status = message
+      root.refreshInstalled()
       if (ok && root.query.trim().length)
         root.search()
+    }
+  }
+
+  Process {
+    id: installedProc
+    command: ["pacman", "-Qq"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const map = ({})
+        const lines = text.trim().split("\n")
+        for (let i = 0; i < lines.length; i++) {
+          const n = lines[i].trim()
+          if (n.length)
+            map[n] = true
+        }
+        root.installedSet = map
+      }
     }
   }
 
@@ -293,7 +344,14 @@ ColumnLayout {
   }
 
   onActiveChanged: {
-    if (!active)
+    if (active)
+      refreshInstalled()
+    else
       clearPending()
+  }
+
+  Component.onCompleted: {
+    if (active)
+      refreshInstalled()
   }
 }

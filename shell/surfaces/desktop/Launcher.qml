@@ -1,49 +1,491 @@
 import Quickshell
 import Quickshell.Widgets
+import Quickshell.Io
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../../shared"
+import "LauncherCalc.js" as Calc
 
-// Spotlight-like launcher — soft card, search first, calm rows.
+// Spotlight — Apps / Files / Clipboard modes (Tahoe-shaped) + calc + tags.
 Item {
   id: root
 
+  // apps | files | clipboard
+  property string mode: "apps"
   property bool showUnavailable: search.text.trim().length > 0
+  property var tagEditEntry: null
+  property var pinMenuEntry: null
+  property var fileHits: []
+  property string filesHint: ""
+  property var clipHits: []
+  property string clipHint: ""
+
+  readonly property bool tagging: !!tagEditEntry
+
+  readonly property var modes: [
+    {
+      id: "apps",
+      label: "Apps",
+      key: "1",
+      icon: "view-app-grid-symbolic"
+    },
+    {
+      id: "files",
+      label: "Files",
+      key: "2",
+      icon: "folder-documents-symbolic"
+    },
+    {
+      id: "clipboard",
+      label: "Clipboard",
+      key: "3",
+      icon: "edit-paste-symbolic"
+    }
+  ]
+
+  // Spotlight chrome (Tahoe-like floating pill + sheet)
+  readonly property int spotRadius: 22
+  readonly property int spotRowH: 52
+  readonly property color spotFill: Theme.light
+      ? Qt.rgba(1, 1, 1, Math.max(Theme.chromeAlpha, 0.92))
+      : Qt.rgba(0.16, 0.16, 0.17, Math.max(Theme.chromeAlpha, 0.88))
+  readonly property color spotInset: Theme.light
+      ? Qt.rgba(0, 0, 0, 0.04)
+      : Qt.rgba(1, 1, 1, 0.06)
+
+  function setMode(id) {
+    if (mode === id)
+      return
+    mode = id
+    list.currentIndex = 0
+    if (id === "files")
+      root.queueFileSearch()
+    else if (id === "clipboard")
+      root.refreshClipboard()
+    claimSearchFocus()
+  }
+
+  function fuzzySubsequence(hay, q) {
+    let hi = 0
+    for (let qi = 0; qi < q.length; qi++) {
+      const ch = q.charAt(qi)
+      hi = hay.indexOf(ch, hi)
+      if (hi < 0)
+        return false
+      hi++
+    }
+    return true
+  }
+
+  function scoreQuery(hay, q) {
+    if (!q.length)
+      return 0
+    if (hay === q)
+      return 1000
+    if (hay.startsWith(q))
+      return 850
+    const words = hay.split(/[\s\-_/]+/)
+    for (let i = 0; i < words.length; i++) {
+      if (words[i].startsWith(q))
+        return 700
+    }
+    const idx = hay.indexOf(q)
+    if (idx >= 0)
+      return 500 - Math.min(idx, 80)
+    if (fuzzySubsequence(hay, q))
+      return 180 + Math.max(0, 40 - (hay.length - q.length))
+    return -1
+  }
+
+  function recentIndexFor(desktopId) {
+    const recents = Config.launcherRecentList()
+    const id = String(desktopId || "")
+    for (let i = 0; i < recents.length; i++) {
+      if (recents[i] === id)
+        return i
+    }
+    return -1
+  }
+
+  function parseQuery(raw) {
+    const t = String(raw || "").trim()
+    if (t.startsWith("#")) {
+      const rest = t.slice(1).trim()
+      const sp = rest.indexOf(" ")
+      if (sp < 0) {
+        return {
+          tag: Config.normalizeLauncherTag(rest),
+          tagPartial: Config.normalizeLauncherTag(rest),
+          text: ""
+        }
+      }
+      return {
+        tag: Config.normalizeLauncherTag(rest.slice(0, sp)),
+        tagPartial: "",
+        text: rest.slice(sp + 1).trim().toLowerCase()
+      }
+    }
+    return {
+      tag: "",
+      tagPartial: "",
+      text: t.toLowerCase()
+    }
+  }
+
+  function tagsSubtitle(desktopId, fallback) {
+    const tags = Config.tagsForApp(desktopId)
+    if (!tags.length)
+      return fallback
+    return "#" + tags.join("  #")
+  }
+
+  function queueFileSearch() {
+    fileDebounce.restart()
+  }
+
+  function runFileSearch() {
+    const q = search.text.trim()
+    filesHint = q.length ? "Searching…" : "Type a name to search your home folder"
+    if (!q.length) {
+      fileHits = []
+      filesHint = "Type a name to search your home folder"
+      return
+    }
+    fileProc.running = false
+    fileProc.command = [
+      "python3",
+      "-c",
+      "import json, os, sys\n"
+          + "q = sys.argv[1].lower()\n"
+          + "home = os.path.expanduser('~')\n"
+          + "home_depth = home.count(os.sep)\n"
+          + "skip = {'.git','node_modules','.cache','Trash','.npm','.cargo','.local'}\n"
+          + "hits = []\n"
+          + "for root, dirs, files in os.walk(home):\n"
+          + "  if root.count(os.sep) - home_depth > 5:\n"
+          + "    dirs[:] = []\n"
+          + "    continue\n"
+          + "  dirs[:] = [d for d in dirs if d not in skip and not d.startswith('.')]\n"
+          + "  for name in list(files) + list(dirs):\n"
+          + "    if name.startswith('.') and (not q or q[0] != '.'):\n"
+          + "      continue\n"
+          + "    if q not in name.lower():\n"
+          + "      continue\n"
+          + "    path = os.path.join(root, name)\n"
+          + "    hits.append({'path': path, 'name': name, 'dir': os.path.isdir(path)})\n"
+          + "    if len(hits) >= 40:\n"
+          + "      print(json.dumps(hits)); raise SystemExit\n"
+          + "print(json.dumps(hits))\n",
+      q
+    ]
+    fileProc.running = true
+  }
+
+  function shellQuote(s) {
+    return "'" + String(s).replace(/'/g, "'\\''") + "'"
+  }
+
+  function refreshClipboard() {
+    clipHint = "Loading…"
+    clipProc.running = false
+    clipProc.running = true
+  }
+
+  function pasteClipboardLine(line) {
+    Quickshell.execDetached({
+      command: [
+        "bash",
+        "-lc",
+        "printf '%s\\n' " + shellQuote(line) + " | cliphist decode | wl-copy"
+      ]
+    })
+  }
+
+  function openPath(path) {
+    Quickshell.execDetached({
+      command: ["xdg-open", path]
+    })
+  }
 
   readonly property var filtered: {
     const _caps = Hardware.capabilityList
-    const q = search.text.trim().toLowerCase()
+    const _recents = Config.launcherRecents
+    const _tagMap = Config.launcherAppTags
+    const _catalog = Config.launcherTagCatalog
+    const _files = root.fileHits
+    const _clips = root.clipHits
+    const _mode = root.mode
+    if (root.tagging)
+      return []
+
+    if (_mode === "files") {
+      const rows = []
+      for (let i = 0; i < _files.length; i++) {
+        const f = _files[i]
+        rows.push({
+          kind: "file",
+          entry: null,
+          path: f.path,
+          name: f.name,
+          subtitle: f.path,
+          icon: f.dir ? "folder" : "text-x-generic",
+          blocked: false,
+          score: 1000 - i,
+          clipLine: "",
+          calcValue: ""
+        })
+      }
+      return rows
+    }
+
+    if (_mode === "clipboard") {
+      const q = search.text.trim().toLowerCase()
+      const rows = []
+      for (let i = 0; i < _clips.length; i++) {
+        const c = _clips[i]
+        const hay = String(c.preview || "").toLowerCase()
+        if (q.length && hay.indexOf(q) < 0)
+          continue
+        rows.push({
+          kind: "clipboard",
+          entry: null,
+          path: "",
+          name: c.preview,
+          subtitle: "Clipboard",
+          icon: "edit-paste",
+          blocked: false,
+          score: 1000 - i,
+          clipLine: c.line,
+          calcValue: ""
+        })
+        if (rows.length >= 40)
+          break
+      }
+      return rows
+    }
+
+    // —— Apps mode (settings, tags, calc) ——
+    const parsed = root.parseQuery(search.text)
+    const q = parsed.text
+    const tagFilter = parsed.tag
+    const tagPartial = parsed.tagPartial
     const apps = DesktopEntries.applications.values
-    const available = []
-    const blocked = []
+    const rows = []
+    const rawQ = search.text.trim()
+
+    const calc = Calc.tryCalc(rawQ)
+    if (calc) {
+      rows.push({
+        kind: "calc",
+        entry: null,
+        path: "",
+        name: calc.display,
+        subtitle: "= " + calc.expression,
+        icon: "accessories-calculator",
+        blocked: false,
+        score: 5000,
+        clipLine: "",
+        calcValue: String(calc.display)
+      })
+    }
+
+    if (rawQ.startsWith("#") && !q.length) {
+      const catalog = Config.launcherTagCatalogList()
+      for (let i = 0; i < catalog.length; i++) {
+        const tag = catalog[i]
+        if (tagPartial.length) {
+          const ts = root.scoreQuery(tag, tagPartial)
+          if (ts < 0 && !tag.startsWith(tagPartial))
+            continue
+        }
+        let score = 500
+        if (tag === tagPartial)
+          score = 1000
+        else if (tagPartial.length && tag.startsWith(tagPartial))
+          score = 800
+        rows.push({
+          kind: "tag",
+          entry: null,
+          path: "",
+          tag: tag,
+          name: "#" + tag,
+          subtitle: "Tag",
+          icon: "bookmark-new",
+          blocked: false,
+          score: score,
+          clipLine: "",
+          calcValue: ""
+        })
+      }
+      if (tagFilter.length && catalog.indexOf(tagFilter) >= 0) {
+        for (let i = 0; i < apps.length; i++) {
+          const a = apps[i]
+          if (!a || !a.name || !Config.appHasTag(a.id, tagFilter))
+            continue
+          const ok = EnvGate.appAvailable(a)
+          if (!ok && !root.showUnavailable)
+            continue
+          rows.push({
+            kind: "app",
+            entry: a,
+            path: "",
+            name: a.name,
+            subtitle: root.tagsSubtitle(a.id, a.genericName || "Application"),
+            icon: EnvGate.resolveAppIcon(a),
+            blocked: !ok,
+            score: 400 - i,
+            clipLine: "",
+            calcValue: ""
+          })
+        }
+      }
+      rows.sort((x, y) => {
+        if (y.score !== x.score)
+          return y.score - x.score
+        return String(x.name).localeCompare(String(y.name))
+      })
+      return rows.slice(0, 40)
+    }
+
     for (let i = 0; i < apps.length; i++) {
       const a = apps[i]
       if (!a || !a.name)
         continue
-      if (q.length) {
-        const hay = (a.name + " " + (a.genericName || "") + " " + (a.keywords || []).join(" ")).toLowerCase()
-        if (hay.indexOf(q) === -1)
+      if (tagFilter.length && !Config.appHasTag(a.id, tagFilter))
+        continue
+      const name = String(a.name).toLowerCase()
+      const generic = String(a.genericName || "").toLowerCase()
+      const keys = (a.keywords || []).join(" ").toLowerCase()
+      const tags = Config.tagsForApp(a.id)
+      const tagHay = tags.join(" ").toLowerCase()
+      const hay = (name + " " + generic + " " + keys + " " + tagHay).trim()
+      const ri = root.recentIndexFor(a.id)
+      let score = -1
+      if (!q.length && !tagFilter.length) {
+        if (ri >= 0)
+          score = 2000 - ri
+        else
           continue
+      } else if (!q.length && tagFilter.length) {
+        score = 600 - (ri >= 0 ? ri : 40)
+      } else {
+        score = Math.max(root.scoreQuery(name, q), root.scoreQuery(hay, q), root.scoreQuery(tagHay, q))
+        if (score < 0)
+          continue
+        if (ri >= 0)
+          score += 40 - ri
+        if (tags.some(t => t === q || t.startsWith(q)))
+          score += 60
       }
-      if (EnvGate.appAvailable(a))
-        available.push({
-          entry: a,
-          blocked: false,
-          reason: ""
-        })
-      else if (q.length)
-        blocked.push({
-          entry: a,
-          blocked: true,
-          reason: EnvGate.appBlockReason(a)
-        })
+      const ok = EnvGate.appAvailable(a)
+      if (!ok && ((!q.length && !tagFilter.length) || !root.showUnavailable))
+        continue
+      rows.push({
+        kind: "app",
+        entry: a,
+        path: "",
+        name: a.name,
+        subtitle: ok
+          ? root.tagsSubtitle(a.id, ri >= 0 && !q.length && !tagFilter.length ? "Recent" : (a.genericName || "Application"))
+          : EnvGate.appBlockReason(a),
+        icon: EnvGate.resolveAppIcon(a),
+        blocked: !ok,
+        score: score,
+        clipLine: "",
+        calcValue: ""
+      })
     }
-    const byName = (x, y) => x.entry.name.localeCompare(y.entry.name)
-    available.sort(byName)
-    blocked.sort(byName)
-    const out = available.concat(root.showUnavailable ? blocked : [])
-    return out.slice(0, 40)
+
+    if (!q.length && !tagFilter.length) {
+      const seen = {}
+      for (let r = 0; r < rows.length; r++) {
+        if (rows[r].entry)
+          seen[rows[r].entry.id] = true
+      }
+      const extras = []
+      for (let i = 0; i < apps.length; i++) {
+        const a = apps[i]
+        if (!a || !a.name || seen[a.id] || !EnvGate.appAvailable(a))
+          continue
+        extras.push(a)
+      }
+      extras.sort((x, y) => x.name.localeCompare(y.name))
+      const room = Math.max(0, 24 - rows.filter(r => r.kind === "app").length)
+      for (let i = 0; i < extras.length && i < room; i++) {
+        const a = extras[i]
+        rows.push({
+          kind: "app",
+          entry: a,
+          path: "",
+          name: a.name,
+          subtitle: root.tagsSubtitle(a.id, a.genericName || "Application"),
+          icon: EnvGate.resolveAppIcon(a),
+          blocked: false,
+          score: 100 - i,
+          clipLine: "",
+          calcValue: ""
+        })
+      }
+    }
+
+    if (q.length && !tagFilter.length) {
+      const idx = EnvGate.settingsSearchIndex
+      for (let i = 0; i < idx.length; i++) {
+        const p = idx[i]
+        if (!EnvGate.paneAvailable(p.hubId))
+          continue
+        const label = String(p.label).toLowerCase()
+        const hay = (label + " " + (p.keywords || "") + " settings").toLowerCase()
+        let score = Math.max(root.scoreQuery(label, q), root.scoreQuery(hay, q))
+        if (score < 0)
+          continue
+        if (label === q || label.startsWith(q))
+          score += 30
+        rows.push({
+          kind: "settings",
+          entry: null,
+          path: "",
+          paneId: p.id,
+          name: p.label,
+          subtitle: "Settings",
+          icon: "proteus-settings",
+          blocked: false,
+          score: score,
+          clipLine: "",
+          calcValue: ""
+        })
+      }
+    }
+
+    rows.sort((x, y) => {
+      if (y.score !== x.score)
+        return y.score - x.score
+      return String(x.name).localeCompare(String(y.name))
+    })
+    return rows.slice(0, 40)
+  }
+
+  readonly property var tagChipModel: {
+    const _c = Config.launcherTagCatalog
+    return mode === "apps" ? Config.launcherTagCatalogList() : []
+  }
+
+  readonly property var tagEditChips: {
+    const _c = Config.launcherTagCatalog
+    const _m = Config.launcherAppTags
+    if (!root.tagEditEntry)
+      return []
+    const catalog = Config.launcherTagCatalogList()
+    const on = Config.tagsForApp(root.tagEditEntry.id)
+    const rows = []
+    for (let i = 0; i < catalog.length; i++) {
+      rows.push({
+        tag: catalog[i],
+        active: on.indexOf(catalog[i]) >= 0
+      })
+    }
+    return rows
   }
 
   function launchIndex(i) {
@@ -52,163 +494,665 @@ Item {
     const row = filtered[i]
     if (row.blocked)
       return
-    row.entry.execute()
+    if (row.kind === "calc") {
+      Config.copyToClipboard(row.calcValue)
+      ShellState.closeLauncher()
+      search.text = ""
+      return
+    }
+    if (row.kind === "file") {
+      root.openPath(row.path)
+      ShellState.closeLauncher()
+      search.text = ""
+      return
+    }
+    if (row.kind === "clipboard") {
+      root.pasteClipboardLine(row.clipLine)
+      ShellState.closeLauncher()
+      search.text = ""
+      return
+    }
+    if (row.kind === "tag") {
+      search.text = "#" + row.tag + " "
+      list.currentIndex = 0
+      return
+    }
+    if (row.kind === "settings") {
+      ShellState.openSettings(row.paneId)
+      search.text = ""
+      list.currentIndex = 0
+      return
+    }
+    if (row.entry) {
+      Config.recordLauncherRecent(row.entry.id)
+      row.entry.execute()
+    }
     ShellState.closeLauncher()
     search.text = ""
     list.currentIndex = 0
   }
 
-  Rectangle {
+  function beginTagEdit(entry) {
+    if (!entry || entry.blocked)
+      return
+    tagEditEntry = entry
+    tagNewField.text = ""
+    Qt.callLater(() => tagNewField.forceActiveFocus())
+  }
+
+  function endTagEdit() {
+    tagEditEntry = null
+    claimSearchFocus()
+  }
+
+  function openAppMenu(entry) {
+    if (!entry || entry.blocked)
+      return
+    pinMenuEntry = entry
+    appPinMenu.popup()
+  }
+
+  function togglePinFromMenu() {
+    const e = pinMenuEntry
+    pinMenuEntry = null
+    if (!e)
+      return
+    if (DockApps.isPinned(e.id))
+      DockApps.unpinDesktopId(e.id)
+    else
+      DockApps.pinDesktopEntry(e)
+  }
+
+  function addTagFromField() {
+    const t = Config.ensureLauncherTag(tagNewField.text)
+    if (!t.length || !tagEditEntry)
+      return
+    if (!Config.appHasTag(tagEditEntry.id, t))
+      Config.toggleAppTag(tagEditEntry.id, t)
+    tagNewField.text = ""
+  }
+
+  function placeholderForMode() {
+    if (mode === "files")
+      return "Search"
+    if (mode === "clipboard")
+      return "Clipboard"
+    return "Search"
+  }
+
+  function emptyText() {
+    if (mode === "files")
+      return filesHint || (search.text.trim().length ? "No files match." : "Type a name to search your home folder")
+    if (mode === "clipboard") {
+      if (clipHint.length && !clipHits.length)
+        return clipHint
+      return search.text.trim().length ? "No clipboard matches." : "Clipboard history is empty (needs cliphist)."
+    }
+    const t = search.text.trim()
+    if (!t.length)
+      return "No applications found."
+    if (t === "#")
+      return "Add tags via # on a result, or Settings → Desktop → Launcher."
+    return "No matches."
+  }
+
+  // Floating Spotlight (Tahoe-shaped): pill search + results sheet
+  Item {
+    id: chrome
     anchors.fill: parent
-    color: Theme.elevatedFill
-    radius: Theme.radiusXl
-    border.width: 0
-    clip: true
 
-    ColumnLayout {
+    Rectangle {
+      anchors.fill: card
+      anchors.topMargin: 12
+      anchors.leftMargin: 3
+      anchors.rightMargin: 3
+      radius: root.spotRadius
+      color: Theme.light ? Qt.rgba(0, 0, 0, 0.12) : Qt.rgba(0, 0, 0, 0.5)
+      z: 0
+    }
+
+    Rectangle {
+      id: card
       anchors.fill: parent
-      anchors.margins: Theme.spaceMd
-      spacing: Theme.spaceSm
+      radius: root.spotRadius
+      color: root.spotFill
+      border.width: Theme.light ? 0 : 1
+      border.color: Qt.rgba(1, 1, 1, 0.08)
+      clip: true
+      z: 1
 
-      Rectangle {
-        Layout.fillWidth: true
-        Layout.preferredHeight: 44
-        radius: Theme.radiusLg
-        color: Theme.chromeClear ? Theme.bgHover : Theme.panelFill
-        border.width: 0
+      ColumnLayout {
+        anchors.fill: parent
+        spacing: 0
 
-        RowLayout {
-          anchors.fill: parent
-          anchors.leftMargin: Theme.spaceMd
-          anchors.rightMargin: Theme.spaceMd
-          spacing: Theme.spaceSm
-
-          Text {
-            text: "⌕"
-            color: Theme.textMute
-            font.pixelSize: 16
-          }
-
-          TextField {
-            id: search
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            placeholderText: "Search"
-            color: Theme.text
-            placeholderTextColor: Theme.textMute
-            font.family: Theme.fontFamily
-            font.pixelSize: 16
-            focus: ShellState.launcherOpen
-            background: Item {}
-            onTextChanged: list.currentIndex = 0
-            Keys.onEscapePressed: ShellState.closeLauncher()
-            Keys.onDownPressed: list.incrementCurrentIndex()
-            Keys.onUpPressed: list.decrementCurrentIndex()
-            Keys.onReturnPressed: root.launchIndex(list.currentIndex)
-            Keys.onEnterPressed: root.launchIndex(list.currentIndex)
-          }
-        }
-      }
-
-      Rectangle {
-        Layout.fillWidth: true
-        Layout.preferredHeight: 1
-        color: Theme.separator
-        opacity: Theme.chromeClear ? 0.35 : 0.8
-      }
-
-      ListView {
-        id: list
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        clip: true
-        spacing: 1
-        model: root.filtered
-        currentIndex: 0
-        highlightMoveDuration: 80
-        keyNavigationEnabled: true
-        focus: true
-
-        delegate: Item {
-          required property var modelData
-          required property int index
-          width: list.width
-          height: 46
-
-          Rectangle {
-            anchors.fill: parent
-            radius: Theme.radiusMd
-            opacity: modelData.blocked ? 0.5 : 1
-            color: list.currentIndex === index ? Theme.chromeAccentSoft : (rowMa.containsMouse ? Theme.chromeHover : "transparent")
-          }
+        Item {
+          id: searchBar
+          Layout.fillWidth: true
+          Layout.preferredHeight: root.spotRowH
+          visible: !root.tagging
 
           RowLayout {
             anchors.fill: parent
-            anchors.leftMargin: Theme.spaceMd
-            anchors.rightMargin: Theme.spaceMd
-            spacing: Theme.spaceMd
+            anchors.leftMargin: 18
+            anchors.rightMargin: 14
+            spacing: 10
 
-            Rectangle {
-              Layout.preferredWidth: 28
-              Layout.preferredHeight: 28
-              radius: Theme.radiusSm
-              color: Theme.chromeHover
-              border.width: 0
-
-              IconImage {
-                anchors.centerIn: parent
-                width: 18
-                height: 18
-                source: Quickshell.iconPath(modelData.entry.icon || "application-x-executable")
-              }
+            Text {
+              text: "⌕"
+              color: Theme.textMute
+              font.pixelSize: 18
+              Layout.alignment: Qt.AlignVCenter
             }
 
-            ColumnLayout {
+            TextField {
+              id: search
               Layout.fillWidth: true
-              spacing: 1
-
-              Text {
-                Layout.fillWidth: true
-                text: modelData.entry.name
-                color: Theme.text
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSize
-                elide: Text.ElideRight
+              Layout.fillHeight: true
+              placeholderText: root.placeholderForMode()
+              color: Theme.text
+              placeholderTextColor: Theme.textMute
+              font.family: Theme.fontFamily
+              font.pixelSize: 20
+              focus: ShellState.launcherOpen && !root.tagging
+              background: Item {}
+              verticalAlignment: Text.AlignVCenter
+              onTextChanged: {
+                list.currentIndex = 0
+                if (root.mode === "files")
+                  root.queueFileSearch()
               }
+              Keys.onEscapePressed: {
+                if (root.tagging)
+                  root.endTagEdit()
+                else
+                  ShellState.closeLauncher()
+              }
+              Keys.onDownPressed: list.incrementCurrentIndex()
+              Keys.onUpPressed: list.decrementCurrentIndex()
+              Keys.onReturnPressed: root.launchIndex(list.currentIndex)
+              Keys.onEnterPressed: root.launchIndex(list.currentIndex)
+              Keys.onPressed: event => {
+                if (event.modifiers & Qt.ControlModifier) {
+                  if (event.key === Qt.Key_1) {
+                    root.setMode("apps")
+                    event.accepted = true
+                    return
+                  }
+                  if (event.key === Qt.Key_2) {
+                    root.setMode("files")
+                    event.accepted = true
+                    return
+                  }
+                  if (event.key === Qt.Key_3) {
+                    root.setMode("clipboard")
+                    event.accepted = true
+                    return
+                  }
+                  if (event.key === Qt.Key_T && root.mode === "apps") {
+                    const row = root.filtered[list.currentIndex]
+                    if (row && row.kind === "app" && row.entry && !row.blocked)
+                      root.beginTagEdit(row.entry)
+                    event.accepted = true
+                  }
+                }
+              }
+            }
 
-              Text {
-                Layout.fillWidth: true
-                visible: modelData.blocked || !!(modelData.entry.genericName && modelData.entry.genericName.length)
-                text: modelData.blocked ? modelData.reason : (modelData.entry.genericName || "")
-                color: modelData.blocked ? Theme.danger : Theme.textMute
-                font.family: Theme.fontFamily
-                font.pixelSize: 11
-                elide: Text.ElideRight
+            Row {
+              spacing: 4
+              Layout.alignment: Qt.AlignVCenter
+
+              Repeater {
+                model: root.modes
+                delegate: Rectangle {
+                  required property var modelData
+                  width: 34
+                  height: 34
+                  radius: 17
+                  color: root.mode === modelData.id
+                      ? Theme.chromeAccentSoft
+                      : (modeMa.containsMouse ? root.spotInset : "transparent")
+
+          IconImage {
+            anchors.centerIn: parent
+            width: 16
+            height: 16
+            source: EnvGate.iconSource(modelData.icon)
+          }
+
+                  MouseArea {
+                    id: modeMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    ToolTip.visible: containsMouse
+                    ToolTip.delay: 450
+                    ToolTip.text: modelData.label + "  Ctrl+" + modelData.key
+                    onClicked: root.setMode(modelData.id)
+                  }
+                }
               }
             }
           }
 
-          MouseArea {
-            id: rowMa
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: modelData.blocked ? Qt.ForbiddenCursor : Qt.PointingHandCursor
-            onEntered: list.currentIndex = index
-            onClicked: root.launchIndex(index)
+          Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: 1
+            color: Theme.separator
+            opacity: 0.65
           }
         }
 
-        Text {
-          anchors.centerIn: parent
-          width: parent.width - Theme.spaceXl
-          visible: root.filtered.length === 0
-          horizontalAlignment: Text.AlignHCenter
-          wrapMode: Text.WordWrap
-          text: search.text.trim().length ? "No apps match." : "No applications found."
-          color: Theme.textMute
-          font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSize
+        // Tag-edit header bar (replaces search while tagging)
+        Item {
+          Layout.fillWidth: true
+          Layout.preferredHeight: root.spotRowH
+          visible: root.tagging
+
+          RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 18
+            anchors.rightMargin: 16
+            spacing: Theme.spaceSm
+
+            Text {
+              Layout.fillWidth: true
+              text: tagEditEntry ? ("Tags · " + tagEditEntry.name) : "Tags"
+              color: Theme.text
+              font.family: Theme.fontFamily
+              font.pixelSize: 16
+              font.weight: Font.Medium
+              elide: Text.ElideRight
+            }
+
+            Text {
+              text: "Done"
+              color: Theme.accent
+              font.family: Theme.fontFamily
+              font.pixelSize: 14
+              font.weight: Font.DemiBold
+              MouseArea {
+                anchors.fill: parent
+                anchors.margins: -8
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.endTagEdit()
+              }
+            }
+          }
+
+          Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: 1
+            color: Theme.separator
+            opacity: 0.65
+          }
         }
+
+        ColumnLayout {
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          Layout.margins: 10
+          spacing: 8
+
+          Text {
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            visible: !root.tagging && root.mode !== "apps"
+            text: root.mode === "files" ? "Files" : "Clipboard"
+            color: Theme.textMute
+            font.family: Theme.fontFamily
+            font.pixelSize: 11
+            font.weight: Font.DemiBold
+            font.capitalization: Font.AllUppercase
+          }
+
+          Flickable {
+            id: chipFlick
+            Layout.fillWidth: true
+            Layout.preferredHeight: root.tagChipModel.length && !root.tagging ? 28 : 0
+            visible: height > 0
+            contentWidth: chipRow.width
+            contentHeight: height
+            clip: true
+            flickableDirection: Flickable.HorizontalFlick
+            boundsBehavior: Flickable.StopAtBounds
+
+            Row {
+              id: chipRow
+              spacing: 6
+              height: parent.height
+              leftPadding: 4
+
+              Repeater {
+                model: root.tagChipModel
+                delegate: Rectangle {
+                  required property string modelData
+                  readonly property bool selected: {
+                    const p = root.parseQuery(search.text)
+                    return p.tag === modelData
+                  }
+                  height: 26
+                  width: chipLabel.implicitWidth + 16
+                  radius: 13
+                  color: selected ? Theme.chromeAccentSoft : root.spotInset
+
+                  Text {
+                    id: chipLabel
+                    anchors.centerIn: parent
+                    text: "#" + modelData
+                    color: Theme.textDim
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 11
+                  }
+
+                  MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                      if (selected)
+                        search.text = ""
+                      else
+                        search.text = "#" + modelData + " "
+                      root.claimSearchFocus()
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          ColumnLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            spacing: Theme.spaceMd
+            visible: root.tagging
+
+            Text {
+              Layout.fillWidth: true
+              text: "Optional labels to group apps. Type #tag to filter."
+              color: Theme.textMute
+              font.family: Theme.fontFamily
+              font.pixelSize: 11
+              wrapMode: Text.WordWrap
+            }
+
+            Flow {
+              Layout.fillWidth: true
+              spacing: 6
+
+              Repeater {
+                model: root.tagEditChips
+                delegate: Rectangle {
+                  required property var modelData
+                  height: 28
+                  width: editChipLabel.implicitWidth + 18
+                  radius: 14
+                  color: modelData.active ? Theme.chromeAccentSoft : root.spotInset
+
+                  Text {
+                    id: editChipLabel
+                    anchors.centerIn: parent
+                    text: "#" + modelData.tag
+                    color: Theme.text
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 12
+                  }
+
+                  MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: Config.toggleAppTag(root.tagEditEntry.id, modelData.tag)
+                  }
+                }
+              }
+            }
+
+            RowLayout {
+              Layout.fillWidth: true
+              spacing: Theme.spaceSm
+
+              TextField {
+                id: tagNewField
+                Layout.fillWidth: true
+                placeholderText: "New tag"
+                color: Theme.text
+                placeholderTextColor: Theme.textMute
+                font.family: Theme.fontFamily
+                font.pixelSize: 13
+                background: Rectangle {
+                  radius: 10
+                  color: root.spotInset
+                }
+                leftPadding: 12
+                rightPadding: 12
+                topPadding: 8
+                bottomPadding: 8
+                Keys.onEscapePressed: root.endTagEdit()
+                Keys.onReturnPressed: root.addTagFromField()
+                Keys.onEnterPressed: root.addTagFromField()
+              }
+
+              Rectangle {
+                Layout.preferredHeight: 34
+                Layout.preferredWidth: addLbl.implicitWidth + 20
+                radius: 10
+                color: root.spotInset
+                Text {
+                  id: addLbl
+                  anchors.centerIn: parent
+                  text: "Add"
+                  color: Theme.text
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 12
+                }
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.addTagFromField()
+                }
+              }
+            }
+
+            Item {
+              Layout.fillHeight: true
+            }
+          }
+
+          ListView {
+            id: list
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
+            spacing: 2
+            model: root.filtered
+            currentIndex: 0
+            highlightMoveDuration: 70
+            keyNavigationEnabled: true
+            focus: true
+            visible: !root.tagging
+
+            delegate: Item {
+              required property var modelData
+              required property int index
+              width: list.width
+              height: modelData.kind === "calc" ? 64 : 52
+
+              Rectangle {
+                anchors.fill: parent
+                radius: 12
+                opacity: modelData.blocked ? 0.45 : 1
+                color: list.currentIndex === index
+                    ? Theme.chromeAccentSoft
+                    : (rowMa.containsMouse ? root.spotInset : "transparent")
+              }
+
+              RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 10
+                anchors.rightMargin: 8
+                spacing: 12
+
+                SquircleIcon {
+                  Layout.preferredWidth: modelData.kind === "calc" ? 40 : 34
+                  Layout.preferredHeight: modelData.kind === "calc" ? 40 : 34
+                  pixelSize: 96
+                  fillCrop: false
+                  showBorder: false
+                  glyphScale: modelData.kind === "calc" ? 0.62 : Theme.iconGlyphScaleApp
+                  plate: Theme.iconPlateFill
+                  source: EnvGate.iconSource(modelData.icon || "application-x-executable")
+                }
+
+                ColumnLayout {
+                  Layout.fillWidth: true
+                  spacing: modelData.kind === "calc" ? 2 : 1
+
+                  Text {
+                    Layout.fillWidth: true
+                    text: modelData.name
+                    color: Theme.text
+                    font.family: Theme.fontFamily
+                    font.pixelSize: modelData.kind === "calc" ? 22 : 15
+                    font.weight: modelData.kind === "calc" ? Font.DemiBold : Font.Normal
+                    elide: Text.ElideRight
+                  }
+
+                  Text {
+                    Layout.fillWidth: true
+                    visible: !!(modelData.subtitle && modelData.subtitle.length)
+                    text: modelData.subtitle
+                    color: modelData.blocked ? Theme.danger : Theme.textMute
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 11
+                    elide: Text.ElideRight
+                  }
+                }
+
+                Text {
+                  visible: modelData.kind === "calc" && list.currentIndex === index
+                  text: "Copy"
+                  color: Theme.textMute
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                }
+
+                Rectangle {
+                  visible: modelData.kind === "app" && !modelData.blocked
+                  Layout.preferredWidth: 28
+                  Layout.preferredHeight: 28
+                  radius: 14
+                  color: tagBtnMa.containsMouse ? root.spotInset : "transparent"
+
+                  Text {
+                    anchors.centerIn: parent
+                    text: "#"
+                    color: Theme.textMute
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 13
+                  }
+
+                  MouseArea {
+                    id: tagBtnMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                      list.currentIndex = index
+                      root.beginTagEdit(modelData.entry)
+                    }
+                  }
+                }
+              }
+
+              MouseArea {
+                id: rowMa
+                anchors.fill: parent
+                anchors.rightMargin: modelData.kind === "app" && !modelData.blocked ? 36 : 0
+                hoverEnabled: true
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                cursorShape: modelData.blocked ? Qt.ForbiddenCursor : Qt.PointingHandCursor
+                onEntered: list.currentIndex = index
+                onClicked: mouse => {
+                  if (mouse.button === Qt.RightButton && modelData.kind === "app" && modelData.entry && !modelData.blocked) {
+                    root.openAppMenu(modelData.entry)
+                    return
+                  }
+                  root.launchIndex(index)
+                }
+              }
+            }
+
+            Text {
+              anchors.centerIn: parent
+              width: parent.width - 48
+              visible: root.filtered.length === 0
+              horizontalAlignment: Text.AlignHCenter
+              wrapMode: Text.WordWrap
+              text: root.emptyText()
+              color: Theme.textMute
+              font.family: Theme.fontFamily
+              font.pixelSize: 14
+            }
+          }
+        }
+      }
+    }
+  }
+
+  Timer {
+    id: fileDebounce
+    interval: 200
+    repeat: false
+    onTriggered: root.runFileSearch()
+  }
+
+  Process {
+    id: fileProc
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const list = JSON.parse(text.trim() || "[]")
+          root.fileHits = Array.isArray(list) ? list : []
+          root.filesHint = root.fileHits.length ? "" : "No files match."
+        } catch (e) {
+          root.fileHits = []
+          root.filesHint = "File search failed."
+        }
+      }
+    }
+  }
+
+  Process {
+    id: clipProc
+    command: ["bash", "-lc", "command -v cliphist >/dev/null && cliphist list | head -n 80 || true"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const raw = text.trim()
+        if (!raw.length) {
+          root.clipHits = []
+          root.clipHint = "No clipboard history (install cliphist + wl-paste watchers)."
+          return
+        }
+        const lines = raw.split("\n")
+        const out = []
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i]
+          if (!line.length)
+            continue
+          const tab = line.indexOf("\t")
+          const preview = tab >= 0 ? line.slice(tab + 1) : line
+          const shown = preview.length > 120 ? preview.slice(0, 117) + "…" : preview
+          out.push({
+            line: line,
+            preview: shown.length ? shown : "(binary / image)"
+          })
+        }
+        root.clipHits = out
+        root.clipHint = out.length ? "" : "Clipboard history is empty."
       }
     }
   }
@@ -218,8 +1162,50 @@ Item {
     function onLauncherOpenChanged() {
       if (ShellState.launcherOpen) {
         search.text = ""
+        tagEditEntry = null
+        mode = "apps"
         list.currentIndex = 0
-        search.forceActiveFocus()
+        root.claimSearchFocus()
+      } else {
+        tagEditEntry = null
+      }
+    }
+  }
+
+  function claimSearchFocus() {
+    search.forceActiveFocus()
+    focusRetry.restart()
+  }
+
+  Timer {
+    id: focusRetry
+    interval: 16
+    repeat: true
+    property int tries: 0
+    onTriggered: {
+      tries++
+      search.forceActiveFocus()
+      if (search.activeFocus || tries >= 12) {
+        tries = 0
+        stop()
+      }
+    }
+  }
+
+  Menu {
+    id: appPinMenu
+    readonly property bool pinnedNow: !!(pinMenuEntry && DockApps.isPinned(pinMenuEntry.id))
+    MenuItem {
+      text: appPinMenu.pinnedNow ? "Remove from Dock" : "Add to Dock"
+      onTriggered: root.togglePinFromMenu()
+    }
+    MenuItem {
+      text: "Edit Tags…"
+      onTriggered: {
+        const e = root.pinMenuEntry
+        root.pinMenuEntry = null
+        if (e)
+          root.beginTagEdit(e)
       }
     }
   }

@@ -4,7 +4,6 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "shared"
 import "kit"
-import "panes"
 
 Item {
   id: root
@@ -33,6 +32,10 @@ Item {
       label: "Lock screen"
     },
     {
+      key: "style-icons",
+      label: "Icons"
+    },
+    {
       key: "style-font",
       label: "Font"
     }
@@ -54,6 +57,10 @@ Item {
     {
       key: "desktop-dock",
       label: "Dock & menu bar"
+    },
+    {
+      key: "desktop-launcher",
+      label: "Launcher"
     }
   ]
 
@@ -76,6 +83,22 @@ Item {
     {
       key: "packages-search",
       label: "Search"
+    },
+    {
+      key: "packages-aur",
+      label: "AUR"
+    },
+    {
+      key: "packages-flatpak",
+      label: "Flatpak"
+    },
+    {
+      key: "packages-appimages",
+      label: "AppImages"
+    },
+    {
+      key: "packages-orphans",
+      label: "Orphans"
     }
   ]
 
@@ -116,8 +139,8 @@ Item {
     return "Settings"
   }
 
-  focus: Keybinds.recordingId.length > 0 && page === "peripherals-keyboard"
-  Keys.onPressed: event => Keybinds.handleKeyEvent(event)
+  // Key capture for Keyboard leaf is owned by KeyboardPane (avoids loading
+  // Keybinds on every Settings cold start).
 
   Rectangle {
     anchors.fill: parent
@@ -293,116 +316,130 @@ Item {
           ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
           contentWidth: availableWidth
 
-          // Exactly one pane — gated here, not inside panes/ (SettingsNav is unreliable there)
+          // Sticky loaders: cold start only builds the active category (source: defers QML compile).
           ColumnLayout {
             width: scroll.availableWidth
             spacing: 0
 
-            StylePane {
-              Layout.fillWidth: true
-              visible: root.section === "style"
-              page: root.page
-              onRequestGo: id => SettingsNav.go(id)
+            StickyPaneLoader {
+              want: root.section === "style"
+              asyncLoad: false
+              source: "panes/StylePane.qml"
+              onLoaded: {
+                item.page = Qt.binding(() => root.page)
+                item.requestGo.connect(id => SettingsNav.go(id))
+              }
             }
-
-            DesktopPane {
-              Layout.fillWidth: true
-              visible: root.section === "desktop"
-              page: root.page
-              onRequestGo: id => SettingsNav.go(id)
+            StickyPaneLoader {
+              want: root.section === "desktop"
+              source: "panes/DesktopPane.qml"
+              onLoaded: {
+                item.page = Qt.binding(() => root.page)
+                item.requestGo.connect(id => SettingsNav.go(id))
+              }
             }
-
-            DisplaysPane {
-              Layout.fillWidth: true
-              visible: root.page === "displays"
-              active: root.page === "displays"
+            StickyPaneLoader {
+              want: root.page === "displays"
+              source: "panes/DisplaysPane.qml"
+              onLoaded: item.active = Qt.binding(() => root.page === "displays")
             }
-
-            PeripheralsPane {
-              Layout.fillWidth: true
-              visible: root.section === "peripherals" && root.page === "peripherals"
-              page: root.page
-              onRequestGo: id => SettingsNav.go(id)
+            StickyPaneLoader {
+              want: root.section === "peripherals" && root.page === "peripherals"
+              source: "panes/PeripheralsPane.qml"
+              onLoaded: {
+                item.page = Qt.binding(() => root.page)
+                item.requestGo.connect(id => SettingsNav.go(id))
+              }
             }
-
-            KeyboardPane {
-              Layout.fillWidth: true
-              visible: root.page === "peripherals-keyboard"
-              focusHost: root
+            StickyPaneLoader {
+              want: root.page === "peripherals-keyboard"
+              source: "panes/KeyboardPane.qml"
+              onLoaded: item.focusHost = root
             }
-
-            MousePane {
-              Layout.fillWidth: true
-              visible: root.page === "peripherals-mouse"
+            StickyPaneLoader {
+              want: root.page === "peripherals-mouse"
+              source: "panes/MousePane.qml"
             }
-
-            PackagesPane {
-              Layout.fillWidth: true
-              visible: root.section === "packages" && root.page === "packages"
-              page: root.page
-              onRequestGo: id => SettingsNav.go(id)
+            StickyPaneLoader {
+              want: root.section === "packages" && root.page === "packages"
+              source: "panes/PackagesPane.qml"
+              onLoaded: {
+                item.page = Qt.binding(() => root.page)
+                item.requestGo.connect(id => SettingsNav.go(id))
+              }
             }
-
-            PackagesUpdatesPane {
-              Layout.fillWidth: true
-              visible: root.page === "packages-updates"
-              active: root.page === "packages-updates"
+            StickyPaneLoader {
+              want: root.page === "packages-updates"
+              source: "panes/PackagesUpdatesPane.qml"
+              onLoaded: item.active = Qt.binding(() => root.page === "packages-updates")
             }
-
-            PackagesSearchPane {
-              Layout.fillWidth: true
-              visible: root.page === "packages-search"
-              active: root.page === "packages-search"
+            StickyPaneLoader {
+              want: root.page === "packages-search"
+              source: "panes/PackagesSearchPane.qml"
+              onLoaded: item.active = Qt.binding(() => root.page === "packages-search")
             }
-
-            SoundPane {
-              id: soundPane
-              Layout.fillWidth: true
-              visible: root.section === "sound"
-              page: root.page
-              onRequestGo: id => SettingsNav.go(id)
+            StickyPaneLoader {
+              want: root.page === "packages-aur"
+              source: "panes/PackagesAurPane.qml"
+              onLoaded: item.active = Qt.binding(() => root.page === "packages-aur")
             }
-
-            NetworkPane {
-              Layout.fillWidth: true
-              visible: root.page === "network"
-              active: root.page === "network"
+            StickyPaneLoader {
+              want: root.page === "packages-flatpak"
+              source: "panes/PackagesFlatpakPane.qml"
+              onLoaded: item.active = Qt.binding(() => root.page === "packages-flatpak")
             }
-
-            PowerPane {
-              Layout.fillWidth: true
-              visible: root.page === "power"
-              active: root.page === "power"
+            StickyPaneLoader {
+              want: root.page === "packages-appimages"
+              source: "panes/PackagesAppImagesPane.qml"
+              onLoaded: item.active = Qt.binding(() => root.page === "packages-appimages")
             }
-
-            UsersPane {
-              Layout.fillWidth: true
-              visible: root.page === "users"
-              active: root.page === "users"
+            StickyPaneLoader {
+              want: root.page === "packages-orphans"
+              source: "panes/PackagesOrphansPane.qml"
+              onLoaded: item.active = Qt.binding(() => root.page === "packages-orphans")
             }
-
-            AccountsPane {
-              Layout.fillWidth: true
-              visible: root.page === "accounts"
-              active: root.page === "accounts"
+            StickyPaneLoader {
+              want: root.section === "sound"
+              source: "panes/SoundPane.qml"
+              onLoaded: {
+                item.page = Qt.binding(() => root.page)
+                item.requestGo.connect(id => SettingsNav.go(id))
+              }
             }
-
-            DateTimePane {
-              Layout.fillWidth: true
-              visible: root.page === "datetime"
-              active: root.page === "datetime"
+            StickyPaneLoader {
+              want: root.page === "network"
+              source: "panes/NetworkPane.qml"
+              onLoaded: item.active = Qt.binding(() => root.page === "network")
             }
-
-            PrivacyPane {
-              Layout.fillWidth: true
-              visible: root.page === "privacy"
-              active: root.page === "privacy"
+            StickyPaneLoader {
+              want: root.page === "power"
+              source: "panes/PowerPane.qml"
+              onLoaded: item.active = Qt.binding(() => root.page === "power")
             }
-
-            SystemPane {
-              Layout.fillWidth: true
-              visible: root.page === "system"
-              onRequestGo: id => SettingsNav.go(id)
+            StickyPaneLoader {
+              want: root.page === "users"
+              source: "panes/UsersPane.qml"
+              onLoaded: item.active = Qt.binding(() => root.page === "users")
+            }
+            StickyPaneLoader {
+              want: root.page === "accounts"
+              source: "panes/AccountsPane.qml"
+              onLoaded: item.active = Qt.binding(() => root.page === "accounts")
+            }
+            StickyPaneLoader {
+              want: root.page === "datetime"
+              source: "panes/DateTimePane.qml"
+              onLoaded: item.active = Qt.binding(() => root.page === "datetime")
+            }
+            StickyPaneLoader {
+              want: root.page === "privacy"
+              source: "panes/PrivacyPane.qml"
+              onLoaded: item.active = Qt.binding(() => root.page === "privacy")
+            }
+            StickyPaneLoader {
+              want: root.page === "system"
+              source: "panes/SystemPane.qml"
+              onLoaded: item.requestGo.connect(id => SettingsNav.go(id))
             }
           }
         }
@@ -410,13 +447,6 @@ Item {
     }
   }
 
-  Connections {
-    target: SettingsNav
-    function onPageChanged() {
-      if (SettingsNav.page !== "peripherals-keyboard" && Keybinds.recordingId.length)
-        Keybinds.cancelRecording()
-    }
-  }
 
   function ensureSettingsPageValid(nav) {
     EnvGate.ensureSettingsPageValid(nav || SettingsNav)
@@ -437,10 +467,6 @@ Item {
   }
 
   Keys.onEscapePressed: {
-    if (Keybinds.recordingId.length) {
-      Keybinds.cancelRecording()
-      return
-    }
     if (SettingsNav.back())
       return
     SettingsNav.close()

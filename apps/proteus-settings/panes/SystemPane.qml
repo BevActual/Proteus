@@ -24,15 +24,57 @@ ColumnLayout {
   SettingsGroup {
     title: "Proteus"
 
+    Item {
+      Layout.fillWidth: true
+      Layout.preferredHeight: 72
+
+      RowLayout {
+        anchors.fill: parent
+        anchors.leftMargin: Theme.spaceMd
+        anchors.rightMargin: Theme.spaceMd
+        spacing: Theme.spaceMd
+
+        Image {
+          Layout.preferredWidth: 48
+          Layout.preferredHeight: 48
+          fillMode: Image.PreserveAspectFit
+          smooth: true
+          source: {
+            const root = Quickshell.env("PROTEUS_ROOT")
+            const base = root && root.length ? root : "/mnt/proteus"
+            return "file://" + base + "/brand/proteus-mark.svg"
+          }
+        }
+
+        ColumnLayout {
+          Layout.fillWidth: true
+          spacing: 2
+          Text {
+            text: "Proteus"
+            color: Theme.text
+            font.family: Theme.fontFamily
+            font.pixelSize: 16
+            font.weight: Font.DemiBold
+          }
+          Text {
+            text: "Bevington Systems · adaptive host OS"
+            color: Theme.textMute
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeSm
+          }
+        }
+      }
+    }
+
     SettingsFormRow {
-      label: "Proteus desktop environment"
-      hint: "Bevington Systems"
+      label: "Desktop environment"
+      hint: "Hyprland · Quickshell"
       showSeparator: true
     }
 
     SettingsFormRow {
       label: "Base"
-      hint: "Arch Linux guest · Hyprland · Quickshell"
+      hint: "Arch Linux guest"
       showSeparator: false
     }
   }

@@ -4,6 +4,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 APP="${ROOT}/apps/proteus-settings"
 
+# Brand marks into icon theme (proteus / proteus-settings)
+bash "${ROOT}/vm/guest/install-icons.sh"
+# Hide pavucontrol / blueman / nm-editor from Spotlight (Calculator stays)
+bash "${ROOT}/vm/guest/hide-system-apps.sh"
+
 install -d /usr/local/bin
 install -m 755 "${APP}/proteus-settings" /usr/local/bin/proteus-settings
 # Rewrite launcher to absolute share path when installed from 9p (optional override)
@@ -16,18 +21,23 @@ EOF
 chmod 755 /usr/local/bin/proteus-settings
 
 # Animated background runner (Quickshell layer-shell)
+# argv0 = proteus-bg after exec so pgrep -x / Settings apply can detect it.
 cat > /usr/local/bin/proteus-bg << EOF
 #!/usr/bin/env bash
 set -euo pipefail
 export PROTEUS_ROOT="${ROOT}"
 export QS_ICON_THEME="\${QS_ICON_THEME:-Papirus-Dark}"
 export QT_QPA_PLATFORM="\${QT_QPA_PLATFORM:-wayland}"
-exec quickshell -p "${ROOT}/shell/wallpaper"
+exec -a proteus-bg quickshell -p "${ROOT}/shell/wallpaper"
 EOF
 chmod 755 /usr/local/bin/proteus-bg
 
 install -d /usr/share/applications
+# Rewrite desktop Icon= to proteus-settings after install-icons
 install -m 644 "${APP}/proteus-settings.desktop" /usr/share/applications/proteus-settings.desktop
+if grep -q '^Icon=' /usr/share/applications/proteus-settings.desktop; then
+  sed -i 's/^Icon=.*/Icon=proteus-settings/' /usr/share/applications/proteus-settings.desktop
+fi
 
 echo "Installed proteus-settings → /usr/local/bin/proteus-settings"
 echo "Installed proteus-bg → /usr/local/bin/proteus-bg"

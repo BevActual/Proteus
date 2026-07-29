@@ -50,7 +50,7 @@ Host tree check (no guest):
 | File | Contents |
 |------|----------|
 | `proteus-base.packages` | Hyprland, QS, Ghostty, portals, PipeWire, NM, BT, capture tools, fastfetch, … |
-| `proteus-desktop.packages` | **Chromium**, Nautilus (interim Files), imv, mpv, evince, mousepad, … |
+| `proteus-desktop.packages` | **Chromium**, Nautilus (interim Files), gnome-calculator, imv, mpv, evince, mousepad, … (pavucontrol/blueman/nm-editor hidden — Settings) |
 
 ## Hardware (detect-and-install)
 

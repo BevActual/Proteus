@@ -70,5 +70,9 @@
   "wallpaperDailySourceId": "",
   "fontFamily": "Sans",
   "fontSize": 13,
-  "fontSizeSm": 12
+  "fontSizeSm": 12,
+  "dockPins": "",
+  "iconPlateMode": "default",
+  "iconPlateCustom": "#5c5c5e",
+  "iconOverrides": ""
 }

@@ -19,10 +19,9 @@ imv
 mpv
 evince
 
-# Small utilities
+# Small utilities (interim Calculator until a Proteus calc app; Spotlight still does quick math)
 gnome-calculator
 mousepad
 file-roller
 unzip
-pavucontrol
 satty

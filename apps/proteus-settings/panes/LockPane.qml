@@ -12,6 +12,8 @@ ColumnLayout {
   Layout.fillWidth: true
   spacing: Theme.spaceLg
 
+  Component.onCompleted: Config.ensureDomainHydrated()
+
   property string lockBrowseKind: Config.lockBackgroundMode === "match" ? "match" : Config.lockBackgroundMode
   property string lockColorDraft: Config.lockWallpaperColor
   // Widgets are edited on the lock screen (long-press Customize), not here.

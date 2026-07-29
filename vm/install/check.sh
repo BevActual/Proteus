@@ -66,6 +66,10 @@ fi
 [[ -d "${ROOT}/vm/guest" ]] && ok vm/guest/ || bad vm/guest/
 [[ -x "${ROOT}/vm/bootstrap.sh" || -f "${ROOT}/vm/bootstrap.sh" ]] && ok vm/bootstrap.sh || bad vm/bootstrap.sh
 [[ -f "${ROOT}/vm/provision.sh" ]] && ok vm/provision.sh || bad vm/provision.sh
+[[ -f "${ROOT}/vm/guest/install-icons.sh" ]] && ok vm/guest/install-icons.sh || bad vm/guest/install-icons.sh
+[[ -f "${ROOT}/brand/proteus-mark.svg" ]] && ok brand/proteus-mark.svg || bad brand/proteus-mark.svg
+grep -q '^Icon=proteus-settings' "${ROOT}/apps/proteus-settings/proteus-settings.desktop" && ok "settings.desktop Icon" || bad "settings.desktop Icon"
+grep -q '^Icon=proteus' "${ROOT}/vm/guest/proteus.desktop" && ok "session.desktop Icon" || bad "session.desktop Icon"
 
 # shellcheck source=helpers.sh
 source "${INSTALL}/helpers.sh"

@@ -88,4 +88,14 @@ Singleton {
   function close() {
     Qt.quit()
   }
+
+  function applyDeepLinkFromEnv() {
+    const raw = Quickshell.env("PROTEUS_SETTINGS_PAGE")
+    const id = String(raw || "").trim()
+    if (!id.length)
+      return
+    go(id)
+  }
+
+  Component.onCompleted: applyDeepLinkFromEnv()
 }

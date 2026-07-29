@@ -92,13 +92,27 @@ Singleton {
     sessionLocked = false
   }
 
-  function openSettings() {
+  function openSettings(pageId) {
     if (sessionLocked)
       return
     launcherOpen = false
     controlCenterOpen = false
+    const page = String(pageId || "").trim()
+    const envPrefix = page.length
+      ? ("PROTEUS_SETTINGS_PAGE=" + shellQuote(page) + " ")
+      : ""
     Quickshell.execDetached({
-      command: ["bash", "-lc", "command -v proteus-settings >/dev/null && exec proteus-settings || exec /mnt/proteus/apps/proteus-settings/proteus-settings"]
+      command: [
+        "bash",
+        "-lc",
+        envPrefix
+          + "command -v proteus-settings >/dev/null && exec proteus-settings"
+          + " || exec /mnt/proteus/apps/proteus-settings/proteus-settings"
+      ]
     })
+  }
+
+  function shellQuote(s) {
+    return "'" + String(s).replace(/'/g, "'\\''") + "'"
   }
 }

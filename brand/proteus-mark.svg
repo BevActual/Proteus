@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Proteus">
   <!--
-    Proteus mark  DNA double helix
+    Proteus mark — DNA double helix
     Adaptive host OS: one genome, many postures.
-    Accent: #3d8bfd (Theme default Electric)
+    Accent: #3d8bfd (Theme default Electric)
   -->
   <defs>
     <linearGradient id="strandA" x1="0%" y1="0%" x2="0%" y2="100%">

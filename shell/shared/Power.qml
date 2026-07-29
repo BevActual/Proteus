@@ -111,7 +111,7 @@ Singleton {
         "bash",
         "-lc",
         "(command -v xdg-open >/dev/null && xdg-open " + root.logindConfPath + ")"
-            + " || exec ghostty -e less " + root.logindConfPath
+            + " || exec proteus-terminal -e less " + root.logindConfPath
       ]
     })
   }

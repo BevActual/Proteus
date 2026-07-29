@@ -21,6 +21,11 @@ MAX_BACKOFF=30
 # Reset backoff after a long healthy run
 HEALTHY_SECS=120
 
+export QS_ICON_THEME="${QS_ICON_THEME:-Papirus-Dark}"
+export PROTEUS_ROOT="${PROTEUS_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+export PROTEUS_SURFACE="${PROTEUS_SURFACE:-desktop}"
+export PATH="/usr/local/bin:${PROTEUS_ROOT}/shell/scripts:${PATH}"
+
 log() {
   printf '%s proteus-qs: %s\n' "$(date -Iseconds 2>/dev/null || date)" "$*" >>"${LOG}" 2>/dev/null || true
 }

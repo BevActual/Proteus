@@ -2,8 +2,9 @@
 
 | Script | Role | Status |
 |--------|------|--------|
+| `proteus-terminal` | Ghostty launcher; VM OpenGL 4.3 workaround | **shipped** |
 | `proteus-screenshot` | grim + slurp + satty annotate | **interim** |
-| `proteus-clipboard` | cliphist + fuzzel picker | **interim** |
+| `proteus-clipboard` | cliphist + fuzzel picker | **interim** — Spotlight Clipboard mode preferred |
 | `proteus-colorpick` | hyprpicker → clipboard | **interim** |
 | `fetch-*.py`, `audio-peak.py`, … | Existing runtime helpers | shipped |
 

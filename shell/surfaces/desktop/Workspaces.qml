@@ -3,11 +3,11 @@ import Quickshell.Hyprland
 import QtQuick
 import "../../shared"
 
-// Compact workspace strip — sliding accent pill, no noisy tray chrome.
+// Compact workspace strip — quiet Mac-adjacent pills in the menu bar.
 Item {
   id: root
 
-  readonly property int cell: Math.max(22, Theme.barHeight - 10)
+  readonly property int cell: Math.max(18, Theme.barHeight - 14)
   readonly property int count: 6
   readonly property int focusedId: {
     const list = Hyprland.workspaces.values
@@ -19,27 +19,23 @@ Item {
   }
 
   implicitHeight: cell
-  implicitWidth: count * cell + 4
+  implicitWidth: count * cell + 2
 
-  // Quiet track
   Rectangle {
     anchors.fill: parent
-    radius: Theme.radiusPill
-    color: Theme.chromeClear
-        ? "transparent"
-        : Qt.rgba(Theme.bgHover.r, Theme.bgHover.g, Theme.bgHover.b, 0.28 * Theme.chromeAlpha)
+    radius: height / 2
+    color: Theme.light ? Qt.rgba(0, 0, 0, 0.05) : Qt.rgba(1, 1, 1, 0.08)
     visible: !Theme.chromeClear
   }
 
-  // Sliding focus pill
   Rectangle {
     id: focusPill
     width: root.cell - 2
     height: root.cell - 2
-    radius: Theme.radiusPill
+    radius: height / 2
     color: Theme.chromeAccentSoft
     y: 1
-    x: 2 + (Math.max(1, Math.min(root.count, root.focusedId)) - 1) * root.cell
+    x: 1 + (Math.max(1, Math.min(root.count, root.focusedId)) - 1) * root.cell
 
     Behavior on x {
       NumberAnimation {
@@ -74,25 +70,25 @@ Item {
         width: root.cell
         height: root.cell
 
-        // Occupied / empty / focused — numbers stay calm
         Text {
           anchors.centerIn: parent
           text: cell.wsId
           color: cell.focused
               ? Theme.accent
-              : (cell.occupied ? Theme.text : Theme.textMute)
+              : (cell.occupied ? Theme.textDim : Theme.textMute)
           font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSizeSm
+          font.pixelSize: Math.max(10, Theme.fontSizeSm - 1)
           font.weight: cell.focused ? Font.DemiBold : Font.Normal
-          opacity: cell.focused ? 1 : (cell.occupied ? 0.9 : 0.45)
+          opacity: cell.focused ? 1 : (cell.occupied ? 0.85 : 0.4)
         }
 
-        // Soft hover (under the sliding pill visually via z)
         Rectangle {
           anchors.fill: parent
-          anchors.margins: 2
-          radius: Theme.radiusPill
-          color: pillMa.containsMouse && !cell.focused ? Theme.chromeHover : "transparent"
+          anchors.margins: 1
+          radius: height / 2
+          color: pillMa.containsMouse && !cell.focused
+              ? (Theme.light ? Qt.rgba(0, 0, 0, 0.06) : Qt.rgba(1, 1, 1, 0.08))
+              : "transparent"
           z: -1
         }
 

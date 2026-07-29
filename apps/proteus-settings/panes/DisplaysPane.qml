@@ -11,6 +11,13 @@ ColumnLayout {
   Layout.fillWidth: true
   spacing: 12
 
+  // Identify flash lives here (not shell.qml) so Appearance cold-start skips Hyprland layers.
+  Loader {
+    active: true
+    asynchronous: false
+    source: Qt.resolvedUrl("../IdentifyFlash.qml")
+  }
+
   // Visibility is owned by Settings.qml — do not gate on SettingsNav here
   property bool active: false
   property var monitors: []
@@ -32,7 +39,7 @@ ColumnLayout {
   property bool layoutDirty: false
   property int layoutSelected: 0
 
-  readonly property var scaleChoices: [1, 1.25, 1.5, 1.75, 2]
+  readonly property var scaleChoices: [1, 1.25, 1.5, 1.666667, 2]
   readonly property var transformChoices: [
     {
       value: 0,
@@ -269,7 +276,7 @@ ColumnLayout {
       height: m.height,
       refreshRate: m.refreshRate
     }
-    const scale = m.scaleChoices[m.scaleIndex]
+    const scale = Displays.snapScale(m.scaleChoices[m.scaleIndex])
     const transform = root.transformChoices[m.transformIndex]
         ? root.transformChoices[m.transformIndex].value
         : (m.transform || 0)

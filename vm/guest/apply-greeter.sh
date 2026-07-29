@@ -12,6 +12,11 @@ install -m 644 "${ROOT}/greetd-config.toml" /etc/greetd/config.toml
 install -m 755 "${ROOT}/proteus-session" /usr/local/bin/proteus-session
 install -m 644 "${ROOT}/proteus.desktop" /usr/share/wayland-sessions/proteus.desktop
 
+# Session icon (proteus mark)
+bash "$(cd "${ROOT}/../.." && pwd)/vm/guest/install-icons.sh" 2>/dev/null \
+  || bash /mnt/proteus/vm/guest/install-icons.sh 2>/dev/null \
+  || true
+
 # greeter user is created by greetd package
 usermod -aG video greeter 2>/dev/null || true
 

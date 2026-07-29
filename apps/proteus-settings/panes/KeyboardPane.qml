@@ -13,6 +13,34 @@ ColumnLayout {
 
   // Parent Settings Item — needed so key capture receives events while recording
   property Item focusHost
+  property bool _keysHooked: false
+
+  Connections {
+    target: SettingsNav
+    function onPageChanged() {
+      if (SettingsNav.page !== "peripherals-keyboard" && Keybinds.recordingId.length)
+        Keybinds.cancelRecording()
+    }
+  }
+
+  Binding {
+    target: root.focusHost
+    property: "focus"
+    value: Keybinds.recordingId.length > 0
+    when: root.focusHost !== null
+  }
+
+  function hookFocusKeys() {
+    if (!focusHost || _keysHooked)
+      return
+    _keysHooked = true
+    focusHost.Keys.onPressed.connect(function (event) {
+      if (SettingsNav.page === "peripherals-keyboard")
+        Keybinds.handleKeyEvent(event)
+    })
+  }
+  onFocusHostChanged: root.hookFocusKeys()
+  Component.onCompleted: root.hookFocusKeys()
 
   function rowsFor(category) {
     // listRevision is read so the binding re-evaluates after an edit.

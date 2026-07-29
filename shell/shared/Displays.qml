@@ -18,6 +18,25 @@ Singleton {
   property string identifyTarget: ""
   property bool identifyActive: false
 
+  function snapScale(raw) {
+    // Hyprland rejects scales that don't yield near-integer logical sizes
+    // (e.g. 1.75 on 1920-wide → warning + forced 1.67). Prefer known-good set.
+    const allowed = [1, 1.25, 1.5, 5 / 3, 2]
+    let s = Number(raw)
+    if (!isFinite(s) || s <= 0)
+      return 1
+    let best = allowed[0]
+    let bestD = Math.abs(s - best)
+    for (let i = 1; i < allowed.length; i++) {
+      const d = Math.abs(s - allowed[i])
+      if (d < bestD) {
+        best = allowed[i]
+        bestD = d
+      }
+    }
+    return Math.round(best * 1000000) / 1000000
+  }
+
   function monitorRule(m) {
     const name = m.name || "?"
     const w = Math.round(m.width || 1920)
@@ -25,8 +44,8 @@ Singleton {
     const hz = Math.round(m.refreshRate || m.refresh || 60)
     const x = Math.round(m.x || 0)
     const y = Math.round(m.y || 0)
-    const scale = Number(m.scale)
-    const scaleStr = isFinite(scale) && scale > 0 ? String(Math.round(scale * 100) / 100) : "1"
+    const scale = snapScale(m.scale)
+    const scaleStr = String(Math.round(scale * 100) / 100)
     let t = Math.round(Number(m.transform))
     if (!isFinite(t) || t < 0)
       t = 0
@@ -146,7 +165,7 @@ Singleton {
 
   function openMonitorsConfInEditor() {
     Quickshell.execDetached({
-      command: ["bash", "-lc", "mkdir -p \"$HOME/.config/hypr\"; touch \"$HOME/.config/hypr/proteus-monitors.conf\"; (command -v xdg-open >/dev/null && xdg-open \"$HOME/.config/hypr/proteus-monitors.conf\") || exec ghostty -e nvim \"$HOME/.config/hypr/proteus-monitors.conf\""]
+      command: ["bash", "-lc", "mkdir -p \"$HOME/.config/hypr\"; touch \"$HOME/.config/hypr/proteus-monitors.conf\"; (command -v xdg-open >/dev/null && xdg-open \"$HOME/.config/hypr/proteus-monitors.conf\") || exec proteus-terminal -e nvim \"$HOME/.config/hypr/proteus-monitors.conf\""]
     })
   }
 

@@ -19,7 +19,7 @@ fi
 
 # Interim capture helpers on PATH (first-party chrome will replace)
 SCRIPTS="${PROTEUS_ROOT}/shell/scripts"
-for s in proteus-screenshot proteus-clipboard proteus-colorpick; do
+for s in proteus-screenshot proteus-clipboard proteus-colorpick proteus-terminal; do
   if [[ -f "${SCRIPTS}/${s}" ]]; then
     proteus_root install -m 755 "${SCRIPTS}/${s}" "/usr/local/bin/${s}"
     proteus_log "installed /usr/local/bin/${s}"

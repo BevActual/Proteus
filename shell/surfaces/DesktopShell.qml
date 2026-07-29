@@ -111,12 +111,21 @@ Scope {
       exclusiveZone: 0
       color: "transparent"
 
+      // Keep widgets out from under the translucent dock — otherwise clock/date
+      // (and other applet text) ghosts through the shelf when chrome is clear/blurred.
+      readonly property int dockClearance: {
+        if (ShellState.desktopCustomizeMode || !Config.dockEnabled)
+          return 0
+        return Theme.dockReserved
+      }
+
       anchors {
         top: true
         left: true
         right: true
         bottom: true
       }
+      margins.bottom: dockClearance
 
       Component.onCompleted: {
         if (deskWidgetsWin.WlrLayershell != null) {
@@ -166,6 +175,7 @@ Scope {
       margins.top: barRevealed ? 0 : -(barH - peek)
       exclusiveZone: onThisScreen && (!Config.barAutoHide || barRevealed) ? barH : 0
       exclusionMode: Config.barAutoHide && !barRevealed ? ExclusionMode.Ignore : ExclusionMode.Auto
+      WlrLayershell.namespace: "proteus-bar"
 
       Behavior on margins.top {
         NumberAnimation {
@@ -209,7 +219,10 @@ Scope {
       visible: onThisScreen && !ShellState.desktopCustomizeMode
 
       readonly property int peek: 4
-      readonly property int dockH: Math.max(dock.implicitHeight, Theme.dockExclusive + 24)
+      readonly property int dockGap: Theme.dockGap
+      // Full panel height (shelf + magnify headroom) — must match exclusive zone
+      // or windows draw into the transparent area and text ghosts through the dock.
+      readonly property int dockH: Math.max(dock.implicitHeight, Theme.dockPanelHeight)
       property bool dockHovered: false
       property bool dockRevealed: !Config.dockAutoHide || dockHovered || ShellState.launcherOpen
 
@@ -219,11 +232,12 @@ Scope {
         bottom: true
       }
 
-      margins.bottom: dockRevealed ? Theme.spaceSm : -(dockH - peek)
+      margins.bottom: dockRevealed ? dockGap : -(dockH - peek)
       implicitHeight: onThisScreen ? dockH : 0
-      exclusiveZone: onThisScreen && (!Config.dockAutoHide || dockRevealed) ? Theme.dockExclusive : 0
+      exclusiveZone: onThisScreen && (!Config.dockAutoHide || dockRevealed) ? (dockH + dockGap) : 0
       exclusionMode: Config.dockAutoHide && !dockRevealed ? ExclusionMode.Ignore : ExclusionMode.Auto
       color: "transparent"
+      WlrLayershell.namespace: "proteus-dock"
 
       Behavior on margins.bottom {
         NumberAnimation {
@@ -271,9 +285,17 @@ Scope {
         return mon ? mon.focused : (modelData === Quickshell.screens[0])
       }
 
-      visible: ShellState.launcherOpen && isFocused
+      readonly property bool active: ShellState.launcherOpen && isFocused
+
+      visible: active
       exclusionMode: ExclusionMode.Ignore
       color: "transparent"
+
+      // focusable:true is only OnDemand — Exclusive is required so keystrokes
+      // leave the focused client (editor/terminal) while Spotlight is open.
+      WlrLayershell.namespace: "proteus-launcher"
+      WlrLayershell.layer: WlrLayer.Overlay
+      WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
       anchors {
         top: true
@@ -284,7 +306,8 @@ Scope {
 
       Rectangle {
         anchors.fill: parent
-        color: Theme.scrimFill
+        // Lighter than Control Center scrim — Spotlight floats on the desktop
+        color: Theme.light ? Qt.rgba(0, 0, 0, 0.14) : Qt.rgba(0, 0, 0, 0.32)
         MouseArea {
           anchors.fill: parent
           onClicked: ShellState.closeLauncher()
@@ -294,9 +317,9 @@ Scope {
       Launcher {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        anchors.topMargin: Math.max(72, parent.height * 0.14)
-        width: Math.min(560, parent.width - 64)
-        height: Math.min(440, parent.height - 140)
+        anchors.topMargin: Math.max(56, parent.height * 0.11)
+        width: Math.min(680, parent.width - 48)
+        height: Math.min(480, parent.height - 100)
       }
     }
   }

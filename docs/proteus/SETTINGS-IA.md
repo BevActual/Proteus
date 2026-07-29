@@ -68,7 +68,10 @@ Examples:
 | Bluetooth (status + open) | `bluetoothctl` · blueman / blueberry |
 | VPN profiles (list + open NM) | `nmcli connection` (vpn / wireguard) |
 | Tailscale (status + up/down + copy IP) | `tailscale status --json` · `wl-copy` |
-| Package updates / search | `pacman -Qu` / `-Ss` · apply `pkexec proteus-pkg` (polkit; terminal fallback) |
+| Package updates / search / remove / orphans | `pacman -Qu` / `-Ss` / `-Qdt` · apply `pkexec proteus-pkg` (polkit; terminal fallback; live progress) |
+| AUR search / install / remove / update | `yay` or `paru` as session user (not proteus-pkg) |
+| Flatpak search / list / install / remove / update | `flatpak --user` (+ Add Flathub) |
+| AppImages library | `~/.local/share/proteus/appimages` + `proteus-appimage-*.desktop` |
 | Timezone / network time | `timedatectl set-timezone` / `set-ntp` (polkit-gated; errors surfaced in-pane) |
 | Locale | `localectl status` (read-only + `/etc/locale.conf` escape hatch) |
 | Location | Explicit place search → precise lat/lon in `settings.json` (**never IP-inferred**); Open-Meteo geocoding |
@@ -91,7 +94,7 @@ Left-nav + content pane (macOS System Settings style).
 
 | Category | Holds | Backend | Status |
 |----------|-------|---------|--------|
-| **Appearance** (`style`) | Category → Accent, Background, Lock screen (wallpaper/dim; lock widgets via Customize), Font | `settings.json`, Theme, `proteus-bg` | `partial` |
+| **Appearance** (`style`) | Category → Accent, Background, Lock screen, Icons (plate + dock pins), Font | `settings.json`, Theme, `proteus-bg` | `partial` |
 | **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar | json + hyprctl + `proteus-general.conf` | `shipped` |
 | **Displays** (`displays`) | Per-monitor scale + mode + layout canvas (Apply); conf escape hatch | hyprctl + `proteus-monitors.conf` | `partial` |
 | **Sound** (`sound`) | Category → Output (volume/mute/device/test tone), Input (level, meter, device), Applications (per-app volume), Latency & buffer | pactl + `parec` + `pw-metadata` | `partial` |
@@ -102,7 +105,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Online accounts** (`accounts`) | Mail / contacts / cloud provider seats (coming soon; no OAuth) | TBD (not inventing mail/contacts apps here) | `partial` |
 | **Date & time** (`datetime`) | Live clock, searchable timezone picker, network time toggle, locale, **Location** (shared system place + units) | `timedatectl` / `localectl` / Open-Meteo | `partial` |
 | **Privacy** (`privacy`) | Permission categories listed; grants not enforced yet | EnvGate / adaptive apps later | `partial` |
-| **Software** (`packages`) | Category → Updates, Search (propose → confirm → polkit) | `pacman` + `services/proteus-pkg` | `partial` |
+| **Software** (`packages`) | Category → Updates, Search, AUR, Flatpak, AppImages, Orphans (propose → confirm → apply; Snap Out) | `pacman` + `proteus-pkg` · yay/paru · flatpak · local AppImages | `partial` |
 | **About** (`system`) | Hardware caps; session actions → Users | probe | `partial` |
 
 VM / container **setup** is **not** a Settings category — a separate host app later.
@@ -134,9 +137,10 @@ the sub-settings list:
 
 | Sub-setting | Role |
 |-------------|------|
-| Accent color | Presets + custom hex + **HSV color graph**; **Dark / Light**; **Transparency** (0–100%, clear chrome at 0%) + **Blur** (Hypr layer blur); bar, dock, borders |
+| Accent color | Presets + custom hex + **HSV color graph**; **Dark / Light**; **Opacity** (0% clear · 100% solid, live) + **Blur** (frosted bar/dock/launcher; debounced Hypr apply) |
 | Background | Kind hub (Qt dialogs): Color (+ presets + **HSV color graph**) · Image (+ folder slideshow) · Video (Qt Multimedia) · Animated (Drift / Pulse / Orbit / Aurora / Beacon). Applied by **`proteus-bg`** (Hypr `exec-once`) |
 | Lock screen | Wallpaper Kind + dim in Settings; **widgets only via lock Customize** (long-press) |
+| Icons | **Default / Dark / Clear / Tinted** restyle icon artwork (macOS Tahoe); custom art Switch/Reset; dock **Keep / Remove** via right-click (running apps appear on dock) |
 | Desktop widgets | **Not in Settings** — unlocked desktop long-press or `Super+Shift+W` → Customize; free place (not stacked); separate `desktopWidgets[]` |
 | Notifications / DND | **Shell Control Center** (top-bar status cluster); no Settings pane yet — deep Sound/Network stay in existing panes |
 | Font | System `fc-list` discovery + size; live preview |
@@ -198,7 +202,7 @@ Depth order for what’s left:
 6. **Network** — Tailscale login-server (Headscale); peer/exit-node UI; in-pane pairing; WireGuard wizard  
 7. **Peripherals** — touchpad / tablet  
 8. **Displays** — layout canvas + drag Apply shipped; re-verify Revert after sleep/hotplug  
-9. **Software** — deeper UX (progress stream, remove/orphan); mutator shipped  
+9. **Software** — selective upgrade checkboxes / dep graphs later; AUR + Flatpak + AppImages in tree (`partial`; Snap Out)  
 
 Virt / container setup stays a **separate app**, not a Settings growth item.
 

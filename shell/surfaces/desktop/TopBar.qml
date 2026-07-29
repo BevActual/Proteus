@@ -4,14 +4,14 @@ import QtQuick
 import QtQuick.Window
 import "../../shared"
 
-// Matte menu bar — left chrome, centered title, status cluster → Control Center.
+// Menu bar — thin glass strip (macOS Tahoe-adjacent).
 Item {
   id: root
   anchors.fill: parent
 
   readonly property real dpr: Math.max(1, Screen.devicePixelRatio || 1)
-  readonly property int controlH: Math.max(22, Theme.barHeight - 8)
-  readonly property int sidePad: 12
+  readonly property int controlH: Math.max(20, Theme.barHeight - 10)
+  readonly property int sidePad: 14
 
   readonly property string batteryHint: {
     const d = UPower.displayDevice
@@ -23,10 +23,35 @@ Item {
     return Math.round(Math.max(0, Math.min(1, p)) * 100) + "%"
   }
 
+  // Glass plate
   Rectangle {
     anchors.fill: parent
-    color: Theme.panelFill
+    color: Theme.menuBarFill
     border.width: 0
+
+    Behavior on color {
+      ColorAnimation {
+        duration: 180
+        easing.type: Easing.OutCubic
+      }
+    }
+  }
+
+  // Bottom hairline
+  Rectangle {
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    height: 1
+    color: Theme.chromeHairline
+    opacity: Theme.chromeClear ? 0 : 1
+
+    Behavior on opacity {
+      NumberAnimation {
+        duration: 160
+        easing.type: Easing.OutCubic
+      }
+    }
   }
 
   Item {
@@ -34,27 +59,28 @@ Item {
     anchors.leftMargin: root.sidePad
     anchors.rightMargin: root.sidePad
 
+    // Left: mark · app name · workspaces (Mac puts app identity on the left)
     Row {
       id: leftRow
       anchors.left: parent.left
       anchors.verticalCenter: parent.verticalCenter
-      spacing: Theme.spaceSm
+      spacing: 10
       z: 2
 
       Rectangle {
-        width: root.controlH + 4
+        width: root.controlH
         height: root.controlH
-        radius: Theme.radiusPill
+        radius: width / 2
         color: launchMa.containsMouse || ShellState.launcherOpen
             ? Theme.chromeAccentSoft
-            : (launchMa.containsMouse ? Theme.chromeHover : "transparent")
+            : "transparent"
 
         Text {
           anchors.centerIn: parent
           text: "P"
           color: ShellState.launcherOpen || launchMa.containsMouse ? Theme.accent : Theme.text
           font.family: Theme.fontFamily
-          font.pixelSize: 13
+          font.pixelSize: 12
           font.weight: Font.DemiBold
         }
 
@@ -67,46 +93,42 @@ Item {
         }
       }
 
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        width: Math.min(implicitWidth, Math.max(80, root.width * 0.28))
+        text: ActiveWindow.text
+        color: Theme.text
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+        font.weight: Font.DemiBold
+        elide: Text.ElideRight
+        opacity: text.length ? 0.92 : 0
+        visible: text.length > 0
+      }
+
       Workspaces {
         anchors.verticalCenter: parent.verticalCenter
       }
     }
 
-    Text {
-      id: titleLabel
-      anchors.horizontalCenter: parent.horizontalCenter
-      anchors.verticalCenter: parent.verticalCenter
-      width: Math.min(implicitWidth, parent.width * 0.42)
-      text: ActiveWindow.text
-      color: Theme.textDim
-      font.family: Theme.fontFamily
-      font.pixelSize: Theme.fontSize
-      font.weight: Font.Medium
-      elide: Text.ElideMiddle
-      horizontalAlignment: Text.AlignHCenter
-      opacity: text.length ? 1 : 0
-      z: 1
-    }
-
-    // Status cluster — opens Control Center (notifications + quick settings)
+    // Right: status items — calm, not a heavy chip
     Rectangle {
-      id: statusChip
+      id: statusCluster
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
       height: root.controlH
-      width: statusRow.implicitWidth + 16
-      radius: Theme.radiusPill
+      width: statusRow.implicitWidth + 14
+      radius: height / 2
       z: 2
       color: statusMa.containsMouse || ShellState.controlCenterOpen
-          ? Theme.chromeHover
+          ? (Theme.light ? Qt.rgba(0, 0, 0, 0.06) : Qt.rgba(1, 1, 1, 0.1))
           : "transparent"
 
       Row {
         id: statusRow
         anchors.centerIn: parent
-        spacing: 8
+        spacing: 10
 
-        // Unread badge
         Rectangle {
           visible: Notifications.unreadCount > 0
           anchors.verticalCenter: parent.verticalCenter
@@ -146,7 +168,7 @@ Item {
           text: Time.text
           color: Theme.text
           font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSize
+          font.pixelSize: Theme.fontSizeSm
           font.weight: Font.Medium
         }
       }

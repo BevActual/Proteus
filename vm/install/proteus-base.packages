@@ -53,7 +53,7 @@ playerctl
 brightnessctl
 power-profiles-daemon
 
-# Network / Bluetooth (Settings + Control Center)
+# Network / Bluetooth (Settings owns UX; hide *-manager .desktop via hide-system-apps.sh)
 networkmanager
 nm-connection-editor
 bluez

@@ -3,26 +3,24 @@ import QtQuick
 import QtQuick.Window
 import "../../shared"
 
-// Matte dock — HiDPI icons; mag from one quantized cursor (no hit-area feedback).
+// Dock — floating glass shelf; macOS-like pins + running apps + Keep/Remove.
 Item {
   id: root
   clip: false
 
   readonly property real dpr: Math.max(1, Screen.devicePixelRatio || 1)
 
-  // Sizes from Settings → Desktop → Dock & menu bar (Theme clamps)
   readonly property int iconSize: Theme.dockIconSize
   readonly property int maxIconSize: Theme.dockIconMax
-  readonly property int spacing: Math.max(8, Math.round(iconSize * 0.2))
-  readonly property int padX: Math.max(14, Math.round(iconSize * 0.35))
-  readonly property int padTop: Math.max(10, Math.round(iconSize * 0.25))
-  readonly property int padBottom: Math.max(12, Math.round(iconSize * 0.28))
+  readonly property int spacing: Math.max(6, Math.round(iconSize * 0.14))
+  readonly property int padX: Math.max(14, Math.round(iconSize * 0.32))
+  readonly property int padTop: Math.max(6, Math.round(iconSize * 0.14))
+  readonly property int padBottom: Math.max(8, Math.round(iconSize * 0.18))
   readonly property real magRange: Math.max(96, iconSize * 2.2)
 
   readonly property real restScale: iconSize / maxIconSize
   readonly property real peakScale: 1.0
 
-  // Device pixels for Image.sourceSize — follows compositor scale (DPR), not resolution guesses
   readonly property int bitmapSize: {
     const need = Math.ceil(maxIconSize * dpr)
     const buckets = [64, 96, 128, 192, 256]
@@ -33,12 +31,16 @@ Item {
     return Math.max(need, 256)
   }
 
-  readonly property int count: DockApps.visiblePinned.length
+  readonly property var items: DockApps.dockItems
+  readonly property int count: items.length
   readonly property int tipH: 22
-  readonly property int tipGap: 8
+  readonly property int tipGap: 10
   property int mouseX: -1000
   property bool hovered: false
   property int tipIndex: -1
+  property int pressIndex: -1
+  property int menuIndex: -1
+  property bool menuOpen: false
 
   readonly property real rowWidth: count > 0
       ? count * iconSize + Math.max(0, count - 1) * spacing
@@ -46,9 +48,10 @@ Item {
 
   readonly property int shelfHeight: iconSize + padTop + padBottom
   readonly property int magHeadroom: (maxIconSize - iconSize) + tipH + tipGap + 12
+  readonly property real plateRadius: shelfHeight * 0.5
 
-  implicitWidth: rowWidth + padX * 2
-  implicitHeight: shelfHeight + magHeadroom
+  implicitWidth: Math.round(rowWidth + padX * 2)
+  implicitHeight: Math.round(shelfHeight + magHeadroom)
 
   function centerAt(index) {
     return padX + index * (iconSize + spacing) + iconSize * 0.5
@@ -65,7 +68,6 @@ Item {
   }
 
   function setMouse(x) {
-    // Deadzone: ignore <2px noise (common on 4K / scaled GTK)
     const qx = Math.round(x)
     if (mouseX >= 0 && Math.abs(qx - mouseX) < 2)
       return
@@ -81,26 +83,64 @@ Item {
     return -1
   }
 
+  function menuEntry() {
+    if (menuIndex < 0 || menuIndex >= items.length)
+      return null
+    return items[menuIndex]
+  }
+
+  function openPinMenu(index, x, y) {
+    if (index < 0 || index >= items.length)
+      return
+    const entry = items[index]
+    const keep = DockApps.canKeepInDock(entry)
+    const remove = DockApps.canUnpin(entry)
+    if (!keep && !remove)
+      return
+    root.menuIndex = index
+    root.menuOpen = true
+    Qt.callLater(() => {
+      ctxMenu.x = Math.max(8, Math.min(x - ctxMenu.width * 0.5, root.width - ctxMenu.width - 8))
+      ctxMenu.y = Math.max(4, y - ctxMenu.height - 8)
+    })
+  }
+
+  function closePinMenu() {
+    root.menuOpen = false
+    root.menuIndex = -1
+  }
+
   Rectangle {
     id: plate
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.bottom: parent.bottom
     width: parent.width
     height: root.shelfHeight
-    radius: Theme.radiusXl + 2
-    color: Theme.panelFill
+    radius: root.plateRadius
+    color: Theme.dockPlateFill
+    antialiasing: true
     border.width: 0
+    z: 1
+
+    Behavior on color {
+      ColorAnimation {
+        duration: 180
+        easing.type: Easing.OutCubic
+      }
+    }
   }
 
-  // Sole input path for mag + click — fixed geometry, never scales
   MouseArea {
     id: dockMa
     anchors.fill: parent
     hoverEnabled: true
-    acceptedButtons: Qt.LeftButton
+    acceptedButtons: Qt.LeftButton | Qt.RightButton
     cursorShape: Qt.PointingHandCursor
+    z: 10
     onEntered: root.hovered = true
     onExited: {
+      if (root.menuOpen)
+        return
       root.hovered = false
       root.mouseX = -1000
       root.tipIndex = -1
@@ -111,9 +151,18 @@ Item {
       root.tipIndex = root.indexAt(mouse.x)
     }
     onClicked: mouse => {
+      if (root.menuOpen) {
+        root.closePinMenu()
+        return
+      }
       const i = root.indexAt(mouse.x)
-      if (i >= 0)
-        DockApps.focusOrLaunch(DockApps.visiblePinned[i])
+      if (i < 0)
+        return
+      if (mouse.button === Qt.RightButton) {
+        root.openPinMenu(i, mouse.x, mouse.y)
+        return
+      }
+      DockApps.focusOrLaunch(root.items[i])
     }
     onPressed: mouse => {
       root.setMouse(mouse.x)
@@ -123,10 +172,89 @@ Item {
     onCanceled: root.pressIndex = -1
   }
 
-  property int pressIndex: -1
+  // Context menu — Keep in Dock / Remove from Dock (macOS Options pattern)
+  Rectangle {
+    id: ctxMenu
+    visible: root.menuOpen
+    z: 50
+    width: Math.max(keepRow.implicitWidth, removeRow.implicitWidth) + 28
+    height: (keepRow.visible ? 36 : 0) + (removeRow.visible ? 36 : 0)
+    radius: 10
+    color: Theme.light ? Qt.rgba(1, 1, 1, 0.96) : Qt.rgba(0.16, 0.16, 0.18, 0.96)
+    border.width: 1
+    border.color: Theme.light ? Qt.rgba(0, 0, 0, 0.10) : Qt.rgba(1, 1, 1, 0.12)
+
+    Column {
+      anchors.fill: parent
+      anchors.margins: 0
+
+      Item {
+        id: keepRow
+        width: parent.width
+        height: 36
+        visible: {
+          const e = root.menuEntry()
+          return e && DockApps.canKeepInDock(e)
+        }
+
+        Text {
+          anchors.centerIn: parent
+          text: "Keep in Dock"
+          color: Theme.text
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSizeSm
+        }
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: {
+            const e = root.menuEntry()
+            if (e)
+              DockApps.pinDesktopId(e.desktopId || e.id)
+            root.closePinMenu()
+          }
+        }
+      }
+
+      Rectangle {
+        width: parent.width
+        height: 1
+        visible: keepRow.visible && removeRow.visible
+        color: Theme.separator
+      }
+
+      Item {
+        id: removeRow
+        width: parent.width
+        height: 36
+        visible: {
+          const e = root.menuEntry()
+          return e && DockApps.canUnpin(e)
+        }
+
+        Text {
+          anchors.centerIn: parent
+          text: "Remove from Dock"
+          color: Theme.text
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSizeSm
+        }
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: {
+            const e = root.menuEntry()
+            if (e)
+              DockApps.unpinEntry(e)
+            root.closePinMenu()
+          }
+        }
+      }
+    }
+  }
 
   Repeater {
-    model: DockApps.visiblePinned
+    model: root.items
 
     Item {
       id: cell
@@ -135,16 +263,19 @@ Item {
 
       readonly property real s: root.scaleAt(index)
       readonly property real rise: root.maxIconSize * (s - root.restScale)
-      readonly property bool tipOn: root.tipIndex === index
+      readonly property bool tipOn: root.tipIndex === index && !root.menuOpen
       readonly property real press: root.pressIndex === index ? 0.92 : 1
+      readonly property bool brandIcon: modelData.special === "launcher"
+          || modelData.special === "settings"
+          || modelData.icon === "proteus-launcher"
+          || modelData.icon === "proteus-settings"
 
       x: root.padX + index * (root.iconSize + root.spacing)
       width: root.iconSize
       height: root.iconSize + root.magHeadroom
       anchors.bottom: parent.bottom
       anchors.bottomMargin: root.padBottom
-      // Fixed stacking — continuous z-from-scale caused flicker
-      z: tipOn ? 20 : index
+      z: tipOn ? 20 : (10 + index)
       clip: false
 
       Rectangle {
@@ -152,16 +283,20 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         y: parent.height - root.iconSize - cell.rise - root.tipGap - height
         height: root.tipH
-        width: tipLabel.implicitWidth + 14
-        radius: 7
-        color: Qt.rgba(28 / 255, 28 / 255, 30 / 255, 0.94)
+        width: tipLabel.implicitWidth + 16
+        radius: 6
+        color: Theme.light
+            ? Qt.rgba(0.15, 0.15, 0.16, 0.92)
+            : Qt.rgba(0.18, 0.18, 0.2, 0.94)
+        border.width: 1
+        border.color: Qt.rgba(1, 1, 1, 0.08)
         z: 30
 
         Text {
           id: tipLabel
           anchors.centerIn: parent
           text: modelData.label || modelData.id
-          color: Theme.text
+          color: "#f5f5f7"
           font.family: Theme.fontFamily
           font.pixelSize: Theme.fontSizeSm
           font.weight: Font.Medium
@@ -183,39 +318,28 @@ Item {
           yScale: cell.s * cell.press
         }
 
-        Rectangle {
+        SquircleIcon {
           anchors.centerIn: parent
-          width: parent.width * 0.7
-          height: parent.height * 0.7
-          radius: width * 0.3
-          color: DockApps.isActive(modelData)
-              ? Theme.chromeAccentSoft
-              : (cell.tipOn ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0))
-        }
-
-        Image {
-          anchors.centerIn: parent
-          width: parent.width * 0.84
-          height: parent.height * 0.84
-          fillMode: Image.PreserveAspectFit
-          smooth: true
-          mipmap: true
-          asynchronous: true
-          source: Quickshell.iconPath(modelData.icon || "application-x-executable")
-          sourceSize.width: root.bitmapSize
-          sourceSize.height: root.bitmapSize
+          width: parent.width * Theme.iconFrameScale
+          height: width
+          pixelSize: root.bitmapSize
+          showBorder: false
+          fillCrop: false
+          glyphScale: cell.brandIcon ? Theme.iconGlyphScaleBrand : Theme.iconGlyphScaleApp
+          plate: Theme.iconPlateFill
+          source: DockApps.iconSource(modelData)
         }
       }
 
       Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: glyph.bottom
-        anchors.topMargin: 5
-        width: active ? 5 : 4
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: -6
+        width: active ? 4 : 3
         height: width
         radius: width / 2
-        color: active ? Theme.accent : Theme.text
-        opacity: shown ? (active ? 0.95 : 0.4) : 0
+        color: active ? Theme.accent : (Theme.light ? Qt.rgba(0, 0, 0, 0.45) : Qt.rgba(1, 1, 1, 0.7))
+        opacity: shown ? (active ? 1 : 0.55) : 0
         z: 5
 
         readonly property bool active: DockApps.isActive(modelData)

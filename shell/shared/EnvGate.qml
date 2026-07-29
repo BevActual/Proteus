@@ -120,6 +120,190 @@ Singleton {
     }
   ]
 
+  // Spotlight / launcher Settings hits — hubs + common leaves (gate via hubId).
+  readonly property var settingsSearchIndex: [
+    {
+      id: "style",
+      label: "Appearance",
+      hubId: "style",
+      keywords: "theme chrome look"
+    },
+    {
+      id: "style-accent",
+      label: "Accent & chrome",
+      hubId: "style",
+      keywords: "color accent dark light opacity blur"
+    },
+    {
+      id: "style-background",
+      label: "Background",
+      hubId: "style",
+      keywords: "wallpaper desktop backdrop"
+    },
+    {
+      id: "style-lock",
+      label: "Lock screen",
+      hubId: "style",
+      keywords: "lock wallpaper"
+    },
+    {
+      id: "style-font",
+      label: "Font",
+      hubId: "style",
+      keywords: "typography typeface size"
+    },
+    {
+      id: "desktop",
+      label: "Desktop",
+      hubId: "desktop",
+      keywords: "windows compositor"
+    },
+    {
+      id: "desktop-gaps",
+      label: "Gaps",
+      hubId: "desktop",
+      keywords: "spacing tiling"
+    },
+    {
+      id: "desktop-chrome",
+      label: "Borders & rounding",
+      hubId: "desktop",
+      keywords: "border radius"
+    },
+    {
+      id: "desktop-motion",
+      label: "Motion",
+      hubId: "desktop",
+      keywords: "animation"
+    },
+    {
+      id: "desktop-dock",
+      label: "Dock & menu bar",
+      hubId: "desktop",
+      keywords: "dock bar auto-hide"
+    },
+    {
+      id: "desktop-launcher",
+      label: "Launcher",
+      hubId: "desktop",
+      keywords: "spotlight tags groups apps"
+    },
+    {
+      id: "displays",
+      label: "Displays",
+      hubId: "displays",
+      keywords: "monitor resolution scaling"
+    },
+    {
+      id: "sound",
+      label: "Sound",
+      hubId: "sound",
+      keywords: "audio volume"
+    },
+    {
+      id: "sound-output",
+      label: "Output",
+      hubId: "sound",
+      keywords: "speakers headphones volume mute"
+    },
+    {
+      id: "sound-input",
+      label: "Input",
+      hubId: "sound",
+      keywords: "microphone mic"
+    },
+    {
+      id: "sound-apps",
+      label: "Applications",
+      hubId: "sound",
+      keywords: "per-app volume"
+    },
+    {
+      id: "sound-latency",
+      label: "Latency & buffer",
+      hubId: "sound",
+      keywords: "pipewire quantum buffer"
+    },
+    {
+      id: "network",
+      label: "Network",
+      hubId: "network",
+      keywords: "wifi ethernet bluetooth vpn tailscale"
+    },
+    {
+      id: "peripherals",
+      label: "Peripherals",
+      hubId: "peripherals",
+      keywords: "devices"
+    },
+    {
+      id: "peripherals-keyboard",
+      label: "Keyboard",
+      hubId: "peripherals",
+      keywords: "keys shortcuts keybinds"
+    },
+    {
+      id: "peripherals-mouse",
+      label: "Mouse",
+      hubId: "peripherals",
+      keywords: "pointer trackpad sensitivity"
+    },
+    {
+      id: "power",
+      label: "Power",
+      hubId: "power",
+      keywords: "battery sleep"
+    },
+    {
+      id: "users",
+      label: "Users",
+      hubId: "users",
+      keywords: "session lock logout reboot shutdown"
+    },
+    {
+      id: "accounts",
+      label: "Online accounts",
+      hubId: "accounts",
+      keywords: "accounts oauth"
+    },
+    {
+      id: "datetime",
+      label: "Date & time",
+      hubId: "datetime",
+      keywords: "clock timezone ntp"
+    },
+    {
+      id: "privacy",
+      label: "Privacy",
+      hubId: "privacy",
+      keywords: "permissions camera mic"
+    },
+    {
+      id: "packages",
+      label: "Software",
+      hubId: "packages",
+      keywords: "packages pacman"
+    },
+    {
+      id: "packages-updates",
+      label: "Updates",
+      hubId: "packages",
+      keywords: "upgrade update"
+    },
+    {
+      id: "packages-search",
+      label: "Search packages",
+      hubId: "packages",
+      keywords: "install search"
+    },
+    {
+      id: "system",
+      label: "About",
+      hubId: "system",
+      keywords: "system info version hardware"
+    }
+  ]
+
   // Desktop-id / name / category heuristics → capability needs (Wave A).
   readonly property var appRules: [
     {
@@ -376,7 +560,12 @@ Singleton {
     return null
   }
 
-  Component.onCompleted: loadManifests()
+  Component.onCompleted: {
+    // App catalog is for launcher/dock gating — Settings panes use the inline catalog.
+    const settingsApp = String(Quickshell.shellDir || Quickshell.shellRoot || "").indexOf("proteus-settings") >= 0
+    if (!settingsApp)
+      loadManifests()
+  }
 
   Process {
     id: catalogProc
@@ -398,6 +587,67 @@ Singleton {
         }
       }
     }
+  }
+
+  function resolveAppIcon(entry) {
+    if (!entry)
+      return "application-x-executable"
+    const id = String(entry.id || "").replace(/\.desktop$/i, "")
+    if (id.length) {
+      const ov = Config.iconOverrideFor(id)
+      if (ov.length)
+        return ov
+    }
+    const raw = entry.icon !== undefined && entry.icon !== null ? String(entry.icon).trim() : ""
+    if (raw.length) {
+      // Absolute / theme-relative paths from .desktop
+      if (raw.indexOf("/") === 0 || raw.indexOf("file:") === 0)
+        return raw
+      return raw
+    }
+    if (id.length) {
+      const short = id.split(".").pop()
+      if (short && short.length)
+        return short
+    }
+    const name = String(entry.name || "").toLowerCase()
+    if (name.indexOf("terminal") >= 0 || name.indexOf("console") >= 0)
+      return "utilities-terminal"
+    if (name.indexOf("browser") >= 0 || name.indexOf("firefox") >= 0 || name.indexOf("chrom") >= 0)
+      return "web-browser"
+    if (name.indexOf("file") >= 0 || name.indexOf("files") >= 0)
+      return "system-file-manager"
+    if (name.indexOf("setting") >= 0 || name.indexOf("prefer") >= 0)
+      return "preferences-system"
+    return "application-x-executable"
+  }
+
+  function iconSource(nameOrPath) {
+    const _ov = Config.iconOverrides
+    const s = String(nameOrPath || "").trim()
+    if (!s.length)
+      return Quickshell.iconPath("application-x-executable", "application-x-executable")
+    if (s.indexOf("file:") === 0)
+      return s
+    if (s.indexOf("/") === 0)
+      return "file://" + s
+    // Proteus product glyphs — theme first, then brand/ files (distinct gear / telescope)
+    if (s === "proteus" || s === "proteus-settings" || s === "proteus-launcher") {
+      const themed = Quickshell.iconPath(s, true)
+      if (themed && themed.length)
+        return themed
+      const root = Quickshell.env("PROTEUS_ROOT")
+      const base = root && root.length ? root : "/mnt/proteus"
+      if (s === "proteus-settings")
+        return "file://" + base + "/brand/proteus-settings.svg"
+      if (s === "proteus-launcher")
+        return "file://" + base + "/brand/proteus-launcher.svg"
+      return "file://" + base + "/brand/proteus-mark.png"
+    }
+    const path = Quickshell.iconPath(s, true)
+    if (path && path.length)
+      return path
+    return Quickshell.iconPath("application-x-executable", true)
   }
 
   function appAvailable(entry) {

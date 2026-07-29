@@ -50,6 +50,17 @@ ColumnLayout {
             font.pixelSize: Theme.fontSize
           }
 
+          Text {
+            anchors.right: parent.right
+            anchors.rightMargin: Theme.spaceMd
+            anchors.verticalCenter: parent.verticalCenter
+            visible: !!(modelData.hint && String(modelData.hint).length)
+            text: modelData.hint || ""
+            color: Theme.textMute
+            font.family: Theme.fontFamily
+            font.pixelSize: 12
+          }
+
           Rectangle {
             visible: index < root.items.length - 1
             anchors.left: parent.left
@@ -107,6 +118,17 @@ ColumnLayout {
             color: Theme.text
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSize
+          }
+
+          Text {
+            anchors.right: parent.right
+            anchors.rightMargin: Theme.spaceMd
+            anchors.verticalCenter: parent.verticalCenter
+            visible: !!(modelData.hint && String(modelData.hint).length)
+            text: modelData.hint || ""
+            color: Theme.textMute
+            font.family: Theme.fontFamily
+            font.pixelSize: 12
           }
 
           Rectangle {

@@ -86,8 +86,40 @@ Singleton {
   property alias fontFamily: adapter.fontFamily
   property alias fontSize: adapter.fontSize
   property alias fontSizeSm: adapter.fontSizeSm
+  // Comma-separated .desktop ids, most recent first (Spotlight / launcher)
+  property alias launcherRecents: adapter.launcherRecents
+  // User-defined tag names, comma-separated (normalized slugs)
+  property alias launcherTagCatalog: adapter.launcherTagCatalog
+  // Per-app tags: "desktopId=tag1+tag2;otherId=tag3"
+  property alias launcherAppTags: adapter.launcherAppTags
+  // Dock middle pins: comma-separated desktop ids; "" = defaults; "-" = none
+  property alias dockPins: adapter.dockPins
+  // Icon plate: default | dark | clear | tinted (macOS Tahoe–style)
+  property alias iconPlateMode: adapter.iconPlateMode
+  property alias iconPlateCustom: adapter.iconPlateCustom
+  // Per-app icon overrides: "desktopId=/path/or/theme-name;…"
+  property alias iconOverrides: adapter.iconOverrides
+
+  // Normalized mode (maps legacy auto/accent/custom)
+  readonly property string iconPlateStyle: {
+    const m = String(iconPlateMode || "").trim().toLowerCase()
+    if (m === "auto")
+      return "default"
+    if (m === "accent" || m === "custom")
+      return "tinted"
+    if (m === "default" || m === "dark" || m === "clear" || m === "tinted")
+      return m
+    return "default"
+  }
 
   property bool settingsReady: false
+  // Background/Widgets raw JSON hydrate (expensive). Shell always does it on
+  // load; Settings defers until Appearance → Background/Lock (or first write).
+  property bool domainHydrated: false
+  readonly property bool isSettingsApp: {
+    const d = String(Quickshell.shellDir || Quickshell.shellRoot || "")
+    return d.indexOf("proteus-settings") >= 0
+  }
 
   // System fonts discovered via fc-list (falls back to built-in list)
   property var discoveredFonts: []
@@ -251,7 +283,7 @@ Singleton {
       return
     }
     Quickshell.execDetached({
-      command: ["ghostty", "-e", "nmtui"]
+      command: ["proteus-terminal", "-e", "nmtui"]
     })
   }
 
@@ -265,7 +297,7 @@ Singleton {
       }
     }
     Quickshell.execDetached({
-      command: ["ghostty", "-e", "bluetoothctl"]
+      command: ["proteus-terminal", "-e", "bluetoothctl"]
     })
   }
 
@@ -283,7 +315,7 @@ Singleton {
 
   function openTailscaleStatus() {
     Quickshell.execDetached({
-      command: ["ghostty", "-e", "bash", "-lc", "tailscale status; echo; read -n1 -s -r -p 'Press any key…'"]
+      command: ["proteus-terminal", "-e", "bash", "-lc", "tailscale status; echo; read -n1 -s -r -p 'Press any key…'"]
     })
   }
 
@@ -331,6 +363,95 @@ Singleton {
     accentId = "custom"
     applyHyprland()
     return true
+  }
+
+  function setIconPlateMode(mode) {
+    let m = String(mode || "").trim().toLowerCase()
+    // Legacy aliases from earlier dogfood
+    if (m === "auto")
+      m = "default"
+    if (m === "accent" || m === "custom")
+      m = "tinted"
+    if (m !== "default" && m !== "dark" && m !== "clear" && m !== "tinted")
+      return false
+    iconPlateMode = m
+    flushSettings()
+    return true
+  }
+
+  function setIconPlateCustom(hex) {
+    const n = normalizeAccentHex(hex)
+    if (!n.length)
+      return false
+    iconPlateCustom = n
+    iconPlateMode = "tinted"
+    flushSettings()
+    return true
+  }
+
+  function parseIconOverrides() {
+    const raw = String(iconOverrides || "")
+    const map = {}
+    if (!raw.length)
+      return map
+    const entries = raw.split(";")
+    for (let i = 0; i < entries.length; i++) {
+      const part = entries[i].trim()
+      if (!part.length)
+        continue
+      const eq = part.indexOf("=")
+      if (eq <= 0)
+        continue
+      const id = part.slice(0, eq).trim().replace(/\.desktop$/i, "")
+      let val = part.slice(eq + 1).trim()
+      if (!id.length || !val.length)
+        continue
+      map[id] = val
+    }
+    return map
+  }
+
+  function serializeIconOverrides(map) {
+    const ids = Object.keys(map || {}).sort()
+    const parts = []
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i]
+      const val = String(map[id] || "").trim()
+      if (!id.length || !val.length)
+        continue
+      parts.push(id + "=" + val)
+    }
+    return parts.join(";")
+  }
+
+  function iconOverrideFor(desktopId) {
+    const id = String(desktopId || "").trim().replace(/\.desktop$/i, "")
+    if (!id.length)
+      return ""
+    const map = parseIconOverrides()
+    return map[id] ? String(map[id]) : ""
+  }
+
+  function setIconOverride(desktopId, value) {
+    const id = String(desktopId || "").trim().replace(/\.desktop$/i, "")
+    let val = String(value || "").trim()
+    if (!id.length)
+      return false
+    if (val.indexOf("file://") === 0)
+      val = val.slice(7)
+    const map = parseIconOverrides()
+    if (!val.length) {
+      delete map[id]
+    } else {
+      map[id] = val
+    }
+    iconOverrides = serializeIconOverrides(map)
+    flushSettings()
+    return true
+  }
+
+  function clearIconOverride(desktopId) {
+    return setIconOverride(desktopId, "")
   }
 
   function setLockOnSessionStart(on) {
@@ -423,6 +544,181 @@ Singleton {
     }
   }
 
+  function launcherRecentList() {
+    const raw = String(launcherRecents || "")
+    if (!raw.length)
+      return []
+    return raw.split(",").map(s => s.trim()).filter(s => s.length)
+  }
+
+  function recordLauncherRecent(desktopId) {
+    const id = String(desktopId || "").trim()
+    if (!id.length)
+      return
+    const next = [id]
+    const prev = launcherRecentList()
+    for (let i = 0; i < prev.length; i++) {
+      if (prev[i] !== id)
+        next.push(prev[i])
+      if (next.length >= 16)
+        break
+    }
+    launcherRecents = next.join(",")
+    flushSettings()
+  }
+
+  function normalizeLauncherTag(name) {
+    let s = String(name || "").toLowerCase().trim()
+    s = s.replace(/[\s_]+/g, "-").replace(/[^a-z0-9\-]/g, "")
+    s = s.replace(/-+/g, "-").replace(/^-|-$/g, "")
+    return s.slice(0, 32)
+  }
+
+  function launcherTagCatalogList() {
+    const raw = String(launcherTagCatalog || "")
+    if (!raw.length)
+      return []
+    const out = []
+    const seen = {}
+    const parts = raw.split(",")
+    for (let i = 0; i < parts.length; i++) {
+      const t = normalizeLauncherTag(parts[i])
+      if (!t.length || seen[t])
+        continue
+      seen[t] = true
+      out.push(t)
+    }
+    return out
+  }
+
+  function ensureLauncherTag(name, doFlush) {
+    const t = normalizeLauncherTag(name)
+    if (!t.length)
+      return ""
+    const list = launcherTagCatalogList()
+    if (list.indexOf(t) < 0) {
+      list.push(t)
+      list.sort()
+      launcherTagCatalog = list.join(",")
+      if (doFlush !== false)
+        flushSettings()
+    }
+    return t
+  }
+
+  function removeLauncherTag(name) {
+    const t = normalizeLauncherTag(name)
+    if (!t.length)
+      return
+    launcherTagCatalog = launcherTagCatalogList().filter(x => x !== t).join(",")
+    const map = parseLauncherAppTagMap()
+    const ids = Object.keys(map)
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i]
+      map[id] = map[id].filter(x => x !== t)
+      if (!map[id].length)
+        delete map[id]
+    }
+    launcherAppTags = serializeLauncherAppTagMap(map)
+    flushSettings()
+  }
+
+  function parseLauncherAppTagMap() {
+    const raw = String(launcherAppTags || "")
+    const map = {}
+    if (!raw.length)
+      return map
+    const entries = raw.split(";")
+    for (let i = 0; i < entries.length; i++) {
+      const part = entries[i].trim()
+      if (!part.length)
+        continue
+      const eq = part.indexOf("=")
+      if (eq <= 0)
+        continue
+      const id = part.slice(0, eq).trim()
+      if (!id.length)
+        continue
+      const tags = part.slice(eq + 1).split("+").map(s => normalizeLauncherTag(s)).filter(s => s.length)
+      const uniq = []
+      const seen = {}
+      for (let j = 0; j < tags.length; j++) {
+        if (seen[tags[j]])
+          continue
+        seen[tags[j]] = true
+        uniq.push(tags[j])
+      }
+      if (uniq.length)
+        map[id] = uniq
+    }
+    return map
+  }
+
+  function serializeLauncherAppTagMap(map) {
+    const ids = Object.keys(map || {}).sort()
+    const parts = []
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i]
+      const tags = (map[id] || []).map(t => normalizeLauncherTag(t)).filter(t => t.length)
+      if (!tags.length)
+        continue
+      parts.push(id + "=" + tags.join("+"))
+    }
+    return parts.join(";")
+  }
+
+  function tagsForApp(desktopId) {
+    const id = String(desktopId || "").trim()
+    if (!id.length)
+      return []
+    const map = parseLauncherAppTagMap()
+    return map[id] || []
+  }
+
+  function setAppTags(desktopId, tags) {
+    const id = String(desktopId || "").trim()
+    if (!id.length)
+      return
+    const map = parseLauncherAppTagMap()
+    const next = []
+    const seen = {}
+    const list = tags || []
+    for (let i = 0; i < list.length; i++) {
+      const t = ensureLauncherTag(list[i], false)
+      if (!t.length || seen[t])
+        continue
+      seen[t] = true
+      next.push(t)
+    }
+    if (next.length)
+      map[id] = next
+    else
+      delete map[id]
+    launcherAppTags = serializeLauncherAppTagMap(map)
+    flushSettings()
+  }
+
+  function toggleAppTag(desktopId, tagName) {
+    const t = ensureLauncherTag(tagName, false)
+    if (!t.length)
+      return false
+    const cur = tagsForApp(desktopId).slice()
+    const i = cur.indexOf(t)
+    if (i >= 0)
+      cur.splice(i, 1)
+    else
+      cur.push(t)
+    setAppTags(desktopId, cur)
+    return i < 0
+  }
+
+  function appHasTag(desktopId, tagName) {
+    const t = normalizeLauncherTag(tagName)
+    if (!t.length)
+      return false
+    return tagsForApp(desktopId).indexOf(t) >= 0
+  }
+
 
   Process {
     id: fontScanProc
@@ -462,6 +758,16 @@ Singleton {
   function chromeScreenOptions() { return hypr.chromeScreenOptions() }
   function applyChromeEffects() { return hypr.applyChromeEffects() }
 
+  function ensureDomainHydrated() {
+    if (domainHydrated)
+      return
+    const raw = configFile.text()
+    Background.hydrateDailyFromRaw(raw)
+    Widgets.hydrateLockFromRaw(raw)
+    Widgets.hydrateDesktopFromRaw(raw)
+    domainHydrated = true
+  }
+
   FileView {
     id: configFile
     path: Quickshell.env("HOME") + "/.config/proteus/settings.json"
@@ -469,22 +775,35 @@ Singleton {
     onFileChanged: reload()
     onAdapterUpdated: {
       // Block writes until disk hydrate finishes — otherwise defaults clobber Daily sources.
-      if (root.settingsReady)
-        writeAdapter()
+      if (!root.settingsReady)
+        return
+      // Settings defers Background/Widgets hydrate; pull them in before any write.
+      if (!root.domainHydrated)
+        root.ensureDomainHydrated()
+      writeAdapter()
     }
     onLoaded: {
+      if (root.isSettingsApp) {
+        // Appearance hub does not need Daily/Widgets — hydrate on first use.
+        root.settingsReady = true
+        return
+      }
       // JsonAdapter often drops nested object arrays; re-parse from file text.
       Background.hydrateDailyFromRaw(configFile.text())
       Widgets.hydrateLockFromRaw(configFile.text())
       Widgets.hydrateDesktopFromRaw(configFile.text())
+      root.domainHydrated = true
       root.settingsReady = true
     }
     onLoadFailed: error => {
       writeAdapter()
       root.settingsReady = true
+      if (root.isSettingsApp)
+        return
       Background.ensureDailySources()
       Widgets.hydrateLockFromRaw(configFile.text())
       Widgets.hydrateDesktopFromRaw(configFile.text())
+      root.domainHydrated = true
     }
 
     JsonAdapter {
@@ -576,6 +895,17 @@ Singleton {
       property string fontFamily: "Sans"
       property int fontSize: 13
       property int fontSizeSm: 12
+      // Comma-separated desktop-entry ids (most recent first)
+      property string launcherRecents: ""
+      property string launcherTagCatalog: ""
+      property string launcherAppTags: ""
+      // Dock pins between Spotlight and Settings ("" = built-in defaults)
+      property string dockPins: ""
+      // default | dark | clear | tinted — squircle plate (macOS Icon & widget style)
+      property string iconPlateMode: "default"
+      property string iconPlateCustom: "#5c5c5e"
+      // Per-app artwork: "desktopId=/abs/path/or/theme-name;…"
+      property string iconOverrides: ""
 
       onGapsInChanged: root.applyHyprland()
       onGapsOutChanged: root.applyHyprland()
@@ -591,8 +921,11 @@ Singleton {
 
 
   Component.onCompleted: {
-    applyHyprland()
-    Audio.applyAudioLatency()
-    Hardware.refresh()
+    // Settings is its own Quickshell process — shell already applied Hypr/audio.
+    // Re-running here pulls Audio + hyprctl on every Settings open (~seconds).
+    if (!isSettingsApp) {
+      applyHyprland()
+      Audio.applyAudioLatency()
+    }
   }
 }

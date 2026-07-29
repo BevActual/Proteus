@@ -61,15 +61,16 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 
 | Feature | Status |
 |---------|--------|
-| Top bar (launcher, workspaces, title, clock, settings) | `partial` — status cluster opens Control Center (notifications + quick settings) |
+| Top bar (launcher, workspaces, title, clock, settings) | `partial` — glass menu bar; app title on left; status cluster → Control Center |
 | Control Center (notifications + quick settings) | `partial` — DND, volume/mute, network editor, battery; toasts; no Settings pane yet |
-| App launcher (`Super+Space` / `Super+D`) | `shipped` |
-| Dock (pins, magnify, running dots) | `shipped` |
+| App launcher (`Super+Space` / `Super+D`) | `partial` — Apps / Files / Clipboard modes (Ctrl+1–3); fuzzy + tags + Settings; calc/convert; cliphist clipboard; home-folder file search; no Actions yet |
+| Dock (pins, magnify, running dots) | `partial` — floating glass shelf + Mag; closer to macOS Dock |
+| Session start (`proteus-session`) | `partial` — `start-hyprland` watchdog; no Ghostty exec-once; stray system apps hidden from launcher |
 | Desktop widgets (free place; Customize) | `partial` — long-press empty desktop or `Super+Shift+W`; catalog via `Widgets.qml`; separate from lock |
 | Lock screen (`Super+L`, PAM + `WlSessionLock`) | `shipped` — Customize mode, zone layout, applets; cold boot auto-lock; attempt cooldown after 3 misses |
 | Global shortcuts (launcher, settings, lock) | `shipped` |
 | Hardware probe at session start (`Hardware.qml`) | `shipped` — Wave A |
-| Env gate (launcher / Settings / dock) | `shipped` — `EnvGate.qml` (+ `env/apps` manifests) |
+| Env gate (launcher / Settings / dock) | `shipped` — `EnvGate.qml` (+ `env/apps` manifests); app icon resolve + Proteus brand marks |
 | Chrome design lock (`CHROME.md`) | `shipped` — principles + token tables + Settings patterns; sibling export `env/chrome/` `shipped` |
 | Theme tokens | `shipped` — space/radius scale + accent/font from Config; company lock [CHROME.md](./CHROME.md) |
 | Shared package layout (flat + helpers) | `shipped` — Config/Background ownership split; Settings `kit/`; guest dogfood OK |
@@ -83,11 +84,11 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 
 | Pane | Status |
 |------|--------|
-| Appearance → Accent / Background / Lock / Font (`style`) | `partial` — lock wallpaper/dim in Settings; widgets via lock Customize (long-press); Kind parity, daily, slideshow, fonts, `proteus-bg` |
+| Appearance → Accent / Background / Lock / Icons / Font (`style`) | `partial` — lock wallpaper/dim in Settings; widgets via lock Customize (long-press); Kind parity, daily, slideshow, fonts, `proteus-bg` |
 | Desktop → Gaps / Borders / Motion / Dock & menu bar (`proteus-general.conf` + sizes) | `shipped` |
 | Displays (scale / mode / orientation, Identify; layout canvas) | `partial` — drag layout + full-snapshot Revert; multi-monitor dogfood preferred |
 | Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) | `shipped` |
-| Software → Updates / Search (propose → confirm → `pkexec proteus-pkg`) | `partial` |
+| Software → Updates / Search / AUR / Flatpak / AppImages / Orphans (propose → confirm; live progress; Snap Out) | `partial` — optional guest: `yay`/`paru`, `flatpak` + Flathub; AppImages need no helper |
 | Sound → Output / Input / Applications / Latency & buffer (`sound`) | `partial` — category hub; streaming input peak meter, per-app volume, test tone |
 | Network (hostname, Wi‑Fi connect, Bluetooth, Tailscale, NM VPN) | `partial` — password Wi‑Fi / pairing / Headscale via system tools |
 | Power (battery via UPower; logind idle/lid read-only + conf escape hatch) | `partial` — writing lid/idle needs a privileged helper |
@@ -183,6 +184,7 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 
 ## 8. Not yet
 
+- Snap / selective pacman upgrade checkboxes / dependency graphs in Software  
 - Remaining posture hypr profiles beyond stubs (wearable / xr / vehicle; media/host/home chrome)  
 - Displays **Revert** edge cases on fragile VM hotplug (full-snapshot Revert shipped; re-verify after sleep/hotplug)
 - systemd/user-unit QS supervisor; pacman IgnorePkg / ISO QS version pin  

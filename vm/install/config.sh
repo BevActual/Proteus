@@ -154,6 +154,16 @@ ensure_hypr_source "proteus-monitors.conf" "Proteus displays (Settings → Displ
 ensure_hypr_source "proteus-general.conf" "Proteus desktop (Settings → Desktop)"
 ensure_hypr_source "proteus-profile.conf" "Proteus posture profile (set-hypr-profile.sh)"
 
+# Terminal wrapper on PATH for Hypr exec binds (Ghostty needs GL 4.3; virtio often 4.2)
+if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
+  && ! grep -q 'shell/scripts' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
+  {
+    echo ""
+    echo "# proteus-terminal on PATH (VM OpenGL workaround for Ghostty)"
+    echo "env = PATH,/usr/local/bin:${PROTEUS_ROOT}/shell/scripts:\$PATH"
+  } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
+fi
+
 BASHRC="${USER_HOME}/.bashrc"
 MARKER="# Proteus terminal fetch"
 if ! proteus_as_user grep -qF "${MARKER}" "${BASHRC}" 2>/dev/null; then

@@ -2,7 +2,7 @@
 Name=Proteus Settings
 Comment=Configure Proteus — style, desktop, and system
 Exec=/usr/local/bin/proteus-settings
-Icon=preferences-system
+Icon=proteus-settings
 Terminal=false
 Type=Application
 Categories=Settings;DesktopSettings;

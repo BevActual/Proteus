@@ -3,5 +3,6 @@
 Name=Proteus
 Comment=Bevington Systems Proteus desktop
 Exec=/usr/local/bin/proteus-session
+Icon=proteus
 Type=Application
 DesktopNames=Hyprland

@@ -62,11 +62,12 @@ Singleton {
     resolveProc.running = true
   }
 
-  function applyReport(obj) {
+  function applyReport(obj, fromLiveProbe) {
     if (!obj || typeof obj !== "object") {
       error = "Invalid probe JSON"
       ready = false
-      probing = false
+      if (fromLiveProbe)
+        probing = false
       return
     }
     deviceClass = obj.device_class || ""
@@ -78,12 +79,21 @@ Singleton {
     moduleList = Object.keys(modules).filter(k => modules[k]).sort()
     probedAt = obj.probed_at || new Date().toISOString()
     ready = true
-    probing = false
+    // Cache priming must not clear an in-flight live probe.
+    if (fromLiveProbe)
+      probing = false
   }
 
   function loadCacheFallback() {
-    cacheRead.running = false
-    cacheRead.running = true
+    // Prefer FileView over bash -lc (login shell adds ~80ms for a tiny JSON read).
+    cacheFile.reload()
+  }
+
+  // Settings is a separate qs process — don't pay ~3s probe on every open.
+  // Shell: cache first for instant chrome, then refresh in the background.
+  readonly property bool isSettingsApp: {
+    const d = String(Quickshell.shellDir || Quickshell.shellRoot || "")
+    return d.indexOf("proteus-settings") >= 0
   }
 
   Process {
@@ -117,7 +127,7 @@ Singleton {
       onStreamFinished: {
         try {
           root.error = ""
-          root.applyReport(JSON.parse(text.trim()))
+          root.applyReport(JSON.parse(text.trim()), true)
         } catch (e) {
           root.error = "Probe parse failed"
           root.probing = false
@@ -133,26 +143,43 @@ Singleton {
     }
   }
 
-  Process {
-    id: cacheRead
-    command: [
-      "bash",
-      "-lc",
-      "test -f \"$HOME/.config/proteus/hw-probe.json\" && cat \"$HOME/.config/proteus/hw-probe.json\" || true"
-    ]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        const t = text.trim()
-        if (!t.length || root.ready)
-          return
-        try {
-          root.applyReport(JSON.parse(t))
-          if (root.ready)
-            root.error = "Using cached probe"
-        } catch (e) {}
+  FileView {
+    id: cacheFile
+    path: root.cachePath
+    watchChanges: false
+    onLoaded: {
+      const t = String(cacheFile.text()).trim()
+      if (!t.length) {
+        if (!root.probing && !root.ready)
+          root.refresh()
+        return
       }
+      try {
+        if (!root.ready)
+          root.applyReport(JSON.parse(t), false)
+        if (root.ready && !root.probing)
+          root.error = "Using cached probe"
+      } catch (e) {
+        if (!root.probing && !root.ready)
+          root.refresh()
+      }
+    }
+    onLoadFailed: {
+      if (!root.probing && !root.ready)
+        root.refresh()
     }
   }
 
-  Component.onCompleted: refresh()
+  Timer {
+    id: deferredRefresh
+    interval: 1
+    repeat: false
+    onTriggered: root.refresh()
+  }
+
+  Component.onCompleted: {
+    loadCacheFallback()
+    if (!isSettingsApp)
+      deferredRefresh.start()
+  }
 }

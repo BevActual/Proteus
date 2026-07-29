@@ -101,7 +101,7 @@ From `Theme.qml` (`Config.chromeMode` → `light`).
 
 ## 5. Chrome fills
 
-Alpha tracks `Config.chromeOpacity` (`chromeAlpha`). Blur flag:
+Alpha tracks `Config.chromeOpacity` (`chromeAlpha` / `glassAlpha`). Blur flag:
 `Config.chromeBlur`.
 
 | Token | Recipe | Use |
@@ -113,7 +113,12 @@ Alpha tracks `Config.chromeOpacity` (`chromeAlpha`). Blur flag:
 | `chromeAccentFill` | `accent` × alpha | Accent on chrome |
 | `chromeAccentSoft` | accent × alpha × (0.22 light / 0.28 dark) | Soft accent on chrome |
 | `scrimFill` | `bg` × (0.28 light / 0.45 dark) × max(alpha, 0.4) | Dim overlays |
+| `glassAlpha` | linear opacity; soft floor only when blur on | Bar / dock frost amount |
+| `menuBarFill` / `dockPlateFill` | frosted plate × `glassAlpha` | Menu bar · Dock shelf |
+| `chromeHairline` | black/white @ ~8–12% (hidden when clear) | Hairlines on glass chrome |
 | `chromeClear` | `chromeAlpha < 0.01` | Fully clear plate |
+
+Opacity is live in QML; blur layerrules debounce and reload only on toggle (not every slider tick).
 
 ---
 

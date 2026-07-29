@@ -14,11 +14,17 @@ ShellRoot {
 
     onClosed: Qt.quit()
 
-    Settings {
+    // Show the window shell immediately; build the heavy UI off the first frame.
+    Loader {
+      id: settingsLoader
       anchors.fill: parent
-      anchors.margins: 0
+      asynchronous: true
+      source: "Settings.qml"
+      onLoaded: {
+        if (item) {
+          item.anchors.fill = settingsLoader
+        }
+      }
     }
   }
-
-  IdentifyFlash {}
 }
