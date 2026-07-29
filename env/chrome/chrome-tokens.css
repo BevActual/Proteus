@@ -1,0 +1,43 @@
+/**
+ * Proteus chrome tokens — sibling CSS bridge (frame only; chrome ≠ canvas).
+ * Spec: docs/proteus/CHROME.md · live: shell/shared/Theme.qml
+ * Generated/hand-authored to match chrome-tokens.json.
+ */
+
+:root,
+[data-proteus-chrome="light"] {
+  --proteus-bg: #f2f2f7;
+  --proteus-bg-panel: #e8e8ed;
+  --proteus-bg-elevated: #ffffff;
+  --proteus-bg-hover: #e5e5ea;
+  --proteus-border: #d1d1d6;
+  --proteus-separator: rgba(61, 61, 66, 0.29);
+  --proteus-text: #1c1c1e;
+  --proteus-text-dim: #636366;
+  --proteus-text-mute: #8e8e93;
+  --proteus-danger: #ff453a;
+  --proteus-accent: #3d8bfd;
+  --proteus-space-xs: 4px;
+  --proteus-space-sm: 8px;
+  --proteus-space-md: 12px;
+  --proteus-space-lg: 16px;
+  --proteus-space-xl: 24px;
+  --proteus-radius-sm: 6px;
+  --proteus-radius: 8px;
+  --proteus-radius-md: 10px;
+  --proteus-radius-lg: 12px;
+  --proteus-radius-xl: 16px;
+  --proteus-radius-pill: 22px;
+}
+
+[data-proteus-chrome="dark"] {
+  --proteus-bg: #000000;
+  --proteus-bg-panel: #1c1c1e;
+  --proteus-bg-elevated: #1c1c1e;
+  --proteus-bg-hover: #2c2c2e;
+  --proteus-border: #2c2c2e;
+  --proteus-separator: rgba(255, 255, 255, 0.1);
+  --proteus-text: #f5f5f7;
+  --proteus-text-dim: #98989d;
+  --proteus-text-mute: #636366;
+}

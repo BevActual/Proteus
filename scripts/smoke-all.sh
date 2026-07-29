@@ -12,6 +12,7 @@ run() {
 run layout-smoke.sh
 run config-schema-smoke.sh
 run app-manifest-smoke.sh
+run chrome-tokens-smoke.sh
 run hw-probe-smoke.sh
 run install-smoke.sh
 

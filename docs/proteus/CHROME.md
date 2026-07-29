@@ -13,7 +13,7 @@ related:
   - ../../shell/shared/Theme.qml
 status_legend:
   shipped: Live in Theme.qml / Settings panes today
-  planned: Named for sibling binding; not exported yet
+  planned: Named for sibling binding; export under env/chrome/ is shipped
 ---
 
 # Proteus chrome — design lock
@@ -24,8 +24,8 @@ sibling apps should match for *frames* (lists, sheets, bars, chrome). Product
 
 **Live binding:** [`shell/shared/Theme.qml`](../../shell/shared/Theme.qml)  
 **IA / UX locks:** [SETTINGS-IA.md](./SETTINGS-IA.md) §8  
-**Out this door:** Theme value churn, Rowena CSS retarget, shared token JSON
-export, new Settings panes ([Mobius #1025](../../../Mobius/docs/ISSUES.md)).
+**Out this door:** Theme value churn, Rowena CSS retarget, new Settings panes.
+Token export lives under `env/chrome/` (this serial door 5/5).
 
 ## Document map
 
@@ -181,8 +181,8 @@ same space/radius/text/accent rules even when not importing those QML types.
 | Consumer | Expected binding | Status |
 |----------|------------------|--------|
 | Proteus QML | `Theme.*` | `shipped` |
-| Rowena shell chrome | Map `--shell-space-*` / `--shell-radius-*` toward this table; keep mode canvas separate | `planned` (later door) |
-| Shared export (`chrome-tokens.json` / CSS vars) | Optional machine bridge | `planned` — Out of #1025–#1028 |
+| Shared export | `env/chrome/chrome-tokens.json` + `chrome-tokens.css` | `shipped` (static mirror of tables) |
+| Rowena shell chrome | Map `--proteus-*` / `--shell-*` toward this table; keep mode canvas separate | `partial` — CSS vars available; app retarget later |
 
 When in doubt: open Settings on Proteus, then match the *frame*, not the
 wallpaper.

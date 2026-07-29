@@ -1,0 +1,46 @@
+{
+  "schema": "proteus-chrome-tokens/v1",
+  "source": "docs/proteus/CHROME.md + shell/shared/Theme.qml",
+  "note": "Frame tokens only (chrome ≠ canvas). accent is Config-driven at runtime; export lists defaults for sibling binding.",
+  "space": {
+    "spaceXs": 4,
+    "spaceSm": 8,
+    "spaceMd": 12,
+    "spaceLg": 16,
+    "spaceXl": 24
+  },
+  "radius": {
+    "radiusSm": 6,
+    "radius": 8,
+    "radiusMd": 10,
+    "radiusLg": 12,
+    "radiusXl": 16,
+    "radiusPill": 22
+  },
+  "danger": "#ff453a",
+  "accentDefault": "#3d8bfd",
+  "modes": {
+    "light": {
+      "bg": "#f2f2f7",
+      "bgPanel": "#e8e8ed",
+      "bgElevated": "#ffffff",
+      "bgHover": "#e5e5ea",
+      "border": "#d1d1d6",
+      "separator": "rgba(61, 61, 66, 0.29)",
+      "text": "#1c1c1e",
+      "textDim": "#636366",
+      "textMute": "#8e8e93"
+    },
+    "dark": {
+      "bg": "#000000",
+      "bgPanel": "#1c1c1e",
+      "bgElevated": "#1c1c1e",
+      "bgHover": "#2c2c2e",
+      "border": "#2c2c2e",
+      "separator": "rgba(255, 255, 255, 0.1)",
+      "text": "#f5f5f7",
+      "textDim": "#98989d",
+      "textMute": "#636366"
+    }
+  }
+}
