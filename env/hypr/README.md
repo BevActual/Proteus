@@ -9,11 +9,13 @@
 | `proteus-profile.conf` | Active posture profile pointer (`source` → `profiles/*.conf`) |
 | `profiles/desktop.conf` | Desktop tiling posture fragment |
 | `profiles/media.conf` | Media lean-back stub |
+| `profiles/host.conf` | Host ops stub |
+| `profiles/home.conf` | Home hub stub |
 
 Copied to `~/.config/hypr/` by `run-nested.sh` / `vm/install` / `vm/guest/install-*.sh`.
 Settings owns general / keybinds / monitors. Switch posture profile:
 
 ```bash
-bash vm/guest/set-hypr-profile.sh desktop   # or media
+bash vm/guest/set-hypr-profile.sh desktop   # or media|host|home
 # hyprctl reload (script attempts this)
 ```

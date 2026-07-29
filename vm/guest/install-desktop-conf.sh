@@ -23,6 +23,8 @@ seed "${ROOT}/env/hypr/proteus-monitors.conf" "${HYPR_DIR}/proteus-monitors.conf
 mkdir -p "${HYPR_DIR}/profiles"
 seed "${ROOT}/env/hypr/profiles/desktop.conf" "${HYPR_DIR}/profiles/desktop.conf"
 seed "${ROOT}/env/hypr/profiles/media.conf" "${HYPR_DIR}/profiles/media.conf"
+seed "${ROOT}/env/hypr/profiles/host.conf" "${HYPR_DIR}/profiles/host.conf"
+seed "${ROOT}/env/hypr/profiles/home.conf" "${HYPR_DIR}/profiles/home.conf"
 seed "${ROOT}/env/hypr/proteus-profile.conf" "${HYPR_DIR}/proteus-profile.conf"
 
 ensure_source() {

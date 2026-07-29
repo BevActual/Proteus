@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Select active Hyprland posture profile and reload (no Settings UI).
-# Usage: set-hypr-profile.sh desktop|media
+# Usage: set-hypr-profile.sh desktop|media|host|home
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -8,22 +8,23 @@ HYPR_DIR="${HOME}/.config/hypr"
 PROFILES_DIR="${HYPR_DIR}/profiles"
 POINTER="${HYPR_DIR}/proteus-profile.conf"
 NAME="${1:-}"
+PROFILES=(desktop media host home)
 
 usage() {
-  echo "usage: $0 desktop|media" >&2
+  echo "usage: $0 desktop|media|host|home" >&2
   exit 2
 }
 
 [[ -n "${NAME}" ]] || usage
 case "${NAME}" in
-  desktop|media) ;;
+  desktop|media|host|home) ;;
   *) usage ;;
 esac
 
 mkdir -p "${PROFILES_DIR}"
 
 # Seed profile files if missing
-for p in desktop media; do
+for p in "${PROFILES[@]}"; do
   src="${ROOT}/env/hypr/profiles/${p}.conf"
   dest="${PROFILES_DIR}/${p}.conf"
   if [[ -f "${src}" && ! -f "${dest}" ]]; then

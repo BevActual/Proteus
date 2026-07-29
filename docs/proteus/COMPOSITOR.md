@@ -2,7 +2,7 @@
 doc: compositor
 role: architecture
 audience: architects, contributors, coding agents
-last_updated: "2026-07-27"
+last_updated: "2026-07-28"
 doc_status: active
 scope: Hyprland as backend + Quickshell as chrome runtime; profiles, capabilities, limits
 related:
@@ -115,9 +115,10 @@ Do **not** fork Quickshell — wrap it; upstream bugs when we hit them.
 
 ## 4. Profiles on disk
 
-`partial` — desktop profile + active pointer `shipped`; media stub `shipped`;
-other postures still `planned`. Keyboard + Desktop fragments `shipped`; Displays
-layout canvas `partial` (drag + full-snapshot Revert):
+`partial` — desktop profile + active pointer `shipped`; media / host / home
+stubs `shipped`; wearable / xr / vehicle still `planned`. Keyboard + Desktop
+fragments `shipped`; Displays layout canvas `partial` (drag + full-snapshot
+Revert):
 
 ```
 ~/.config/hypr/
@@ -129,11 +130,13 @@ layout canvas `partial` (drag + full-snapshot Revert):
   profiles/
     desktop.conf                # shipped (tiling defaults)
     media.conf                  # stub (lean-back later)
-    # wearable / xr / vehicle / home / host as needed
+    host.conf                   # stub (ops / lean later)
+    home.conf                   # stub (hub panel later)
+    # wearable / xr / vehicle as needed
 ```
 
 Posture switch = **select profile + reload** (+ retarget Quickshell later), not
-a new distro. Helper: `vm/guest/set-hypr-profile.sh desktop|media`.
+a new distro. Helper: `vm/guest/set-hypr-profile.sh desktop|media|host|home`.
 Locked postures: [POSTURES.md](./POSTURES.md).
 
 Nested template today: `env/hypr/hyprland.conf` sources `proteus-monitors.conf`,
@@ -187,7 +190,7 @@ compositor chrome for that unit.
 | Guest Hyprland + QS shell | `shipped` |
 | Settings → keybinds → hypr conf | `shipped` |
 | Settings → gaps/borders via hyprctl | `partial` |
-| Per-posture hypr profiles | `partial` — desktop + media stub + `set-hypr-profile.sh`; other postures planned |
+| Per-posture hypr profiles | `partial` — desktop + media/host/home stubs + `set-hypr-profile.sh`; wearable/xr/vehicle planned |
 | QS respawn / crash policy | `partial` — `proteus-qs` backoff; not systemd supervisor |
 | Capability resolver | `planned` |
 | Pin QS version in guest docs/ISO | `partial` — version **recorded** in smoke; IgnorePkg/ISO pin Out |

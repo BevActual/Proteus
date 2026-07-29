@@ -132,6 +132,8 @@ seed_file "${PROTEUS_ROOT}/env/hypr/proteus-monitors.conf" "${HYPR_DIR}/proteus-
 proteus_as_user mkdir -p "${HYPR_DIR}/profiles"
 seed_file "${PROTEUS_ROOT}/env/hypr/profiles/desktop.conf" "${HYPR_DIR}/profiles/desktop.conf"
 seed_file "${PROTEUS_ROOT}/env/hypr/profiles/media.conf" "${HYPR_DIR}/profiles/media.conf"
+seed_file "${PROTEUS_ROOT}/env/hypr/profiles/host.conf" "${HYPR_DIR}/profiles/host.conf"
+seed_file "${PROTEUS_ROOT}/env/hypr/profiles/home.conf" "${HYPR_DIR}/profiles/home.conf"
 seed_file "${PROTEUS_ROOT}/env/hypr/proteus-profile.conf" "${HYPR_DIR}/proteus-profile.conf"
 
 # Ensure hypr sources for fragments seeded above (idempotent append)

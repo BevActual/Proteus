@@ -34,12 +34,11 @@ if [[ ! -f "${HOME}/.config/hypr/proteus-monitors.conf" ]]; then
   install -m 644 "${ROOT}/env/hypr/proteus-monitors.conf" "${HOME}/.config/hypr/proteus-monitors.conf"
 fi
 mkdir -p "${HOME}/.config/hypr/profiles"
-if [[ ! -f "${HOME}/.config/hypr/profiles/desktop.conf" ]]; then
-  install -m 644 "${ROOT}/env/hypr/profiles/desktop.conf" "${HOME}/.config/hypr/profiles/desktop.conf"
-fi
-if [[ ! -f "${HOME}/.config/hypr/profiles/media.conf" ]]; then
-  install -m 644 "${ROOT}/env/hypr/profiles/media.conf" "${HOME}/.config/hypr/profiles/media.conf"
-fi
+for _p in desktop media host home; do
+  if [[ ! -f "${HOME}/.config/hypr/profiles/${_p}.conf" ]]; then
+    install -m 644 "${ROOT}/env/hypr/profiles/${_p}.conf" "${HOME}/.config/hypr/profiles/${_p}.conf"
+  fi
+done
 if [[ ! -f "${HOME}/.config/hypr/proteus-profile.conf" ]]; then
   install -m 644 "${ROOT}/env/hypr/proteus-profile.conf" "${HOME}/.config/hypr/proteus-profile.conf"
 fi

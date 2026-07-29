@@ -50,7 +50,7 @@ the thesis ahead of code where marked `planned`.
 | Hyprland session | `shipped` | Backend for desktop posture; greetd / proteus-session |
 | Quickshell shell | `shipped` | Chrome runtime; `/mnt/proteus/shell` via 9p |
 | Nested Hyprland (host) | `shipped` | `scripts/run-nested.sh` — shell-only quick test |
-| Hyprland posture profiles | `partial` — `profiles/desktop.conf` + media stub + `proteus-profile.conf`; see [COMPOSITOR.md](./COMPOSITOR.md) |
+| Hyprland posture profiles | `partial` — desktop + media/host/home stubs + `proteus-profile.conf`; see [COMPOSITOR.md](./COMPOSITOR.md) |
 | QS version pin / respawn policy | `partial` — `proteus-qs` backoff + version recorded in `qs-guest-smoke`; IgnorePkg/ISO pin later |
 
 ---
@@ -128,7 +128,7 @@ Selection today: `PROTEUS_SURFACE` env (default `desktop`). See POSTURES § Load
 | `~/.config/hypr/proteus-general.conf` | Gaps, borders, rounding, animations (sourced) |
 | `~/.config/hypr/proteus-monitors.conf` | Displays live `monitor =` lines (sourced) |
 | `~/.config/hypr/proteus-profile.conf` | Active posture profile pointer → `profiles/*.conf` |
-| `~/.config/hypr/profiles/*.conf` | Posture fragments (desktop shipped; media stub) |
+| `~/.config/hypr/profiles/*.conf` | Posture fragments (desktop shipped; media/host/home stubs) |
 | `~/.config/hypr/hyprland.conf` | Guest/session compositor config |
 | `env/hypr/hyprland.conf` | Nested template (sources general / monitors / keybinds / profile) |
 | `env/hypr/proteus-keybinds.conf` | Default binds template |
@@ -170,7 +170,7 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 | Lock | Doc | Code status |
 |------|-----|-------------|
 | Stack split (QML / Tauri / Rust) | [STACK.md](./STACK.md) | Settings+shell = QML; no Tauri apps yet |
-| Hyprland as backend + QS limits | [COMPOSITOR.md](./COMPOSITOR.md) | Keybinds + general + posture profile pointer `shipped`; monitors stub `partial`; other postures `planned` |
+| Hyprland as backend + QS limits | [COMPOSITOR.md](./COMPOSITOR.md) | Keybinds + general + posture profile pointer `shipped`; monitors stub `partial`; media/host/home stubs `partial`; wearable/xr/vehicle `planned` |
 | Adaptive apps / environment contract | [APPLICATIONS.md](./APPLICATIONS.md) | `partial` — `env/apps` manifests + EnvGate prefer; postures unused |
 | Hardware module catalog | [HARDWARE.md](./HARDWARE.md) | Wave A probe + `Hardware.qml` session load |
 | Capability / posture resolver | [POSTURES.md](./POSTURES.md) | Probe → caps in shell; posture still stub |
@@ -181,7 +181,7 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 
 ## 8. Not yet
 
-- Remaining posture hypr profiles beyond desktop (+ media stub)
+- Remaining posture hypr profiles beyond stubs (wearable / xr / vehicle; media/host/home chrome)  
 - Displays **Revert** edge cases on fragile VM hotplug (full-snapshot Revert shipped; re-verify after sleep/hotplug)
 - systemd/user-unit QS supervisor; pacman IgnorePkg / ISO QS version pin  
 - Host posture chrome or workload panes  
