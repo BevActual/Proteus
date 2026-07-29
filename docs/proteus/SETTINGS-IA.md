@@ -63,6 +63,8 @@ Examples:
 | Per-app volume / mute | `pactl list/set-sink-input-*` |
 | Sound latency / buffer | `settings.json` `audioLatency` → `pw-metadata -n settings 0 clock.force-quantum` (256 / 512 / 1024) |
 | Network (open editor) | NetworkManager UI / `nmtui` |
+| Bluetooth (status + open) | `bluetoothctl` · blueman / blueberry |
+| VPN profiles (list + open NM) | `nmcli connection` (vpn / wireguard) |
 | Package updates / search | `pacman -Qu` / `-Ss` · apply `pkexec proteus-pkg` (polkit; terminal fallback) |
 | Timezone / network time | `timedatectl set-timezone` / `set-ntp` (polkit-gated; errors surfaced in-pane) |
 | Locale | `localectl status` (read-only + `/etc/locale.conf` escape hatch) |
@@ -90,7 +92,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar | json + hyprctl + `proteus-general.conf` | `shipped` |
 | **Displays** (`displays`) | Per-monitor scale + mode + layout canvas (Apply); conf escape hatch | hyprctl + `proteus-monitors.conf` | `partial` |
 | **Sound** (`sound`) | Category → Output (volume/mute/device/test tone), Input (level, meter, device), Applications (per-app volume), Latency & buffer | pactl + `parec` + `pw-metadata` | `partial` |
-| **Network** (`network`) | Device status + open editor; later Bluetooth, VPN | nmcli / nmtui (+ later) | `partial` |
+| **Network** (`network`) | Device status; Bluetooth adapter status + open; VPN profile list + NM editor | nmcli / bluetoothctl / blueman | `partial` |
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse; later touchpad / tablet | keybinds + input hyprctl | `shipped` |
 | **Power** (`power`) | Battery charge / health / estimate (UPower); logind idle + lid policy read-only with conf escape hatch | UPower / `logind.conf` | `partial` |
 | **Users** (`users`) | Session actions; current + other local users (read-only); greeter planned | `id` / getent · `Config.session` | `partial` |
@@ -190,7 +192,7 @@ Depth order for what’s left:
 3. **Privacy** — grant model when adaptive apps need it  
 4. **Power** — privileged logind idle/lid writer (read-only today)  
 5. **Date & time** — locale set; weather forecast view  
-6. **Network** — Bluetooth / VPN under Network  
+6. **Network** — in-pane connect/disconnect; pairing UI; WireGuard wizard  
 7. **Peripherals** — touchpad / tablet  
 8. **Displays** — layout canvas + drag Apply shipped; re-verify Revert after sleep/hotplug  
 9. **Software** — deeper UX (progress stream, remove/orphan); mutator shipped  

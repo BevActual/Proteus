@@ -255,6 +255,20 @@ Singleton {
     })
   }
 
+  function openBluetoothEditor() {
+    const ids = ["blueman-manager", "blueberry", "gnome-bluetooth-panel"]
+    for (let i = 0; i < ids.length; i++) {
+      const e = DesktopEntries.heuristicLookup(ids[i])
+      if (e) {
+        e.execute()
+        return
+      }
+    }
+    Quickshell.execDetached({
+      command: ["ghostty", "-e", "bluetoothctl"]
+    })
+  }
+
   function setAccentCustom(hex) {
     const n = normalizeAccentHex(hex)
     if (!n.length)
