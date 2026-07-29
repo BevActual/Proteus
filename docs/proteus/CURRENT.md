@@ -89,7 +89,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) | `shipped` |
 | Software → Updates / Search (propose → confirm → `pkexec proteus-pkg`) | `partial` |
 | Sound → Output / Input / Applications / Latency & buffer (`sound`) | `partial` — category hub; streaming input peak meter, per-app volume, test tone |
-| Network (devices + Bluetooth + Tailscale + NM VPN) | `partial` — Tailscale status/up/down; no Headscale admin / pairing / WG wizard |
+| Network (hostname, Wi‑Fi connect, Bluetooth, Tailscale, NM VPN) | `partial` — password Wi‑Fi / pairing / Headscale via system tools |
 | Power (battery via UPower; logind idle/lid read-only + conf escape hatch) | `partial` — writing lid/idle needs a privileged helper |
 | Date & time (clock, timezone search, NTP, locale, **Location**) | `partial` — timezone/NTP polkit-gated; location is explicit place search (never IP); Open-Meteo weather for that place + desktop/lock weather widget; no forecast view |
 | Users (session actions + read-only local users) | `partial` — no add/remove; greeter planned |

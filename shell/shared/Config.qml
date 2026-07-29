@@ -287,6 +287,46 @@ Singleton {
     })
   }
 
+  function copyToClipboard(text) {
+    const t = String(text || "")
+    if (!t.length)
+      return
+    Quickshell.execDetached({
+      command: ["bash", "-lc", "printf %s " + shellQuote(t) + " | wl-copy 2>/dev/null || printf %s " + shellQuote(t) + " | xclip -selection clipboard"]
+    })
+  }
+
+  function shellQuote(s) {
+    return "'" + String(s).replace(/'/g, "'\\''") + "'"
+  }
+
+  function wifiConnect(ssid) {
+    const name = String(ssid || "").trim()
+    if (!name.length)
+      return
+    Quickshell.execDetached({
+      command: ["nmcli", "device", "wifi", "connect", name]
+    })
+  }
+
+  function wifiDisconnect(device) {
+    const dev = String(device || "").trim()
+    if (!dev.length)
+      return
+    Quickshell.execDetached({
+      command: ["nmcli", "device", "disconnect", dev]
+    })
+  }
+
+  function setHostname(name) {
+    const n = String(name || "").trim()
+    if (!n.length)
+      return
+    Quickshell.execDetached({
+      command: ["hostnamectl", "set-hostname", n]
+    })
+  }
+
   function setAccentCustom(hex) {
     const n = normalizeAccentHex(hex)
     if (!n.length)

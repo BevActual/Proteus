@@ -5,8 +5,8 @@ import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Network: devices + Bluetooth status + VPN list + editor hand-offs.
-// Pairing / WireGuard wizards stay Out — use system tools (SETTINGS-IA §2).
+// Network: devices, Wi‑Fi connect/disconnect, hostname, Bluetooth, Tailscale, VPN.
+// Pairing / password Wi‑Fi wizard / Headscale admin stay Out (SETTINGS-IA §2).
 ColumnLayout {
   id: root
   Layout.fillWidth: true
@@ -15,6 +15,17 @@ ColumnLayout {
   property bool active: false
   property var devices: []
   property string status: "Checking network…"
+
+  property string hostname: ""
+  property string hostnameDraft: ""
+  property string hostnameError: ""
+  property bool hostnameBusy: false
+
+  property var wifiNetworks: []
+  property string wifiStatus: "Checking Wi‑Fi…"
+  property string wifiDevice: ""
+  property bool wifiBusy: false
+  property string wifiError: ""
 
   property bool btAvailable: false
   property bool btPowered: false
@@ -30,6 +41,7 @@ ColumnLayout {
   property string tsIp: ""
   property int tsPeers: 0
   property bool tsBusy: false
+  property string tsCopied: ""
 
   readonly property bool tsRunning: tsState === "Running"
   readonly property bool tsNeedsLogin: tsState === "NeedsLogin" || tsState === "NoState"
@@ -43,6 +55,12 @@ ColumnLayout {
     if (tsNeedsLogin)
       return "Log in"
     return "Connect"
+  }
+
+  readonly property bool hostnameDirty: {
+    const a = String(hostname || "").trim()
+    const b = String(hostnameDraft || "").trim()
+    return b.length > 0 && a !== b
   }
 
   function stateHint(dev) {
@@ -62,7 +80,11 @@ ColumnLayout {
   }
 
   function refresh() {
+    wifiError = ""
+    hostnameError = ""
+    kick(hostProc)
     kick(devProc)
+    kick(wifiProc)
     kick(btProc)
     kick(vpnProc)
     kick(tsProc)
@@ -76,13 +98,105 @@ ColumnLayout {
       Config.tailscaleDown()
     else
       Config.tailscaleUp()
-    // Re-read status shortly after kick
     tsRefresh.restart()
+  }
+
+  function copyTailscaleIp() {
+    if (!tsIp.length)
+      return
+    Config.copyToClipboard(tsIp)
+    tsCopied = "Copied"
+    tsCopiedClear.restart()
+  }
+
+  function applyHostname() {
+    const n = String(hostnameDraft || "").trim()
+    if (!n.length || !hostnameDirty || hostnameBusy)
+      return
+    hostnameBusy = true
+    hostnameError = ""
+    hostSetProc.command = ["hostnamectl", "set-hostname", n]
+    hostSetProc.running = false
+    hostSetProc.running = true
+  }
+
+  function connectWifi(ssid) {
+    const name = String(ssid || "").trim()
+    if (!name.length || wifiBusy)
+      return
+    wifiBusy = true
+    wifiError = ""
+    Config.wifiConnect(name)
+    wifiRefresh.restart()
+  }
+
+  function disconnectWifi() {
+    if (!wifiDevice.length || wifiBusy)
+      return
+    wifiBusy = true
+    wifiError = ""
+    Config.wifiDisconnect(wifiDevice)
+    wifiRefresh.restart()
   }
 
   onActiveChanged: {
     if (active)
       refresh()
+  }
+
+  SettingsGroup {
+    title: "This machine"
+
+    SettingsFormRow {
+      label: "Hostname"
+      hint: root.hostnameError.length ? root.hostnameError
+          : (root.hostname.length ? root.hostname : "…")
+      showSeparator: true
+      labelColor: root.hostnameError.length ? Theme.danger : Theme.text
+
+      RowLayout {
+        spacing: Theme.spaceSm
+        TextInput {
+          id: hostInput
+          Layout.preferredWidth: 140
+          text: root.hostnameDraft
+          color: Theme.text
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSize
+          verticalAlignment: TextInput.AlignVCenter
+          selectByMouse: true
+          onTextChanged: root.hostnameDraft = text
+          Keys.onReturnPressed: root.applyHostname()
+        }
+        Text {
+          visible: root.hostnameDirty
+          text: root.hostnameBusy ? "…" : "Apply"
+          color: root.hostnameBusy ? Theme.textMute : Theme.accent
+          font.family: Theme.fontFamily
+          font.pixelSize: 12
+          MouseArea {
+            anchors.fill: parent
+            enabled: root.hostnameDirty && !root.hostnameBusy
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.applyHostname()
+          }
+        }
+      }
+    }
+
+    SettingsFormRow {
+      label: "Refresh"
+      hint: "Reload devices, Wi‑Fi, Bluetooth, Tailscale, VPN"
+      showSeparator: false
+      interactive: true
+      onActivated: root.refresh()
+      Text {
+        text: "↻"
+        color: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+      }
+    }
   }
 
   Text {
@@ -115,6 +229,77 @@ ColumnLayout {
           font.family: Theme.fontFamily
           font.pixelSize: 12
         }
+      }
+    }
+  }
+
+  SettingsGroup {
+    title: "Wi‑Fi"
+
+    SettingsFormRow {
+      visible: !root.wifiNetworks.length
+      label: "Networks"
+      hint: root.wifiStatus
+      showSeparator: true
+    }
+
+    SettingsFormRow {
+      visible: root.wifiError.length > 0
+      label: "Note"
+      hint: root.wifiError
+      showSeparator: true
+      labelColor: Theme.danger
+    }
+
+    Repeater {
+      model: root.wifiNetworks
+
+      SettingsFormRow {
+        required property var modelData
+        required property int index
+        label: modelData.ssid || "(hidden)"
+        hint: {
+          const bits = []
+          if (modelData.signal)
+            bits.push(modelData.signal + "%")
+          if (modelData.security)
+            bits.push(modelData.security)
+          if (modelData.active)
+            bits.push("in use")
+          return bits.join(" · ")
+        }
+        showSeparator: index < root.wifiNetworks.length - 1
+        interactive: !root.wifiBusy && modelData.ssid && modelData.ssid.length > 0
+        onActivated: {
+          if (modelData.active)
+            root.disconnectWifi()
+          else
+            root.connectWifi(modelData.ssid)
+        }
+        Text {
+          text: modelData.active ? "Disconnect" : "Connect"
+          color: modelData.active ? Theme.danger : Theme.accent
+          font.family: Theme.fontFamily
+          font.pixelSize: 12
+        }
+      }
+    }
+
+    SettingsFormRow {
+      label: "Rescan Wi‑Fi"
+      hint: root.wifiDevice.length ? ("Interface " + root.wifiDevice) : "Needs a Wi‑Fi device"
+      showSeparator: false
+      interactive: !root.wifiBusy
+      onActivated: {
+        root.wifiBusy = true
+        root.kick(wifiProc)
+        root.wifiRefresh.restart()
+      }
+      Text {
+        text: "↻"
+        color: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
       }
     }
   }
@@ -169,17 +354,25 @@ ColumnLayout {
     }
 
     SettingsFormRow {
-      visible: root.tsAvailable && (root.tsIp.length > 0 || root.tsPeers > 0)
-      label: "This device"
-      hint: root.tsIp.length ? root.tsIp : "—"
+      visible: root.tsAvailable && root.tsIp.length > 0
+      label: "Tailscale IP"
+      hint: root.tsIp
       showSeparator: true
+      interactive: true
+      onActivated: root.copyTailscaleIp()
       Text {
-        visible: root.tsPeers > 0
-        text: root.tsPeers + (root.tsPeers === 1 ? " peer" : " peers")
-        color: Theme.textDim
+        text: root.tsCopied.length ? root.tsCopied : "Copy"
+        color: Theme.accent
         font.family: Theme.fontFamily
         font.pixelSize: 12
       }
+    }
+
+    SettingsFormRow {
+      visible: root.tsAvailable && root.tsPeers > 0
+      label: "Peers"
+      hint: root.tsPeers + (root.tsPeers === 1 ? " device online" : " devices online")
+      showSeparator: true
     }
 
     SettingsFormRow {
@@ -246,7 +439,7 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "Open VPN / NetworkManager"
-      hint: "Add or edit VPN profiles in the NetworkManager editor"
+      hint: "Add or edit VPN profiles · password Wi‑Fi also lives here"
       showSeparator: false
       interactive: true
       onActivated: Config.openNetworkEditor()
@@ -278,11 +471,77 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Fact: nmcli · bluetoothctl · tailscale status · editors for NM/blueman. No pairing / WireGuard / Headscale admin UI."
+    text: "Fact: hostnamectl · nmcli wifi · bluetoothctl · tailscale · wl-copy. Password Wi‑Fi / pairing / Headscale admin → system tools."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11
     wrapMode: Text.WordWrap
+  }
+
+  Timer {
+    id: tsRefresh
+    interval: 1200
+    repeat: false
+    onTriggered: {
+      root.tsBusy = false
+      root.kick(tsProc)
+    }
+  }
+
+  Timer {
+    id: tsCopiedClear
+    interval: 1500
+    repeat: false
+    onTriggered: root.tsCopied = ""
+  }
+
+  Timer {
+    id: wifiRefresh
+    interval: 2000
+    repeat: false
+    onTriggered: {
+      root.wifiBusy = false
+      root.kick(devProc)
+      root.kick(wifiProc)
+    }
+  }
+
+  Process {
+    id: hostProc
+    command: [
+      "bash",
+      "-lc",
+      "hostnamectl --static 2>/dev/null || hostnamectl hostname 2>/dev/null || hostname"
+    ]
+    running: false
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const name = String(this.text || "").trim().split("\n")[0]
+        root.hostname = name
+        if (!root.hostnameDirty)
+          root.hostnameDraft = name
+      }
+    }
+  }
+
+  Process {
+    id: hostSetProc
+    command: ["true"]
+    running: false
+    stderr: StdioCollector {
+      id: hostSetErr
+    }
+    onExited: (exitCode, exitStatus) => {
+      root.hostnameBusy = false
+      if (exitCode === 0) {
+        root.hostnameError = ""
+        root.kick(hostProc)
+        return
+      }
+      const e = String(hostSetErr.text || "").trim().split("\n")[0]
+      root.hostnameError = e.length ? e : "Change refused (needs authorization)"
+      root.kick(hostProc)
+    }
   }
 
   Process {
@@ -307,6 +566,77 @@ ColumnLayout {
           }
         })
         root.status = ""
+        let wifiDev = ""
+        for (let i = 0; i < root.devices.length; i++) {
+          const d = root.devices[i]
+          if (String(d.type).toLowerCase() === "wifi") {
+            wifiDev = d.device
+            if (root.isUp(d))
+              break
+          }
+        }
+        root.wifiDevice = wifiDev
+      }
+    }
+  }
+
+  Process {
+    id: wifiProc
+    command: [
+      "python3",
+      "-c",
+      "import json,shutil,subprocess\n"
+          + "o={'networks':[],'status':'nmcli not found','device':''}\n"
+          + "if not shutil.which('nmcli'):\n"
+          + "  print(json.dumps(o)); raise SystemExit\n"
+          + "devs=subprocess.run(['nmcli','-t','-f','DEVICE,TYPE,STATE','dev','status'],capture_output=True,text=True)\n"
+          + "wifi_dev=''\n"
+          + "for line in (devs.stdout or '').splitlines():\n"
+          + "  p=line.split(':')\n"
+          + "  if len(p)>=2 and p[1]=='wifi':\n"
+          + "    wifi_dev=p[0]\n"
+          + "    if len(p)>2 and p[2]=='connected': break\n"
+          + "o['device']=wifi_dev\n"
+          + "if not wifi_dev:\n"
+          + "  o['status']='No Wi‑Fi device'; print(json.dumps(o)); raise SystemExit\n"
+          + "subprocess.run(['nmcli','device','wifi','rescan'],capture_output=True,text=True)\n"
+          + "r=subprocess.run(['nmcli','-t','-f','IN-USE,SSID,SIGNAL,SECURITY','device','wifi','list'],capture_output=True,text=True)\n"
+          + "best={}\n"
+          + "for line in (r.stdout or '').splitlines():\n"
+          + "  if not line.strip(): continue\n"
+          + "  p=line.split(':')\n"
+          + "  inuse=(p[0]=='*') if p else False\n"
+          + "  ssid=p[1] if len(p)>1 else ''\n"
+          + "  sig=p[2] if len(p)>2 else ''\n"
+          + "  sec=p[3] if len(p)>3 else ''\n"
+          + "  if not ssid: continue\n"
+          + "  try: strength=int(sig)\n"
+          + "  except: strength=0\n"
+          + "  cur=best.get(ssid)\n"
+          + "  if cur is None or inuse or strength>(cur.get('strength') or 0):\n"
+          + "    best[ssid]={'ssid':ssid,'signal':str(strength),'security':sec,'active':inuse,'strength':strength}\n"
+          + "nets=list(best.values())\n"
+          + "nets.sort(key=lambda x:(not x['active'], -x['strength'], x['ssid']))\n"
+          + "for n in nets: n.pop('strength',None)\n"
+          + "o['networks']=nets[:24]\n"
+          + "o['status']=('' if nets else 'No networks found — try Rescan')\n"
+          + "print(json.dumps(o))"
+    ]
+    running: false
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const o = JSON.parse(String(this.text || "").trim() || "{}")
+          root.wifiNetworks = o.networks || []
+          root.wifiStatus = o.status || ""
+          if (o.device)
+            root.wifiDevice = o.device
+          root.wifiBusy = false
+        } catch (e) {
+          root.wifiNetworks = []
+          root.wifiStatus = "Could not scan Wi‑Fi"
+          root.wifiBusy = false
+        }
       }
     }
   }
@@ -342,16 +672,6 @@ ColumnLayout {
           root.btHint = "Could not read Bluetooth status"
         }
       }
-    }
-  }
-
-  Timer {
-    id: tsRefresh
-    interval: 1200
-    repeat: false
-    onTriggered: {
-      root.tsBusy = false
-      root.kick(tsProc)
     }
   }
 
