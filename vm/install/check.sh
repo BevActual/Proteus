@@ -40,6 +40,18 @@ ok "desktop packages: ${desk_n}"
 [[ "${base_n}" -ge 5 ]] || bad "base package list looks too thin"
 
 [[ -f "${ROOT}/env/hypr/hyprland.conf" ]] && ok env/hypr/hyprland.conf || bad env/hypr/hyprland.conf
+[[ -f "${ROOT}/env/hypr/proteus-profile.conf" ]] && ok env/hypr/proteus-profile.conf || bad env/hypr/proteus-profile.conf
+[[ -f "${ROOT}/env/hypr/profiles/desktop.conf" ]] && ok env/hypr/profiles/desktop.conf || bad env/hypr/profiles/desktop.conf
+[[ -f "${ROOT}/env/hypr/profiles/media.conf" ]] && ok env/hypr/profiles/media.conf || bad env/hypr/profiles/media.conf
+if [[ -f "${ROOT}/vm/guest/set-hypr-profile.sh" ]]; then
+  if bash -n "${ROOT}/vm/guest/set-hypr-profile.sh" 2>/dev/null; then
+    ok vm/guest/set-hypr-profile.sh
+  else
+    bad "vm/guest/set-hypr-profile.sh (bash -n)"
+  fi
+else
+  bad vm/guest/set-hypr-profile.sh
+fi
 [[ -d "${ROOT}/vm/guest" ]] && ok vm/guest/ || bad vm/guest/
 [[ -x "${ROOT}/vm/bootstrap.sh" || -f "${ROOT}/vm/bootstrap.sh" ]] && ok vm/bootstrap.sh || bad vm/bootstrap.sh
 [[ -f "${ROOT}/vm/provision.sh" ]] && ok vm/provision.sh || bad vm/provision.sh

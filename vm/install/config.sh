@@ -119,6 +119,10 @@ seed_file "${PROTEUS_ROOT}/env/shell/proteus-bashrc.sh" "${USER_HOME}/.config/pr
 seed_file "${PROTEUS_ROOT}/env/hypr/proteus-keybinds.conf" "${HYPR_DIR}/proteus-keybinds.conf"
 seed_file "${PROTEUS_ROOT}/env/hypr/proteus-general.conf" "${HYPR_DIR}/proteus-general.conf"
 seed_file "${PROTEUS_ROOT}/env/hypr/proteus-monitors.conf" "${HYPR_DIR}/proteus-monitors.conf"
+proteus_as_user mkdir -p "${HYPR_DIR}/profiles"
+seed_file "${PROTEUS_ROOT}/env/hypr/profiles/desktop.conf" "${HYPR_DIR}/profiles/desktop.conf"
+seed_file "${PROTEUS_ROOT}/env/hypr/profiles/media.conf" "${HYPR_DIR}/profiles/media.conf"
+seed_file "${PROTEUS_ROOT}/env/hypr/proteus-profile.conf" "${HYPR_DIR}/proteus-profile.conf"
 
 # Ensure hypr sources for fragments seeded above (idempotent append)
 ensure_hypr_source() {
@@ -136,6 +140,7 @@ ensure_hypr_source() {
 ensure_hypr_source "proteus-keybinds.conf" "Proteus keyboard shortcuts (Settings → Keyboard)"
 ensure_hypr_source "proteus-monitors.conf" "Proteus displays (Settings → Displays)"
 ensure_hypr_source "proteus-general.conf" "Proteus desktop (Settings → Desktop)"
+ensure_hypr_source "proteus-profile.conf" "Proteus posture profile (set-hypr-profile.sh)"
 
 BASHRC="${USER_HOME}/.bashrc"
 MARKER="# Proteus terminal fetch"

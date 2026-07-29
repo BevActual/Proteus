@@ -20,6 +20,11 @@ seed() {
 seed "${ROOT}/env/hypr/proteus-general.conf" "${HYPR_DIR}/proteus-general.conf"
 seed "${ROOT}/env/hypr/proteus-monitors.conf" "${HYPR_DIR}/proteus-monitors.conf"
 
+mkdir -p "${HYPR_DIR}/profiles"
+seed "${ROOT}/env/hypr/profiles/desktop.conf" "${HYPR_DIR}/profiles/desktop.conf"
+seed "${ROOT}/env/hypr/profiles/media.conf" "${HYPR_DIR}/profiles/media.conf"
+seed "${ROOT}/env/hypr/proteus-profile.conf" "${HYPR_DIR}/proteus-profile.conf"
+
 ensure_source() {
   local needle="$1" comment="$2"
   if [[ -f "${HYPR}" ]] && ! grep -q "${needle}" "${HYPR}"; then
@@ -31,6 +36,7 @@ ensure_source() {
 if [[ -f "${HYPR}" ]]; then
   ensure_source "proteus-monitors.conf" "Proteus displays (Settings → Displays)"
   ensure_source "proteus-general.conf" "Proteus desktop (Settings → Desktop)"
+  ensure_source "proteus-profile.conf" "Proteus posture profile (set-hypr-profile.sh)"
 
   # Migrate legacy swaybg → unified proteus-bg wallpaper runtime.
   # Prefer an absolute path — Hyprland's exec-once PATH often lacks ~/.local/bin.

@@ -27,6 +27,8 @@ before inventing a second store.
 | `~/.config/hypr/proteus-general.conf` | `Config` / `ConfigHypr` | Hyprland `source =` |
 | `~/.config/hypr/proteus-keybinds.conf` | `Keybinds.qml` | Hyprland |
 | `~/.config/hypr/proteus-monitors.conf` | `Displays.qml` | Hyprland |
+| `~/.config/hypr/proteus-profile.conf` | `set-hypr-profile.sh` / seed | Hyprland `source =` → `profiles/*.conf` |
+| `~/.config/hypr/profiles/*.conf` | seed / manual | Active posture via pointer |
 | `~/.local/share/proteus/backgrounds/` | Background daily/album flows | `proteus-bg` / wallpaper runner |
 
 Seed templates for nested/host sessions: [`env/`](../../env/) — see

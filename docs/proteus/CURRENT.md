@@ -50,7 +50,7 @@ the thesis ahead of code where marked `planned`.
 | Hyprland session | `shipped` | Backend for desktop posture; greetd / proteus-session |
 | Quickshell shell | `shipped` | Chrome runtime; `/mnt/proteus/shell` via 9p |
 | Nested Hyprland (host) | `shipped` | `scripts/run-nested.sh` — shell-only quick test |
-| Hyprland posture profiles | `planned` | See [COMPOSITOR.md](./COMPOSITOR.md) |
+| Hyprland posture profiles | `partial` — `profiles/desktop.conf` + media stub + `proteus-profile.conf`; see [COMPOSITOR.md](./COMPOSITOR.md) |
 | QS version pin / respawn policy | `planned` | Hotplug fragility awareness |
 
 ---
@@ -127,11 +127,15 @@ Selection today: `PROTEUS_SURFACE` env (default `desktop`). See POSTURES § Load
 | `~/.config/hypr/proteus-keybinds.conf` | Generated Hyprland binds (sourced) |
 | `~/.config/hypr/proteus-general.conf` | Gaps, borders, rounding, animations (sourced) |
 | `~/.config/hypr/proteus-monitors.conf` | Displays live `monitor =` lines (sourced) |
+| `~/.config/hypr/proteus-profile.conf` | Active posture profile pointer → `profiles/*.conf` |
+| `~/.config/hypr/profiles/*.conf` | Posture fragments (desktop shipped; media stub) |
 | `~/.config/hypr/hyprland.conf` | Guest/session compositor config |
-| `env/hypr/hyprland.conf` | Nested template (sources general / monitors / keybinds) |
+| `env/hypr/hyprland.conf` | Nested template (sources general / monitors / keybinds / profile) |
 | `env/hypr/proteus-keybinds.conf` | Default binds template |
 | `env/hypr/proteus-general.conf` | Default desktop fragment |
 | `env/hypr/proteus-monitors.conf` | Default monitors stub |
+| `env/hypr/proteus-profile.conf` | Default active-profile pointer |
+| `env/hypr/profiles/*.conf` | Posture profile seeds |
 
 ---
 
@@ -166,7 +170,7 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 | Lock | Doc | Code status |
 |------|-----|-------------|
 | Stack split (QML / Tauri / Rust) | [STACK.md](./STACK.md) | Settings+shell = QML; no Tauri apps yet |
-| Hyprland as backend + QS limits | [COMPOSITOR.md](./COMPOSITOR.md) | Keybinds + general fragments `shipped`; monitors stub `partial`; profiles `planned` |
+| Hyprland as backend + QS limits | [COMPOSITOR.md](./COMPOSITOR.md) | Keybinds + general + posture profile pointer `shipped`; monitors stub `partial`; other postures `planned` |
 | Adaptive apps / environment contract | [APPLICATIONS.md](./APPLICATIONS.md) | `planned` — launcher is DesktopEntries only |
 | Hardware module catalog | [HARDWARE.md](./HARDWARE.md) | Wave A probe + `Hardware.qml` session load |
 | Capability / posture resolver | [POSTURES.md](./POSTURES.md) | Probe → caps in shell; posture still stub |
@@ -177,7 +181,7 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 
 ## 8. Not yet
 
-- Per-posture Hyprland profiles  
+- Remaining posture hypr profiles beyond desktop (+ media stub)
 - Full Displays drag-layout editor (scale/mode Apply shipped)
 - Displays **Revert** button (Apply works; Revert unreliable in VM — parked)  
 - Quickshell respawn policy + version pin in guest/ISO  
@@ -187,5 +191,6 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 - More Rust helper CLIs under `services/` (Wave A probe is Python; `proteus-pkg` mutator shipped)  
 - Adaptive app manifests (declarative) + richer launcher filtering  
 - ISO / installer productization (dogfood overlay in `vm/install/` is enough for now)  
+- Settings UI for posture profile picker (CLI `set-hypr-profile.sh` only)  
 
 When shipping a feature, update this file in the same change.

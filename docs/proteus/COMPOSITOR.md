@@ -115,7 +115,9 @@ Do **not** fork Quickshell — wrap it; upstream bugs when we hit them.
 
 ## 4. Profiles on disk
 
-`planned` posture profiles; Keyboard + Desktop fragments `shipped`; Displays stub `partial`:
+`partial` — desktop profile + active pointer `shipped`; media stub `shipped`;
+other postures still `planned`. Keyboard + Desktop fragments `shipped`; Displays
+stub `partial`:
 
 ```
 ~/.config/hypr/
@@ -123,17 +125,19 @@ Do **not** fork Quickshell — wrap it; upstream bugs when we hit them.
   proteus-keybinds.conf         # Settings → Keyboard  (shipped)
   proteus-general.conf          # gaps, borders, rounding, animations  (shipped)
   proteus-monitors.conf         # Displays list stub  (partial)
+  proteus-profile.conf          # active posture pointer → profiles/*.conf  (shipped)
   profiles/
-    desktop.conf                # planned
-    media.conf                  # planned (lean-back)
+    desktop.conf                # shipped (tiling defaults)
+    media.conf                  # stub (lean-back later)
     # wearable / xr / vehicle / home / host as needed
 ```
 
-Posture switch = **select profile + reload** (+ retarget Quickshell), not a new distro.
+Posture switch = **select profile + reload** (+ retarget Quickshell later), not
+a new distro. Helper: `vm/guest/set-hypr-profile.sh desktop|media`.
 Locked postures: [POSTURES.md](./POSTURES.md).
 
 Nested template today: `env/hypr/hyprland.conf` sources `proteus-monitors.conf`,
-`proteus-general.conf`, and `proteus-keybinds.conf`.
+`proteus-general.conf`, `proteus-keybinds.conf`, and `proteus-profile.conf`.
 
 ---
 
@@ -183,7 +187,7 @@ compositor chrome for that unit.
 | Guest Hyprland + QS shell | `shipped` |
 | Settings → keybinds → hypr conf | `shipped` |
 | Settings → gaps/borders via hyprctl | `partial` |
-| Per-posture hypr profiles | `planned` |
+| Per-posture hypr profiles | `partial` — desktop + media stub + `set-hypr-profile.sh`; other postures planned |
 | QS respawn / crash policy | `planned` |
 | Capability resolver | `planned` |
 | Pin QS version in guest docs/ISO | `planned` |
