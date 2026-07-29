@@ -296,10 +296,6 @@ Singleton {
     })
   }
 
-  function shellQuote(s) {
-    return "'" + String(s).replace(/'/g, "'\\''") + "'"
-  }
-
   function wifiConnect(ssid) {
     const name = String(ssid || "").trim()
     if (!name.length)

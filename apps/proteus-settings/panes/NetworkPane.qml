@@ -293,7 +293,7 @@ ColumnLayout {
       onActivated: {
         root.wifiBusy = true
         root.kick(wifiProc)
-        root.wifiRefresh.restart()
+        wifiRefresh.restart()
       }
       Text {
         text: "↻"
