@@ -375,52 +375,16 @@ Item {
               active: root.page === "power"
             }
 
-            PlannedPane {
+            UsersPane {
               Layout.fillWidth: true
               visible: root.page === "users"
-              status: "stub"
-              summary: "Accounts and login. Session actions will move here from About."
-              items: [
-                {
-                  label: "Local accounts",
-                  hint: "List / add / remove users",
-                  done: false
-                },
-                {
-                  label: "Login & greeter",
-                  hint: "greetd / autologin prefs",
-                  done: false
-                },
-                {
-                  label: "Session actions",
-                  hint: "Lock · logout · reboot · shutdown",
-                  done: false
-                }
-              ]
+              active: root.page === "users"
             }
 
-            PlannedPane {
+            AccountsPane {
               Layout.fillWidth: true
               visible: root.page === "accounts"
-              status: "stub"
-              summary: "Mail, contacts, and cloud providers — not inventing those apps here."
-              items: [
-                {
-                  label: "Mail providers",
-                  hint: "Connect account for adaptive mail later",
-                  done: false
-                },
-                {
-                  label: "Contacts",
-                  hint: "Provider sync hooks",
-                  done: false
-                },
-                {
-                  label: "Cloud storage",
-                  hint: "Mount / sync providers",
-                  done: false
-                }
-              ]
+              active: root.page === "accounts"
             }
 
             DateTimePane {
@@ -429,33 +393,16 @@ Item {
               active: root.page === "datetime"
             }
 
-            PlannedPane {
+            PrivacyPane {
               Layout.fillWidth: true
               visible: root.page === "privacy"
-              status: "stub"
-              summary: "Permissions once adaptive apps need a grant model."
-              items: [
-                {
-                  label: "App permissions",
-                  hint: "Camera · mic · location · files",
-                  done: false
-                },
-                {
-                  label: "Screen recording",
-                  hint: "Portal / capture grants",
-                  done: false
-                },
-                {
-                  label: "Diagnostics",
-                  hint: "What leaves the machine",
-                  done: false
-                }
-              ]
+              active: root.page === "privacy"
             }
 
             SystemPane {
               Layout.fillWidth: true
               visible: root.page === "system"
+              onRequestGo: id => SettingsNav.go(id)
             }
           }
         }

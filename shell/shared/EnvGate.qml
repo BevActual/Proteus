@@ -79,14 +79,14 @@ Singleton {
     {
       id: "users",
       label: "Users",
-      status: "stub",
+      status: "partial",
       requires: [],
       requiresAny: []
     },
     {
       id: "accounts",
       label: "Online accounts",
-      status: "stub",
+      status: "partial",
       requires: [],
       requiresAny: []
     },
@@ -100,7 +100,7 @@ Singleton {
     {
       id: "privacy",
       label: "Privacy",
-      status: "stub",
+      status: "partial",
       requires: [],
       requiresAny: []
     },

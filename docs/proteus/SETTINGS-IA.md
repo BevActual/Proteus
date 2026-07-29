@@ -93,12 +93,12 @@ Left-nav + content pane (macOS System Settings style).
 | **Network** (`network`) | Device status + open editor; later Bluetooth, VPN | nmcli / nmtui (+ later) | `partial` |
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse; later touchpad / tablet | keybinds + input hyprctl | `shipped` |
 | **Power** (`power`) | Battery charge / health / estimate (UPower); logind idle + lid policy read-only with conf escape hatch | UPower / `logind.conf` | `partial` |
-| **Users** (`users`) | Accounts, login; session actions peel here from About | accounts / loginctl | `stub` |
-| **Online accounts** (`accounts`) | Mail, contacts, cloud storage providers | TBD (not inventing mail/contacts apps here) | `stub` |
+| **Users** (`users`) | Session actions; current + other local users (read-only); greeter planned | `id` / getent · `Config.session` | `partial` |
+| **Online accounts** (`accounts`) | Mail / contacts / cloud provider seats (coming soon; no OAuth) | TBD (not inventing mail/contacts apps here) | `partial` |
 | **Date & time** (`datetime`) | Live clock, searchable timezone picker, network time toggle, locale, **Location** (shared system place + units) | `timedatectl` / `localectl` / Open-Meteo | `partial` |
-| **Privacy** (`privacy`) | Permissions when adaptive apps exist | app permissions model | `stub` |
+| **Privacy** (`privacy`) | Permission categories listed; grants not enforced yet | EnvGate / adaptive apps later | `partial` |
 | **Software** (`packages`) | Category → Updates, Search (propose → confirm → polkit) | `pacman` + `services/proteus-pkg` | `partial` |
-| **About** (`system`) | Hardware caps, lock / logout / reboot / shutdown (until Users exists) | probe + hypr / systemctl / loginctl | `partial` |
+| **About** (`system`) | Hardware caps; session actions → Users | probe | `partial` |
 
 VM / container **setup** is **not** a Settings category — a separate host app later.
 About may still show host-relevant hardware facts.
@@ -180,13 +180,14 @@ Templates: `env/hypr/proteus-general.conf`, `env/hypr/proteus-monitors.conf`. Ne
 **Power** and **Date & time** are `partial` (see §2) — remaining work is
 write-gaps (logind helper, locale set, forecast UI), not greenfield panes.
 
-Stub sidebar entries with roadmap checklists: `users` · `accounts` · `privacy`.
+**Users · Online accounts · Privacy** are `partial` — session actions +
+read-only local users shipped; provider OAuth and permission enforcement Out.
 
 Depth order for what’s left:
 
-1. **Users** — peel session actions from About  
-2. **Online accounts** — mail / contacts / cloud providers  
-3. **Privacy** — when adaptive apps need permissions  
+1. **Users** — greeter / autologin; add-remove stays Out of Settings  
+2. **Online accounts** — real provider connect when adaptive mail/contacts exist  
+3. **Privacy** — grant model when adaptive apps need it  
 4. **Power** — privileged logind idle/lid writer (read-only today)  
 5. **Date & time** — locale set; weather forecast view  
 6. **Network** — Bluetooth / VPN under Network  

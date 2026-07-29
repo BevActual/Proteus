@@ -90,10 +90,12 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Software → Updates / Search (propose → confirm → `pkexec proteus-pkg`) | `partial` |
 | Sound → Output / Input / Applications / Latency & buffer (`sound`) | `partial` — category hub; streaming input peak meter, per-app volume, test tone |
 | Network (status + open editor; Bluetooth / VPN later) | `partial` |
-| About (session power + hardware class / capabilities) | `partial` |
 | Power (battery via UPower; logind idle/lid read-only + conf escape hatch) | `partial` — writing lid/idle needs a privileged helper |
 | Date & time (clock, timezone search, NTP, locale, **Location**) | `partial` — timezone/NTP polkit-gated; location is explicit place search (never IP); Open-Meteo weather for that place + desktop/lock weather widget; no forecast view |
-| Users · Online accounts · Privacy | `stub` — sidebar + roadmap checklist |
+| Users (session actions + read-only local users) | `partial` — no add/remove; greeter planned |
+| Online accounts (provider seats) | `partial` — coming soon; no OAuth |
+| Privacy (permission categories) | `partial` — listed; not enforced |
+| About (hardware class / capabilities) | `partial` — session actions → Users |
 | Host / VM·container setup | **out of Settings** — separate app later |
 
 Modular panes: `apps/proteus-settings/panes/*` · form kit: `kit/*` (shell stays in `Settings.qml`).
