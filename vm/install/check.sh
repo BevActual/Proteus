@@ -43,6 +43,15 @@ ok "desktop packages: ${desk_n}"
 [[ -f "${ROOT}/env/hypr/proteus-profile.conf" ]] && ok env/hypr/proteus-profile.conf || bad env/hypr/proteus-profile.conf
 [[ -f "${ROOT}/env/hypr/profiles/desktop.conf" ]] && ok env/hypr/profiles/desktop.conf || bad env/hypr/profiles/desktop.conf
 [[ -f "${ROOT}/env/hypr/profiles/media.conf" ]] && ok env/hypr/profiles/media.conf || bad env/hypr/profiles/media.conf
+if [[ -f "${ROOT}/shell/scripts/proteus-qs" ]]; then
+  if bash -n "${ROOT}/shell/scripts/proteus-qs" 2>/dev/null; then
+    ok shell/scripts/proteus-qs
+  else
+    bad "shell/scripts/proteus-qs (bash -n)"
+  fi
+else
+  bad shell/scripts/proteus-qs
+fi
 if [[ -f "${ROOT}/vm/guest/set-hypr-profile.sh" ]]; then
   if bash -n "${ROOT}/vm/guest/set-hypr-profile.sh" 2>/dev/null; then
     ok vm/guest/set-hypr-profile.sh

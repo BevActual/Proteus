@@ -39,15 +39,25 @@ if [[ ! -f "${HYPR_DIR}/hyprland.conf" ]]; then
   fi
 fi
 
-# Autostart quickshell if hypr doesn't already (append once)
+# Autostart Quickshell via proteus-qs if hypr doesn't already (append once)
 if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
-  && ! grep -q 'quickshell -p' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
-  proteus_log "appending quickshell exec-once"
+  && ! grep -qE 'proteus-qs|quickshell -p' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
+  proteus_log "appending proteus-qs exec-once"
   {
     echo ""
-    echo "# Proteus shell (overlay installer)"
-    echo "exec-once = qs_icon_theme=\${QS_ICON_THEME:-Papirus-Dark} quickshell -p ${PROTEUS_ROOT}/shell"
+    echo "# Proteus shell (proteus-qs respawn wrapper)"
+    echo "exec-once = qs_icon_theme=\${QS_ICON_THEME:-Papirus-Dark} ${PROTEUS_ROOT}/shell/scripts/proteus-qs ${PROTEUS_ROOT}/shell"
   } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
+fi
+
+# Migrate bare quickshell exec-once → proteus-qs (idempotent)
+if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
+  && grep -qE 'exec-once[[:space:]]*=[[:space:]].*quickshell -p' "${HYPR_DIR}/hyprland.conf" 2>/dev/null \
+  && ! grep -q 'proteus-qs' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
+  proteus_log "migrating quickshell exec-once → proteus-qs"
+  proteus_as_user sed -i -E \
+    "s|quickshell -p ${PROTEUS_ROOT}/shell|${PROTEUS_ROOT}/shell/scripts/proteus-qs ${PROTEUS_ROOT}/shell|g" \
+    "${HYPR_DIR}/hyprland.conf" || true
 fi
 
 # Autostart hypridle (locks via session lock → Proteus lock screen)

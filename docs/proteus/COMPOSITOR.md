@@ -92,8 +92,8 @@ Prefer these for OS facts before inventing daemons.
 |------------|------|
 | **Shell ≠ app platform** | Chrome + Settings in QS; product apps → Tauri ([STACK.md](./STACK.md)) |
 | **Hyprland-shaped integrations** | Best backend for desktop/couch compositor postures — not universal |
-| **Output / session fragility** | Crashes reported on monitor hotplug, TTY switch, KVM, sleep — plan **respawn**; never keep sole truth in QS memory |
-| **Young / moving target** | Pin QS version in guest/ISO; document required build features; smoke after upgrades |
+| **Output / session fragility** | Crashes reported on monitor hotplug, TTY switch, KVM, sleep — **v1:** `shell/scripts/proteus-qs` backoff loop from Hyprland `exec-once`; never keep sole truth in QS memory |
+| **Young / moving target** | **v1:** record `quickshell --version` in `qs-guest-smoke` (do **not** `IgnorePkg`-pin rolling Arch); ISO pin later; smoke after upgrades |
 | **QML is programming** | Shared modules; Rust helpers for messy IO |
 | **Settings as second `quickshell -p`** | OK now; files are SoT; revisit Tauri Settings if lifecycle hurts |
 | **Not a virt/ops UI kit** | Host console ≠ Portainer in a panel |
@@ -172,7 +172,7 @@ compositor chrome for that unit.
 1. **Hyprland is a backend** — Proteus defines posture; hypr conf expresses it.  
 2. **Quickshell is chrome (+ Settings for now)** — not the app platform.  
 3. **SoT on disk / CLI** — QS restart must not lose config.  
-4. **Respawn the shell** — assume hotplug/TTY pain until proven otherwise.  
+4. **Respawn the shell** — `proteus-qs` backoff wrapper for chrome; assume hotplug/TTY pain until proven otherwise.  
 5. **No Hyprland/QS forks** early — profile, wrap, contribute upstream.  
 6. **Not every posture needs Hyprland** — host defaults lean/headless; ops UI
    is **on demand** (terminal-only remoters vs operators who want chrome) —
@@ -188,7 +188,7 @@ compositor chrome for that unit.
 | Settings → keybinds → hypr conf | `shipped` |
 | Settings → gaps/borders via hyprctl | `partial` |
 | Per-posture hypr profiles | `partial` — desktop + media stub + `set-hypr-profile.sh`; other postures planned |
-| QS respawn / crash policy | `planned` |
+| QS respawn / crash policy | `partial` — `proteus-qs` backoff; not systemd supervisor |
 | Capability resolver | `planned` |
-| Pin QS version in guest docs/ISO | `planned` |
+| Pin QS version in guest docs/ISO | `partial` — version **recorded** in smoke; IgnorePkg/ISO pin Out |
 | Greeter/lock in QS | `partial` — lock screen shipped (PAM); greetd/tuigreet still login |

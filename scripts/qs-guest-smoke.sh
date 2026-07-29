@@ -27,6 +27,10 @@ fi
 
 echo "qs-guest-smoke: guest SSH OK — cold-start shell + Settings"
 
+# Record Quickshell version (pin policy: record + smoke, not pacman IgnorePkg)
+qs_ver="$(ssh "${ssh_opts[@]}" "${USER}@${HOST}" 'quickshell --version 2>/dev/null || quickshell -v 2>/dev/null || echo unknown' | head -1 || true)"
+echo "qs-guest-smoke: quickshell version: ${qs_ver:-unknown}"
+
 out="$(ssh "${ssh_opts[@]}" "${USER}@${HOST}" 'bash -s' <<'EOF'
 set -uo pipefail
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
@@ -39,11 +43,15 @@ export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
 # which makes it unusable unattended. Only the automatic lock is suppressed.
 export PROTEUS_SKIP_SESSION_LOCK=1
 
+echo "QS_VERSION=$(quickshell --version 2>/dev/null || quickshell -v 2>/dev/null || echo unknown)"
+
+pkill -f "proteus-qs /mnt/proteus/shell" 2>/dev/null || true
 pkill -f "quickshell -p /mnt/proteus/shell$" 2>/dev/null || true
 pkill -f "quickshell -p /mnt/proteus/apps/proteus-settings" 2>/dev/null || true
 sleep 0.5
 : > /tmp/proteus-shell.log
 : > /tmp/proteus-settings.log
+# Smoke uses direct quickshell (not the respawn loop) so the suite can wait on PIDs.
 nohup quickshell -p /mnt/proteus/shell >/tmp/proteus-shell.log 2>&1 &
 SP=$!
 sleep 3.2

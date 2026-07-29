@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# proteus-qs — Quickshell chrome with crash backoff (files remain SoT).
+# Usage: proteus-qs <path-to-quickshell-config-dir>
+# Hyprland: exec-once = PROTEUS_SURFACE=desktop …/proteus-qs …/shell
+set -uo pipefail
+
+SHELL_PATH="${1:-}"
+if [[ -z "${SHELL_PATH}" ]]; then
+  echo "usage: $0 <quickshell -p path>" >&2
+  exit 2
+fi
+if ! command -v quickshell >/dev/null 2>&1; then
+  echo "proteus-qs: quickshell not found" >&2
+  exit 127
+fi
+
+LOG="${XDG_RUNTIME_DIR:-/tmp}/proteus-qs.log"
+BACKOFF=2
+MAX_BACKOFF=30
+
+# Reset backoff after a long healthy run
+HEALTHY_SECS=120
+
+log() {
+  printf '%s proteus-qs: %s\n' "$(date -Iseconds 2>/dev/null || date)" "$*" >>"${LOG}" 2>/dev/null || true
+}
+
+trap 'exit 0' TERM INT HUP
+
+while true; do
+  log "starting quickshell -p ${SHELL_PATH}"
+  start_ts=$(date +%s 2>/dev/null || echo 0)
+  quickshell -p "${SHELL_PATH}"
+  ec=$?
+  end_ts=$(date +%s 2>/dev/null || echo 0)
+  ran=$((end_ts - start_ts))
+  log "exited ${ec} after ${ran}s"
+  if [[ "${ran}" -ge "${HEALTHY_SECS}" ]]; then
+    BACKOFF=2
+  fi
+  sleep "${BACKOFF}"
+  if [[ "${BACKOFF}" -lt "${MAX_BACKOFF}" ]]; then
+    BACKOFF=$((BACKOFF * 2))
+    if [[ "${BACKOFF}" -gt "${MAX_BACKOFF}" ]]; then
+      BACKOFF=${MAX_BACKOFF}
+    fi
+  fi
+done

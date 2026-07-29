@@ -51,7 +51,7 @@ the thesis ahead of code where marked `planned`.
 | Quickshell shell | `shipped` | Chrome runtime; `/mnt/proteus/shell` via 9p |
 | Nested Hyprland (host) | `shipped` | `scripts/run-nested.sh` — shell-only quick test |
 | Hyprland posture profiles | `partial` — `profiles/desktop.conf` + media stub + `proteus-profile.conf`; see [COMPOSITOR.md](./COMPOSITOR.md) |
-| QS version pin / respawn policy | `planned` | Hotplug fragility awareness |
+| QS version pin / respawn policy | `partial` — `proteus-qs` backoff + version recorded in `qs-guest-smoke`; IgnorePkg/ISO pin later |
 
 ---
 
@@ -159,7 +159,7 @@ Selection today: `PROTEUS_SURFACE` env (default `desktop`). See POSTURES § Load
 | `./scripts/layout-smoke.sh` | Flat `shell/shared/` + Settings `kit/` structure |
 | `./scripts/config-schema-smoke.sh` | Config FileView keys ↔ `tests/fixtures/settings.minimal.json` |
 | `./scripts/install-smoke.sh` | Overlay installer tree check |
-| `./scripts/qs-guest-smoke.sh` | Guest cold-start `SHELL_OK` / `SETTINGS_OK` |
+| `./scripts/qs-guest-smoke.sh` | Guest cold-start `SHELL_OK` / `SETTINGS_OK` + record `quickshell` version |
 
 SSH default: `ssh -p 2222 andrew@127.0.0.1`
 
@@ -183,7 +183,7 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 
 - Remaining posture hypr profiles beyond desktop (+ media stub)
 - Displays **Revert** edge cases on fragile VM hotplug (full-snapshot Revert shipped; re-verify after sleep/hotplug)
-- Quickshell respawn policy + version pin in guest/ISO  
+- systemd/user-unit QS supervisor; pacman IgnorePkg / ISO QS version pin  
 - Host posture chrome or workload panes  
 - Second personal posture beyond stub  
 - First-party Tauri app under `apps/`  
