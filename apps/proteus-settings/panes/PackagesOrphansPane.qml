@@ -3,6 +3,7 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import "../shared"
+import "../kit"
 
 // Packages → Orphans: list pacman -Qdt; remove via confirm → proteus-pkg orphans.
 ColumnLayout {

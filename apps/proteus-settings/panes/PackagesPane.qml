@@ -5,7 +5,7 @@ import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Software category (page id packages) — Updates · Search · AUR · Flatpak · AppImages · Orphans.
+// Software hub — Omarchy-style: pick a source leaf to Install / Remove via searchable lists.
 ColumnLayout {
   id: root
   Layout.fillWidth: true
@@ -14,8 +14,13 @@ ColumnLayout {
   property string page: "packages"
   signal requestGo(string id)
 
+  readonly property bool onHub: page === "packages"
+
   readonly property var sections: {
     const _ = Packages.packageUpgradeCount
+    const __ = Packages.aurHelper
+    const ___ = Packages.flatpakAvailable
+    const ____ = Packages.flathubConfigured
     return [
       {
         key: "packages-updates",
@@ -28,15 +33,20 @@ ColumnLayout {
       },
       {
         key: "packages-search",
-        label: "Search"
+        label: "Repos",
+        hint: "Install / remove"
       },
       {
         key: "packages-aur",
-        label: "AUR"
+        label: "AUR",
+        hint: Packages.aurHelper.length ? ("Install / remove · " + Packages.aurHelper) : "Needs yay/paru"
       },
       {
         key: "packages-flatpak",
-        label: "Flatpak"
+        label: "Flathub",
+        hint: !Packages.flatpakAvailable
+            ? "Needs flatpak"
+            : (Packages.flathubConfigured ? "Install / remove" : "Add Flathub remote")
       },
       {
         key: "packages-appimages",
@@ -56,20 +66,67 @@ ColumnLayout {
     warmCheck.running = true
   }
 
-  SettingsHubList {
-    visible: root.page === "packages"
-    items: root.sections
-    onActivated: key => root.requestGo(key)
+  ColumnLayout {
+    Layout.fillWidth: true
+    spacing: 12
+    visible: root.onHub
+
+    Text {
+      Layout.fillWidth: true
+      text: "Install and remove software like Omarchy’s Package / AUR pickers — each leaf is a searchable list with multi-select."
+      color: Theme.textMute
+      font.family: Theme.fontFamily
+      font.pixelSize: 12
+      wrapMode: Text.WordWrap
+    }
+
+    SettingsHubList {
+      items: root.sections
+      onActivated: key => root.requestGo(key)
+    }
+  }
+
+  StickyPaneLoader {
+    want: root.page === "packages-updates"
+    source: "PackagesUpdatesPane.qml"
+    onLoaded: item.active = Qt.binding(() => root.page === "packages-updates")
+  }
+  StickyPaneLoader {
+    want: root.page === "packages-search"
+    source: "PackagesSearchPane.qml"
+    onLoaded: item.active = Qt.binding(() => root.page === "packages-search")
+  }
+  StickyPaneLoader {
+    want: root.page === "packages-aur"
+    source: "PackagesAurPane.qml"
+    onLoaded: item.active = Qt.binding(() => root.page === "packages-aur")
+  }
+  StickyPaneLoader {
+    want: root.page === "packages-flatpak"
+    source: "PackagesFlatpakPane.qml"
+    onLoaded: item.active = Qt.binding(() => root.page === "packages-flatpak")
+  }
+  StickyPaneLoader {
+    want: root.page === "packages-appimages"
+    source: "PackagesAppImagesPane.qml"
+    onLoaded: item.active = Qt.binding(() => root.page === "packages-appimages")
+  }
+  StickyPaneLoader {
+    want: root.page === "packages-orphans"
+    source: "PackagesOrphansPane.qml"
+    onLoaded: item.active = Qt.binding(() => root.page === "packages-orphans")
   }
 
   onPageChanged: {
-    if (page === "packages")
+    if (page === "packages" || page.startsWith("packages-")) {
+      Packages.refreshHelpers()
       warmCount()
+    }
   }
 
   Component.onCompleted: {
-    if (page === "packages")
-      warmCount()
+    Packages.refreshHelpers()
+    warmCount()
   }
 
   Process {
@@ -82,7 +139,6 @@ ColumnLayout {
       }
     }
     onExited: (exitCode, exitStatus) => {
-      // No upgrades → pacman -Qu exits 1 with empty stdout
       if (Packages.packageUpgradeCount < 0 && exitCode !== 0)
         Packages.notePackageUpgrades(0)
     }

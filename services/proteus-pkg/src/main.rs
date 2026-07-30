@@ -1,5 +1,5 @@
 //! Privileged pacman mutator for Proteus Settings.
-//! Invoked via `pkexec proteus-pkg <sync|upgrade|install|remove|orphans> [pkg]`.
+//! Invoked via `pkexec proteus-pkg <sync|upgrade|install|remove|orphans|upgrade-packages> [pkg…]`.
 //! Docs: docs/proteus/STACK.md (privileged mutators → Rust)
 
 use std::env;
@@ -10,12 +10,13 @@ use std::thread;
 
 fn usage() -> ! {
     eprintln!(
-        "Usage: proteus-pkg <sync|upgrade|install|remove|orphans> [package]\n\
-         sync     — pacman -Sy\n\
-         upgrade  — pacman -Syu\n\
-         install  — pacman -S <package>\n\
-         remove   — pacman -Rns <package>\n\
-         orphans  — pacman -Rns $(pacman -Qdtq)"
+        "Usage: proteus-pkg <sync|upgrade|install|remove|orphans|upgrade-packages> [package…]\n\
+         sync              — pacman -Sy\n\
+         upgrade           — pacman -Syu\n\
+         install           — pacman -S <package…>\n\
+         remove            — pacman -Rns <package…>\n\
+         orphans           — pacman -Rns $(pacman -Qdtq)\n\
+         upgrade-packages  — pacman -S --needed <package…> (selective upgrades)"
     );
     std::process::exit(2);
 }
@@ -120,6 +121,28 @@ fn orphan_names() -> Result<Vec<String>, String> {
     Ok(names)
 }
 
+fn collect_pkg_names(args: impl Iterator<Item = String>) -> Result<Vec<String>, String> {
+    let mut names = Vec::new();
+    for pkg in args {
+        if !valid_pkg_name(&pkg) {
+            return Err(format!("invalid package name {pkg:?}"));
+        }
+        names.push(pkg);
+    }
+    if names.is_empty() {
+        return Err("requires at least one package name".into());
+    }
+    Ok(names)
+}
+
+fn run_pacman_install(names: &[String]) -> ExitCode {
+    let mut argv: Vec<&str> = vec!["-S", "--noconfirm", "--needed", "--"];
+    for name in names {
+        argv.push(name.as_str());
+    }
+    run_pacman(&argv)
+}
+
 fn main() -> ExitCode {
     let mut args = env::args().skip(1);
     let Some(action) = args.next() else {
@@ -128,7 +151,7 @@ fn main() -> ExitCode {
 
     match action.as_str() {
         "-h" | "--help" | "help" => usage(),
-        "sync" | "upgrade" | "install" | "remove" | "orphans" => {}
+        "sync" | "upgrade" | "install" | "remove" | "orphans" | "upgrade-packages" => {}
         other => {
             eprintln!("proteus-pkg: unknown action {other:?}");
             usage();
@@ -140,28 +163,32 @@ fn main() -> ExitCode {
     match action.as_str() {
         "sync" => run_pacman(&["-Sy", "--noconfirm"]),
         "upgrade" => run_pacman(&["-Syu", "--noconfirm"]),
-        "install" => {
-            let Some(pkg) = args.next() else {
-                eprintln!("proteus-pkg: install requires a package name");
-                return ExitCode::from(2);
-            };
-            if !valid_pkg_name(&pkg) {
-                eprintln!("proteus-pkg: invalid package name");
-                return ExitCode::from(2);
+        "install" | "upgrade-packages" => match collect_pkg_names(args) {
+            Ok(names) => {
+                if action == "upgrade-packages" {
+                    println!("proteus-pkg: selective upgrade {} package(s)", names.len());
+                    let _ = io::stdout().flush();
+                }
+                run_pacman_install(&names)
             }
-            run_pacman(&["-S", "--noconfirm", "--needed", "--", &pkg])
-        }
-        "remove" => {
-            let Some(pkg) = args.next() else {
-                eprintln!("proteus-pkg: remove requires a package name");
-                return ExitCode::from(2);
-            };
-            if !valid_pkg_name(&pkg) {
-                eprintln!("proteus-pkg: invalid package name");
-                return ExitCode::from(2);
+            Err(e) => {
+                eprintln!("proteus-pkg: {action} {e}");
+                ExitCode::from(2)
             }
-            run_pacman(&["-Rns", "--noconfirm", "--", &pkg])
-        }
+        },
+        "remove" => match collect_pkg_names(args) {
+            Ok(names) => {
+                let mut argv: Vec<&str> = vec!["-Rns", "--noconfirm", "--"];
+                for name in &names {
+                    argv.push(name.as_str());
+                }
+                run_pacman(&argv)
+            }
+            Err(e) => {
+                eprintln!("proteus-pkg: remove {e}");
+                ExitCode::from(2)
+            }
+        },
         "orphans" => match orphan_names() {
             Ok(names) if names.is_empty() => {
                 println!("proteus-pkg: no orphans");

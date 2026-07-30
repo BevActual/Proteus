@@ -70,23 +70,42 @@ seed_backgrounds() {
 }
 
 # Privileged package mutator (polkit) — skip if binary missing and no cargo
-if [[ -x "${ROOT}/services/proteus-pkg/target/release/proteus-pkg" ]] || command -v cargo >/dev/null 2>&1; then
+if [[ -x "${ROOT}/services/proteus-pkg/bin/proteus-pkg" ]] \
+  || [[ -x "${ROOT}/services/proteus-pkg/target/release/proteus-pkg" ]] \
+  || command -v cargo >/dev/null 2>&1; then
   bash "${ROOT}/vm/guest/install-proteus-pkg.sh"
 else
   echo "note: skipped proteus-pkg (build release on host first)"
 fi
+
+# Flathub user remote (Settings → Software → Flathub)
+ensure_flathub_for() {
+  local user="$1"
+  if [[ -z "${user}" || "${user}" == "root" ]]; then
+    return 0
+  fi
+  if ! command -v flatpak >/dev/null 2>&1; then
+    echo "note: skipped ensure-flathub (flatpak not installed)"
+    return 0
+  fi
+  sudo -u "${user}" bash "${ROOT}/vm/guest/ensure-flathub.sh" \
+    || echo "note: ensure-flathub failed for ${user}"
+}
 
 # Keybinds must land in the session user's home (not root when using sudo)
 if [[ "${SUDO_USER:-}" != "" && "${SUDO_USER}" != "root" ]]; then
   sudo -u "${SUDO_USER}" bash "${ROOT}/vm/guest/install-keybinds.sh"
   sudo -u "${SUDO_USER}" bash "${ROOT}/vm/guest/install-desktop-conf.sh"
   seed_backgrounds "$(getent passwd "${SUDO_USER}" | cut -d: -f6)"
+  ensure_flathub_for "${SUDO_USER}"
 else
   bash "${ROOT}/vm/guest/install-keybinds.sh"
   bash "${ROOT}/vm/guest/install-desktop-conf.sh"
   if [[ "${HOME:-}" != "" && "${HOME}" != "/root" ]]; then
     seed_backgrounds "${HOME}"
+    ensure_flathub_for "$(id -un)"
   elif [[ -d /home/andrew ]]; then
     seed_backgrounds /home/andrew
+    ensure_flathub_for andrew
   fi
 fi

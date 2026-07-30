@@ -4,6 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import "../shared"
+import "../kit"
 
 // Packages → AppImages: local library under ~/.local/share/proteus/appimages.
 ColumnLayout {

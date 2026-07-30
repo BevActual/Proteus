@@ -20,10 +20,28 @@ Singleton {
 
   property string pkgPendingAction: ""
   property string pkgPendingPkg: ""
+  property var pkgPendingPkgs: []
 
-  // AUR / Flatpak detection (refreshed on demand)
+  // Seed Software → Search / AUR / Flatpak from the hub search field.
+  property string searchSeed: ""
+  property string searchSeedTarget: "packages-search" // packages-search | packages-aur | packages-flatpak
+
+  function seedPackageSearch(query, target) {
+    searchSeed = String(query || "").trim()
+    const t = String(target || "packages-search")
+    searchSeedTarget = (t === "packages-aur" || t === "packages-flatpak") ? t : "packages-search"
+  }
+
+  function takeSearchSeed() {
+    const q = searchSeed
+    searchSeed = ""
+    return q
+  }
+
+  // AUR / Flatpak / Flathub detection (refreshed on demand)
   property string aurHelper: "" // yay | paru | ""
   property bool flatpakAvailable: false
+  property bool flathubConfigured: false // user remote named flathub
   property bool helpersReady: false
 
   // AppImage library
@@ -36,6 +54,69 @@ Singleton {
 
   function notePackageUpgrades(count) {
     packageUpgradeCount = count
+  }
+
+  // Search ranking shared by Software → Search / AUR / Flatpak.
+  function packageMatchScore(query, name, desc) {
+    const q = String(query || "").trim().toLowerCase()
+    const n = String(name || "").toLowerCase()
+    const d = String(desc || "").toLowerCase()
+    if (!q.length)
+      return 0
+    if (n === q)
+      return 1000
+    if (n.startsWith(q))
+      return 800
+    if (n.indexOf(q) >= 0)
+      return 600
+    // Token starts-with (hyphen/underscore splits)
+    const parts = n.split(/[-_.]/)
+    for (let i = 0; i < parts.length; i++) {
+      if (parts[i].startsWith(q))
+        return 500
+    }
+    if (d.indexOf(q) >= 0)
+      return 200
+    return 0
+  }
+
+  function repoPreferScore(repo) {
+    const r = String(repo || "").toLowerCase()
+    if (r === "core")
+      return 40
+    if (r === "extra")
+      return 30
+    if (r === "multilib")
+      return 20
+    if (r === "aur")
+      return 5
+    return 10
+  }
+
+  function sortSearchResults(query, items) {
+    const list = items || []
+    const scored = []
+    for (let i = 0; i < list.length; i++) {
+      const it = list[i]
+      const name = it.name || it.ref || ""
+      const score = packageMatchScore(query, name, it.desc || "")
+          + repoPreferScore(it.repo)
+          + (it.installed ? 15 : 0)
+      scored.push({
+        item: it,
+        score: score,
+        name: String(name).toLowerCase()
+      })
+    }
+    scored.sort((a, b) => {
+      if (b.score !== a.score)
+        return b.score - a.score
+      return a.name < b.name ? -1 : (a.name > b.name ? 1 : 0)
+    })
+    const out = []
+    for (let i = 0; i < scored.length; i++)
+      out.push(scored[i].item)
+    return out
   }
 
   function _trimOpLines(maxKeep) {
@@ -102,6 +183,20 @@ Singleton {
     runPacmanMutator("upgrade")
   }
 
+  function openPacmanUpgradePackages(names) {
+    if (!names || !names.length)
+      return
+    const clean = []
+    for (let i = 0; i < names.length; i++) {
+      const name = String(names[i] || "").replace(/[^a-zA-Z0-9@.+_-]/g, "")
+      if (name.length)
+        clean.push(name)
+    }
+    if (!clean.length)
+      return
+    runPacmanMutator("upgrade-packages", clean)
+  }
+
   function openPacmanSync() {
     runPacmanMutator("sync")
   }
@@ -115,6 +210,16 @@ Singleton {
     runPacmanMutator("install", name)
   }
 
+  function openPacmanInstallMany(names) {
+    const clean = _sanitizePkgNames(names)
+    if (!clean.length)
+      return
+    if (clean.length === 1)
+      runPacmanMutator("install", clean[0])
+    else
+      runPacmanMutator("install", clean)
+  }
+
   function openPacmanRemove(pkg) {
     if (!pkg || !String(pkg).length)
       return
@@ -122,6 +227,29 @@ Singleton {
     if (!name.length)
       return
     runPacmanMutator("remove", name)
+  }
+
+  function openPacmanRemoveMany(names) {
+    const clean = _sanitizePkgNames(names)
+    if (!clean.length)
+      return
+    if (clean.length === 1)
+      runPacmanMutator("remove", clean[0])
+    else
+      runPacmanMutator("remove", clean)
+  }
+
+  function _sanitizePkgNames(names) {
+    const clean = []
+    if (!names || !names.length)
+      return clean
+    const list = typeof names === "string" ? [names] : names
+    for (let i = 0; i < list.length; i++) {
+      const name = String(list[i] || "").replace(/[^a-zA-Z0-9@.+_-]/g, "")
+      if (name.length)
+        clean.push(name)
+    }
+    return clean
   }
 
   function openPacmanOrphans() {
@@ -152,11 +280,27 @@ Singleton {
     runUserPkgOp([aurHelper, "-S", "--noconfirm", "--", name], "Installing " + name + "…")
   }
 
+  function aurInstallMany(names) {
+    const clean = _sanitizePkgNames(names)
+    if (!clean.length || !aurHelper.length)
+      return
+    const args = [aurHelper, "-S", "--noconfirm", "--"].concat(clean)
+    runUserPkgOp(args, "Installing " + clean.length + " AUR package" + (clean.length === 1 ? "" : "s") + "…")
+  }
+
   function aurRemove(pkg) {
     const name = String(pkg || "").replace(/[^a-zA-Z0-9@.+_-]/g, "")
     if (!name.length || !aurHelper.length)
       return
     runUserPkgOp([aurHelper, "-Rns", "--noconfirm", "--", name], "Removing " + name + "…")
+  }
+
+  function aurRemoveMany(names) {
+    const clean = _sanitizePkgNames(names)
+    if (!clean.length || !aurHelper.length)
+      return
+    const args = [aurHelper, "-Rns", "--noconfirm", "--"].concat(clean)
+    runUserPkgOp(args, "Removing " + clean.length + " package" + (clean.length === 1 ? "" : "s") + "…")
   }
 
   function aurUpdate() {
@@ -170,7 +314,27 @@ Singleton {
     const id = String(ref || "").trim()
     if (!id.length || !flatpakAvailable)
       return
-    runUserPkgOp(["flatpak", "install", "-y", "--user", "--", id], "Installing " + id + "…")
+    const args = flathubConfigured
+        ? ["flatpak", "install", "-y", "--user", "flathub", "--", id]
+        : ["flatpak", "install", "-y", "--user", "--", id]
+    runUserPkgOp(args, "Installing " + id + "…")
+  }
+
+  function flatpakInstallMany(refs) {
+    const clean = []
+    if (!refs || !refs.length || !flatpakAvailable)
+      return
+    for (let i = 0; i < refs.length; i++) {
+      const id = String(refs[i] || "").trim()
+      if (id.length)
+        clean.push(id)
+    }
+    if (!clean.length)
+      return
+    const args = flathubConfigured
+        ? ["flatpak", "install", "-y", "--user", "flathub", "--"].concat(clean)
+        : ["flatpak", "install", "-y", "--user", "--"].concat(clean)
+    runUserPkgOp(args, "Installing " + clean.length + " Flatpak" + (clean.length === 1 ? "" : "s") + "…")
   }
 
   function flatpakRemove(ref) {
@@ -178,6 +342,21 @@ Singleton {
     if (!id.length || !flatpakAvailable)
       return
     runUserPkgOp(["flatpak", "uninstall", "-y", "--user", "--", id], "Removing " + id + "…")
+  }
+
+  function flatpakRemoveMany(refs) {
+    const clean = []
+    if (!refs || !refs.length || !flatpakAvailable)
+      return
+    for (let i = 0; i < refs.length; i++) {
+      const id = String(refs[i] || "").trim()
+      if (id.length)
+        clean.push(id)
+    }
+    if (!clean.length)
+      return
+    const args = ["flatpak", "uninstall", "-y", "--user", "--"].concat(clean)
+    runUserPkgOp(args, "Removing " + clean.length + " Flatpak" + (clean.length === 1 ? "" : "s") + "…")
   }
 
   function flatpakUpdate() {
@@ -197,6 +376,10 @@ Singleton {
       "flathub",
       "https://dl.flathub.org/repo/flathub.flatpakrepo"
     ], "Adding Flathub…")
+  }
+
+  function noteFlathubConfigured(on) {
+    flathubConfigured = !!on
   }
 
   // ── AppImages ────────────────────────────────────────────────────────────
@@ -286,16 +469,46 @@ Singleton {
     if (packageOpBusy)
       return
     if (action !== "sync" && action !== "upgrade" && action !== "install"
-        && action !== "remove" && action !== "orphans")
+        && action !== "remove" && action !== "orphans" && action !== "upgrade-packages")
       return
-    if ((action === "install" || action === "remove") && (!pkg || !String(pkg).length))
-      return
+
+    let pkgs = []
+    if (action === "upgrade-packages") {
+      if (!pkg || !pkg.length)
+        return
+      if (typeof pkg === "string")
+        pkgs = [String(pkg)]
+      else
+        pkgs = pkg
+      if (!pkgs.length)
+        return
+    } else if (action === "install" || action === "remove") {
+      if (!pkg)
+        return
+      if (typeof pkg === "string") {
+        if (!String(pkg).length)
+          return
+      } else if (pkg.length) {
+        pkgs = pkg
+      } else {
+        return
+      }
+    }
 
     packageOpBusy = true
     packageOpLines = ["Looking up proteus-pkg…"]
     packageOpStatus = packageOpLines[0]
     pkgPendingAction = action
-    pkgPendingPkg = pkg ? String(pkg) : ""
+    if ((action === "install" || action === "remove") && typeof pkg === "string") {
+      pkgPendingPkg = String(pkg)
+      pkgPendingPkgs = []
+    } else if ((action === "install" || action === "remove") && pkgs.length) {
+      pkgPendingPkg = ""
+      pkgPendingPkgs = pkgs
+    } else {
+      pkgPendingPkg = ""
+      pkgPendingPkgs = pkgs
+    }
 
     let script = "BIN=\"\"; "
         + "if [ -x /usr/local/libexec/proteus-pkg ]; then BIN=/usr/local/libexec/proteus-pkg; "
@@ -304,7 +517,7 @@ Singleton {
     for (let i = 0; i < bases.length; i++) {
       const b = Config.shellQuote(bases[i])
       script += "if [ -z \"$BIN\" ]; then "
-          + "for t in target/release/proteus-pkg target/debug/proteus-pkg proteus-pkg; do "
+          + "for t in bin/proteus-pkg target/release/proteus-pkg target/debug/proteus-pkg proteus-pkg; do "
           + "c=" + b + "/$t; if [ -x \"$c\" ]; then BIN=$c; break; fi; done; fi; "
     }
     script += "printf '%s' \"$BIN\""
@@ -319,8 +532,17 @@ Singleton {
     packageOpLines = ["Authenticate to apply…"]
     packageOpStatus = packageOpLines[0]
     const args = ["pkexec", bin, pkgPendingAction]
-    if (pkgPendingAction === "install" || pkgPendingAction === "remove")
-      args.push(pkgPendingPkg)
+    if (pkgPendingAction === "install" || pkgPendingAction === "remove") {
+      if (pkgPendingPkgs.length) {
+        for (let i = 0; i < pkgPendingPkgs.length; i++)
+          args.push(pkgPendingPkgs[i])
+      } else if (pkgPendingPkg.length) {
+        args.push(pkgPendingPkg)
+      }
+    } else if (pkgPendingAction === "upgrade-packages") {
+      for (let i = 0; i < pkgPendingPkgs.length; i++)
+        args.push(pkgPendingPkgs[i])
+    }
     pkgMutatorProc.command = args
     pkgMutatorProc.running = false
     pkgMutatorProc.running = true
@@ -335,8 +557,10 @@ Singleton {
       packageOpStatus = ok ? "Done." : "Failed."
     pkgPendingAction = ""
     pkgPendingPkg = ""
-    if (ok && (action === "upgrade" || action === "sync" || action === "install"
-            || action === "remove" || action === "orphans" || action === "user"))
+    pkgPendingPkgs = []
+    if (ok && (action === "upgrade" || action === "upgrade-packages" || action === "sync"
+            || action === "install" || action === "remove" || action === "orphans"
+            || action === "user"))
       notePackageUpgrades(-1)
     packageOpFinished(ok, packageOpStatus)
   }
@@ -349,13 +573,17 @@ Singleton {
       "H=\"\"; command -v yay >/dev/null && H=yay; "
           + "[ -z \"$H\" ] && command -v paru >/dev/null && H=paru; "
           + "F=0; command -v flatpak >/dev/null && F=1; "
-          + "printf '%s %s' \"$H\" \"$F\""
+          + "FH=0; "
+          + "[ \"$F\" = 1 ] && flatpak remotes --user --columns=name 2>/dev/null "
+          + "| tr '[:upper:]' '[:lower:]' | grep -qx flathub && FH=1; "
+          + "printf '%s %s %s' \"$H\" \"$F\" \"$FH\""
     ]
     stdout: StdioCollector {
       onStreamFinished: {
         const parts = text.trim().split(/\s+/)
         root.aurHelper = parts[0] || ""
         root.flatpakAvailable = parts[1] === "1"
+        root.flathubConfigured = parts[2] === "1"
         root.helpersReady = true
       }
     }
@@ -442,18 +670,22 @@ Singleton {
         if (!bin.length) {
           const a = root.pkgPendingAction
           const p = root.pkgPendingPkg
+          const ps = root.pkgPendingPkgs.slice()
           root.packageOpBusy = false
           root.packageOpStatus = "proteus-pkg missing — opened terminal"
           root.pkgPendingAction = ""
           root.pkgPendingPkg = ""
+          root.pkgPendingPkgs = []
           if (a === "sync")
             root.openPacmanTerminal(["sudo", "pacman", "-Sy"])
           else if (a === "upgrade")
             root.openPacmanTerminal(["sudo", "pacman", "-Syu"])
-          else if (a === "install" && p.length)
-            root.openPacmanTerminal(["sudo", "pacman", "-S", "--needed", p])
-          else if (a === "remove" && p.length)
-            root.openPacmanTerminal(["sudo", "pacman", "-Rns", p])
+          else if (a === "upgrade-packages" && ps.length)
+            root.openPacmanTerminal(["sudo", "pacman", "-S", "--needed", "--"].concat(ps))
+          else if (a === "install" && (p.length || ps.length))
+            root.openPacmanTerminal(["sudo", "pacman", "-S", "--needed", "--"].concat(p.length ? [p] : ps))
+          else if (a === "remove" && (p.length || ps.length))
+            root.openPacmanTerminal(["sudo", "pacman", "-Rns", "--"].concat(p.length ? [p] : ps))
           else if (a === "orphans")
             root.openPacmanTerminal(["sudo", "bash", "-lc", "pkgs=$(pacman -Qdtq); [ -n \"$pkgs\" ] && sudo pacman -Rns -- $pkgs || echo 'No orphans'"])
           root.packageOpFinished(false, "proteus-pkg not installed; used terminal fallback")

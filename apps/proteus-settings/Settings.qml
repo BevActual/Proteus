@@ -82,7 +82,7 @@ Item {
     },
     {
       key: "packages-search",
-      label: "Search"
+      label: "Repos"
     },
     {
       key: "packages-aur",
@@ -90,7 +90,7 @@ Item {
     },
     {
       key: "packages-flatpak",
-      label: "Flatpak"
+      label: "Flathub"
     },
     {
       key: "packages-appimages",
@@ -361,42 +361,12 @@ Item {
               source: "panes/MousePane.qml"
             }
             StickyPaneLoader {
-              want: root.section === "packages" && root.page === "packages"
+              want: root.section === "packages"
               source: "panes/PackagesPane.qml"
               onLoaded: {
                 item.page = Qt.binding(() => root.page)
                 item.requestGo.connect(id => SettingsNav.go(id))
               }
-            }
-            StickyPaneLoader {
-              want: root.page === "packages-updates"
-              source: "panes/PackagesUpdatesPane.qml"
-              onLoaded: item.active = Qt.binding(() => root.page === "packages-updates")
-            }
-            StickyPaneLoader {
-              want: root.page === "packages-search"
-              source: "panes/PackagesSearchPane.qml"
-              onLoaded: item.active = Qt.binding(() => root.page === "packages-search")
-            }
-            StickyPaneLoader {
-              want: root.page === "packages-aur"
-              source: "panes/PackagesAurPane.qml"
-              onLoaded: item.active = Qt.binding(() => root.page === "packages-aur")
-            }
-            StickyPaneLoader {
-              want: root.page === "packages-flatpak"
-              source: "panes/PackagesFlatpakPane.qml"
-              onLoaded: item.active = Qt.binding(() => root.page === "packages-flatpak")
-            }
-            StickyPaneLoader {
-              want: root.page === "packages-appimages"
-              source: "panes/PackagesAppImagesPane.qml"
-              onLoaded: item.active = Qt.binding(() => root.page === "packages-appimages")
-            }
-            StickyPaneLoader {
-              want: root.page === "packages-orphans"
-              source: "panes/PackagesOrphansPane.qml"
-              onLoaded: item.active = Qt.binding(() => root.page === "packages-orphans")
             }
             StickyPaneLoader {
               want: root.section === "sound"

@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Guest Software dogfood — list/browse paths + user Flatpak install/remove.
+# Pacman mutators need polkit/GUI auth; those are checked for CLI presence only.
+set -uo pipefail
+
+HOST="${PROTEUS_GUEST_HOST:-127.0.0.1}"
+PORT="${PROTEUS_GUEST_PORT:-2222}"
+USER="${PROTEUS_GUEST_USER:-andrew}"
+ssh_opts=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o ConnectTimeout=5 -p "${PORT}")
+
+out="$(ssh "${ssh_opts[@]}" "${USER}@${HOST}" 'bash -s' <<'EOF'
+set -uo pipefail
+fail=0
+ok() { echo "OK  $*"; }
+bad() { echo "FAIL $*"; fail=1; }
+
+help="$(proteus-pkg 2>&1 || true)"
+echo "$help" | grep -q upgrade-packages && ok "proteus-pkg CLI" || bad "proteus-pkg CLI"
+command -v yay >/dev/null && ok "yay" || bad "yay"
+command -v flatpak >/dev/null && ok "flatpak" || bad "flatpak"
+flatpak remotes --user --columns=name 2>/dev/null | grep -qx flathub && ok "flathub remote" || bad "flathub remote"
+
+n=$(comm -23 <(pacman -Slq | sort -u) <(pacman -Qq | sort -u) | head -n 5 | wc -l | tr -d ' ')
+[[ "$n" -ge 1 ]] && ok "repos browse ($n sample)" || bad "repos browse"
+
+n=$(yay -Slq aur 2>/dev/null | head -n 5 | wc -l | tr -d ' ')
+[[ "$n" -ge 1 ]] && ok "aur browse ($n sample)" || bad "aur browse"
+
+n=$(flatpak remote-ls flathub --app --columns=application:f,name 2>/dev/null | head -n 5 | wc -l | tr -d ' ')
+[[ "$n" -ge 1 ]] && ok "flathub browse ($n sample)" || bad "flathub browse"
+
+pacman -Qqe >/dev/null && ok "repos inventory" || bad "repos inventory"
+pacman -Qqm >/dev/null && ok "aur inventory" || bad "aur inventory"
+pacman -Qu >/dev/null 2>&1 || true
+ok "updates query (pacman -Qu)"
+
+REF=org.gnome.Calculator
+if flatpak list --user --app --columns=application 2>/dev/null | grep -qx "$REF"; then
+  ok "flatpak already has $REF — reinstall skip"
+else
+  if flatpak install -y --user flathub "$REF" >/tmp/proteus-flatpak-install.log 2>&1; then
+    ok "flatpak install $REF"
+  else
+    bad "flatpak install $REF"
+    tail -20 /tmp/proteus-flatpak-install.log || true
+  fi
+fi
+if flatpak list --user --app --columns=application 2>/dev/null | grep -qx "$REF"; then
+  if flatpak uninstall -y --user "$REF" >/tmp/proteus-flatpak-remove.log 2>&1; then
+    ok "flatpak remove $REF"
+  else
+    bad "flatpak remove $REF"
+    tail -20 /tmp/proteus-flatpak-remove.log || true
+  fi
+else
+  ok "flatpak remove skipped (not installed)"
+fi
+
+if sudo -n true 2>/dev/null; then
+  if sudo -n proteus-pkg install cowsay && sudo -n proteus-pkg remove cowsay; then
+    ok "pacman install+remove cowsay"
+  else
+    bad "pacman install/remove cowsay"
+  fi
+else
+  ok "pacman mutator skipped (no passwordless sudo; use Settings + polkit in GUI)"
+fi
+
+exit "$fail"
+EOF
+)" || true
+
+echo "${out}"
+echo "${out}" | grep -q '^FAIL ' && { echo "software-guest-smoke: FAILED" >&2; exit 1; }
+echo "software-guest-smoke: OK"

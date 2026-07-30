@@ -3,7 +3,7 @@
 Privileged pacman mutator for Proteus Settings. Settings confirms the action in-app, then runs:
 
 ```bash
-pkexec /usr/local/libexec/proteus-pkg <sync|upgrade|install|remove|orphans> [package]
+pkexec /usr/local/libexec/proteus-pkg <sync|upgrade|install|remove|orphans|upgrade-packages> [package…]
 ```
 
 ## Commands
@@ -12,8 +12,9 @@ pkexec /usr/local/libexec/proteus-pkg <sync|upgrade|install|remove|orphans> [pac
 |--------|--------|
 | `sync` | `pacman -Sy --noconfirm` |
 | `upgrade` | `pacman -Syu --noconfirm` |
-| `install <pkg>` | `pacman -S --noconfirm --needed -- <pkg>` |
-| `remove <pkg>` | `pacman -Rns --noconfirm -- <pkg>` |
+| `install <pkg…>` | `pacman -S --noconfirm --needed -- <pkg…>` |
+| `upgrade-packages <pkg…>` | same as install (selective upgrades from Settings) |
+| `remove <pkg…>` | `pacman -Rns --noconfirm -- <pkg…>` |
 | `orphans` | `pacman -Rns --noconfirm -- $(pacman -Qdtq)` (no-op if empty) |
 
 Package names are validated (`[a-zA-Z0-9@.+_-]+`). Must run as root (via `pkexec`).
@@ -23,7 +24,9 @@ Stdout/stderr from pacman are flushed line-by-line so Settings can show live pro
 
 ```bash
 cd services/proteus-pkg && cargo build --release
-# guest / host install (copies target/release + polkit policy):
+# If target/release is not writable (root-owned), stage for install:
+#   mkdir -p bin && cp /path/to/fresh/proteus-pkg bin/proteus-pkg
+# guest / host install (copies bin/ or target/release + polkit policy):
 sudo ../../vm/guest/install-proteus-pkg.sh
 # or via settings install (runs the above when a release binary exists):
 sudo ../../vm/guest/install-settings-app.sh

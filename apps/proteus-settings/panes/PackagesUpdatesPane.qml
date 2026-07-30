@@ -3,8 +3,9 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import "../shared"
+import "../kit"
 
-// Packages → Updates: list upgradable; propose → confirm → pkexec proteus-pkg.
+// Packages → Updates: selective list; propose → confirm → pkexec proteus-pkg.
 ColumnLayout {
   id: root
   Layout.fillWidth: true
@@ -14,11 +15,22 @@ ColumnLayout {
   property var upgrades: []
   property string status: "Checking for upgrades…"
   property bool busy: false
-  property string pendingAction: "" // sync | upgrade
+  property string pendingAction: "" // sync | upgrade | upgrade-packages
   property string pendingDetail: ""
 
   readonly property bool confirming: pendingAction.length > 0
   readonly property bool applying: Packages.packageOpBusy
+  readonly property var selectedNames: {
+    const out = []
+    for (let i = 0; i < upgrades.length; i++) {
+      if (upgrades[i].selected)
+        out.push(upgrades[i].name)
+    }
+    return out
+  }
+  readonly property int selectedCount: selectedNames.length
+  readonly property bool allSelected: upgrades.length > 0 && selectedCount === upgrades.length
+  readonly property bool noneSelected: selectedCount === 0
 
   function clearPending() {
     pendingAction = ""
@@ -34,18 +46,74 @@ ColumnLayout {
     checkProc.running = true
   }
 
+  function setSelected(name, on) {
+    const next = []
+    for (let i = 0; i < upgrades.length; i++) {
+      const u = upgrades[i]
+      next.push({
+        name: u.name,
+        from: u.from,
+        to: u.to,
+        selected: u.name === name ? !!on : !!u.selected
+      })
+    }
+    upgrades = next
+  }
+
+  function setAllSelected(on) {
+    const next = []
+    for (let i = 0; i < upgrades.length; i++) {
+      const u = upgrades[i]
+      next.push({
+        name: u.name,
+        from: u.from,
+        to: u.to,
+        selected: !!on
+      })
+    }
+    upgrades = next
+  }
+
+  function proposeUpgrade() {
+    const n = selectedCount
+    if (upgrades.length === 0) {
+      pendingAction = "upgrade"
+      pendingDetail = "About to run proteus-pkg upgrade → pacman -Syu (full system upgrade)."
+      return
+    }
+    if (n === 0)
+      return
+    if (allSelected) {
+      pendingAction = "upgrade"
+      pendingDetail = "About to run proteus-pkg upgrade → pacman -Syu for all "
+          + n + " pending package" + (n === 1 ? "" : "s") + "."
+      return
+    }
+    const names = selectedNames
+    const preview = names.length <= 8
+        ? names.join(", ")
+        : (names.slice(0, 8).join(", ") + "… (+" + (names.length - 8) + ")")
+    pendingAction = "upgrade-packages"
+    pendingDetail = "About to run proteus-pkg upgrade-packages → pacman -S --needed for "
+        + n + " selected package" + (n === 1 ? "" : "s") + ": " + preview
+        + ". Other pending upgrades stay until you select them (deps may still pull related packages)."
+  }
+
   function runPending() {
     const a = pendingAction
+    const names = selectedNames.slice()
     clearPending()
     if (a === "sync")
       Packages.openPacmanSync()
     else if (a === "upgrade")
       Packages.openPacmanUpgrade()
+    else if (a === "upgrade-packages")
+      Packages.openPacmanUpgradePackages(names)
   }
 
   Text {
     Layout.fillWidth: true
-    text: "Shows packages the local DB thinks can upgrade. Sync the DB first if the list looks stale."
+    text: "Shows packages the local DB thinks can upgrade. Sync the DB first if the list looks stale. Uncheck packages to leave them pending."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 12
@@ -54,7 +122,13 @@ ColumnLayout {
 
   PackagesConfirm {
     open: root.confirming
-    title: root.pendingAction === "sync" ? "Sync package databases?" : "Upgrade system packages?"
+    title: {
+      if (root.pendingAction === "sync")
+        return "Sync package databases?"
+      if (root.pendingAction === "upgrade-packages")
+        return "Upgrade selected packages?"
+      return "Upgrade system packages?"
+    }
     detail: root.pendingDetail
     onCancelled: root.clearPending()
     onConfirmed: root.runPending()
@@ -70,42 +144,103 @@ ColumnLayout {
     visible: (root.upgrades.length === 0 || root.applying) && !root.confirming
   }
 
+  RowLayout {
+    Layout.fillWidth: true
+    Layout.maximumWidth: 520
+    spacing: Theme.spaceSm
+    visible: root.upgrades.length > 0 && !root.confirming && !root.applying
+
+    Text {
+      text: root.selectedCount + " of " + root.upgrades.length + " selected"
+      color: Theme.textDim
+      font.family: Theme.fontFamily
+      font.pixelSize: 12
+      Layout.fillWidth: true
+    }
+
+    Text {
+      text: root.allSelected ? "Select none" : "Select all"
+      color: Theme.accent
+      font.family: Theme.fontFamily
+      font.pixelSize: 12
+      font.bold: true
+      MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.setAllSelected(!root.allSelected)
+      }
+    }
+  }
+
   Repeater {
     model: root.upgrades
 
     Rectangle {
       required property var modelData
+      required property int index
       Layout.fillWidth: true
       Layout.maximumWidth: 520
       Layout.preferredHeight: rowCol.implicitHeight + 20
       radius: Theme.radiusMd
       color: Theme.bgPanel
       border.width: 1
-      border.color: Theme.border
+      border.color: modelData.selected ? Theme.accent : Theme.border
+      opacity: root.confirming || root.applying ? 0.7 : 1
 
-      ColumnLayout {
+      RowLayout {
         id: rowCol
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.margins: Theme.spaceMd
-        spacing: 2
+        spacing: Theme.spaceMd
 
-        Text {
-          text: modelData.name
-          color: Theme.text
-          font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSize
-          font.bold: true
+        Rectangle {
+          Layout.preferredWidth: 20
+          Layout.preferredHeight: 20
+          Layout.alignment: Qt.AlignVCenter
+          radius: 4
+          color: modelData.selected ? Theme.accent : "transparent"
+          border.width: 1
+          border.color: modelData.selected ? Theme.accent : Theme.border
+
+          Text {
+            anchors.centerIn: parent
+            text: modelData.selected ? "✓" : ""
+            color: "#ffffff"
+            font.pixelSize: 12
+            font.bold: true
+            visible: modelData.selected
+          }
         }
-        Text {
+
+        ColumnLayout {
           Layout.fillWidth: true
-          text: modelData.from + " → " + modelData.to
-          color: Theme.textDim
-          font.family: Theme.fontFamily
-          font.pixelSize: 11
-          wrapMode: Text.WrapAnywhere
+          spacing: 2
+
+          Text {
+            text: modelData.name
+            color: Theme.text
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize
+            font.bold: true
+          }
+          Text {
+            Layout.fillWidth: true
+            text: modelData.from + " → " + modelData.to
+            color: Theme.textDim
+            font.family: Theme.fontFamily
+            font.pixelSize: 11
+            wrapMode: Text.WrapAnywhere
+          }
         }
+      }
+
+      MouseArea {
+        anchors.fill: parent
+        enabled: !root.confirming && !root.applying
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.setSelected(modelData.name, !modelData.selected)
       }
     }
   }
@@ -175,10 +310,20 @@ ColumnLayout {
     border.width: 1
     border.color: Theme.accent
     visible: !root.confirming
-    opacity: root.applying ? 0.6 : 1
+    opacity: (root.applying || (root.upgrades.length > 0 && root.noneSelected)) ? 0.5 : 1
     Text {
       anchors.centerIn: parent
-      text: root.applying ? "Applying…" : (root.upgrades.length ? ("Upgrade " + root.upgrades.length + "…") : "Full upgrade…")
+      text: {
+        if (root.applying)
+          return "Applying…"
+        if (root.upgrades.length === 0)
+          return "Full upgrade…"
+        if (root.noneSelected)
+          return "Select packages to upgrade"
+        if (root.allSelected)
+          return "Upgrade all " + root.selectedCount + "…"
+        return "Upgrade " + root.selectedCount + " selected…"
+      }
       color: Theme.text
       font.family: Theme.fontFamily
       font.bold: true
@@ -186,21 +331,15 @@ ColumnLayout {
     }
     MouseArea {
       anchors.fill: parent
-      enabled: !root.applying
+      enabled: !root.applying && !(root.upgrades.length > 0 && root.noneSelected)
       cursorShape: Qt.PointingHandCursor
-      onClicked: {
-        const n = root.upgrades.length
-        root.pendingAction = "upgrade"
-        root.pendingDetail = n
-            ? ("About to run proteus-pkg upgrade → pacman -Syu for " + n + " pending package" + (n === 1 ? "" : "s") + ".")
-            : "About to run proteus-pkg upgrade → pacman -Syu (full system upgrade)."
-      }
+      onClicked: root.proposeUpgrade()
     }
   }
 
   Text {
     Layout.fillWidth: true
-    text: "Fact: pacman -Qu · Apply: pkexec proteus-pkg sync|upgrade (live progress)"
+    text: "Fact: pacman -Qu · Apply: pkexec proteus-pkg sync|upgrade|upgrade-packages (live progress)"
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11
@@ -231,7 +370,8 @@ ColumnLayout {
             out.push({
               name: m[1],
               from: m[2],
-              to: m[3]
+              to: m[3],
+              selected: true
             })
           }
         }

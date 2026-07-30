@@ -88,7 +88,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Desktop → Gaps / Borders / Motion / Dock & menu bar / Launcher (`proteus-general.conf` + sizes + Spotlight tags/recents) | `shipped` |
 | Displays (scale / mode / orientation, Identify; layout canvas) | `partial` — drag layout + full-snapshot Revert; multi-monitor dogfood preferred |
 | Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) | `shipped` |
-| Software → Updates / Search / AUR / Flatpak / AppImages / Orphans (propose → confirm; live progress; Snap Out) | `partial` — optional guest: `yay`/`paru`, `flatpak` + Flathub; AppImages need no helper |
+| Software → Updates / Repos / AUR / Flathub / AppImages / Orphans (Install\|Remove multi-select; empty Install browses; leaves open on inventory; selective upgrades; Snap Out) | `partial` — optional guest: `yay`/`paru`, `flatpak` + Flathub (`ensure-flathub` via settings install); AppImages need no helper; dep graphs later |
 | Sound → Output / Input / Applications / Latency & buffer (`sound`) | `partial` — category hub; streaming input peak meter, per-app volume, test tone |
 | Network (hostname, Wi‑Fi connect, Bluetooth, Tailscale, NM VPN) | `partial` — password Wi‑Fi / pairing / Headscale via system tools |
 | Power (battery via UPower; logind idle/lid read-only + conf escape hatch) | `partial` — writing lid/idle needs a privileged helper |
@@ -185,7 +185,7 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 
 ## 8. Not yet
 
-- Snap / selective pacman upgrade checkboxes / dependency graphs in Software  
+- Snap / dependency graphs in Software  
 - Remaining posture hypr profiles beyond stubs (wearable / xr / vehicle; media/host/home chrome)  
 - Displays **Revert** edge cases on fragile VM hotplug (full-snapshot Revert shipped; re-verify after sleep/hotplug)
 - systemd/user-unit QS supervisor; pacman IgnorePkg / ISO QS version pin  
