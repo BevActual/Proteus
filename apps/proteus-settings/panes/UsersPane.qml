@@ -18,30 +18,35 @@ ColumnLayout {
   property string currentGroups: ""
   property var otherUsers: []
   property string loadError: ""
+  property string sessionBusy: ""
 
   readonly property var sessionActions: [
     {
       label: "Lock",
       action: "lock",
-      hint: "Show the lock screen now",
+      hint: "Lock screen now · quickshell ipc / loginctl",
+      trailing: "Now",
       destructive: false
     },
     {
       label: "Log out",
       action: "logout",
-      hint: "End this Hyprland session",
+      hint: "End this Hyprland session · hyprctl dispatch exit",
+      trailing: "Exit",
       destructive: false
     },
     {
       label: "Reboot",
       action: "reboot",
-      hint: "Restart the machine",
+      hint: "Restart the machine · systemctl reboot",
+      trailing: "Reboot",
       destructive: true
     },
     {
       label: "Shut down",
       action: "shutdown",
-      hint: "Power off the machine",
+      hint: "Power off · systemctl poweroff",
+      trailing: "Power off",
       destructive: true
     }
   ]
@@ -51,12 +56,26 @@ ColumnLayout {
     usersProc.running = true
   }
 
+  function runSession(action) {
+    if (!action || root.sessionBusy.length)
+      return
+    root.sessionBusy = action
+    Config.session(action)
+    sessionBusyClear.restart()
+  }
+
   onActiveChanged: {
     if (active)
       refresh()
   }
 
   Component.onCompleted: refresh()
+
+  Timer {
+    id: sessionBusyClear
+    interval: 1200
+    onTriggered: root.sessionBusy = ""
+  }
 
   SettingsGroup {
     title: "Session"
@@ -68,16 +87,24 @@ ColumnLayout {
         required property var modelData
         required property int index
         label: modelData.label
-        hint: modelData.hint
+        hint: {
+          if (root.sessionBusy === modelData.action)
+            return "Working…"
+          return modelData.hint
+        }
         showSeparator: index < root.sessionActions.length - 1
-        interactive: true
+        interactive: root.sessionBusy.length === 0
         labelColor: modelData.destructive ? Theme.danger : Theme.text
-        onActivated: Config.session(modelData.action)
+        onActivated: root.runSession(modelData.action)
         Text {
-          text: "›"
-          color: Theme.textMute
+          text: root.sessionBusy === modelData.action ? "…" : modelData.trailing
+          color: {
+            if (root.sessionBusy === modelData.action)
+              return Theme.textMute
+            return modelData.destructive ? Theme.danger : Theme.accent
+          }
           font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSize
+          font.pixelSize: 12
         }
       }
     }
@@ -152,7 +179,7 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Fact: id / getent passwd · session via Config.session (hyprctl / systemctl / loginctl). No useradd from Settings."
+    text: "Fact: Config.session → lock ipc / hyprctl exit / systemctl reboot|poweroff · id / getent for accounts. No useradd from Settings."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11
