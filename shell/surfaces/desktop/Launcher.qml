@@ -443,7 +443,9 @@ Item {
             entry: a,
             path: "",
             name: a.name,
-            subtitle: root.tagsSubtitle(a.id, a.genericName || "Application"),
+            subtitle: ok
+              ? root.tagsSubtitle(a.id, a.genericName || "Application")
+              : root.unavailableSubtitle(EnvGate.appBlockReason(a)),
             icon: EnvGate.resolveAppIcon(a),
             blocked: !ok,
             score: 400 - i,
@@ -500,7 +502,7 @@ Item {
         name: a.name,
         subtitle: ok
           ? root.tagsSubtitle(a.id, ri >= 0 && !q.length && !tagFilter.length ? "Recent" : (a.genericName || "Application"))
-          : EnvGate.appBlockReason(a),
+          : root.unavailableSubtitle(EnvGate.appBlockReason(a)),
         icon: EnvGate.resolveAppIcon(a),
         blocked: !ok,
         score: score,
@@ -545,7 +547,8 @@ Item {
       const idx = EnvGate.settingsSearchIndex
       for (let i = 0; i < idx.length; i++) {
         const p = idx[i]
-        if (!EnvGate.paneAvailable(p.hubId))
+        const ok = EnvGate.paneAvailable(p.hubId)
+        if (!ok && !root.showUnavailable)
           continue
         const label = String(p.label).toLowerCase()
         const hay = (label + " " + (p.keywords || "") + " settings").toLowerCase()
@@ -560,9 +563,11 @@ Item {
           path: "",
           paneId: p.id,
           name: p.label,
-          subtitle: "Settings",
+          subtitle: ok
+            ? "Settings"
+            : root.unavailableSubtitle(EnvGate.paneBlockReason(p.hubId)),
           icon: "proteus-settings",
-          blocked: false,
+          blocked: !ok,
           score: score,
           clipLine: "",
           calcValue: ""
@@ -723,30 +728,51 @@ Item {
 
   function placeholderForMode() {
     if (mode === "files")
-      return "Search"
+      return "Search files"
     if (mode === "clipboard")
-      return "Clipboard"
+      return "Filter clipboard"
     if (mode === "actions")
-      return "Actions"
-    return "Search"
+      return "Filter actions"
+    return "Search apps"
   }
 
   function emptyText() {
-    if (mode === "files")
-      return filesHint || (search.text.trim().length ? "No files match." : "Type a name to search your home folder")
+    if (mode === "files") {
+      if (filesHint.length)
+        return filesHint
+      if (search.text.trim().length)
+        return "No files match in your home folder."
+      return "Type a name to search your home folder."
+    }
     if (mode === "clipboard") {
       if (clipHint.length && !clipHits.length)
         return clipHint
-      return search.text.trim().length ? "No clipboard matches." : "Clipboard history is empty (needs cliphist)."
+      if (search.text.trim().length)
+        return "No clipboard matches."
+      return "Clipboard history is empty — needs cliphist + wl-paste watchers."
     }
-    if (mode === "actions")
-      return search.text.trim().length ? "No actions match." : "No allowlisted actions."
+    if (mode === "actions") {
+      if (search.text.trim().length)
+        return "No actions match."
+      return "No allowlisted actions in catalog."
+    }
     const t = search.text.trim()
     if (!t.length)
-      return "No applications found."
+      return "No recent apps yet — type to search, or Ctrl+2–4 for Files / Clipboard / Actions."
     if (t === "#")
       return "Add tags via # on a result, or Settings → Desktop → Launcher."
+    if (showUnavailable)
+      return "No matches — including unavailable apps for this device."
     return "No matches."
+  }
+
+  function unavailableSubtitle(reason) {
+    const r = String(reason || "").trim()
+    if (!r.length)
+      return "Unavailable on this device"
+    if (r.toLowerCase().startsWith("unavailable"))
+      return r
+    return "Unavailable · " + r
   }
 
   // Floating Spotlight (Tahoe-shaped): pill search + results sheet
@@ -864,27 +890,46 @@ Item {
                 model: root.modes
                 delegate: Rectangle {
                   required property var modelData
-                  width: 34
+                  readonly property bool active: root.mode === modelData.id
                   height: 34
+                  width: active ? Math.max(34, modeRow.implicitWidth + 16) : 34
                   radius: 17
-                  color: root.mode === modelData.id
+                  color: active
                       ? Theme.chromeAccentSoft
                       : (modeMa.containsMouse ? root.spotInset : "transparent")
+                  border.width: active ? 0 : 0
+                  border.color: "transparent"
 
-          IconImage {
-            anchors.centerIn: parent
-            width: 16
-            height: 16
-            source: EnvGate.iconSource(modelData.icon)
-          }
+                  Row {
+                    id: modeRow
+                    anchors.centerIn: parent
+                    spacing: 6
+
+                    IconImage {
+                      anchors.verticalCenter: parent.verticalCenter
+                      width: 16
+                      height: 16
+                      source: EnvGate.iconSource(modelData.icon)
+                    }
+
+                    Text {
+                      anchors.verticalCenter: parent.verticalCenter
+                      visible: active
+                      text: modelData.label
+                      color: Theme.text
+                      font.family: Theme.fontFamily
+                      font.pixelSize: 11
+                      font.weight: Font.DemiBold
+                    }
+                  }
 
                   MouseArea {
                     id: modeMa
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    ToolTip.visible: containsMouse
-                    ToolTip.delay: 450
+                    ToolTip.visible: containsMouse && !active
+                    ToolTip.delay: 400
                     ToolTip.text: modelData.label + "  Ctrl+" + modelData.key
                     onClicked: root.setMode(modelData.id)
                   }
@@ -959,15 +1004,17 @@ Item {
           Text {
             Layout.fillWidth: true
             Layout.leftMargin: 8
-            visible: !root.tagging && root.mode !== "apps"
+            visible: !root.tagging
             text: {
               if (root.mode === "files")
-                return "Files"
+                return "Files · home folder"
               if (root.mode === "clipboard")
-                return "Clipboard"
+                return "Clipboard · cliphist"
               if (root.mode === "actions")
-                return "Actions"
-              return ""
+                return "Actions · allowlisted"
+              if (root.showUnavailable)
+                return "Apps · includes unavailable"
+              return "Apps"
             }
             color: Theme.textMute
             font.family: Theme.fontFamily
@@ -1204,6 +1251,15 @@ Item {
                   color: Theme.textMute
                   font.family: Theme.fontFamily
                   font.pixelSize: 11
+                }
+
+                Text {
+                  visible: !!modelData.blocked
+                  text: "Unavailable"
+                  color: Theme.danger
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 10
+                  font.weight: Font.DemiBold
                 }
 
                 Rectangle {
