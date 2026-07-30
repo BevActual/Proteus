@@ -3,16 +3,21 @@ import QtQuick.Layouts
 import "../shared"
 
 // One Software list row: checkbox + title/version/desc + optional row action.
+// Works in ColumnLayout (Layout.*) and as a plain Item (implicitHeight).
 Rectangle {
   id: root
   Layout.fillWidth: true
   Layout.maximumWidth: 520
-  Layout.preferredHeight: row.implicitHeight + 20
+  Layout.preferredHeight: implicitHeight
+  width: parent ? parent.width : implicitWidth
+  implicitWidth: 520
+  implicitHeight: Math.max(44, row.implicitHeight + Theme.spaceMd * 2)
   radius: Theme.radiusMd
   color: Theme.bgPanel
   border.width: 1
   border.color: selected ? Theme.accent : Theme.border
   opacity: rowEnabled ? 1 : 0.55
+  clip: true
 
   property string title: ""
   property string subtitle: ""
@@ -56,6 +61,7 @@ Rectangle {
 
     ColumnLayout {
       Layout.fillWidth: true
+      Layout.minimumWidth: 80
       spacing: 2
       RowLayout {
         Layout.fillWidth: true
@@ -101,6 +107,7 @@ Rectangle {
       visible: root.showAction && root.actionLabel.length > 0
       Layout.preferredHeight: 28
       Layout.preferredWidth: Math.max(64, actionTxt.implicitWidth + 16)
+      Layout.alignment: Qt.AlignVCenter
       radius: Theme.radius
       color: root.actionDanger
           ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.14)

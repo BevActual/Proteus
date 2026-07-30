@@ -146,25 +146,36 @@ ColumnLayout {
     visible: root.upgrades.length === 0 && !root.confirming && !root.applying
   }
 
-  ListView {
-    id: list
+  Flickable {
+    id: listFlick
     Layout.fillWidth: true
     Layout.maximumWidth: 520
-    Layout.preferredHeight: Math.min(360, Math.max(0, contentHeight))
+    Layout.preferredHeight: Math.min(360, Math.max(0, listCol.implicitHeight))
+    contentWidth: width
+    contentHeight: listCol.implicitHeight
     clip: true
-    spacing: 8
-    visible: !root.confirming && root.upgrades.length > 0
-    model: root.upgrades
     boundsBehavior: Flickable.StopAtBounds
-    delegate: PackagesPickerRow {
-      required property var modelData
-      width: list.width
-      title: modelData.name
-      subtitle: modelData.from + " → " + modelData.to
-      selected: !!modelData.selected
-      applying: root.applying
-      showAction: false
-      onToggled: root.setSelected(modelData.name, !modelData.selected)
+    visible: !root.confirming && root.upgrades.length > 0
+    interactive: contentHeight > height
+
+    ColumnLayout {
+      id: listCol
+      width: listFlick.width
+      spacing: 8
+
+      Repeater {
+        model: root.upgrades
+        PackagesPickerRow {
+          required property var modelData
+          Layout.fillWidth: true
+          title: modelData.name
+          subtitle: modelData.from + " → " + modelData.to
+          selected: !!modelData.selected
+          applying: root.applying
+          showAction: false
+          onToggled: root.setSelected(modelData.name, !modelData.selected)
+        }
+      }
     }
   }
 

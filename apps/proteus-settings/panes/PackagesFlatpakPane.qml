@@ -410,31 +410,42 @@ ColumnLayout {
     visible: root.results.length === 0 && !root.confirming && !root.applying
   }
 
-  ListView {
-    id: list
+  Flickable {
+    id: listFlick
     Layout.fillWidth: true
     Layout.maximumWidth: 520
-    Layout.preferredHeight: Math.min(root.listMaxHeight, Math.max(0, contentHeight))
+    Layout.preferredHeight: Math.min(root.listMaxHeight, Math.max(0, listCol.implicitHeight))
+    contentWidth: width
+    contentHeight: listCol.implicitHeight
     clip: true
-    spacing: 8
-    visible: !root.confirming
-    model: root.results
     boundsBehavior: Flickable.StopAtBounds
-    delegate: PackagesPickerRow {
-      required property var modelData
-      width: list.width
-      title: modelData.name || modelData.ref
-      subtitle: modelData.desc || modelData.ref || ""
-      version: modelData.version || ""
-      badge: (!root.onInstalled && modelData.installed) ? "Installed" : ""
-      selected: !!modelData.selected
-      rowEnabled: root.onInstalled || !modelData.installed
-      applying: root.applying
-      showAction: root.onInstalled || !modelData.installed
-      actionLabel: root.onInstalled ? "Remove" : "Install"
-      actionDanger: root.onInstalled
-      onToggled: root.setSelected(modelData.ref, !modelData.selected)
-      onActionClicked: root.proposeOne(modelData.ref)
+    visible: !root.confirming
+    interactive: contentHeight > height
+
+    ColumnLayout {
+      id: listCol
+      width: listFlick.width
+      spacing: 8
+
+      Repeater {
+        model: root.results
+        PackagesPickerRow {
+          required property var modelData
+          Layout.fillWidth: true
+          title: modelData.name || modelData.ref
+          subtitle: modelData.desc || modelData.ref || ""
+          version: modelData.version || ""
+          badge: (!root.onInstalled && modelData.installed) ? "Installed" : ""
+          selected: !!modelData.selected
+          rowEnabled: root.onInstalled || !modelData.installed
+          applying: root.applying
+          showAction: root.onInstalled || !modelData.installed
+          actionLabel: root.onInstalled ? "Remove" : "Install"
+          actionDanger: root.onInstalled
+          onToggled: root.setSelected(modelData.ref, !modelData.selected)
+          onActionClicked: root.proposeOne(modelData.ref)
+        }
+      }
     }
   }
 
