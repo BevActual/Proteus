@@ -46,16 +46,19 @@ Singleton {
   readonly property color chromeAccentSoft: Qt.rgba(accent.r, accent.g, accent.b, chromeAlpha * (light ? 0.22 : 0.28))
   readonly property color scrimFill: Qt.rgba(bg.r, bg.g, bg.b, (light ? 0.28 : 0.45) * Math.max(chromeAlpha, 0.4))
 
-  // Menu bar / Dock — Tahoe-adjacent glass (shared with Spotlight floating chrome)
+  // Menu bar / Dock — shared Tahoe-adjacent glass (same RGB family; hairline edge)
   readonly property color menuBarFill: light
       ? Qt.rgba(0.96, 0.96, 0.97, glassAlpha)
       : Qt.rgba(0.11, 0.11, 0.12, glassAlpha)
-  readonly property color dockPlateFill: light
-      ? Qt.rgba(0.94, 0.94, 0.96, glassAlpha)
-      : Qt.rgba(0.14, 0.14, 0.15, glassAlpha)
+  // Same plate as menu bar so blur+opacity read as one chrome family.
+  readonly property color dockPlateFill: menuBarFill
   readonly property color chromeHairline: light
       ? Qt.rgba(0, 0, 0, chromeClear ? 0 : (blur ? 0.10 : 0.12))
       : Qt.rgba(1, 1, 1, chromeClear ? 0 : (blur ? 0.08 : 0.10))
+  // Soft top specular on floating dock shelf (reads glass when blur is on).
+  readonly property color dockPlateSpecular: light
+      ? Qt.rgba(1, 1, 1, chromeClear ? 0 : (blur ? 0.22 : 0.10))
+      : Qt.rgba(1, 1, 1, chromeClear ? 0 : (blur ? 0.14 : 0.06))
 
   // Squircle icon plate — macOS Tahoe Icon & widget style: Default / Dark / Clear / Tinted
   readonly property color iconPlateDefault: light

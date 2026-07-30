@@ -119,10 +119,37 @@ Item {
     radius: root.plateRadius
     color: Theme.dockPlateFill
     antialiasing: true
-    border.width: 0
+    border.width: Theme.chromeClear ? 0 : 1
+    border.color: Theme.chromeHairline
     z: 1
 
+    // Top specular — floating glass edge (menu bar is full-bleed; dock needs this)
+    Rectangle {
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      height: Math.max(1, Math.round(parent.height * 0.08))
+      radius: parent.radius
+      visible: Theme.dockPlateSpecular.a > 0.01
+      gradient: Gradient {
+        GradientStop {
+          position: 0.0
+          color: Theme.dockPlateSpecular
+        }
+        GradientStop {
+          position: 1.0
+          color: "transparent"
+        }
+      }
+    }
+
     Behavior on color {
+      ColorAnimation {
+        duration: 180
+        easing.type: Easing.OutCubic
+      }
+    }
+    Behavior on border.color {
       ColorAnimation {
         duration: 180
         easing.type: Easing.OutCubic
