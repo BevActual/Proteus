@@ -133,138 +133,56 @@ ColumnLayout {
     wrapMode: Text.WordWrap
   }
 
-  SettingsGroup {
-    title: "Kind"
-    Repeater {
-      model: Background.lockBackgroundModes
-      SettingsFormRow {
-        required property var modelData
-        required property int index
-        label: modelData.label
-        hint: {
-          if (modelData.id === "match")
-            return "Follow the desktop background"
-          if (modelData.id === "color")
-            return "Solid lock color"
-          if (modelData.id === "image")
-            return "Still images and slideshow"
-          if (modelData.id === "daily")
-            return "Bing, Unsplash, or a custom feed"
-          if (modelData.id === "video")
-            return "Silent looping video"
-          return "Built-in animated backgrounds"
-        }
-        interactive: true
-        showSeparator: index < Background.lockBackgroundModes.length - 1
-        onActivated: {
-          root.lockBrowseKind = modelData.id
-          if (modelData.id === "match" || modelData.id === "color" || modelData.id === "daily" || modelData.id === "reactive")
-            Config.setLockBackgroundMode(modelData.id)
-          if (modelData.id === "image") {
-            Config.scanWallpaperFolder()
-          }
-        }
-        Text {
-          visible: root.lockBrowseKind === modelData.id
-          text: "✓"
-          color: Theme.accent
-          font.pixelSize: 14
-        }
-      }
+  SettingsKindPicker {
+    model: Background.lockBackgroundModes
+    browseKind: root.lockBrowseKind
+    appliedKind: Config.lockBackgroundMode
+    hideBannerForKind: "match"
+    bannerText: "Browsing " + root.lockBrowseKind + " — lock stays on " + Config.lockBackgroundMode + " until you pick one below."
+    hintForId: function (id) {
+      if (id === "match")
+        return "Follow the desktop background"
+      if (id === "color")
+        return "Solid lock color"
+      if (id === "image")
+        return "Still images and slideshow"
+      if (id === "daily")
+        return "Bing, Unsplash, or a custom feed"
+      if (id === "video")
+        return "Silent looping video"
+      return "Built-in animated backgrounds"
     }
-  }
-
-  Text {
-    visible: root.lockBrowseKind !== Config.lockBackgroundMode
-        && root.lockBrowseKind !== "match"
-    Layout.fillWidth: true
-    Layout.maximumWidth: 480
-    text: "Browsing " + root.lockBrowseKind + " — lock stays on " + Config.lockBackgroundMode + " until you pick one below."
-    color: Theme.textMute
-    font.family: Theme.fontFamily
-    font.pixelSize: 11
-    wrapMode: Text.WordWrap
+    onActivated: id => {
+      root.lockBrowseKind = id
+      if (id === "match" || id === "color" || id === "daily" || id === "reactive")
+        Config.setLockBackgroundMode(id)
+      if (id === "image")
+        Config.scanWallpaperFolder()
+    }
   }
 
   // —— Color ——
   ColumnLayout {
     visible: root.lockBrowseKind === "color"
     Layout.fillWidth: true
-    spacing: Theme.spaceLg
-    SettingsGroup {
-      title: "Color"
-      Item {
-        Layout.fillWidth: true
-        Layout.preferredHeight: lockColorFlow.implicitHeight + Theme.spaceMd * 2
-        Flow {
-          id: lockColorFlow
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.top: parent.top
-          anchors.margins: Theme.spaceMd
-          spacing: Theme.spaceSm
-          Repeater {
-            model: Background.wallpaperColors
-            Column {
-              required property var modelData
-              spacing: 4
-              width: 48
-              Rectangle {
-                width: 36
-                height: 36
-                radius: 18
-                anchors.horizontalCenter: parent.horizontalCenter
-                color: modelData.color
-                border.width: Config.lockWallpaperColor === modelData.color && Config.lockBackgroundMode === "color" ? 3 : 1
-                border.color: Config.lockWallpaperColor === modelData.color ? Theme.text : Theme.separator
-                MouseArea {
-                  anchors.fill: parent
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: {
-                    root.lockColorDraft = modelData.color
-                    Config.setLockWallpaperColor(modelData.color)
-                    root.lockBrowseKind = "color"
-                  }
-                }
-              }
-              Text {
-                width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-                text: modelData.label
-                color: Theme.textMute
-                font.family: Theme.fontFamily
-                font.pixelSize: 10
-                elide: Text.ElideRight
-              }
-            }
-          }
-        }
+    spacing: Theme.spaceMd
+    SettingsColorPresetGroup {
+      model: Background.wallpaperColors
+      selectedColor: Config.lockWallpaperColor
+      selectionActive: Config.lockBackgroundMode === "color"
+      graphHex: Config.lockWallpaperColor
+      debounceMs: 80
+      onPresetClicked: color => {
+        root.lockColorDraft = color
+        Config.setLockWallpaperColor(color)
+        root.lockBrowseKind = "color"
       }
-      Item {
-        Layout.fillWidth: true
-        Layout.preferredHeight: lockBgGraph.implicitHeight + Theme.spaceMd
-        ColorGraphPicker {
-          id: lockBgGraph
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.top: parent.top
-          anchors.margins: Theme.spaceMd
-          hex: Config.lockWallpaperColor
-          onHexEdited: h => {
-            root.lockColorDraft = h
-            lockColorApply.hex = h
-            lockColorApply.restart()
-          }
-        }
-        Timer {
-          id: lockColorApply
-          property string hex: ""
-          interval: 80
-          onTriggered: {
-            if (Config.setLockWallpaperColor(hex))
-              root.lockBrowseKind = "color"
-          }
-        }
+      onCustomHexEdited: h => {
+        root.lockColorDraft = h
+      }
+      onCustomHexCommitted: h => {
+        if (Config.setLockWallpaperColor(h))
+          root.lockBrowseKind = "color"
       }
     }
   }

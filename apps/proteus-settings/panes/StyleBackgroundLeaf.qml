@@ -48,51 +48,27 @@ ColumnLayout {
       onAccepted: Config.setWallpaperVideo(host.localPathFromUrl(selectedFile))
     }
 
-    SettingsGroup {
-      title: "Kind"
-      Repeater {
-        model: Background.wallpaperKinds
-        SettingsFormRow {
-          required property var modelData
-          required property int index
-          label: modelData.label
-          hint: {
-            if (modelData.id === "color")
-              return "Solid desktop color"
-            if (modelData.id === "image")
-              return "Still images and slideshow"
-            if (modelData.id === "daily")
-              return "Bing, Unsplash, or a custom feed"
-            if (modelData.id === "video")
-              return "Silent looping video"
-            return "Built-in animated backgrounds"
-          }
-          interactive: true
-          showSeparator: index < Background.wallpaperKinds.length - 1
-          onActivated: {
-            host.browseKind = modelData.id
-            if (modelData.id === "image")
-              Config.scanWallpaperFolder()
-          }
-          Text {
-            visible: host.browseKind === modelData.id
-            text: "✓"
-            color: Theme.accent
-            font.pixelSize: 14
-          }
-        }
+    SettingsKindPicker {
+      model: Background.wallpaperKinds
+      browseKind: host.browseKind
+      appliedKind: Config.wallpaperKind
+      bannerText: "Browsing " + host.browseKind + " — desktop stays on " + Config.wallpaperKind + " until you pick one below."
+      hintForId: function (id) {
+        if (id === "color")
+          return "Solid desktop color"
+        if (id === "image")
+          return "Still images and slideshow"
+        if (id === "daily")
+          return "Bing, Unsplash, or a custom feed"
+        if (id === "video")
+          return "Silent looping video"
+        return "Built-in animated backgrounds"
       }
-    }
-
-    Text {
-      visible: host.browseKind !== Config.wallpaperKind
-      Layout.fillWidth: true
-      Layout.maximumWidth: 480
-      text: "Browsing " + host.browseKind + " — desktop stays on " + Config.wallpaperKind + " until you pick one below."
-      color: Theme.textMute
-      font.family: Theme.fontFamily
-      font.pixelSize: 11
-      wrapMode: Text.WordWrap
+      onActivated: id => {
+        host.browseKind = id
+        if (id === "image")
+          Config.scanWallpaperFolder()
+      }
     }
 
     // Preview
@@ -183,87 +159,24 @@ ColumnLayout {
     ColumnLayout {
       visible: host.browseKind === "color"
       Layout.fillWidth: true
-      spacing: Theme.spaceLg
+      spacing: Theme.spaceMd
 
-      SettingsGroup {
-        title: "Color"
-        Item {
-          Layout.fillWidth: true
-          Layout.preferredHeight: colorFlow.implicitHeight + Theme.spaceMd * 2
-          Flow {
-            id: colorFlow
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.margins: Theme.spaceMd
-            spacing: Theme.spaceSm
-            Repeater {
-              model: Background.wallpaperColors
-              Column {
-                required property var modelData
-                spacing: 4
-                width: 48
-                Rectangle {
-                  width: 36
-                  height: 36
-                  radius: 18
-                  anchors.horizontalCenter: parent.horizontalCenter
-                  color: modelData.color
-                  border.width: Config.wallpaperColor === modelData.color && Config.wallpaperKind === "color" ? 3 : 1
-                  border.color: Config.wallpaperColor === modelData.color ? Theme.text : Theme.separator
-                  MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                      host.wallpaperColorDraft = modelData.color
-                      Config.setWallpaperColor(modelData.color)
-                    }
-                  }
-                }
-                Text {
-                  width: parent.width
-                  horizontalAlignment: Text.AlignHCenter
-                  text: modelData.label
-                  color: Theme.textMute
-                  font.family: Theme.fontFamily
-                  font.pixelSize: 10
-                  elide: Text.ElideRight
-                }
-              }
-            }
-          }
+      SettingsColorPresetGroup {
+        model: Background.wallpaperColors
+        selectedColor: Config.wallpaperColor
+        selectionActive: Config.wallpaperKind === "color"
+        graphHex: Config.wallpaperColor
+        debounceMs: 80
+        onPresetClicked: color => {
+          host.wallpaperColorDraft = color
+          Config.setWallpaperColor(color)
         }
-        Rectangle {
-          Layout.fillWidth: true
-          Layout.preferredHeight: 1
-          color: Theme.separator
-          opacity: 0.6
+        onCustomHexEdited: h => {
+          host.wallpaperColorDraft = h
         }
-        Item {
-          Layout.fillWidth: true
-          Layout.preferredHeight: bgGraph.implicitHeight + Theme.spaceMd
-          ColorGraphPicker {
-            id: bgGraph
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.margins: Theme.spaceMd
-            hex: Config.wallpaperColor
-            onHexEdited: h => {
-              host.wallpaperColorDraft = h
-              bgColorApply.hex = h
-              bgColorApply.restart()
-            }
-          }
-          Timer {
-            id: bgColorApply
-            property string hex: ""
-            interval: 80
-            onTriggered: {
-              if (Config.setWallpaperColor(hex))
-                host.wallpaperColorDraft = Config.wallpaperColor
-            }
-          }
+        onCustomHexCommitted: h => {
+          if (Config.setWallpaperColor(h))
+            host.wallpaperColorDraft = Config.wallpaperColor
         }
       }
     }
