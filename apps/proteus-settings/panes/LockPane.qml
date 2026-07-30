@@ -73,7 +73,7 @@ ColumnLayout {
     id: lockPreview
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    Layout.preferredHeight: 260
+    Layout.preferredHeight: 200
     radius: Theme.radiusLg
     color: {
       if (root.lockBrowseKind === "color" || (root.lockBrowseKind === "match" && Config.wallpaperKind === "color"))

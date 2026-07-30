@@ -73,19 +73,24 @@ QtObject {
     const clocks = []
     const strip = []
     for (let i = 0; i < list.length; i++) {
+      if (!list[i])
+        continue
       if (list[i].type === "clock")
         clocks.push(list[i])
       else
         strip.push(list[i])
     }
     strip.sort((a, b) => (a.slot - b.slot) || String(a.id).localeCompare(String(b.id)))
+    const stripOut = []
     for (let i = 0; i < strip.length; i++) {
-      strip[i] = normalizeLockWidget(Object.assign({}, strip[i], {
+      const n = normalizeLockWidget(Object.assign({}, strip[i], {
         slot: i,
         span: lockWidgetSpanForSize(strip[i].size)
       }))
+      if (n)
+        stripOut.push(n)
     }
-    return clocks.concat(strip)
+    return clocks.concat(stripOut)
   }
 
   function hydrateLockFromRaw(raw) {
@@ -109,7 +114,8 @@ QtObject {
   }
 
   function ensureLockClockWidget() {
-    const list = host.lockWidgetsList.slice()
+    const rawList = host.lockWidgetsList
+    const list = (rawList && rawList.length !== undefined) ? rawList.slice() : []
     for (let i = 0; i < list.length; i++) {
       if (list[i].type === "clock")
         return list[i]

@@ -116,6 +116,9 @@ Singleton {
   // Background/Widgets raw JSON hydrate (expensive). Shell always does it on
   // load; Settings defers until Appearance → Background/Lock (or first write).
   property bool domainHydrated: false
+  // Prevent onAdapterUpdated → ensureDomainHydrated re-entry while hydrate
+  // writes Config.lockWidgets / desktopWidgets (stack overflow in Settings).
+  property bool domainHydrating: false
   readonly property bool isSettingsApp: {
     const d = String(Quickshell.shellDir || Quickshell.shellRoot || "")
     return d.indexOf("proteus-settings") >= 0
@@ -759,13 +762,15 @@ Singleton {
   function applyChromeEffects() { return hypr.applyChromeEffects() }
 
   function ensureDomainHydrated() {
-    if (domainHydrated)
+    if (domainHydrated || domainHydrating)
       return
+    domainHydrating = true
     const raw = configFile.text()
     Background.hydrateDailyFromRaw(raw)
     Widgets.hydrateLockFromRaw(raw)
     Widgets.hydrateDesktopFromRaw(raw)
     domainHydrated = true
+    domainHydrating = false
   }
 
   FileView {
@@ -775,7 +780,7 @@ Singleton {
     onFileChanged: reload()
     onAdapterUpdated: {
       // Block writes until disk hydrate finishes — otherwise defaults clobber Daily sources.
-      if (!root.settingsReady)
+      if (!root.settingsReady || root.domainHydrating)
         return
       // Settings defers Background/Widgets hydrate; pull them in before any write.
       if (!root.domainHydrated)

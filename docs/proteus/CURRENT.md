@@ -84,7 +84,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 
 | Pane | Status |
 |------|--------|
-| Appearance → Accent / Background / Lock / Icons / Font (`style`) | `partial` — Kind/color chrome shared via `kit/` (`SettingsKindPicker`, `SettingsColorPresetGroup`, `ColorGraphPicker`); Dark/Light segmented; empty-album honesty + Missing stock thumbs; lock wallpaper/dim in Settings (widgets via lock Customize); daily/slideshow/fonts/`proteus-bg`; mega-page merge Out |
+| Appearance → Accent / Background / Lock / Icons / Font (`style`) | `partial` — Kind/color chrome shared via `kit/` (`SettingsKindPicker`, `SettingsColorPresetGroup`, `ColorGraphPicker`); Dark/Light segmented; empty-album honesty + Missing stock thumbs; preview above Kind (Background/Lock); Settings deferred domain hydrate re-entry safe; lock wallpaper/dim in Settings (widgets via lock Customize); daily/slideshow/fonts/`proteus-bg`; Font still card grid (dropdown+add later); mega-page merge Out |
 | Desktop → Gaps / Borders / Motion / Dock & menu bar / Launcher (`proteus-general.conf` + sizes + Spotlight tags/recents) | `shipped` |
 | Displays (scale / mode / orientation, Identify; layout canvas) | `partial` — drag layout + full-snapshot Revert; multi-monitor dogfood preferred |
 | Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) | `shipped` |

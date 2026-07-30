@@ -34,6 +34,8 @@ Singleton {
 
   readonly property bool lockHasClockWidget: {
     const list = lockWidgetsList
+    if (!list || !list.length)
+      return false
     for (let i = 0; i < list.length; i++) {
       if (list[i].type === "clock" && list[i].enabled)
         return true
@@ -158,11 +160,16 @@ Singleton {
   }
 
   readonly property var lockWidgetsEnabledList: {
-    return lockWidgetsList.filter(w => !!w.enabled)
+    const list = lockWidgetsList
+    if (!list || !list.length)
+      return []
+    return list.filter(w => !!w.enabled)
   }
 
   readonly property var lockClockWidget: {
     const list = lockWidgetsEnabledList
+    if (!list || !list.length)
+      return null
     for (let i = 0; i < list.length; i++) {
       if (list[i].type === "clock")
         return list[i]
@@ -171,7 +178,10 @@ Singleton {
   }
 
   readonly property var lockStripWidgets: {
-    const list = lockWidgetsEnabledList.filter(w => w.type !== "clock")
+    const enabled = lockWidgetsEnabledList
+    if (!enabled || !enabled.length)
+      return []
+    const list = enabled.filter(w => w.type !== "clock")
     list.sort((a, b) => (a.slot - b.slot) || String(a.id).localeCompare(String(b.id)))
     return list
   }

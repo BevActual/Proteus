@@ -48,34 +48,11 @@ ColumnLayout {
       onAccepted: Config.setWallpaperVideo(host.localPathFromUrl(selectedFile))
     }
 
-    SettingsKindPicker {
-      model: Background.wallpaperKinds
-      browseKind: host.browseKind
-      appliedKind: Config.wallpaperKind
-      bannerText: "Browsing " + host.browseKind + " — desktop stays on " + Config.wallpaperKind + " until you pick one below."
-      hintForId: function (id) {
-        if (id === "color")
-          return "Solid desktop color"
-        if (id === "image")
-          return "Still images and slideshow"
-        if (id === "daily")
-          return "Bing, Unsplash, or a custom feed"
-        if (id === "video")
-          return "Silent looping video"
-        return "Built-in animated backgrounds"
-      }
-      onActivated: id => {
-        host.browseKind = id
-        if (id === "image")
-          Config.scanWallpaperFolder()
-      }
-    }
-
-    // Preview
+    // Preview above Kind — same order as Lock screen.
     Rectangle {
       Layout.fillWidth: true
       Layout.maximumWidth: 480
-      Layout.preferredHeight: 140
+      Layout.preferredHeight: 200
       radius: Theme.radiusLg
       color: host.browseKind === "color" ? Config.wallpaperColor : Theme.bgPanel
       clip: true
@@ -152,6 +129,29 @@ ColumnLayout {
           font.family: Theme.fontFamily
           font.pixelSize: Theme.fontSize
         }
+      }
+    }
+
+    SettingsKindPicker {
+      model: Background.wallpaperKinds
+      browseKind: host.browseKind
+      appliedKind: Config.wallpaperKind
+      bannerText: "Browsing " + host.browseKind + " — desktop stays on " + Config.wallpaperKind + " until you pick one below."
+      hintForId: function (id) {
+        if (id === "color")
+          return "Solid desktop color"
+        if (id === "image")
+          return "Still images and slideshow"
+        if (id === "daily")
+          return "Bing, Unsplash, or a custom feed"
+        if (id === "video")
+          return "Silent looping video"
+        return "Built-in animated backgrounds"
+      }
+      onActivated: id => {
+        host.browseKind = id
+        if (id === "image")
+          Config.scanWallpaperFolder()
       }
     }
 
