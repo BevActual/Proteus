@@ -120,6 +120,13 @@ ColumnLayout {
             elide: Text.ElideRight
           }
           Text {
+            visible: !!(modelData.user)
+            text: "Added"
+            color: Theme.textMute
+            font.family: Theme.fontFamily
+            font.pixelSize: 11
+          }
+          Text {
             visible: row.selected
             text: "✓"
             color: Theme.accent

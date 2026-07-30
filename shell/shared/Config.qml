@@ -86,6 +86,8 @@ Singleton {
   property alias fontFamily: adapter.fontFamily
   property alias fontSize: adapter.fontSize
   property alias fontSizeSm: adapter.fontSizeSm
+  // User-added fonts: "Family Name=/abs/path.ttf;…"
+  property alias userFonts: adapter.userFonts
   // Comma-separated .desktop ids, most recent first (Spotlight / launcher)
   property alias launcherRecents: adapter.launcherRecents
   // User-defined tag names, comma-separated (normalized slugs)
@@ -127,6 +129,10 @@ Singleton {
   // System fonts discovered via fc-list (falls back to built-in list)
   property var discoveredFonts: []
   property bool fontsScanning: false
+  property bool userFontBusy: false
+  property string userFontError: ""
+
+  readonly property string userFontsDir: Quickshell.env("HOME") + "/.local/share/fonts/proteus"
 
   readonly property var fallbackFonts: [
     {
@@ -155,7 +161,100 @@ Singleton {
     }
   ]
 
-  readonly property var fonts: discoveredFonts.length ? discoveredFonts : fallbackFonts
+  readonly property var userFontsList: {
+    const raw = String(userFonts || "")
+    const out = []
+    if (!raw.length)
+      return out
+    const entries = raw.split(";")
+    for (let i = 0; i < entries.length; i++) {
+      const part = entries[i].trim()
+      if (!part.length)
+        continue
+      const eq = part.indexOf("=")
+      if (eq <= 0)
+        continue
+      const id = part.slice(0, eq).trim()
+      const path = part.slice(eq + 1).trim()
+      if (!id.length || !path.length)
+        continue
+      out.push({
+        id: id,
+        label: id,
+        path: path,
+        user: true
+      })
+    }
+    return out
+  }
+
+  readonly property var fonts: {
+    const user = userFontsList
+    const sys = discoveredFonts.length ? discoveredFonts : fallbackFonts
+    const seen = {}
+    const out = []
+    for (let i = 0; i < user.length; i++) {
+      const id = String(user[i].id)
+      if (seen[id])
+        continue
+      seen[id] = true
+      out.push(user[i])
+    }
+    for (let i = 0; i < sys.length; i++) {
+      const id = String(sys[i].id)
+      if (seen[id])
+        continue
+      seen[id] = true
+      out.push(sys[i])
+    }
+    return out
+  }
+
+  function isUserFont(family) {
+    const id = String(family || "")
+    const list = userFontsList
+    for (let i = 0; i < list.length; i++) {
+      if (String(list[i].id) === id)
+        return true
+    }
+    return false
+  }
+
+  function serializeUserFonts(list) {
+    const parts = []
+    for (let i = 0; i < list.length; i++) {
+      const id = String(list[i].id || "").trim()
+      const path = String(list[i].path || "").trim()
+      if (!id.length || !path.length)
+        continue
+      parts.push(id + "=" + path)
+    }
+    return parts.join(";")
+  }
+
+  function removeUserFont(family) {
+    const id = String(family || "").trim()
+    if (!id.length)
+      return false
+    const next = userFontsList.filter(f => String(f.id) !== id)
+    userFonts = serializeUserFonts(next)
+    if (fontFamily === id)
+      fontFamily = next.length ? next[0].id : (discoveredFonts.length ? discoveredFonts[0].id : "Sans")
+    flushSettings()
+    return true
+  }
+
+  function addUserFontFromPath(srcPath) {
+    const src = String(srcPath || "").trim()
+    if (!src.length || userFontBusy)
+      return false
+    userFontBusy = true
+    userFontError = ""
+    fontAddProc.srcPath = src
+    fontAddProc.running = false
+    fontAddProc.running = true
+    return true
+  }
 
   readonly property string scriptsDir: {
     const root = Quickshell.shellRoot
@@ -745,6 +844,84 @@ Singleton {
     }
   }
 
+  // Copy font into ~/.local/share/fonts/proteus, query family, refresh cache.
+  Process {
+    id: fontAddProc
+    property string srcPath: ""
+    command: {
+      const src = shellQuote(srcPath)
+      const dir = shellQuote(root.userFontsDir)
+      return [
+        "bash",
+        "-lc",
+        "set -euo pipefail; "
+          + "mkdir -p " + dir + "; "
+          + "base=$(basename " + src + "); "
+          + "dest=" + dir + "/$base; "
+          + "cp -f " + src + " \"$dest\"; "
+          + "fam=$(fc-query -f '%{family[0]}\\n' \"$dest\" 2>/dev/null | head -n1 | tr -d '\\r'); "
+          + "if [ -z \"$fam\" ]; then fam=$(basename \"$dest\" | sed 's/\\.[^.]*$//'); fi; "
+          + "fc-cache -f " + dir + " >/dev/null 2>&1 || true; "
+          + "python3 -c 'import json,sys; print(json.dumps({\"id\":sys.argv[1],\"path\":sys.argv[2]}))' \"$fam\" \"$dest\""
+      ]
+    }
+    stdout: StdioCollector {
+      onStreamFinished: {
+        root.userFontBusy = false
+        try {
+          const obj = JSON.parse(text.trim() || "{}")
+          const id = String(obj.id || "").trim()
+          const path = String(obj.path || "").trim()
+          if (!id.length || !path.length) {
+            root.userFontError = "Could not read font family"
+            return
+          }
+          const next = root.userFontsList.slice()
+          let replaced = false
+          for (let i = 0; i < next.length; i++) {
+            if (String(next[i].id) === id) {
+              next[i] = {
+                id: id,
+                label: id,
+                path: path,
+                user: true
+              }
+              replaced = true
+              break
+            }
+          }
+          if (!replaced)
+            next.push({
+              id: id,
+              label: id,
+              path: path,
+              user: true
+            })
+          root.userFonts = root.serializeUserFonts(next)
+          root.fontFamily = id
+          root.flushSettings()
+          root.scanSystemFonts()
+          root.userFontError = ""
+        } catch (e) {
+          root.userFontError = "Failed to add font"
+        }
+      }
+    }
+    stderr: StdioCollector {
+      onStreamFinished: {
+        if (root.userFontBusy && text && String(text).trim().length)
+          root.userFontError = String(text).trim().split("\n")[0]
+      }
+    }
+    onExited: code => {
+      if (code !== 0) {
+        root.userFontBusy = false
+        if (!root.userFontError.length)
+          root.userFontError = "Add font failed (exit " + code + ")"
+      }
+    }
+  }
+
   // Forwarders — ConfigHypr
   function utf8Hex(str) { return hypr.utf8Hex(str) }
   function generalConfText() { return hypr.generalConfText() }
@@ -900,6 +1077,8 @@ Singleton {
       property string fontFamily: "Sans"
       property int fontSize: 13
       property int fontSizeSm: 12
+      // User-added fonts: "Family Name=/abs/path.ttf;…"
+      property string userFonts: ""
       // Comma-separated desktop-entry ids (most recent first)
       property string launcherRecents: ""
       property string launcherTagCatalog: ""

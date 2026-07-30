@@ -27,7 +27,7 @@ One schema for all postures; panes enable/disable by capability.
 | Wallpaper | `wallpaperKind`, `wallpaperId`, `wallpaperMode`, `wallpaperColor`, `wallpaperCustomPath`, `wallpaperFolder`, `wallpaperShuffle`, `wallpaperAlbum*`, `wallpaperSlideshow*`, `wallpaperDaily*`, `wallpaperVideo*`, `wallpaperReactive*` | Background |
 | Audio prefs | `audioLatency` | Audio |
 | Location / weather | `location*`, `weatherUnits` | Weather / DateTime |
-| Font | `fontFamily`, `fontSize`, `fontSizeSm` | Theme / Style pane |
+| Font | `fontFamily`, `fontSize`, `fontSizeSm`, `userFonts` (`Family=/path;…`) | Theme / Style pane |
 | Launcher | `launcherRecents`, `launcherTagCatalog`, `launcherAppTags` | Spotlight / Launcher |
 | Dock pins | `dockPins` (comma desktop ids; `""` defaults; `-` empty) | DockApps |
 | Icon plates / overrides | `iconPlateMode` (`default` \| `dark` \| `clear` \| `tinted`), `iconPlateCustom`, `iconOverrides` (`id=path;…`) | Theme + DockApps / EnvGate |

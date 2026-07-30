@@ -18,6 +18,31 @@ ColumnLayout {
       Config.scanSystemFonts()
   }
 
+  // Keep user-added files registered for QML text even before fc-cache settles.
+  Instantiator {
+    model: Config.userFontsList
+    FontLoader {
+      required property var modelData
+      source: modelData.path && modelData.path.length ? ("file://" + modelData.path) : ""
+    }
+  }
+
+  FileDialog {
+    id: fontFileDialog
+    title: "Add a font file"
+    nameFilters: ["Fonts (*.ttf *.otf *.ttc *.woff *.woff2)", "All files (*)"]
+    onAccepted: {
+      let s = String(selectedFile)
+      if (s.startsWith("file://"))
+        s = s.slice(7)
+      try {
+        s = decodeURIComponent(s)
+      } catch (e) {
+      }
+      Config.addUserFontFromPath(s)
+    }
+  }
+
   SettingsGroup {
     title: Config.fontsScanning ? "Scanning…" : "Typeface"
     SettingsFontPicker {
@@ -27,6 +52,26 @@ ColumnLayout {
       onActivated: id => {
         Config.fontFamily = id
       }
+    }
+    SettingsFormRow {
+      label: Config.userFontBusy ? "Adding font…" : "Add font…"
+      hint: Config.userFontError.length ? Config.userFontError : "Install a .ttf / .otf into your user fonts"
+      interactive: !Config.userFontBusy
+      showSeparator: Config.isUserFont(Config.fontFamily)
+      onActivated: fontFileDialog.open()
+      Text {
+        text: "›"
+        color: Theme.textMute
+        font.pixelSize: 16
+      }
+    }
+    SettingsFormRow {
+      visible: Config.isUserFont(Config.fontFamily)
+      label: "Remove added font"
+      hint: Config.fontFamily
+      interactive: true
+      showSeparator: false
+      onActivated: Config.removeUserFont(Config.fontFamily)
     }
   }
 
