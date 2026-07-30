@@ -46,7 +46,7 @@ Item {
   //  1) Click → launch
   //  2) Right-click → Keep in Dock / Remove from Dock
   //  3) Press+drag (threshold) → reorder; drag off shelf → Remove (macOS)
-  //  4) Long-press (no move) → edit mode + − badges (iOS); Done / empty click exits
+  //  4) Long-press (no move) → edit mode + −/+ (fixed size); Done / empty click exits
   property bool editMode: false
   property bool dragging: false
   property int dragIndex: -1
@@ -156,6 +156,7 @@ Item {
     root.suppressClick = true
     root.tipIndex = -1
     root.hovered = true
+    root.pressIndex = -1
   }
 
   function exitEditMode() {
@@ -289,7 +290,7 @@ Item {
     interval: 480
     repeat: false
     onTriggered: {
-      // Long-press without drag → iOS edit mode (jiggle + −).
+      // Long-press without drag → edit mode (− / +; rest sizes).
       if (root.pressIndex >= 0 && !root.dragging)
         root.enterEditMode()
     }
@@ -551,12 +552,14 @@ Item {
       }
 
       Behavior on displayS {
+        enabled: !root.editMode && !root.dragging
         NumberAnimation {
           duration: 70
           easing.type: Easing.OutCubic
         }
       }
       Behavior on displayPress {
+        enabled: !root.editMode
         NumberAnimation {
           duration: 90
           easing.type: Easing.OutCubic
@@ -572,23 +575,15 @@ Item {
       z: isDragging ? 40 : (tipOn ? 20 : Math.round(10 + index + (displayS - root.restScale) * 40))
       clip: false
 
-      transform: [
-        Translate {
-          y: isDragging ? -Math.min(root.dragLift, root.maxIconSize) : 0
-        },
-        Rotation {
-          origin.x: cell.width * 0.5
-          origin.y: cell.height * 0.7
-          angle: (!isDragging && root.editMode && root.canDragEntry(modelData))
-              ? ((index % 2 === 0) ? -2.5 : 2.5)
-              : 0
-          Behavior on angle {
-            NumberAnimation {
-              duration: 120
-            }
-          }
-        }
-      ]
+      // Fixed badge geometry (rest icon size; outside mag Scale)
+      readonly property real badgeSize: Math.round(root.iconSize * 0.38)
+      readonly property real iconVisual: root.iconSize * Theme.iconFrameScale
+      readonly property real iconLeft: (width - iconVisual) * 0.5
+      readonly property real iconTop: height - iconVisual
+
+      transform: Translate {
+        y: isDragging ? -Math.min(root.dragLift, root.maxIconSize) : 0
+      }
 
       Rectangle {
         visible: cell.tipOn
@@ -643,61 +638,60 @@ Item {
           plate: Theme.iconPlateFill
           source: DockApps.iconSource(modelData)
         }
+      }
 
-        // iOS: − sits on the squircle’s top-left corner
-        Rectangle {
-          visible: cell.showMinus
-          width: Math.round(squircle.width * 0.42)
-          height: width
-          radius: width * 0.5
-          z: 60
-          x: squircle.x - width * 0.28
-          y: squircle.y - height * 0.28
-          color: Qt.rgba(0.72, 0.18, 0.18, 0.98)
-          border.width: 2
-          border.color: Qt.rgba(1, 1, 1, 0.95)
-          Text {
-            anchors.centerIn: parent
-            text: "−"
-            color: "white"
-            font.pixelSize: Math.round(parent.width * 0.72)
-            font.bold: true
-          }
-          MouseArea {
-            anchors.fill: parent
-            anchors.margins: -4
-            cursorShape: Qt.PointingHandCursor
-            z: 61
-            onClicked: DockApps.unpinEntry(modelData)
-          }
+      // − / + fixed size on rest squircle corners (no jiggle / no mag scale)
+      Rectangle {
+        visible: cell.showMinus
+        width: cell.badgeSize
+        height: cell.badgeSize
+        radius: width * 0.5
+        z: 60
+        x: cell.iconLeft - width * 0.28
+        y: cell.iconTop - height * 0.28
+        color: Qt.rgba(0.72, 0.18, 0.18, 0.98)
+        border.width: 2
+        border.color: Qt.rgba(1, 1, 1, 0.95)
+        Text {
+          anchors.centerIn: parent
+          text: "−"
+          color: "white"
+          font.pixelSize: Math.round(parent.width * 0.72)
+          font.bold: true
         }
+        MouseArea {
+          anchors.fill: parent
+          anchors.margins: -4
+          cursorShape: Qt.PointingHandCursor
+          z: 61
+          onClicked: DockApps.unpinEntry(modelData)
+        }
+      }
 
-        // iOS-ish +: Keep on top-right of squircle (running unpinned)
-        Rectangle {
-          visible: cell.showKeepBadge
-          width: Math.round(squircle.width * 0.42)
-          height: width
-          radius: width * 0.5
-          z: 60
-          x: squircle.x + squircle.width - width * 0.72
-          y: squircle.y - height * 0.28
-          color: Theme.accent
-          border.width: 2
-          border.color: Qt.rgba(1, 1, 1, 0.95)
-          Text {
-            anchors.centerIn: parent
-            text: "+"
-            color: "white"
-            font.pixelSize: Math.round(parent.width * 0.62)
-            font.bold: true
-          }
-          MouseArea {
-            anchors.fill: parent
-            anchors.margins: -4
-            cursorShape: Qt.PointingHandCursor
-            z: 61
-            onClicked: DockApps.pinDesktopId(modelData.desktopId || modelData.id)
-          }
+      Rectangle {
+        visible: cell.showKeepBadge
+        width: cell.badgeSize
+        height: cell.badgeSize
+        radius: width * 0.5
+        z: 60
+        x: cell.iconLeft + cell.iconVisual - width * 0.72
+        y: cell.iconTop - height * 0.28
+        color: Theme.accent
+        border.width: 2
+        border.color: Qt.rgba(1, 1, 1, 0.95)
+        Text {
+          anchors.centerIn: parent
+          text: "+"
+          color: "white"
+          font.pixelSize: Math.round(parent.width * 0.62)
+          font.bold: true
+        }
+        MouseArea {
+          anchors.fill: parent
+          anchors.margins: -4
+          cursorShape: Qt.PointingHandCursor
+          z: 61
+          onClicked: DockApps.pinDesktopId(modelData.desktopId || modelData.id)
         }
       }
 
