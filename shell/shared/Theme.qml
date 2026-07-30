@@ -52,10 +52,13 @@ Singleton {
       : Qt.rgba(0.11, 0.11, 0.12, glassAlpha)
   // Same plate as menu bar so blur+opacity read as one chrome family.
   readonly property color dockPlateFill: menuBarFill
+  // Floating menus / context plates — same glass family (CHROME · #1149)
+  readonly property color menuPlateFill: dockPlateFill
   readonly property color chromeHairline: light
       ? Qt.rgba(0, 0, 0, chromeClear ? 0 : (blur ? 0.10 : 0.12))
       : Qt.rgba(1, 1, 1, chromeClear ? 0 : (blur ? 0.08 : 0.10))
-  // Soft top specular on floating dock shelf (reads glass when blur is on).
+  // Soft top specular reserved for masked glass (dock shelf no longer paints a
+  // child strip — Qt radius clip left a hard straight highlight on top).
   readonly property color dockPlateSpecular: light
       ? Qt.rgba(1, 1, 1, chromeClear ? 0 : (blur ? 0.22 : 0.10))
       : Qt.rgba(1, 1, 1, chromeClear ? 0 : (blur ? 0.14 : 0.06))
@@ -85,6 +88,8 @@ Singleton {
   readonly property real iconGlyphScaleApp: 0.72
   readonly property real iconGlyphScaleBrand: 0.78
   readonly property real iconFrameScale: 0.98
+  // Continuous-corner ratio (macOS icon squircle); dock shelf uses the same language.
+  readonly property real squircleCornerRatio: 0.2237
 
   readonly property int spaceXs: 4
   readonly property int spaceSm: 8

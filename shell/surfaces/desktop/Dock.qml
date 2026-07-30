@@ -439,8 +439,8 @@ Item {
     }
   }
 
-  // Context menu — Keep / Remove (one opaque plate; width from labels)
-  Rectangle {
+  // Glass context menu — Keep / Remove (ChromeMenuPlate kit seed)
+  ChromeMenuPlate {
     id: ctxMenu
     visible: root.menuOpen
     z: 50
@@ -464,10 +464,6 @@ Item {
         + (showKeep ? rowH : 0)
         + (showRemove ? rowH : 0)
         + (showKeep && showRemove ? 1 : 0)
-    radius: Theme.radiusMd
-    color: Theme.light ? Qt.rgba(0.98, 0.98, 0.99, 0.97) : Qt.rgba(0.17, 0.17, 0.19, 0.97)
-    border.width: 1
-    border.color: Theme.chromeHairline
 
     Text {
       id: keepMeasure
@@ -501,8 +497,8 @@ Item {
           anchors.leftMargin: 4
           anchors.rightMargin: 4
           radius: Theme.radiusSm
-          color: Theme.accent
-          opacity: keepMa.containsMouse ? 0.18 : 0
+          color: Theme.chromeAccentSoft
+          opacity: keepMa.containsMouse ? 1 : 0
         }
         Text {
           anchors.centerIn: parent
@@ -547,13 +543,13 @@ Item {
           anchors.leftMargin: 4
           anchors.rightMargin: 4
           radius: Theme.radiusSm
-          color: Theme.accent
-          opacity: removeMa.containsMouse ? 0.18 : 0
+          color: Theme.chromeAccentSoft
+          opacity: removeMa.containsMouse ? 1 : 0
         }
         Text {
           anchors.centerIn: parent
           text: removeMeasure.text
-          color: Theme.text
+          color: Theme.danger
           font.family: Theme.fontFamily
           font.pixelSize: Theme.fontSizeSm
         }

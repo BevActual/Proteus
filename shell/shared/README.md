@@ -14,6 +14,7 @@ Do not put them in domain subdirs (`chrome/`, `config/`, …) or behind
 | Prefix | Role |
 |--------|------|
 | `Theme` | Chrome tokens |
+| `ChromeMenuPlate` | Glass context-menu plate (dock kit seed) |
 | `Config` / `ConfigHypr` | `settings.json` FileView + Hypr apply |
 | `Background*` | Wallpaper / lock backdrop (Catalog · Daily · Apply) |
 | `Widgets*` | Lock / desktop applets (Lock · Desktop) |
