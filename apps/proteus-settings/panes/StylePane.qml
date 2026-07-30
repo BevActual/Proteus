@@ -9,7 +9,7 @@ import "../kit"
 ColumnLayout {
   id: root
   Layout.fillWidth: true
-  spacing: 12
+  spacing: Theme.spaceMd
 
   property string page: "style"
   signal requestGo(string id)

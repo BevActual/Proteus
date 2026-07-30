@@ -11,7 +11,7 @@ ColumnLayout {
   property Item host
     id: bgLeaf
     width: parent ? parent.width : implicitWidth
-    spacing: Theme.spaceLg
+    spacing: Theme.spaceMd
 
     function syncDraft() {
       if (!host)

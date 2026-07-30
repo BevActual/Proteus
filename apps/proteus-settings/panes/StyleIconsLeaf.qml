@@ -10,7 +10,7 @@ import "../kit"
 ColumnLayout {
   property Item host
     width: parent ? parent.width : implicitWidth
-    spacing: Theme.spaceLg
+    spacing: Theme.spaceMd
 
     function syncDraft() {
       if (!host)
@@ -39,35 +39,32 @@ ColumnLayout {
     SettingsGroup {
       title: "Icon style"
 
-      Item {
+      SettingsSegmented {
         Layout.fillWidth: true
-        Layout.preferredHeight: 48
-        SettingsSegmented {
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.verticalCenter: parent.verticalCenter
-          anchors.margins: Theme.spaceSm
-          options: [
-            {
-              id: "default",
-              label: "Default"
-            },
-            {
-              id: "dark",
-              label: "Dark"
-            },
-            {
-              id: "clear",
-              label: "Clear"
-            },
-            {
-              id: "tinted",
-              label: "Tinted"
-            }
-          ]
-          selected: Config.iconPlateStyle
-          onActivated: id => Config.setIconPlateMode(id)
-        }
+        Layout.leftMargin: Theme.spaceSm
+        Layout.rightMargin: Theme.spaceSm
+        Layout.topMargin: Theme.spaceSm
+        Layout.bottomMargin: Theme.spaceSm
+        options: [
+          {
+            id: "default",
+            label: "Default"
+          },
+          {
+            id: "dark",
+            label: "Dark"
+          },
+          {
+            id: "clear",
+            label: "Clear"
+          },
+          {
+            id: "tinted",
+            label: "Tinted"
+          }
+        ]
+        selected: Config.iconPlateStyle
+        onActivated: id => Config.setIconPlateMode(id)
       }
 
       Rectangle {

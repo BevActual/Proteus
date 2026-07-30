@@ -10,7 +10,7 @@ import "../kit"
 ColumnLayout {
   property Item host
     width: parent ? parent.width : implicitWidth
-    spacing: Theme.spaceLg
+    spacing: Theme.spaceMd
 
     function syncDraft() {
       if (!host)
@@ -26,35 +26,31 @@ ColumnLayout {
     SettingsGroup {
       title: "Chrome"
 
-      Item {
+      SettingsSegmented {
         Layout.fillWidth: true
-        Layout.preferredHeight: 48
-        SettingsSegmented {
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.verticalCenter: parent.verticalCenter
-          anchors.margins: Theme.spaceSm
-          options: [
-            {
-              id: "dark",
-              label: "Dark"
-            },
-            {
-              id: "light",
-              label: "Light"
-            }
-          ]
-          selected: Config.chromeMode
-          onActivated: id => Config.setChromeMode(id)
-        }
-        Rectangle {
-          anchors.left: parent.left
-          anchors.leftMargin: Theme.spaceMd
-          anchors.right: parent.right
-          anchors.bottom: parent.bottom
-          height: 1
-          color: Theme.separator
-        }
+        Layout.leftMargin: Theme.spaceSm
+        Layout.rightMargin: Theme.spaceSm
+        Layout.topMargin: Theme.spaceSm
+        Layout.bottomMargin: Theme.spaceSm
+        options: [
+          {
+            id: "dark",
+            label: "Dark"
+          },
+          {
+            id: "light",
+            label: "Light"
+          }
+        ]
+        selected: Config.chromeMode
+        onActivated: id => Config.setChromeMode(id)
+      }
+
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 1
+        color: Theme.separator
+        opacity: 0.6
       }
 
       SettingsFormRow {

@@ -10,7 +10,7 @@ import "../kit"
 ColumnLayout {
   property Item host
     width: parent ? parent.width : implicitWidth
-    spacing: Theme.spaceLg
+    spacing: Theme.spaceMd
 
     Component.onCompleted: Config.scanSystemFonts()
     onVisibleChanged: {

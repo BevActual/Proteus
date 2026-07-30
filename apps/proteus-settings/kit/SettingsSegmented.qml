@@ -4,10 +4,14 @@ import QtQuick.Layouts
 import "../shared"
 
 // Apple-style segmented control.
+// Height must be concrete: Layout.preferredHeight alone is ignored when this
+// control is parented with anchors (Appearance Chrome/Icons used that pattern).
 Rectangle {
   id: root
   Layout.fillWidth: true
   Layout.preferredHeight: 32
+  implicitHeight: 32
+  height: 32
   radius: Theme.radiusMd
   color: Theme.bgHover
   clip: true
