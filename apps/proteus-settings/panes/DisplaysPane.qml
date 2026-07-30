@@ -1,4 +1,5 @@
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import QtQuick
 import QtQuick.Controls
@@ -36,6 +37,8 @@ ColumnLayout {
   property int revertIndex: -1
   property int revertSeconds: 0
   readonly property bool canRevert: revertIndex >= 0 && revertSeconds > 0 && revertJson.length > 0
+  // Fingerprint of the post-Apply live topology — drift (sleep/hotplug) cancels Revert.
+  property string postApplyFingerprint: ""
   property bool layoutDirty: false
   property int layoutSelected: 0
 
@@ -64,9 +67,45 @@ ColumnLayout {
     "1280x720", "1024x768"
   ]
 
-  function refresh() {
+  function specFingerprint(specs) {
+    if (!specs || !specs.length)
+      return ""
+    const parts = []
+    for (let i = 0; i < specs.length; i++) {
+      const s = specs[i] || {}
+      parts.push(String(s.name || "") + ":" + Math.round(s.x || 0) + "," + Math.round(s.y || 0)
+          + "," + Math.round(s.width || 0) + "x" + Math.round(s.height || 0)
+          + "@" + (Math.round((s.scale || 1) * 1000) / 1000)
+          + "t" + Math.round(s.transform || 0))
+    }
+    parts.sort()
+    return parts.join("|")
+  }
+
+  function fingerprintFromMonitors(list) {
+    if (!list || !list.length)
+      return ""
+    const specs = []
+    for (let i = 0; i < list.length; i++)
+      specs.push(liveSpec(list[i]))
+    return specFingerprint(specs)
+  }
+
+  function cancelRevert(reason) {
+    const had = root.canRevert
+    root.clearRevert()
+    if (had && reason && reason.length)
+      root.applyStatus = reason
+  }
+
+  function refresh(opts) {
+    // Re-read live monitors — any pending Revert snapshot is no longer trustworthy.
+    const keepStatus = !!(opts && opts.keepStatus)
+    const cancelMsg = root.canRevert ? "Displays refreshed — Revert cancelled." : ""
+    root.clearRevert()
     status = "Loading displays…"
-    applyStatus = ""
+    if (!keepStatus)
+      applyStatus = cancelMsg
     pendingIndex = -1
     pendingDetail = ""
     monProc.running = false
@@ -362,6 +401,7 @@ ColumnLayout {
     root.revertRule = Displays.monitorRule(prev)
     root.revertIndex = index
     root.revertSeconds = 10
+    root.postApplyFingerprint = root.specFingerprint(all)
     revertTick.restart()
 
     // Apply every monitor rule so x/y + siblings stay consistent (VM Revert fix).
@@ -384,6 +424,7 @@ ColumnLayout {
     root.revertRule = Displays.monitorRule(previousAll[0] || {})
     root.revertIndex = 0
     root.revertSeconds = 10
+    root.postApplyFingerprint = root.specFingerprint(all)
     revertTick.restart()
     const rules = all.map(s => Displays.monitorRule(s))
     root.applyStatus = "Applying layout…"
@@ -547,7 +588,9 @@ ColumnLayout {
     revertRule = ""
     revertIndex = -1
     revertSeconds = 0
+    postApplyFingerprint = ""
     revertTick.stop()
+    driftWatch.stop()
   }
 
   function clearLayoutDirty() {
@@ -591,6 +634,8 @@ ColumnLayout {
         }
         if (action === "apply") {
           root.applyStatus = "Applied — press Revert within " + root.revertSeconds + "s"
+          if (root.canRevert)
+            driftWatch.restart()
         } else if (action === "revert") {
           root.applyStatus = "Reverted OK"
           root.clearRevert()
@@ -605,9 +650,13 @@ ColumnLayout {
         // Keep revert window so the user can still try Revert / Refresh.
         root.revertSeconds = Math.max(root.revertSeconds, 8)
         revertTick.restart()
+        if (root.canRevert)
+          driftWatch.restart()
       } else if (action === "revert" && root.revertJson.length) {
         root.revertSeconds = Math.max(root.revertSeconds, 8)
         revertTick.restart()
+        if (root.canRevert)
+          driftWatch.restart()
       }
     }
   }
@@ -627,6 +676,62 @@ ColumnLayout {
       if (root.revertIndex >= 0 && root.revertIndex < root.monitors.length)
         root.applyStatus = "Applied " + root.monitors[root.revertIndex].name
             + " — Revert available for " + root.revertSeconds + "s"
+    }
+  }
+
+  // While Revert is armed, watch for sleep/resume or external topology drift.
+  Timer {
+    id: driftWatch
+    interval: 2000
+    repeat: true
+    running: false
+    onTriggered: {
+      if (!root.canRevert || !root.active) {
+        stop()
+        return
+      }
+      if (!driftProc.running)
+        driftProc.running = true
+    }
+  }
+
+  Process {
+    id: driftProc
+    command: ["hyprctl", "monitors", "-j"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        if (!root.canRevert || !root.postApplyFingerprint.length)
+          return
+        try {
+          const parsed = JSON.parse(text.trim() || "[]")
+          if (!Array.isArray(parsed))
+            return
+          const live = parsed.map(m => root.enrichMonitor(m))
+          const fp = root.fingerprintFromMonitors(live)
+          if (fp !== root.postApplyFingerprint) {
+            root.cancelRevert("Displays changed since Apply — Revert cancelled.")
+            root.refresh({ keepStatus: true })
+          }
+        } catch (e) {
+          // Ignore transient parse errors during sleep/resume.
+        }
+      }
+    }
+  }
+
+  Connections {
+    target: Hyprland
+    function onRawEvent(event) {
+      if (!root.active)
+        return
+      const n = event && event.name ? String(event.name) : ""
+      if (n === "monitoradded" || n === "monitorremoved"
+          || n === "monitoraddedv2" || n === "monitorremovedv2"
+          || n === "configreloaded") {
+        if (root.canRevert)
+          root.cancelRevert("Displays changed — Revert cancelled.")
+        root.refresh({ keepStatus: root.applyStatus.indexOf("Revert cancelled") >= 0 })
+      }
     }
   }
 
@@ -963,10 +1068,7 @@ ColumnLayout {
       hint: "Re-read hyprctl monitors"
       showSeparator: true
       interactive: true
-      onActivated: {
-        root.clearRevert()
-        root.refresh()
-      }
+      onActivated: root.refresh()
       Text {
         text: "›"
         color: Theme.textMute
@@ -1033,9 +1135,10 @@ ColumnLayout {
   Connections {
     target: root
     function onActiveChanged() {
-      if (root.active)
+      if (root.active) {
+        // Re-entry (and post-sleep navigate-back) must not keep a stale Revert.
         root.refresh()
-      else {
+      } else {
         root.clearPending()
         root.clearRevert()
       }
