@@ -7,11 +7,11 @@ import QtQuick.Layouts
 import "../../shared"
 import "LauncherCalc.js" as Calc
 
-// Spotlight — Apps / Files / Clipboard modes (Tahoe-shaped) + calc + tags.
+// Spotlight — Apps / Files / Clipboard / Actions modes + calc + tags.
 Item {
   id: root
 
-  // apps | files | clipboard
+  // apps | files | clipboard | actions
   property string mode: "apps"
   property bool showUnavailable: search.text.trim().length > 0
   property var tagEditEntry: null
@@ -22,6 +22,74 @@ Item {
   property string clipHint: ""
 
   readonly property bool tagging: !!tagEditEntry
+
+  // Allowlisted Actions only — no unconstrained shell runners (#1142).
+  readonly property var actionCatalog: [
+    {
+      id: "lock",
+      name: "Lock screen",
+      subtitle: "Action · Config.session lock",
+      icon: "system-lock-screen",
+      keywords: "lock screen sleep",
+      destructive: false
+    },
+    {
+      id: "logout",
+      name: "Log out",
+      subtitle: "Action · end Hyprland session",
+      icon: "system-log-out",
+      keywords: "logout log out exit session",
+      destructive: false
+    },
+    {
+      id: "settings",
+      name: "Open Settings",
+      subtitle: "Action · proteus-settings",
+      icon: "proteus-settings",
+      keywords: "settings preferences system",
+      destructive: false
+    },
+    {
+      id: "control-center",
+      name: "Open Control Center",
+      subtitle: "Action · notifications + quick settings",
+      icon: "preferences-system-notifications",
+      keywords: "control center notifications dnd",
+      destructive: false
+    },
+    {
+      id: "dnd-toggle",
+      name: "Toggle Do Not Disturb",
+      subtitle: "Action · suppress toasts",
+      icon: "notifications-disabled",
+      keywords: "dnd do not disturb quiet mute notifications",
+      destructive: false
+    },
+    {
+      id: "clear-notifications",
+      name: "Clear notifications",
+      subtitle: "Action · dismiss all",
+      icon: "edit-clear-all",
+      keywords: "clear notifications dismiss",
+      destructive: false
+    },
+    {
+      id: "reboot",
+      name: "Reboot",
+      subtitle: "Action · systemctl reboot",
+      icon: "system-reboot",
+      keywords: "reboot restart",
+      destructive: true
+    },
+    {
+      id: "shutdown",
+      name: "Shut down",
+      subtitle: "Action · systemctl poweroff",
+      icon: "system-shutdown",
+      keywords: "shutdown power off halt",
+      destructive: true
+    }
+  ]
 
   readonly property var modes: [
     {
@@ -41,6 +109,12 @@ Item {
       label: "Clipboard",
       key: "3",
       icon: "edit-paste-symbolic"
+    },
+    {
+      id: "actions",
+      label: "Actions",
+      key: "4",
+      icon: "system-run-symbolic"
     }
   ]
 
@@ -257,11 +331,49 @@ Item {
           blocked: false,
           score: 1000 - i,
           clipLine: c.line,
-          calcValue: ""
+          calcValue: "",
+          actionId: ""
         })
         if (rows.length >= 40)
           break
       }
+      return rows
+    }
+
+    if (_mode === "actions") {
+      const q = search.text.trim().toLowerCase()
+      const rows = []
+      const catalog = root.actionCatalog
+      for (let i = 0; i < catalog.length; i++) {
+        const a = catalog[i]
+        const hay = (String(a.name || "") + " " + String(a.keywords || "")).toLowerCase()
+        let score = 400 - i
+        if (q.length) {
+          score = root.scoreQuery(hay, q)
+          if (score < 0)
+            continue
+          score += 200
+        }
+        rows.push({
+          kind: "action",
+          entry: null,
+          path: "",
+          name: a.name,
+          subtitle: a.subtitle || "Action",
+          icon: a.icon || "system-run",
+          blocked: false,
+          score: score,
+          clipLine: "",
+          calcValue: "",
+          actionId: a.id,
+          destructive: !!a.destructive
+        })
+      }
+      rows.sort((x, y) => {
+        if (y.score !== x.score)
+          return y.score - x.score
+        return String(x.name).localeCompare(String(y.name))
+      })
       return rows
     }
 
@@ -488,6 +600,36 @@ Item {
     return rows
   }
 
+  function runAction(actionId) {
+    const id = String(actionId || "")
+    // Allowlist gate — only catalog ids.
+    let known = false
+    for (let i = 0; i < root.actionCatalog.length; i++) {
+      if (root.actionCatalog[i].id === id) {
+        known = true
+        break
+      }
+    }
+    if (!known)
+      return
+    if (id === "lock")
+      Config.session("lock")
+    else if (id === "logout")
+      Config.session("logout")
+    else if (id === "reboot")
+      Config.session("reboot")
+    else if (id === "shutdown")
+      Config.session("shutdown")
+    else if (id === "settings")
+      ShellState.openSettings()
+    else if (id === "control-center")
+      ShellState.openControlCenter()
+    else if (id === "dnd-toggle")
+      Notifications.toggleDnd()
+    else if (id === "clear-notifications")
+      Notifications.clearAll()
+  }
+
   function launchIndex(i) {
     if (i < 0 || i >= filtered.length)
       return
@@ -510,6 +652,13 @@ Item {
       root.pasteClipboardLine(row.clipLine)
       ShellState.closeLauncher()
       search.text = ""
+      return
+    }
+    if (row.kind === "action") {
+      root.runAction(row.actionId)
+      ShellState.closeLauncher()
+      search.text = ""
+      list.currentIndex = 0
       return
     }
     if (row.kind === "tag") {
@@ -577,6 +726,8 @@ Item {
       return "Search"
     if (mode === "clipboard")
       return "Clipboard"
+    if (mode === "actions")
+      return "Actions"
     return "Search"
   }
 
@@ -588,6 +739,8 @@ Item {
         return clipHint
       return search.text.trim().length ? "No clipboard matches." : "Clipboard history is empty (needs cliphist)."
     }
+    if (mode === "actions")
+      return search.text.trim().length ? "No actions match." : "No allowlisted actions."
     const t = search.text.trim()
     if (!t.length)
       return "No applications found."
@@ -685,6 +838,11 @@ Item {
                   }
                   if (event.key === Qt.Key_3) {
                     root.setMode("clipboard")
+                    event.accepted = true
+                    return
+                  }
+                  if (event.key === Qt.Key_4) {
+                    root.setMode("actions")
                     event.accepted = true
                     return
                   }
@@ -802,7 +960,15 @@ Item {
             Layout.fillWidth: true
             Layout.leftMargin: 8
             visible: !root.tagging && root.mode !== "apps"
-            text: root.mode === "files" ? "Files" : "Clipboard"
+            text: {
+              if (root.mode === "files")
+                return "Files"
+              if (root.mode === "clipboard")
+                return "Clipboard"
+              if (root.mode === "actions")
+                return "Actions"
+              return ""
+            }
             color: Theme.textMute
             font.family: Theme.fontFamily
             font.pixelSize: 11
@@ -1025,7 +1191,7 @@ Item {
                     Layout.fillWidth: true
                     visible: !!(modelData.subtitle && modelData.subtitle.length)
                     text: modelData.subtitle
-                    color: modelData.blocked ? Theme.danger : Theme.textMute
+                    color: modelData.blocked || modelData.destructive ? Theme.danger : Theme.textMute
                     font.family: Theme.fontFamily
                     font.pixelSize: 11
                     elide: Text.ElideRight
