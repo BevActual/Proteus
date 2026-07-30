@@ -144,7 +144,7 @@ the sub-settings list:
 | Lock screen | Same Kind/color kit as Background + dim; Match desktop; **widgets only via lock Customize** (long-press) — not in Settings |
 | Icons | **Default / Dark / Clear / Tinted** side-by-side squircle compare (`kit/SettingsIconStylePicker`); Tinted tint graph; custom art Switch/Reset; dock Keep/Remove via glass right-click menu + long-press edit (−) / drag-off (running apps appear on dock) |
 | Desktop widgets | **Not in Settings** — unlocked desktop long-press or `Super+Shift+W` → Customize; free place + optional Snap to Grid; separate `desktopWidgets[]` |
-| Notifications / DND | **Shell Control Center** (top-bar status cluster) — list depth · toast/`showToast` · DND · QS volume/tiles; deep Sound/Network stay in Settings panes; **no Settings Notifications category** |
+| Notifications / DND | **Shell Control Center** (top-bar status cluster) — list depth · toast/`showToast` · DND · QS volume/tiles; Status HUD for media-key volume/brightness (suppressed while CC open); deep Sound/Network stay in Settings panes; **no Settings Notifications category** |
 | Font | Searchable system/user list (`kit/SettingsFontPicker`); **Add font…** user-scoped install (`~/.local/share/fonts/proteus` · `userFonts`); size slider; live Aa preview |
 
 Open a row → leaf controls; **‹ Appearance** / Esc returns to the list. Desktop

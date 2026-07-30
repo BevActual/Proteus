@@ -69,8 +69,8 @@ shell/shared/
   Theme.qml Config.qml ConfigHypr.qml
   Background.qml BackgroundCatalog.qml BackgroundDaily.qml BackgroundApply.qml
   Widgets.qml WidgetsLock.qml WidgetsDesktop.qml
-  Audio.qml Power.qml DateTime.qml Weather.qml Displays.qml …
-  ShellState.qml Hardware.qml EnvGate.qml Keybinds.qml LockLayoutZones.qml
+  Audio.qml Brightness.qml Hud.qml Power.qml DateTime.qml Weather.qml Displays.qml …
+  ShellState.qml Hardware.qml EnvGate.qml Keybinds.qml Notifications.qml LockLayoutZones.qml
 apps/proteus-settings/
   kit/     # SettingsFormRow · Group · HubList · Segmented · StickyPaneLoader
   panes/   # product panes
