@@ -54,5 +54,5 @@ full PLAYBOOK or queue here. Override sibling paths with `MOBIUS_ROOT` /
 ## Out (do not invent here)
 
 Meridian hub HTTP API, Mobius referee/queue SoT, Rowena vault/editor, a second
-hypervisor distro, five marketed device SKUs before postures are proven,
+hypervisor distro, seven marketed postures before desktop·console·host are proven,
 forking Hyprland/Quickshell, Electron as default app stack.

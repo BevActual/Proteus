@@ -2,7 +2,7 @@
 doc: architecture
 role: agent-map
 audience: coding agents, contributors
-last_updated: "2026-07-29"
+last_updated: "2026-07-30"
 doc_status: active
 scope: Layers, ownership, repo layout, HARD RULES
 related:
@@ -38,8 +38,8 @@ Cold-start map for `~/Projects/Proteus`. Where this disagrees with code,
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Postures (presentation + primary job)                  │
-│  desktop · media · wearable · xr · vehicle · home · host │
+│  Postures (hard-switch jobs — focus)                     │
+│  desktop · console · host   (parked: home · wearable · …) │
 ├─────────────────────────────────────────────────────────┤
 │  Apps                                                   │
 │  proteus-settings (QS today) · future Tauri apps        │
@@ -155,8 +155,9 @@ Optional later: more Rust CLIs (`proteus-net`, etc.) so QML stays thin
 5. **VM + scripts are the verify path** (nested Hyprland is shell-only shortcut).
 6. **No second settings store per posture** (capability kits share the schema; panes enable/disable).
 7. **Host is a posture, not a second distro / hypervisor appliance.**
-8. **Prove few postures** until each is undeniable (desktop → media *or* host → …). Locked set: [POSTURES.md](./POSTURES.md).
-9. **Hyprland / Quickshell are backends** — profile and wrap; don’t fork early; SoT on disk; plan shell respawn ([COMPOSITOR.md](./COMPOSITOR.md)).
+8. **Focus postures are hard switches** — prove **desktop · console · host**
+   until each is undeniable; park the rest ([POSTURES.md](./POSTURES.md)).
+9. **Hyprland / Quickshell are backends** — profile and wrap; don’t fork early; SoT on disk; plan shell respawn; console may use a game-scoped compositor ([COMPOSITOR.md](./COMPOSITOR.md)).
 10. **Stack split** — chrome/Settings in QML; product apps in Tauri; helpers in Rust ([STACK.md](./STACK.md)).
 11. **Apps adapt to environment** — one app identity; capability contract; not enabled on every device class/posture by default ([APPLICATIONS.md](./APPLICATIONS.md)).
 12. **Phone is a device class**, not a locked posture.

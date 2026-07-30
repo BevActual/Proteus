@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Select active Hyprland posture profile and reload (no Settings UI).
-# Usage: set-hypr-profile.sh desktop|media|host|home
+# Soft-select active Hyprland posture profile and reload (not a hard posture switch).
+# Usage: set-hypr-profile.sh desktop|console|media|host|home
+#   console ≡ media (legacy profile filename media.conf)
+# Hard switches: docs/proteus/POSTURES.md
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -11,12 +13,13 @@ NAME="${1:-}"
 PROFILES=(desktop media host home)
 
 usage() {
-  echo "usage: $0 desktop|media|host|home" >&2
+  echo "usage: $0 desktop|console|media|host|home" >&2
   exit 2
 }
 
 [[ -n "${NAME}" ]] || usage
 case "${NAME}" in
+  console) NAME=media ;;
   desktop|media|host|home) ;;
   *) usage ;;
 esac

@@ -50,7 +50,7 @@ the thesis ahead of code where marked `planned`.
 | Hyprland session | `shipped` | Backend for desktop posture; greetd / proteus-session |
 | Quickshell shell | `shipped` | Chrome runtime; `/mnt/proteus/shell` via 9p |
 | Nested Hyprland (host) | `shipped` | `scripts/run-nested.sh` — shell-only quick test |
-| Hyprland posture profiles | `partial` — desktop + media/host/home stubs + `proteus-profile.conf`; see [COMPOSITOR.md](./COMPOSITOR.md) |
+| Hyprland posture profiles | `partial` — desktop + media(console alias)/host/home stubs + soft `set-hypr-profile.sh`; hard switches `planned` — [POSTURES.md](./POSTURES.md) · [COMPOSITOR.md](./COMPOSITOR.md) |
 | QS version pin / respawn policy | `partial` — `proteus-qs` flock + `--restart` + orphan reap + backoff; optional systemd `--user` unit; version recorded in `qs-guest-smoke` / `qs-version-smoke`; after QS upgrade re-run guest smoke; IgnorePkg/ISO pin Out |
 
 ---
@@ -113,12 +113,14 @@ Locked product set: [POSTURES.md](./POSTURES.md).
 
 | Posture | Status |
 |---------|--------|
-| desktop | `partial` — primary |
-| media · wearable · xr | `planned` (legacy stubs: `couch` / `watch` / `vr`) |
-| vehicle · home · host | `planned` — no shell stub yet |
-| phone (loader only) | `stub` — **not** in locked set |
+| desktop | `partial` — primary focus spine |
+| console | `planned` — hard switch (game-scoped compositor + sparse shell); code stub `couch`; hypr stub `media.conf` |
+| host | `planned` — hard switch (lean/ops; UI on demand); hypr stub `host.conf` |
+| home · wearable · xr · vehicle | `parked` — thesis only; not in proof order |
 
-Selection today: `PROTEUS_SURFACE` env (default `desktop`). See POSTURES § Loader map.
+Focus set + hard switches: [POSTURES.md](./POSTURES.md). Selection today:
+`PROTEUS_SURFACE` env (default `desktop`). Soft hypr helper:
+`set-hypr-profile.sh` (`media` / `console` → console alias).
 
 ---
 
@@ -133,7 +135,7 @@ Selection today: `PROTEUS_SURFACE` env (default `desktop`). See POSTURES § Load
 | `~/.config/hypr/proteus-general.conf` | Gaps, borders, rounding, animations (sourced) |
 | `~/.config/hypr/proteus-monitors.conf` | Displays live `monitor =` lines (sourced) |
 | `~/.config/hypr/proteus-profile.conf` | Active posture profile pointer → `profiles/*.conf` |
-| `~/.config/hypr/profiles/*.conf` | Posture fragments (desktop shipped; media/host/home stubs) |
+| `~/.config/hypr/profiles/*.conf` | Posture fragments (desktop shipped; media=console alias / host / home stubs) |
 | `~/.config/hypr/hyprland.conf` | Guest/session compositor config |
 | `env/hypr/hyprland.conf` | Nested template (sources general / monitors / keybinds / profile) |
 | `env/hypr/proteus-keybinds.conf` | Default binds template |
@@ -179,7 +181,7 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 | Lock | Doc | Code status |
 |------|-----|-------------|
 | Stack split (QML / Tauri / Rust) | [STACK.md](./STACK.md) | Settings+shell = QML; no Tauri apps yet |
-| Hyprland as backend + QS limits | [COMPOSITOR.md](./COMPOSITOR.md) | Keybinds + general + posture profile pointer `shipped`; monitors stub `partial`; media/host/home stubs `partial`; wearable/xr/vehicle `planned` |
+| Hyprland as backend + QS limits | [COMPOSITOR.md](./COMPOSITOR.md) | Desktop Hyprland `shipped`; console/host hard switches `planned`; media.conf = console alias stub; home parked |
 | Adaptive apps / environment contract | [APPLICATIONS.md](./APPLICATIONS.md) | `partial` — `env/apps` manifests + EnvGate prefer; postures unused |
 | Hardware module catalog | [HARDWARE.md](./HARDWARE.md) | Wave A probe + `Hardware.qml` session load |
 | Capability / posture resolver | [POSTURES.md](./POSTURES.md) | Probe → caps in shell; posture still stub |
@@ -190,16 +192,17 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 
 ## 8. Not yet
 
+- Remaining focus hard switches (**console**, **host**) — game-scoped compositor + sparse shell; lean ops session  
+- Soft hypr profile reload sold as posture (use hard switches)  
+- Parked postures (home / wearable / xr / vehicle) before focus three are proven  
 - Snap / dependency graphs in Software  
-- Remaining posture hypr profiles beyond stubs (wearable / xr / vehicle; media/host/home chrome)  
 - pacman IgnorePkg / ISO QS version pin (record + smoke only today)  
 - Host posture chrome or workload panes  
-- Second personal posture beyond stub  
 - First-party Tauri app under `apps/`  
 - More Rust helper CLIs under `services/` (Wave A probe is Python; `proteus-pkg` mutator shipped)  
 - Posture / prefers / device_classes enforcement on manifests (schema only today)  
 - ISO / installer productization (dogfood overlay in `vm/install/` is enough for now)  
-- Settings UI for posture profile picker (CLI `set-hypr-profile.sh` only)  
+- Settings UI for posture hard-switch picker (CLI soft profile only today)  
 - Rowena (and other sibling) CSS retarget onto `--proteus-*` export  
 
 When shipping a feature, update this file in the same change.

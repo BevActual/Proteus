@@ -2,9 +2,9 @@
 doc: compositor
 role: architecture
 audience: architects, contributors, coding agents
-last_updated: "2026-07-29"
+last_updated: "2026-07-30"
 doc_status: active
-scope: Hyprland as backend + Quickshell as chrome runtime; profiles, capabilities, limits
+scope: Engines under hard-switch postures; Hyprland + Quickshell; profiles, capabilities, limits
 related:
   - ARCHITECTURE.md
   - POSTURES.md
@@ -19,8 +19,10 @@ status_legend:
 
 # Compositor & shell runtime — Hyprland + Quickshell
 
-Proteus **owns the product thinking**. Hyprland and Quickshell are **engines**
-under compositor postures — not the brand and not every posture.
+Proteus **owns the product thinking**. Hyprland, Quickshell, and (for
+**console**) a game-scoped compositor are **engines** under hard-switch
+postures — not the brand and not every posture. Focus set: **desktop ·
+console · host** ([POSTURES.md](./POSTURES.md)).
 
 ## Document map
 
@@ -45,11 +47,16 @@ under compositor postures — not the brand and not every posture.
 | **Quickshell** | Chrome that *expresses* posture (bars, dock, overlays; Settings today) |
 
 ```
-capabilities + role  →  posture profile  →  Hyprland profile + QS chrome + Settings primary panes
+capabilities + role  →  hard-switch posture  →  engines + QS chrome + Settings primary panes
 ```
 
-Host posture may use **little or no** Hyprland chrome while still being Proteus
-([POSTURES.md](./POSTURES.md) § Host vs hypervisor).
+| Focus posture | Typical engines |
+|---------------|-----------------|
+| **desktop** | Hyprland + full QS shell |
+| **console** | Game-scoped compositor (Gamescope-class or equivalent) + sparse QS (or lean chrome) |
+| **host** | Little/no DE; UI on demand — still Proteus ([POSTURES.md](./POSTURES.md) § Host vs hypervisor) |
+
+Soft hypr **profile reload alone is not a posture flip** for console/host.
 
 ---
 
@@ -57,16 +64,19 @@ Host posture may use **little or no** Hyprland chrome while still being Proteus
 
 ### Do
 
-- Per-posture **profiles** (desktop tiling; media remote/gamepad; wearable minimal; host little/no DE chrome)
+- Desktop **profiles** (tiling, gaps, …) as fragments under Hyprland
 - Settings as the friendly editor; **files remain SoT**
 - Capability-gated features (animations, blur, multi-mon, gestures)
 - Fail soft: hide or degrade Settings controls when a capability is missing
+- Plan **console** as a different compositor scope — not “Hyprland media.conf +
+  bigger buttons”
 
 ### Don’t (early)
 
 - Fork Hyprland to invent Proteus
 - Encode product philosophy only in opaque plugins with no Settings story
-- Assume every posture needs a full Hyprland desktop (host / home / vehicle may not)
+- Assume every posture needs a full Hyprland desktop (**host** / parked home may not)
+- Sell soft profile reload as **console** or **host**
 
 **Pattern already shipping:** Keyboard → `proteus-keybinds.conf` → `hyprctl reload`.
 Extend the same pattern to general/monitors/animations fragments.
@@ -91,14 +101,14 @@ Prefer these for OS facts before inventing daemons.
 | Limitation | Fold |
 |------------|------|
 | **Shell ≠ app platform** | Chrome + Settings in QS; product apps → Tauri ([STACK.md](./STACK.md)) |
-| **Hyprland-shaped integrations** | Best backend for desktop/couch compositor postures — not universal |
+| **Hyprland-shaped integrations** | Best backend for **desktop** — not universal; **console** uses a game-scoped path |
 | **Output / session fragility** | Crashes reported on monitor hotplug, TTY switch, KVM, sleep — **v1:** `shell/scripts/proteus-qs` backoff loop from Hyprland `exec-once`; never keep sole truth in QS memory |
 | **Session start hygiene** | `vm/guest/proteus-session` prefers `start-hyprland`; hypr seed `exec-once` = qs/bg/cliphist only (no terminal); `hide-system-apps` from apps + post-install; host `session-smoke` / `install-smoke` |
 | **Young / moving target** | **v1:** record `quickshell --version` in `qs-guest-smoke` / `qs-version-smoke` (do **not** `IgnorePkg`-pin rolling Arch); after `pacman -Syu` re-run `PROTEUS_GUEST=1 ./scripts/smoke-all.sh`; ISO pin later |
 | **QML is programming** | Shared modules; Rust helpers for messy IO |
 | **Settings as second `quickshell -p`** | OK now; files are SoT; revisit Tauri Settings if lifecycle hurts |
 | **Not a virt/ops UI kit** | Host console ≠ Portainer in a panel |
-| **Touch / phone / VR** | Explicit posture work — desktop `PanelWindow` patterns won’t port for free |
+| **Touch / phone / VR** | Device-class / parked-posture work — desktop `PanelWindow` patterns won’t port for free |
 
 ### Owns vs does not own
 
@@ -116,10 +126,10 @@ Do **not** fork Quickshell — wrap it; upstream bugs when we hit them.
 
 ## 4. Profiles on disk
 
-`partial` — desktop profile + active pointer `shipped`; media / host / home
-stubs `shipped`; wearable / xr / vehicle still `planned`. Keyboard + Desktop
-fragments `shipped`; Displays layout canvas `partial` (drag + full-snapshot
-Revert):
+`partial` — desktop profile + active pointer `shipped`; `media.conf` (console
+alias) / host / home stubs `shipped`. Hard-switch sessions for console/host
+still `planned`. Keyboard + Desktop fragments `shipped`; Displays layout canvas
+`partial` (drag + full-snapshot Revert):
 
 ```
 ~/.config/hypr/
@@ -130,15 +140,15 @@ Revert):
   proteus-profile.conf          # active posture pointer → profiles/*.conf  (shipped)
   profiles/
     desktop.conf                # shipped (tiling defaults)
-    media.conf                  # stub (lean-back later)
+    media.conf                  # stub — legacy name for **console** (rename later)
     host.conf                   # stub (ops / lean later)
-    home.conf                   # stub (hub panel later)
-    # wearable / xr / vehicle as needed
+    home.conf                   # stub — parked posture only
 ```
 
-Posture switch = **select profile + reload** (+ retarget Quickshell later), not
-a new distro. Helper: `vm/guest/set-hypr-profile.sh desktop|media|host|home`.
-Locked postures: [POSTURES.md](./POSTURES.md).
+Today’s helper is **soft only**: `vm/guest/set-hypr-profile.sh
+desktop|media|host|home` (`media` = console alias). Intended product flip =
+**hard switch** (engines + shell), not profile reload alone — see
+[POSTURES.md](./POSTURES.md) § Hard switches.
 
 Nested template today: `env/hypr/hyprland.conf` sources `proteus-monitors.conf`,
 `proteus-general.conf`, `proteus-keybinds.conf`, and `proteus-profile.conf`.
@@ -157,14 +167,15 @@ posture. Full product table: [POSTURES.md](./POSTURES.md) § Device environments
 | `tiling` / `multi_monitor` | Hyprland profile, Displays pane |
 | `touch` / `pointer` / `remote` / `gamepad` | Chrome targets, keybind set |
 | `mic` / `speaker` | Voice surfaces; meeting mode |
-| `vitals` / `haptics` | Wearable chrome without assuming a watch face |
+| `vitals` / `haptics` | Parked wearable chrome without assuming a watch face |
 | `qs_hyprland` / `qs_pipewire` | Which Settings backends light up |
 | `display_hotplug_fragile` | Respawn policy; degrade live rearrange |
-| `libvirt` / `containers` / `home_control` | Host / home eligibility |
+| `libvirt` / `containers` / `home_control` | Host / parked-home eligibility |
+| `game_scope` | Console game-scoped compositor path (*planned*) |
 | `battery` | Power panes (UPower via QS later) |
 
-Resolver (planned): probe → capability set → posture template → engines +
-Settings. Stub today: `PROTEUS_SURFACE=` (posture only).
+Resolver (planned): probe → capability set → hard-switch posture → engines +
+Settings. Stub today: `PROTEUS_SURFACE=` (posture only); soft hypr profiles.
 
 Rule: **missing `display` does not invent a new posture** — it disables
 compositor chrome for that unit.
@@ -179,9 +190,10 @@ compositor chrome for that unit.
 4. **Respawn the shell** — `proteus-qs` flock/backoff/`--restart` (optional
    systemd `--user` unit); assume hotplug/TTY pain until proven otherwise.  
 5. **No Hyprland/QS forks** early — profile, wrap, contribute upstream.  
-6. **Not every posture needs Hyprland** — host defaults lean/headless; ops UI
-   is **on demand** (terminal-only remoters vs operators who want chrome) —
-   still **host** ([POSTURES.md](./POSTURES.md) § Device environments).
+6. **Not every posture needs Hyprland** — **host** defaults lean/headless; ops UI
+   is **on demand**; **console** uses a game-scoped compositor path — still the
+   same product ([POSTURES.md](./POSTURES.md)).
+7. **Soft profile reload ≠ posture flip** for console/host — hard switches only.
 
 ---
 
@@ -192,7 +204,8 @@ compositor chrome for that unit.
 | Guest Hyprland + QS shell | `shipped` |
 | Settings → keybinds → hypr conf | `shipped` |
 | Settings → gaps/borders via hyprctl | `shipped` |
-| Per-posture hypr profiles | `partial` — desktop + media/host/home stubs + `set-hypr-profile.sh`; wearable/xr/vehicle planned |
+| Per-posture hypr profiles | `partial` — desktop + media(console alias)/host/home stubs + soft `set-hypr-profile.sh` |
+| Console / host hard switches | `planned` — engine + shell session flip |
 | QS respawn / crash policy | `partial` — `proteus-qs` flock/backoff/`--restart`; optional `proteus-qs.service` user unit (hypr exec-once still default) |
 | Capability resolver | `planned` |
 | Pin QS version in guest docs/ISO | `partial` — version **recorded** in smoke; IgnorePkg/ISO pin Out |

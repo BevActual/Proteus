@@ -2,7 +2,7 @@
 doc: hardware
 role: reference
 audience: architects, contributors, hardware / driver planners
-last_updated: "2026-07-29"
+last_updated: "2026-07-30"
 doc_status: active
 scope: Device classes we target + capability/module catalog (sensors, I/O, compute, radios)
 related:
@@ -13,8 +13,8 @@ related:
   - CURRENT.md
 status_legend:
   p0: Target for early resolver / desktop spine
-  p1: Needed for second postures (media / host / home)
-  p2: Wearable / XR / vehicle — later
+  p1: Needed for focus hard switches (console / host)
+  p2: Parked postures (home / wearable / XR / vehicle) — later
   stretch: Speculative; don’t block architecture
 ---
 
@@ -55,16 +55,16 @@ Physical product categories Proteus should **recognize** (class ≠ posture).
 | `desktop` | Tower / SFF workstation | desktop, host | `p0` |
 | `laptop` | Clamshell portable | desktop | `p0` |
 | `phone` | Pocket slab, cellular | personal compact chrome | `p1` |
-| `tablet` | Large touch slate | desktop-ish / media | `p1` |
-| `tv` | Living-room display / STB | media | `p1` |
-| `htpc` | Living-room PC | media, host | `p1` |
-| `watch` | Wrist display companion | wearable | `p2` |
-| `band` | Wrist/body sensor, little/no display | wearable | `p2` |
-| `xr_headset` | HMD | xr | `p2` |
-| `vehicle_hu` | Head unit / cluster companion | vehicle | `p2` |
-| `hub` | Always-on house brain (may be headless) | home, host | `p1` |
+| `tablet` | Large touch slate | desktop-ish / console | `p1` |
+| `tv` | Living-room display / STB | console | `p1` |
+| `htpc` | Living-room PC | console, host | `p1` |
+| `watch` | Wrist display companion | wearable (parked) | `p2` |
+| `band` | Wrist/body sensor, little/no display | wearable (parked) | `p2` |
+| `xr_headset` | HMD | xr (parked) | `p2` |
+| `vehicle_hu` | Head unit / cluster companion | vehicle (parked) | `p2` |
+| `hub` | Always-on house brain (may be headless) | host; home parked | `p1` |
 | `server` | Rack/NUC lab box (often headless) | host | `p1` |
-| `kiosk` | Fixed-purpose panel | home / custom | `stretch` |
+| `kiosk` | Fixed-purpose panel | home (parked) / custom | `stretch` |
 
 A single machine has **one primary class** (probed or sticky override) plus a
 **module set**.
@@ -273,10 +273,10 @@ Class heuristic: `hostnamectl` chassis / DMI / battery+lid → `laptop` vs
 | Wave | Focus |
 |------|--------|
 | **A — now** | `desktop`/`laptop` class; display, input.pointer/keyboard, audio, net, battery; compositor caps — **probe sketch shipped** |
-| **B** | `server`/`hub` + virt/container/home radios; headless + UI-on-demand seats |
-| **C** | `tv`/`htpc` + remote/gamepad; media posture |
+| **B** | Console *or* host wedge — `tv`/`htpc` + remote/gamepad **or** `server`/`hub` + virt/container + headless/UI-on-demand |
+| **C** | Remaining focus posture of the three |
 | **D** | `phone`/`tablet` touch + sensors.light/proximity/imu |
-| **E** | `watch`/`band` vitals + ble; `xr_headset`; `vehicle_hu` |
+| **E** | Parked: `watch`/`band` vitals; `xr_headset`; `vehicle_hu`; home radios depth |
 
 Do not block the desktop spine on wearable IMUs.
 

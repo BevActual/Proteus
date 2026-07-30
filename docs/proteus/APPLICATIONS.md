@@ -2,7 +2,7 @@
 doc: applications
 role: architecture
 audience: architects, contributors, app authors
-last_updated: "2026-07-29"
+last_updated: "2026-07-30"
 doc_status: active
 scope: Adaptive apps — one identity, environment-shaped; not every app on every kit
 related:
@@ -52,8 +52,8 @@ device class  ×  capabilities  ×  posture  ×  session mode
 |-------|---------|---------|
 | **Device class** | Physical product category | `phone`, `laptop`, `tv`, `watch`, `hub`, `server` |
 | **Capabilities** | What *this unit* can do | `touch`, `display`, `vitals`, `libvirt` |
-| **Posture** | What job the OS is in | `desktop`, `media`, `host`, … |
-| **Session mode** | Optional activity overlay | `focus`, `present`, … |
+| **Posture** | What job the OS is in | `desktop`, `console`, `host` |
+| **Session mode** | Optional soft overlay (not a posture flip) | `focus`, `present`, … |
 
 OS chrome and apps both read this tuple. Details:
 [POSTURES.md](./POSTURES.md) · module/sensor inventory: [HARDWARE.md](./HARDWARE.md).
@@ -64,20 +64,20 @@ OS chrome and apps both read this tuple. Details:
 
 **Phone was easy to mis-file as a posture.** A phone is primarily a **device
 class** (pocket computer with touch, cellular, battery), not a unique *job*
-like `host` or `media`.
+like `host` or `console`.
 
 | | Device class | Posture |
 |--|--------------|---------|
 | Asks | What kind of machine is this? | What is this machine *doing*? |
-| Changes slowly | Hardware SKU / form | Role / user intent / sticky mode |
-| Examples | phone, tablet, laptop, TV, watch, XR headset, vehicle HU, home hub, server | desktop, media, wearable, xr, vehicle, home, host |
+| Changes slowly | Hardware SKU / form | Role / user intent (hard switch) |
+| Examples | phone, tablet, laptop, TV, watch, XR headset, vehicle HU, home hub, server | **Focus:** desktop, console, host · **Parked:** home, wearable, xr, vehicle |
 
 A **phone** often runs personal compute with dense touch chrome — that may look
 like a “mobile” shell, but the shell is still Proteus expressing **device class
-+ capabilities**, possibly under a personal/desktop-adjacent job, not a eighth
-locked posture named “phone.”
++ capabilities**, possibly under a personal/desktop-adjacent job, not a locked
+posture named “phone.”
 
-Likewise: a **TV** is a device class that often runs **media** posture; a
+Likewise: a **TV** is a device class that often runs **console** posture; a
 **rack NUC** is a device class that often runs **host** (UI on demand).
 
 ---
@@ -96,7 +96,7 @@ Each app declares a contract (manifest / metadata):
 | **requires** | Capabilities that must be present or the app doesn’t offer itself |
 | **requiresAny** | At least one of these capabilities must be present |
 | **prefers** | Soft hints (larger display, pointer, …) for layout defaults |
-| **postures** | Where it is allowed or primary (`host`, `media`, `desktop`, …) |
+| **postures** | Where it is allowed or primary (`host`, `console`, `desktop`, …) |
 | **device_classes** | Optional allow/deny (e.g. vitals UI on `watch` / `phone` only) |
 | **adapts** | Which UI facets change (nav density, input, panes) |
 
@@ -112,7 +112,7 @@ Example sketches:
   works headless via CLI/API; GUI facet only when UI session exists.  
 - **Vitals glance** — requires `vitals`; device classes `watch` / band; no
   Hyprland needed.  
-- **Media player** — posture `media` or `desktop`; adapts to `remote` /
+- **Media / console player** — posture `console` or `desktop`; adapts to `remote` /
   `gamepad` / `touch`.
 
 ---
@@ -138,7 +138,7 @@ Code: `shell/shared/EnvGate.qml`. Fail-open until `Hardware.ready`. Missing
 catalog → heuristics only (`manifestsReady` false).
 
 This avoids pretending every creative app belongs on a vitals band or that every
-ops tool belongs on the couch.
+ops tool belongs on the console.
 
 ---
 
@@ -150,7 +150,7 @@ When an app *does* run, it **shapes** — one binary/identity:
 |--------------------|----------------|
 | `touch` vs `pointer` | Hit targets, chrome |
 | Display size / `headless` | Layout density; headless → CLI/API only |
-| Posture `media` | Lean-back typography, remote nav |
+| Posture `console` | Lean-back typography, remote / gamepad nav |
 | Posture `host` | Ops IA; no “creative desktop” assumptions |
 | Session `focus` | Hide secondary panels |
 | `mic`/`speaker` without `display` | Voice-first flows |

@@ -2,7 +2,7 @@
 doc: positioning
 role: external-summary
 audience: contributors, partners, future public copy
-last_updated: "2026-07-29"
+last_updated: "2026-07-30"
 doc_status: active
 scope: Product thesis, field comparison, differentiator, non-goals
 related:
@@ -41,11 +41,12 @@ related:
 
 ## 1. What it is
 
-**Proteus** is a single Arch-based environment (Quickshell chrome + Hyprland +
-a real Settings control center) that changes **posture** — desktop, media,
-wearable, XR, vehicle, home controller, or **host** — without shipping seven
-distros. Posture means **hardware capabilities + intended use**, not just
-screen size.
+**Proteus** is a single Arch-based environment (Quickshell chrome + compositor
+backends + a real Settings control center) that **hard-switches posture** —
+**desktop**, **console**, or **host** — without shipping three distros.
+Posture means **hardware capabilities + intended use**, not just screen size.
+Other jobs (home, wearable, XR, vehicle) stay thesis until the focus three are
+undeniable ([POSTURES.md](./POSTURES.md)).
 
 ---
 
@@ -57,7 +58,8 @@ screen size.
 
 - **Defaults** feel calm and predictable (dock, launcher, Style, Keyboard).
 - **Power** stays Linux-native (real conf files, CLI, packages, virt).
-- **One spine** across postures; chrome and primary panes change, identity does not.
+- **One spine** across postures; chrome, engines, and primary panes change with
+  the job — identity does not.
 
 ---
 
@@ -66,7 +68,8 @@ screen size.
 - Not “yet another Hyprland rice” as the product story
 - Not a Proxmox/CasaOS competitor whose only job is VMs
 - Not an Apple/Google-style family of forked OSes
-- Not five device SKUs marketed as one slogan
+- Not seven device SKUs marketed as one slogan
+- Not a soft theme toggle sold as “game mode”
 - Not a reimplementation of Meridian (models) or Mobius (agent loop)
 
 ---
@@ -77,13 +80,14 @@ screen size.
 
 | Player | Idea | vs Proteus |
 |--------|------|------------|
-| Lomiri / Ubuntu Touch | One Linux shell; phone↔desktop | Same personal slogan; no VR/watch/**host** thesis |
+| Lomiri / Ubuntu Touch | One Linux shell; phone↔desktop | Same personal slogan; no **console**/**host** hard flips |
 | KDE Plasma + Mobile | Shared tech, related shells | Family of products more than one adaptive identity |
 | Samsung DeX / Continuum | Phone becomes desktop when docked | Ecosystem-locked; niche or dead |
-| SteamOS (Deck) | Handheld ↔ desktop mode | Best modern posture flip — gaming-only |
+| SteamOS (Deck) | Handheld ↔ desktop mode | Best modern **hard** posture flip — gaming-only |
 
 **Verdict:** “Shell on phone and desktop” is a known, hard, partially occupied
-lane. Most attempts stalled on apps, drivers, and focus — not the slogan.
+lane. Proteus’s personal wedge is **desk ↔ console** (SteamOS-class flip,
+broader than gaming-only), not another phone DE.
 
 ### Big platforms
 
@@ -100,10 +104,11 @@ it with **ecosystem gravity + separate SKUs**. Proteus plays Linux/indie rules:
 | CasaOS, Umbrel, StartOS | Friendly home-lab dashboards | Ops UX, not multi-posture personal OS |
 
 **Verdict:** Almost nobody sells one consumer-grade adaptive OS whose postures
-include both “I’m at a desk” and “this box runs VMs/containers.”
+include both “I’m at a desk / on the console” and “this box runs
+VMs/containers.”
 
 ```
-                  Personal postures          Host / ops role
+                  Personal (desk+console)     Host / ops role
 Lomiri / Plasma        strong                     empty
 SteamOS                niche (game)               empty
 Proxmox / CasaOS       empty                      strong
@@ -117,18 +122,19 @@ Proteus (unfocused)    “another shell”            “Portainer rice”
 ## 5. Differentiator
 
 **Crowded:** shell that works on phone and desktop.  
-**Open:** unified OS identity that changes **job** — desk, living room, house,
-or host — without seven distros.
+**Open:** unified OS identity that **hard-switches job** — desk, console, or
+host — without three distros.
 
 Differentiator is not Hyprland + Quickshell. It is:
 
-> **Posture = hardware + intended use**, with **host** and **home** as
-> first-class jobs — not afterthought ISOs.
+> **Posture = hardware + intended use**, with **console** and **host** as
+> first-class hard switches beside **desktop** — not afterthought ISOs or chrome
+> skins.
 
-Those tools are **backends** under compositor postures
-([COMPOSITOR.md](./COMPOSITOR.md)). Hypervisor **tech** (KVM, containers) may
-power host mode. A **hypervisor product** (Proxmox et al.) *is* virtualization
-as the OS. Locked set: [POSTURES.md](./POSTURES.md).
+Engines are **backends** under postures ([COMPOSITOR.md](./COMPOSITOR.md)).
+Hypervisor **tech** (KVM, containers) may power host mode. A **hypervisor
+product** (Proxmox et al.) *is* virtualization as the OS. Locked focus set:
+[POSTURES.md](./POSTURES.md).
 
 App/chrome languages: [STACK.md](./STACK.md).
 
@@ -137,16 +143,18 @@ App/chrome languages: [STACK.md](./STACK.md).
 ## 6. Proof order
 
 1. **Desktop spine** undeniable (chrome + Settings + facts on disk) — *in progress*
-2. **Media** *or* **host** as second real posture  
-3. **Home** hub UI (often on host hardware); then wearable / XR / vehicle  
+2. **Console** hard switch (game-scoped compositor + sparse shell) *or* **host**
+   hard switch — pick by dogfood wedge  
+3. Complete the focus three  
+4. Parked jobs (**home**, then wearable / XR / vehicle) only after that  
 
-Do not market seven devices. Market **one system that changes job**, and prove
-postures few until each is obvious.
+Do not market seven devices. Market **one system that changes job** via hard
+switches. Prove **desktop · console · host** until each is obvious.
 
 ---
 
 ## 7. Taglines
 
-- One system. Many jobs.
+- One system. Three jobs.
 - Linux under the hood. Mac in the hand.
-- Same OS at the desk, on the couch, or as the host.
+- Same OS at the desk, on the console, or as the host.
