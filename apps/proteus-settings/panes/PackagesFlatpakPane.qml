@@ -166,7 +166,9 @@ ColumnLayout {
       return
     results = Packages.sortSearchResults(installedQuery, out).slice(0, resultCap)
     busy = false
-    status = results.length ? "" : (q.length ? "No installed Flatpaks matched." : "No user Flatpaks installed.")
+    status = results.length ? "" : (q.length
+        ? ("No installed Flatpaks matched “" + installedQuery.trim() + "”.")
+        : "No user Flatpaks installed. Switch to Install to browse Flathub.")
   }
 
   function startPopularBrowse(gen) {
@@ -462,6 +464,7 @@ ColumnLayout {
     font.pixelSize: 12
     wrapMode: Text.WordWrap
     visible: root.results.length === 0 && !root.confirming && !root.applying
+              && (root.busy || root.status.length > 0)
   }
 
   Flickable {

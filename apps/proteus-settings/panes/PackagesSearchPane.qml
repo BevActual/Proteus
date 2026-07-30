@@ -336,6 +336,7 @@ ColumnLayout {
     font.pixelSize: 12
     wrapMode: Text.WordWrap
     visible: root.results.length === 0 && !root.confirming && !root.applying
+              && (root.busy || root.status.length > 0)
   }
 
   Flickable {
@@ -478,7 +479,9 @@ ColumnLayout {
         root.busy = false
         root.status = ranked.length
             ? ""
-            : (q.length ? "No installed packages matched." : "No explicitly installed packages.")
+            : (q.length
+                ? ("No installed packages matched “" + root.installedQuery.trim() + "”.")
+                : "No explicitly installed packages. Switch to Install to browse popular apps.")
       }
     }
   }

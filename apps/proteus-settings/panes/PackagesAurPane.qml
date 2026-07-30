@@ -351,6 +351,7 @@ ColumnLayout {
     font.pixelSize: 12
     wrapMode: Text.WordWrap
     visible: root.helperOk && root.results.length === 0 && !root.confirming && !root.applying
+              && (root.busy || root.status.length > 0)
   }
 
   Flickable {
@@ -494,7 +495,9 @@ ColumnLayout {
         root.busy = false
         root.status = ranked.length
             ? ""
-            : (q.length ? "No foreign packages matched." : "No foreign (AUR) packages installed.")
+            : (q.length
+                ? ("No foreign packages matched “" + root.installedQuery.trim() + "”.")
+                : "No foreign (AUR) packages installed. Switch to Install to search the AUR.")
       }
     }
   }
