@@ -88,7 +88,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Desktop → Gaps / Borders / Motion / Dock & menu bar / Launcher (`proteus-general.conf` + sizes + Spotlight tags/recents) | `shipped` |
 | Displays (scale / mode / orientation, Identify; layout canvas) | `partial` — drag layout + full-snapshot Revert; multi-monitor dogfood preferred |
 | Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) | `shipped` |
-| Software → Updates / Repos / AUR / Flathub / AppImages / Orphans (Install\|Installed toggle; sticky action bar; rich rows; live op + Cancel; popular browse; leaf UI memory) | `partial` — optional guest: `yay`/`paru`, `flatpak` + Flathub; AppImages need no helper; dep graphs later |
+| Software → Updates / Repos / AUR / Flathub / AppImages / Orphans (Install\|Installed mode-safe loads; sticky action bar; rich rows; live op command + Cancel + last error; empty Installed honesty; popular browse; leaf UI memory) | `partial` — optional guest: `yay`/`paru`, `flatpak` + Flathub; AppImages need no helper; dep graphs / Snap Out; `./scripts/software-reliability-smoke.sh` + optional `./scripts/software-guest-smoke.sh` |
 | Sound → Output / Input / Applications / Latency & buffer (`sound`) | `partial` — category hub; streaming input peak meter, per-app volume, test tone |
 | Network (hostname, Wi‑Fi connect, Bluetooth, Tailscale, NM VPN) | `partial` — password Wi‑Fi / pairing / Headscale via system tools |
 | Power (battery via UPower; logind idle/lid read-only + conf escape hatch) | `partial` — writing lid/idle needs a privileged helper |
@@ -163,6 +163,8 @@ Selection today: `PROTEUS_SURFACE` env (default `desktop`). See POSTURES § Load
 | `./scripts/layout-smoke.sh` | Flat `shell/shared/` + Settings `kit/` structure |
 | `./scripts/config-schema-smoke.sh` | Config FileView keys ↔ `tests/fixtures/settings.minimal.json` |
 | `./scripts/install-smoke.sh` | Overlay installer tree check |
+| `./scripts/software-reliability-smoke.sh` | Host static checks for Software mode-safe loads + op narrative |
+| `./scripts/software-guest-smoke.sh` | Guest Software dogfood (browse/inventory + Flatpak install/remove; pacman mutator if passwordless sudo) |
 | `./scripts/qs-guest-smoke.sh` | Guest cold-start `SHELL_OK` / `SETTINGS_OK` + record `quickshell` version |
 
 SSH default: `ssh -p 2222 andrew@127.0.0.1`

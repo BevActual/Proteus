@@ -70,8 +70,8 @@ Examples:
 | Tailscale (status + up/down + copy IP) | `tailscale status --json` · `wl-copy` |
 | Package updates / search / remove / orphans | `pacman -Qu` / `-Ss` / `-Qqe` / `-Qdt` · apply `pkexec proteus-pkg` (multi install/remove; selective upgrades) |
 | AUR search / install / remove / update | `yay`/`paru` `-Ssa` · remove via `-Qqm` foreign pkgs · multi-select |
-| Flatpak / Flathub search / list / install / remove / update | `flatpak --user` · Flathub remote · Install\|Installed · multi-select + live Cancel |
-| Package picker chrome | `kit/PackagesPickerRow` · `PackagesActionBar` · `PackagesOpProgress` |
+| Flatpak / Flathub search / list / install / remove / update | `flatpak --user` · Flathub remote · Install\|Installed (mode-safe; empty honesty) · multi-select + live Cancel |
+| Package picker chrome | `kit/PackagesPickerRow` · `PackagesActionBar` · `PackagesOpProgress` (exact `$` command + last error) |
 | AppImages library | `~/.local/share/proteus/appimages` + `proteus-appimage-*.desktop` |
 | Timezone / network time | `timedatectl set-timezone` / `set-ntp` (polkit-gated; errors surfaced in-pane) |
 | Locale | `localectl status` (read-only + `/etc/locale.conf` escape hatch) |
@@ -106,7 +106,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Online accounts** (`accounts`) | Mail / contacts / cloud provider seats (coming soon; no OAuth) | TBD (not inventing mail/contacts apps here) | `partial` |
 | **Date & time** (`datetime`) | Live clock, searchable timezone picker, network time toggle, locale, **Location** (shared system place + units) | `timedatectl` / `localectl` / Open-Meteo | `partial` |
 | **Privacy** (`privacy`) | Permission categories listed; grants not enforced yet | EnvGate / adaptive apps later | `partial` |
-| **Software** (`packages`) | Hub → Updates; Repos / AUR / Flathub (Install\|Installed toggle, searchable multi-select); AppImages; Orphans | `pacman` + `proteus-pkg` · yay/paru · flatpak + Flathub · local AppImages | `partial` |
+| **Software** (`packages`) | Hub → Updates; Repos / AUR / Flathub (Install\|Installed mode-safe, per-mode search, op narrative); AppImages; Orphans | `pacman` + `proteus-pkg` · yay/paru · flatpak + Flathub · local AppImages | `partial` |
 | **About** (`system`) | Hardware caps; session actions → Users | probe | `partial` |
 
 VM / container **setup** is **not** a Settings category — a separate host app later.
@@ -204,7 +204,7 @@ Depth order for what’s left:
 6. **Network** — Tailscale login-server (Headscale); peer/exit-node UI; in-pane pairing; WireGuard wizard  
 7. **Peripherals** — touchpad / tablet  
 8. **Displays** — layout canvas + drag Apply shipped; re-verify Revert after sleep/hotplug  
-9. **Software** — dep graphs later; Omarchy-style Install/Remove pickers + selective upgrades shipped (`partial`; Snap Out)  
+9. **Software** — dep graphs later; Omarchy-style Install/Remove pickers + mode-safe loads + op narrative shipped (`partial`; Snap Out)  
 
 Virt / container setup stays a **separate app**, not a Settings growth item.
 
