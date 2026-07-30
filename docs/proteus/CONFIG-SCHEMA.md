@@ -28,7 +28,7 @@ One schema for all postures; panes enable/disable by capability.
 | Audio prefs | `audioLatency` | Audio |
 | Location / weather | `location*`, `weatherUnits` | Weather / DateTime |
 | Font | `fontFamily`, `fontSize`, `fontSizeSm`, `userFonts` (`Family=/path;…`) | Theme / Style pane |
-| Launcher | `launcherRecents`, `launcherTagCatalog`, `launcherAppTags` | Spotlight / Launcher |
+| Launcher | `launcherRecents`, `launcherFileRecents`, `launcherTagCatalog`, `launcherAppTags` | Spotlight / Launcher |
 | Dock pins | `dockPins` (comma desktop ids; `""` defaults; `-` empty) | DockApps |
 | Icon plates / overrides | `iconPlateMode` (`default` \| `dark` \| `clear` \| `tinted`), `iconPlateCustom`, `iconOverrides` (`id=path;…`) | Theme + DockApps / EnvGate |
 | Notifications | `notificationsDnd` | Notifications |

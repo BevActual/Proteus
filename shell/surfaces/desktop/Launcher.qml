@@ -326,14 +326,28 @@ Item {
   }
 
   function openPath(path) {
+    const p = String(path || "").trim()
+    if (!p.length)
+      return
+    Config.recordLauncherFileRecent(p)
     Quickshell.execDetached({
-      command: ["xdg-open", path]
+      command: ["xdg-open", p]
     })
+  }
+
+  function fileBaseName(path) {
+    const p = String(path || "")
+    const i = p.lastIndexOf("/")
+    if (i < 0)
+      return p
+    const name = p.slice(i + 1)
+    return name.length ? name : p
   }
 
   readonly property var filtered: {
     const _caps = Hardware.capabilityList
     const _recents = Config.launcherRecents
+    const _fileRecents = Config.launcherFileRecents
     const _tagMap = Config.launcherAppTags
     const _catalog = Config.launcherTagCatalog
     const _files = root.fileHits
@@ -346,8 +360,42 @@ Item {
     if (_mode === "files") {
       const q = search.text.trim()
       const rows = []
-      // Empty query: calm Places hierarchy (or honest empty) — not a flat home dump.
+      // Empty query: Recents (if any) + Places — not a flat home dump.
       if (!q.length) {
+        const recentPaths = Config.launcherFileRecentList()
+        const recentRows = []
+        for (let r = 0; r < recentPaths.length && recentRows.length < 12; r++) {
+          const path = recentPaths[r]
+          recentRows.push({
+            kind: "file",
+            entry: null,
+            path: path,
+            name: root.fileBaseName(path),
+            subtitle: path,
+            icon: "document-open-recent",
+            blocked: false,
+            score: 2500 - r,
+            clipLine: "",
+            calcValue: "",
+            section: "recents"
+          })
+        }
+        if (recentRows.length) {
+          rows.push({
+            kind: "section",
+            entry: null,
+            path: "",
+            name: "Recents",
+            subtitle: "",
+            icon: "",
+            blocked: true,
+            score: 4000,
+            clipLine: "",
+            calcValue: ""
+          })
+          for (let i = 0; i < recentRows.length; i++)
+            rows.push(recentRows[i])
+        }
         if (_places.length) {
           rows.push({
             kind: "section",
@@ -925,7 +973,7 @@ Item {
           return filesHint
         return "No files match under ~ (depth ≤5, skips dotdirs)."
       }
-      if (placeHits.length)
+      if (placeHits.length || Config.launcherFileRecentList().length)
         return ""
       if (filesHint.length)
         return filesHint
@@ -1194,12 +1242,11 @@ Item {
             visible: !root.tagging
             text: {
               if (root.mode === "files") {
-                if (search.text.trim().length) {
-                  if (root.filesHint.length)
-                    return root.filesHint
-                  return "Files · Folders then Files · depth ≤5"
-                }
-                return "Files · Places · type to search ~"
+                if (!search.text.trim().length)
+                  return "Files · Recents + Places · type to search ~"
+                if (root.filesHint.length)
+                  return root.filesHint
+                return "Files · Folders then Files · depth ≤5"
               }
               if (root.mode === "clipboard")
                 return root.clipHint.length && !root.clipHits.length

@@ -92,6 +92,7 @@ Singleton {
   property alias userFonts: adapter.userFonts
   // Comma-separated .desktop ids, most recent first (Spotlight / launcher)
   property alias launcherRecents: adapter.launcherRecents
+  property alias launcherFileRecents: adapter.launcherFileRecents
   // User-defined tag names, comma-separated (normalized slugs)
   property alias launcherTagCatalog: adapter.launcherTagCatalog
   // Per-app tags: "desktopId=tag1+tag2;otherId=tag3"
@@ -716,6 +717,37 @@ Singleton {
     flushSettings()
   }
 
+  // Newline-separated absolute paths (most recent first) — commas appear in paths.
+  function launcherFileRecentList() {
+    const raw = String(launcherFileRecents || "")
+    if (!raw.length)
+      return []
+    return raw.split("\n").map(s => s.trim()).filter(s => s.length)
+  }
+
+  function clearLauncherFileRecents() {
+    if (!String(launcherFileRecents || "").length)
+      return
+    launcherFileRecents = ""
+    flushSettings()
+  }
+
+  function recordLauncherFileRecent(path) {
+    const p = String(path || "").trim()
+    if (!p.length || p.indexOf("\n") >= 0)
+      return
+    const next = [p]
+    const prev = launcherFileRecentList()
+    for (let i = 0; i < prev.length; i++) {
+      if (prev[i] !== p)
+        next.push(prev[i])
+      if (next.length >= 16)
+        break
+    }
+    launcherFileRecents = next.join("\n")
+    flushSettings()
+  }
+
   function normalizeLauncherTag(name) {
     let s = String(name || "").toLowerCase().trim()
     s = s.replace(/[\s_]+/g, "-").replace(/[^a-z0-9\-]/g, "")
@@ -1135,6 +1167,8 @@ Singleton {
       property string userFonts: ""
       // Comma-separated desktop-entry ids (most recent first)
       property string launcherRecents: ""
+      // Newline-separated absolute paths (most recent first)
+      property string launcherFileRecents: ""
       property string launcherTagCatalog: ""
       property string launcherAppTags: ""
       // Dock pins between Spotlight and Settings ("" = built-in defaults)

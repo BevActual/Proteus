@@ -21,6 +21,11 @@ ColumnLayout {
     return Config.launcherRecentList().length
   }
 
+  readonly property int fileRecentCount: {
+    const _ = Config.launcherFileRecents
+    return Config.launcherFileRecentList().length
+  }
+
   function appCountForTag(tag) {
     const _m = Config.launcherAppTags
     const map = Config.parseLauncherAppTagMap()
@@ -53,7 +58,7 @@ ColumnLayout {
       label: "Recent apps"
       hint: root.recentCount === 0 ? "None yet"
           : (root.recentCount === 1 ? "1 app" : root.recentCount + " apps")
-      showSeparator: false
+      showSeparator: true
       Text {
         visible: root.recentCount > 0
         text: "Clear"
@@ -65,6 +70,26 @@ ColumnLayout {
           anchors.margins: -8
           cursorShape: Qt.PointingHandCursor
           onClicked: Config.clearLauncherRecents()
+        }
+      }
+    }
+
+    SettingsFormRow {
+      label: "Recent files"
+      hint: root.fileRecentCount === 0 ? "None yet"
+          : (root.fileRecentCount === 1 ? "1 path" : root.fileRecentCount + " paths")
+      showSeparator: false
+      Text {
+        visible: root.fileRecentCount > 0
+        text: "Clear"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: 13
+        MouseArea {
+          anchors.fill: parent
+          anchors.margins: -8
+          cursorShape: Qt.PointingHandCursor
+          onClicked: Config.clearLauncherFileRecents()
         }
       }
     }
