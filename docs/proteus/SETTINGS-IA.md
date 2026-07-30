@@ -98,7 +98,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Appearance** (`style`) | Category → Accent, Background, Lock screen, Icons (style compare + dock pins), Font (searchable + Add) | `settings.json`, Theme, `proteus-bg`; shared Kind/color/font/icon kit | `partial` |
 | **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Launcher (Spotlight tags/recents) — leaf files + FormRow kit | json + hyprctl + `proteus-general.conf` · `launcherRecents` / `launcherTagCatalog` / `launcherAppTags` | `shipped` |
 | **Displays** (`displays`) | Per-monitor scale + mode + layout canvas (Apply); conf escape hatch | hyprctl + `proteus-monitors.conf` | `partial` |
-| **Sound** (`sound`) | Category → Output (volume/mute/device/test tone), Input (level, meter, device), Applications (per-app volume), Latency & buffer | pactl + `parec` + `pw-metadata` | `partial` |
+| **Sound** (`sound`) | Category → Output / Input / Applications / Latency & buffer — leaf files + FormRow kit | pactl + `audio-peak.py` + `pw-metadata` | `shipped` |
 | **Network** (`network`) | Hostname; Wi‑Fi scan/connect; Bluetooth; Tailscale; NM VPN | hostnamectl / nmcli / bluetoothctl / tailscale | `partial` |
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse; later touchpad / tablet | keybinds + input hyprctl | `shipped` |
 | **Power** (`power`) | Battery charge / health / estimate (UPower); logind idle + lid policy read-only with conf escape hatch | UPower / `logind.conf` | `partial` |
@@ -198,6 +198,27 @@ Templates: `env/hypr/proteus-general.conf`, `env/hypr/proteus-monitors.conf`. Ne
 
 **Module rule:** Desktop leaf helpers stay in `panes/Desktop*Leaf.qml` + `kit/`
 FormRow/Group — not a single mega-inline `DesktopPane` body.
+
+### Sound
+
+Sound: click sidebar → heading **Sound** + sub-settings list, then leaf pages
+via `kit/StickyPaneLoader` (`SoundOutputLeaf`, `SoundInputLeaf`,
+`SoundAppsLeaf`, `SoundLatencyLeaf`). Hub state lives in `SoundPane.qml`
+(`property Item host` on leaves).
+
+| Sub-setting | Role |
+|-------------|------|
+| Output | Volume/mute FormRows + live hints; test tone; sink list with `deviceHint` |
+| Input | Level/mute FormRows; peak meter FormRow; source list with `deviceHint` |
+| Applications | Per-app volume + mute; empty Playing now honesty |
+| Latency & buffer | Profile segmented + quantum frames; PipeWire clock summary when known |
+
+| Pane | Live apply | On-disk / helper |
+|------|------------|------------------|
+| Sound | `pactl` volume/mute/default sink·source · sink-input volume/mute · test tone | `settings.json` `audioLatency` → `pw-metadata` force-quantum; peak via `audio-peak.py` |
+
+**Module rule:** Sound leaf helpers stay in `panes/Sound*Leaf.qml` + `kit/`
+FormRow/Group — not a single mega-inline `SoundPane` body.
 
 ---
 

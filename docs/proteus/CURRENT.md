@@ -89,7 +89,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Displays (scale / mode / orientation, Identify; layout canvas) | `partial` — drag layout + full-snapshot Revert; multi-monitor dogfood preferred |
 | Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) | `shipped` |
 | Software → Updates / Repos / AUR / Flathub / AppImages / Orphans (Install\|Installed mode-safe loads; sticky action bar; rich rows; live op command + Cancel + last error; empty Installed honesty; popular browse; leaf UI memory) | `partial` — optional guest: `yay`/`paru`, `flatpak` + Flathub; AppImages need no helper; dep graphs / Snap Out; `./scripts/software-reliability-smoke.sh` + optional `./scripts/software-guest-smoke.sh` |
-| Sound → Output / Input / Applications / Latency & buffer (`sound`) | `partial` — category hub; streaming input peak meter, per-app volume, test tone |
+| Sound → Output / Input / Applications / Latency & buffer (`sound`) | `shipped` — Desktop-style hub + `Sound*Leaf` StickyPaneLoaders; Output/Input FormRow density (live volume/mute/peak hints, test tone, deviceHint); Apps empty honesty + per-app volume/mute; Latency profile/quantum/PipeWire clock; pactl + `audio-peak.py` + `pw-metadata` |
 | Network (hostname, Wi‑Fi connect, Bluetooth, Tailscale, NM VPN) | `partial` — password Wi‑Fi / pairing / Headscale via system tools |
 | Power (battery via UPower; logind idle/lid read-only + conf escape hatch) | `partial` — writing lid/idle needs a privileged helper |
 | Date & time (clock, timezone search, NTP, locale, **Location**) | `partial` — timezone/NTP polkit-gated; location is explicit place search (never IP); Open-Meteo weather for that place + desktop/lock weather widget; no forecast view |
