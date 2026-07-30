@@ -78,7 +78,7 @@ Item {
   }
 
   function scaleAt(index) {
-    if (editMode || dragging)
+    if (editMode || dragging || menuOpen)
       return restScale
     if (!hovered || mouseX < 0)
       return restScale
@@ -139,9 +139,12 @@ Item {
       return
     root.menuIndex = index
     root.menuOpen = true
+    root.tipIndex = -1
+    root.mouseX = -1000
     Qt.callLater(() => {
-      ctxMenu.x = Math.max(8, Math.min(x - ctxMenu.width * 0.5, root.width - ctxMenu.width - 8))
-      ctxMenu.y = Math.max(4, y - ctxMenu.height - 8)
+      const cx = root.centerAt(index)
+      ctxMenu.x = Math.max(8, Math.min(cx - ctxMenu.width * 0.5, root.width - ctxMenu.width - 8))
+      ctxMenu.y = Math.max(4, root.height - root.shelfHeight - ctxMenu.height - 10)
     })
   }
 
@@ -436,40 +439,82 @@ Item {
     }
   }
 
-  // Context menu — Keep in Dock / Remove from Dock (macOS Options pattern)
+  // Context menu — Keep / Remove (one opaque plate; width from labels)
   Rectangle {
     id: ctxMenu
     visible: root.menuOpen
     z: 50
-    width: Math.max(keepRow.implicitWidth, removeRow.implicitWidth) + 28
-    height: (keepRow.visible ? 36 : 0) + (removeRow.visible ? 36 : 0)
-    radius: 10
-    color: Theme.light ? Qt.rgba(1, 1, 1, 0.96) : Qt.rgba(0.16, 0.16, 0.18, 0.96)
+    readonly property int rowH: 34
+    readonly property int padX: 14
+    readonly property int padY: 6
+    readonly property bool showKeep: {
+      const e = root.menuEntry()
+      return !!(e && DockApps.canKeepInDock(e))
+    }
+    readonly property bool showRemove: {
+      const e = root.menuEntry()
+      return !!(e && DockApps.canUnpin(e))
+    }
+    width: Math.max(
+          showKeep ? keepMeasure.implicitWidth : 0,
+          showRemove ? removeMeasure.implicitWidth : 0,
+          120
+        ) + padX * 2
+    height: padY * 2
+        + (showKeep ? rowH : 0)
+        + (showRemove ? rowH : 0)
+        + (showKeep && showRemove ? 1 : 0)
+    radius: Theme.radiusMd
+    color: Theme.light ? Qt.rgba(0.98, 0.98, 0.99, 0.97) : Qt.rgba(0.17, 0.17, 0.19, 0.97)
     border.width: 1
-    border.color: Theme.light ? Qt.rgba(0, 0, 0, 0.10) : Qt.rgba(1, 1, 1, 0.12)
+    border.color: Theme.chromeHairline
+
+    Text {
+      id: keepMeasure
+      visible: false
+      text: "Keep in Dock"
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.fontSizeSm
+    }
+    Text {
+      id: removeMeasure
+      visible: false
+      text: "Remove from Dock"
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.fontSizeSm
+    }
 
     Column {
-      anchors.fill: parent
-      anchors.margins: 0
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      anchors.topMargin: ctxMenu.padY
+      spacing: 0
 
       Item {
-        id: keepRow
         width: parent.width
-        height: 36
-        visible: {
-          const e = root.menuEntry()
-          return e && DockApps.canKeepInDock(e)
-        }
+        height: ctxMenu.rowH
+        visible: ctxMenu.showKeep
 
+        Rectangle {
+          anchors.fill: parent
+          anchors.leftMargin: 4
+          anchors.rightMargin: 4
+          radius: Theme.radiusSm
+          color: Theme.accent
+          opacity: keepMa.containsMouse ? 0.18 : 0
+        }
         Text {
           anchors.centerIn: parent
-          text: "Keep in Dock"
+          text: keepMeasure.text
           color: Theme.text
           font.family: Theme.fontFamily
           font.pixelSize: Theme.fontSizeSm
         }
         MouseArea {
+          id: keepMa
           anchors.fill: parent
+          hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
           onClicked: {
             const e = root.menuEntry()
@@ -480,31 +525,42 @@ Item {
         }
       }
 
-      Rectangle {
+      Item {
         width: parent.width
         height: 1
-        visible: keepRow.visible && removeRow.visible
-        color: Theme.separator
+        visible: ctxMenu.showKeep && ctxMenu.showRemove
+        Rectangle {
+          anchors.horizontalCenter: parent.horizontalCenter
+          width: parent.width - 16
+          height: 1
+          color: Theme.separator
+        }
       }
 
       Item {
-        id: removeRow
         width: parent.width
-        height: 36
-        visible: {
-          const e = root.menuEntry()
-          return e && DockApps.canUnpin(e)
-        }
+        height: ctxMenu.rowH
+        visible: ctxMenu.showRemove
 
+        Rectangle {
+          anchors.fill: parent
+          anchors.leftMargin: 4
+          anchors.rightMargin: 4
+          radius: Theme.radiusSm
+          color: Theme.accent
+          opacity: removeMa.containsMouse ? 0.18 : 0
+        }
         Text {
           anchors.centerIn: parent
-          text: "Remove from Dock"
+          text: removeMeasure.text
           color: Theme.text
           font.family: Theme.fontFamily
           font.pixelSize: Theme.fontSizeSm
         }
         MouseArea {
+          id: removeMa
           anchors.fill: parent
+          hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
           onClicked: {
             const e = root.menuEntry()
@@ -552,7 +608,7 @@ Item {
       }
 
       Behavior on displayS {
-        enabled: !root.editMode && !root.dragging
+        enabled: !root.editMode && !root.dragging && !root.menuOpen
         NumberAnimation {
           duration: 70
           easing.type: Easing.OutCubic
