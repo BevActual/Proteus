@@ -16,7 +16,7 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "Window animations"
-      hint: Config.animationsEnabled ? "On — Hypr animations" : "Off"
+      hint: Config.animationsEnabled ? "On — Hypr window animations" : "Off — instant moves"
       showSeparator: false
       Switch {
         checked: Config.animationsEnabled

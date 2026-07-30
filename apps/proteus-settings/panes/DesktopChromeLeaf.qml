@@ -5,7 +5,7 @@ import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Leaf UI for DesktopPane — Borders & rounding.
+// Leaf UI for DesktopPane — Borders & rounding (SettingsFormRow honesty).
 ColumnLayout {
   id: root
   width: parent ? parent.width : implicitWidth
@@ -14,72 +14,31 @@ ColumnLayout {
   SettingsGroup {
     title: "Borders & rounding"
 
-    Text {
-      Layout.fillWidth: true
-      Layout.leftMargin: Theme.spaceMd
-      Layout.rightMargin: Theme.spaceMd
-      Layout.topMargin: Theme.spaceSm
-      text: "Border size"
-      color: Theme.textDim
-      font.family: Theme.fontFamily
-      font.pixelSize: Theme.fontSizeSm
-    }
-    RowLayout {
-      Layout.fillWidth: true
-      Layout.leftMargin: Theme.spaceMd
-      Layout.rightMargin: Theme.spaceMd
-      Layout.bottomMargin: Theme.spaceSm
+    SettingsFormRow {
+      label: "Border size"
+      hint: Config.borderSize + " px"
+      showSeparator: true
       Slider {
-        Layout.fillWidth: true
+        Layout.preferredWidth: 160
         from: 0
         to: 8
         stepSize: 1
         value: Config.borderSize
         onMoved: Config.borderSize = Math.round(value)
       }
-      Text {
-        text: Config.borderSize
-        color: Theme.text
-        font.family: Theme.fontFamily
-        Layout.preferredWidth: 28
-      }
     }
 
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: 1
-      color: Theme.separator
-      opacity: 0.6
-    }
-
-    Text {
-      Layout.fillWidth: true
-      Layout.leftMargin: Theme.spaceMd
-      Layout.rightMargin: Theme.spaceMd
-      Layout.topMargin: Theme.spaceSm
-      text: "Window rounding"
-      color: Theme.textDim
-      font.family: Theme.fontFamily
-      font.pixelSize: Theme.fontSizeSm
-    }
-    RowLayout {
-      Layout.fillWidth: true
-      Layout.leftMargin: Theme.spaceMd
-      Layout.rightMargin: Theme.spaceMd
-      Layout.bottomMargin: Theme.spaceMd
+    SettingsFormRow {
+      label: "Window rounding"
+      hint: Config.rounding + " px"
+      showSeparator: false
       Slider {
-        Layout.fillWidth: true
+        Layout.preferredWidth: 160
         from: 0
         to: 24
         stepSize: 1
         value: Config.rounding
         onMoved: Config.rounding = Math.round(value)
-      }
-      Text {
-        text: Config.rounding
-        color: Theme.text
-        font.family: Theme.fontFamily
-        Layout.preferredWidth: 28
       }
     }
   }
