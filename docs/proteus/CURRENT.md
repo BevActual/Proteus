@@ -88,7 +88,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Desktop → Gaps / Borders / Motion / Dock & menu bar / Launcher (`proteus-general.conf` + sizes + Spotlight tags/recents) | `shipped` |
 | Displays (scale / mode / orientation, Identify; layout canvas) | `partial` — drag layout + full-snapshot Revert; multi-monitor dogfood preferred |
 | Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) | `shipped` |
-| Software → Updates / Repos / AUR / Flathub / AppImages / Orphans (Install\|Remove multi-select; empty Install browses; leaves open on inventory; selective upgrades; Snap Out) | `partial` — optional guest: `yay`/`paru`, `flatpak` + Flathub (`ensure-flathub` via settings install); AppImages need no helper; dep graphs later |
+| Software → Updates / Repos / AUR / Flathub / AppImages / Orphans (Install\|Installed toggle; sticky action bar; rich rows; live op + Cancel; popular browse; leaf UI memory) | `partial` — optional guest: `yay`/`paru`, `flatpak` + Flathub; AppImages need no helper; dep graphs later |
 | Sound → Output / Input / Applications / Latency & buffer (`sound`) | `partial` — category hub; streaming input peak meter, per-app volume, test tone |
 | Network (hostname, Wi‑Fi connect, Bluetooth, Tailscale, NM VPN) | `partial` — password Wi‑Fi / pairing / Headscale via system tools |
 | Power (battery via UPower; logind idle/lid read-only + conf escape hatch) | `partial` — writing lid/idle needs a privileged helper |

@@ -70,7 +70,8 @@ Examples:
 | Tailscale (status + up/down + copy IP) | `tailscale status --json` · `wl-copy` |
 | Package updates / search / remove / orphans | `pacman -Qu` / `-Ss` / `-Qqe` / `-Qdt` · apply `pkexec proteus-pkg` (multi install/remove; selective upgrades) |
 | AUR search / install / remove / update | `yay`/`paru` `-Ssa` · remove via `-Qqm` foreign pkgs · multi-select |
-| Flatpak / Flathub search / list / install / remove / update | `flatpak --user` · Flathub remote · Install/Remove modes · multi-select (+ Add Flathub) |
+| Flatpak / Flathub search / list / install / remove / update | `flatpak --user` · Flathub remote · Install\|Installed · multi-select + live Cancel |
+| Package picker chrome | `kit/PackagesPickerRow` · `PackagesActionBar` · `PackagesOpProgress` |
 | AppImages library | `~/.local/share/proteus/appimages` + `proteus-appimage-*.desktop` |
 | Timezone / network time | `timedatectl set-timezone` / `set-ntp` (polkit-gated; errors surfaced in-pane) |
 | Locale | `localectl status` (read-only + `/etc/locale.conf` escape hatch) |
@@ -105,7 +106,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Online accounts** (`accounts`) | Mail / contacts / cloud provider seats (coming soon; no OAuth) | TBD (not inventing mail/contacts apps here) | `partial` |
 | **Date & time** (`datetime`) | Live clock, searchable timezone picker, network time toggle, locale, **Location** (shared system place + units) | `timedatectl` / `localectl` / Open-Meteo | `partial` |
 | **Privacy** (`privacy`) | Permission categories listed; grants not enforced yet | EnvGate / adaptive apps later | `partial` |
-| **Software** (`packages`) | Hub → Updates; Repos / AUR / Flathub (Install\|Remove searchable multi-select, Omarchy-style); AppImages; Orphans | `pacman` + `proteus-pkg` · yay/paru · flatpak + Flathub · local AppImages | `partial` |
+| **Software** (`packages`) | Hub → Updates; Repos / AUR / Flathub (Install\|Installed toggle, searchable multi-select); AppImages; Orphans | `pacman` + `proteus-pkg` · yay/paru · flatpak + Flathub · local AppImages | `partial` |
 | **About** (`system`) | Hardware caps; session actions → Users | probe | `partial` |
 
 VM / container **setup** is **not** a Settings category — a separate host app later.

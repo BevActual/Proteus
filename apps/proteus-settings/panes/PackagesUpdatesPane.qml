@@ -134,114 +134,37 @@ ColumnLayout {
     onConfirmed: root.runPending()
   }
 
+  PackagesOpProgress {}
+
   Text {
     Layout.fillWidth: true
-    text: root.applying ? Packages.packageOpStatus : root.status
+    text: root.status
     color: Theme.textDim
     font.family: Theme.fontFamily
     font.pixelSize: 12
     wrapMode: Text.WordWrap
-    visible: (root.upgrades.length === 0 || root.applying) && !root.confirming
+    visible: root.upgrades.length === 0 && !root.confirming && !root.applying
   }
 
-  RowLayout {
+  ListView {
+    id: list
     Layout.fillWidth: true
     Layout.maximumWidth: 520
-    spacing: Theme.spaceSm
-    visible: root.upgrades.length > 0 && !root.confirming && !root.applying
-
-    Text {
-      text: root.selectedCount + " of " + root.upgrades.length + " selected"
-      color: Theme.textDim
-      font.family: Theme.fontFamily
-      font.pixelSize: 12
-      Layout.fillWidth: true
-    }
-
-    Text {
-      text: root.allSelected ? "Select none" : "Select all"
-      color: Theme.accent
-      font.family: Theme.fontFamily
-      font.pixelSize: 12
-      font.bold: true
-      MouseArea {
-        anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        onClicked: root.setAllSelected(!root.allSelected)
-      }
-    }
-  }
-
-  Repeater {
+    Layout.preferredHeight: Math.min(360, Math.max(0, contentHeight))
+    clip: true
+    spacing: 8
+    visible: !root.confirming && root.upgrades.length > 0
     model: root.upgrades
-
-    Rectangle {
+    boundsBehavior: Flickable.StopAtBounds
+    delegate: PackagesPickerRow {
       required property var modelData
-      required property int index
-      Layout.fillWidth: true
-      Layout.maximumWidth: 520
-      Layout.preferredHeight: rowCol.implicitHeight + 20
-      radius: Theme.radiusMd
-      color: Theme.bgPanel
-      border.width: 1
-      border.color: modelData.selected ? Theme.accent : Theme.border
-      opacity: root.confirming || root.applying ? 0.7 : 1
-
-      RowLayout {
-        id: rowCol
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.margins: Theme.spaceMd
-        spacing: Theme.spaceMd
-
-        Rectangle {
-          Layout.preferredWidth: 20
-          Layout.preferredHeight: 20
-          Layout.alignment: Qt.AlignVCenter
-          radius: 4
-          color: modelData.selected ? Theme.accent : "transparent"
-          border.width: 1
-          border.color: modelData.selected ? Theme.accent : Theme.border
-
-          Text {
-            anchors.centerIn: parent
-            text: modelData.selected ? "✓" : ""
-            color: "#ffffff"
-            font.pixelSize: 12
-            font.bold: true
-            visible: modelData.selected
-          }
-        }
-
-        ColumnLayout {
-          Layout.fillWidth: true
-          spacing: 2
-
-          Text {
-            text: modelData.name
-            color: Theme.text
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSize
-            font.bold: true
-          }
-          Text {
-            Layout.fillWidth: true
-            text: modelData.from + " → " + modelData.to
-            color: Theme.textDim
-            font.family: Theme.fontFamily
-            font.pixelSize: 11
-            wrapMode: Text.WrapAnywhere
-          }
-        }
-      }
-
-      MouseArea {
-        anchors.fill: parent
-        enabled: !root.confirming && !root.applying
-        cursorShape: Qt.PointingHandCursor
-        onClicked: root.setSelected(modelData.name, !modelData.selected)
-      }
+      width: list.width
+      title: modelData.name
+      subtitle: modelData.from + " → " + modelData.to
+      selected: !!modelData.selected
+      applying: root.applying
+      showAction: false
+      onToggled: root.setSelected(modelData.name, !modelData.selected)
     }
   }
 
@@ -301,6 +224,19 @@ ColumnLayout {
     }
   }
 
+  PackagesActionBar {
+    visible: !root.confirming
+    selectedCount: root.selectedCount
+    totalCount: root.upgrades.length
+    applying: root.applying
+    danger: false
+    idleLabel: root.upgrades.length === 0 ? "Full upgrade…" : "Select packages to upgrade"
+    activePrefix: root.allSelected ? "Upgrade all" : "Upgrade"
+    onSelectAllClicked: root.setAllSelected(!root.allSelected)
+    onActionClicked: root.proposeUpgrade()
+  }
+
+  // Allow full upgrade when list empty (ActionBar needs selectedCount>0 otherwise)
   Rectangle {
     Layout.fillWidth: true
     Layout.maximumWidth: 520
@@ -309,21 +245,11 @@ ColumnLayout {
     color: Theme.accentSoft
     border.width: 1
     border.color: Theme.accent
-    visible: !root.confirming
-    opacity: (root.applying || (root.upgrades.length > 0 && root.noneSelected)) ? 0.5 : 1
+    visible: !root.confirming && root.upgrades.length === 0
+    opacity: root.applying ? 0.5 : 1
     Text {
       anchors.centerIn: parent
-      text: {
-        if (root.applying)
-          return "Applying…"
-        if (root.upgrades.length === 0)
-          return "Full upgrade…"
-        if (root.noneSelected)
-          return "Select packages to upgrade"
-        if (root.allSelected)
-          return "Upgrade all " + root.selectedCount + "…"
-        return "Upgrade " + root.selectedCount + " selected…"
-      }
+      text: root.applying ? "Applying…" : "Full upgrade…"
       color: Theme.text
       font.family: Theme.fontFamily
       font.bold: true
@@ -331,7 +257,7 @@ ColumnLayout {
     }
     MouseArea {
       anchors.fill: parent
-      enabled: !root.applying && !(root.upgrades.length > 0 && root.noneSelected)
+      enabled: !root.applying
       cursorShape: Qt.PointingHandCursor
       onClicked: root.proposeUpgrade()
     }
@@ -339,7 +265,7 @@ ColumnLayout {
 
   Text {
     Layout.fillWidth: true
-    text: "Fact: pacman -Qu · Apply: pkexec proteus-pkg sync|upgrade|upgrade-packages (live progress)"
+    text: "Fact: pacman -Qu · Apply: pkexec proteus-pkg sync|upgrade|upgrade-packages (live progress + Cancel)"
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11

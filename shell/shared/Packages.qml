@@ -120,7 +120,7 @@ Singleton {
   }
 
   function _trimOpLines(maxKeep) {
-    const n = maxKeep || 4
+    const n = maxKeep || 12
     if (packageOpLines.length > n)
       packageOpLines = packageOpLines.slice(packageOpLines.length - n)
     packageOpStatus = packageOpLines.join("\n")
@@ -133,8 +133,72 @@ Singleton {
     if (/^\s*\d+%\s*$/.test(s))
       return
     packageOpLines = packageOpLines.concat([s])
-    _trimOpLines(4)
+    _trimOpLines(12)
   }
+
+  function cancelPackageOp() {
+    if (!packageOpBusy)
+      return
+    if (userOpProc.running)
+      userOpProc.running = false
+    if (pkgMutatorProc.running)
+      pkgMutatorProc.running = false
+    if (pkgResolveProc.running)
+      pkgResolveProc.running = false
+    if (appImageMutProc.running)
+      appImageMutProc.running = false
+    _finishPkgMutator(false, "Cancelled.")
+  }
+
+  // Leaf UI memory (Install|Installed + query) across visits in this Settings session.
+  property var leafUiState: ({})
+
+  function saveLeafUi(key, mode, query) {
+    const k = String(key || "")
+    if (!k.length)
+      return
+    const next = Object.assign({}, leafUiState)
+    next[k] = {
+      mode: String(mode || "installed"),
+      query: String(query || "")
+    }
+    leafUiState = next
+  }
+
+  function loadLeafUi(key) {
+    const k = String(key || "")
+    const st = leafUiState && leafUiState[k]
+    if (!st)
+      return null
+    return {
+      mode: st.mode || "installed",
+      query: st.query || ""
+    }
+  }
+
+  // Curated Install-browse seeds (filtered to not-installed at query time).
+  readonly property var popularRepoPackages: [
+    "firefox", "chromium", "htop", "btop", "ripgrep", "fd", "jq", "neovim",
+    "vlc", "mpv", "gimp", "inkscape", "thunderbird", "code", "docker",
+    "podman", "bat", "eza", "fzf", "tmux", "fish", "kitty", "alacritty",
+    "obs-studio", "libreoffice-fresh", "wireshark-qt", "nmap", "curl",
+    "wget", "git-delta", "lazygit", "bottom", "bandwhich", "imv", "zathura"
+  ]
+
+  readonly property var popularFlatpakApps: [
+    "org.mozilla.firefox", "org.chromium.Chromium", "com.spotify.Client",
+    "com.discordapp.Discord", "org.videolan.VLC", "org.gimp.GIMP",
+    "org.blender.Blender", "com.obsproject.Studio", "org.libreoffice.LibreOffice",
+    "org.gnome.Calculator", "org.gnome.TextEditor", "org.kde.krita",
+    "com.valvesoftware.Steam", "org.signal.Signal", "im.riot.Riot"
+  ]
+
+  readonly property var popularAurHints: [
+    "visual-studio-code-bin", "google-chrome", "spotify", "discord",
+    "zoom", "slack-desktop", "1password", "brave-bin", "cursor-bin",
+    "hyprshot", "walker", "yay", "paru", "nerd-fonts-complete",
+    "ttf-ms-fonts", "downgrade", "rate-mirrors-bin"
+  ]
 
   function shellQuote(s) {
     return "'" + String(s).replace(/'/g, "'\\''") + "'"
@@ -601,6 +665,8 @@ Singleton {
       onRead: line => root._pushOpLine(line)
     }
     onExited: (exitCode, exitStatus) => {
+      if (!root.packageOpBusy)
+        return
       if (exitCode === 0) {
         root._finishPkgMutator(true, "Done.")
         return
@@ -649,6 +715,8 @@ Singleton {
       onRead: line => root._pushOpLine(line)
     }
     onExited: (exitCode, exitStatus) => {
+      if (!root.packageOpBusy)
+        return
       root.packageOpBusy = false
       if (exitCode === 0) {
         root.packageOpStatus = "Done."
@@ -709,6 +777,8 @@ Singleton {
       onRead: line => root._pushOpLine(line)
     }
     onExited: (exitCode, exitStatus) => {
+      if (!root.packageOpBusy)
+        return
       if (exitCode === 0) {
         root._finishPkgMutator(true, "Done.")
         return

@@ -34,19 +34,19 @@ ColumnLayout {
       {
         key: "packages-search",
         label: "Repos",
-        hint: "Install / remove"
+        hint: "Install / Installed"
       },
       {
         key: "packages-aur",
         label: "AUR",
-        hint: Packages.aurHelper.length ? ("Install / remove · " + Packages.aurHelper) : "Needs yay/paru"
+        hint: Packages.aurHelper.length ? ("Install / Installed · " + Packages.aurHelper) : "Needs yay/paru"
       },
       {
         key: "packages-flatpak",
         label: "Flathub",
         hint: !Packages.flatpakAvailable
             ? "Needs flatpak"
-            : (Packages.flathubConfigured ? "Install / remove" : "Add Flathub remote")
+            : (Packages.flathubConfigured ? "Install / Installed" : "Add Flathub remote")
       },
       {
         key: "packages-appimages",

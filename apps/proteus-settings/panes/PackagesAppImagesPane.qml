@@ -60,21 +60,13 @@ ColumnLayout {
     }
   }
 
+  PackagesOpProgress {}
+
   FileDialog {
     id: pickDialog
     title: "Choose an AppImage"
     nameFilters: ["AppImage (*.AppImage *.appimage)", "All files (*)"]
     onAccepted: Packages.addAppImage(root.localPathFromUrl(selectedFile))
-  }
-
-  Text {
-    Layout.fillWidth: true
-    visible: root.applying
-    text: Packages.packageOpStatus
-    color: Theme.textDim
-    font.family: Theme.fontFamily
-    font.pixelSize: 12
-    wrapMode: Text.WordWrap
   }
 
   RowLayout {

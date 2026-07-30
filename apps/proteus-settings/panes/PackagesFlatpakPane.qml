@@ -5,14 +5,15 @@ import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Packages → Flathub: Flatpak (--user) Install / Remove picker via the Flathub remote.
+// Packages → Flathub: Install | Installed with sticky action bar, rich rows, live ops.
 ColumnLayout {
   id: root
   Layout.fillWidth: true
   spacing: 12
+  focus: active
 
   property bool active: false
-  property string mode: "remove" // open on installed Flatpaks
+  property string mode: "installed"
   property var results: []
   property var installed: []
   property var remotes: []
@@ -23,10 +24,12 @@ ColumnLayout {
   property string pendingAction: "" // install | remove | update | flathub
   property var pendingRefs: []
   property int resultCap: 60
-
+  property int listMaxHeight: 360
+  readonly property string leafKey: "packages-flatpak"
   readonly property bool confirming: pendingAction.length > 0
   readonly property bool applying: Packages.packageOpBusy
   readonly property bool flatpakOk: Packages.flatpakAvailable
+  readonly property bool onInstalled: mode === "installed"
   readonly property bool hasFlathub: {
     if (Packages.flathubConfigured)
       return true
@@ -64,6 +67,19 @@ ColumnLayout {
     return !!(installedSet && installedSet[ref])
   }
 
+  function persistUi() {
+    Packages.saveLeafUi(leafKey, mode, query)
+  }
+
+  function restoreUi() {
+    const st = Packages.loadLeafUi(leafKey)
+    if (!st)
+      return
+    if (st.mode === "install" || st.mode === "installed")
+      mode = st.mode
+    query = st.query || ""
+  }
+
   function refreshMeta() {
     if (!flatpakOk)
       return
@@ -93,35 +109,52 @@ ColumnLayout {
 
   function setAllSelected(on) {
     const next = []
-    for (let i = 0; i < results.length; i++) {
-      next.push(Object.assign({}, results[i], {
-        selected: !!on
-      }))
-    }
+    for (let i = 0; i < results.length; i++)
+      next.push(Object.assign({}, results[i], { selected: !!on }))
     results = next
+  }
+
+  function startPopularBrowse() {
+    const seeds = Packages.popularFlatpakApps.join(" ")
+    browseProc.command = [
+      "bash",
+      "-lc",
+      "for r in " + seeds + "; do "
+          + "if info=$(flatpak remote-info flathub \"$r\" 2>/dev/null); then "
+          + "name=$(printf '%s\\n' \"$info\" | awk -F': ' '/^Name|Title/{print $2; exit}'); "
+          + "ver=$(printf '%s\\n' \"$info\" | awk -F': ' '/^Version/{print $2; exit}'); "
+          + "desc=$(printf '%s\\n' \"$info\" | awk -F': ' '/^Comment|Description/{print $2; exit}'); "
+          + "printf '%s\\t%s\\t%s\\t%s\\n' \"$r\" \"${name:-$r}\" \"$ver\" \"${desc:-Popular}\"; "
+          + "else "
+          + "printf '%s\\t%s\\t\\tPopular\\n' \"$r\" \"$r\"; "
+          + "fi; done"
+    ]
+    browseProc.running = false
+    browseProc.running = true
   }
 
   function search() {
     clearPending()
+    persistUi()
     if (!flatpakOk) {
-      status = "Install flatpak to use Flatpak from Settings."
+      status = "Install flatpak to use Flathub from Settings."
       results = []
       busy = false
       return
     }
-    if (mode === "remove") {
+    if (onInstalled) {
       const q = query.trim().toLowerCase()
       const out = []
       for (let i = 0; i < installed.length; i++) {
         const it = installed[i]
-        const hay = (it.name + " " + it.ref).toLowerCase()
+        const hay = (it.name + " " + it.ref + " " + (it.desc || "")).toLowerCase()
         if (q.length && hay.indexOf(q) < 0)
           continue
         out.push({
           ref: it.ref,
           name: it.name,
-          version: "",
-          desc: it.ref,
+          version: it.version || "",
+          desc: it.desc || it.ref,
           repo: "flathub",
           installed: true,
           selected: false
@@ -142,9 +175,8 @@ ColumnLayout {
     const q = query.trim()
     if (q.length < 2) {
       busy = true
-      status = "Loading Flathub apps…"
-      browseProc.running = false
-      browseProc.running = true
+      status = "Loading popular Flatpaks…"
+      startPopularBrowse()
       return
     }
     busy = true
@@ -165,11 +197,21 @@ ColumnLayout {
     if (!refs.length)
       return
     pendingRefs = refs.slice()
-    pendingAction = mode
+    pendingAction = onInstalled ? "remove" : "install"
     const preview = refs.length <= 6 ? refs.join(", ") : (refs.slice(0, 6).join(", ") + "…")
-    pendingDetail = mode === "remove"
+    pendingDetail = onInstalled
         ? ("Uninstall " + refs.length + " Flatpak(s) (--user): " + preview)
         : ("Install from Flathub (--user): " + preview)
+  }
+
+  function proposeOne(ref) {
+    if (!ref || !String(ref).length)
+      return
+    pendingRefs = [String(ref)]
+    pendingAction = onInstalled ? "remove" : "install"
+    pendingDetail = onInstalled
+        ? ("Uninstall Flatpak (--user): " + ref)
+        : ("Install from Flathub (--user): " + ref)
   }
 
   function runPending() {
@@ -186,12 +228,35 @@ ColumnLayout {
       Packages.flatpakInstallMany(refs)
   }
 
+  Keys.onPressed: event => {
+    if (event.key === Qt.Key_Slash && !searchInput.activeFocus) {
+      searchInput.forceActiveFocus()
+      event.accepted = true
+    } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !searchInput.activeFocus) {
+      if (confirming) {
+        runPending()
+        event.accepted = true
+      } else if (selectedCount > 0 && !applying) {
+        proposeBatch()
+        event.accepted = true
+      }
+    } else if (event.key === Qt.Key_Space && results.length && !searchInput.activeFocus) {
+      const first = results[0]
+      if (first && (onInstalled || !first.installed))
+        setSelected(first.ref, !first.selected)
+      event.accepted = true
+    } else if (event.key === Qt.Key_Escape && confirming) {
+      clearPending()
+      event.accepted = true
+    }
+  }
+
   Text {
     Layout.fillWidth: true
     text: !flatpakOk
         ? "Flatpak is not installed. Install the flatpak package, then reopen this page."
         : (hasFlathub
-            ? "Flathub (--user) — searchable multi-select Install / Remove."
+            ? "Flathub (--user) — Install or Installed. / search · Space toggle · Enter confirm."
             : "Flathub remote is missing. Add it once, then search and install apps.")
     color: Theme.textMute
     font.family: Theme.fontFamily
@@ -203,20 +268,15 @@ ColumnLayout {
     Layout.maximumWidth: 520
     visible: root.flatpakOk && !root.confirming
     options: [
-      {
-        id: "install",
-        label: "Install"
-      },
-      {
-        id: "remove",
-        label: "Remove"
-      }
+      { id: "install", label: "Install" },
+      { id: "installed", label: "Installed" }
     ]
     selected: root.mode
     onActivated: id => {
       root.mode = id
       root.results = []
       root.search()
+      Qt.callLater(() => searchInput.forceActiveFocus())
     }
   }
 
@@ -290,15 +350,7 @@ ColumnLayout {
     onConfirmed: root.runPending()
   }
 
-  Text {
-    Layout.fillWidth: true
-    visible: root.applying
-    text: Packages.packageOpStatus
-    color: Theme.textDim
-    font.family: Theme.fontFamily
-    font.pixelSize: 12
-    wrapMode: Text.WordWrap
-  }
+  PackagesOpProgress {}
 
   RowLayout {
     Layout.fillWidth: true
@@ -338,7 +390,7 @@ ColumnLayout {
         Text {
           anchors.fill: parent
           verticalAlignment: Text.AlignVCenter
-          text: root.mode === "remove" ? "Filter installed…" : "Search or browse Flathub…"
+          text: root.onInstalled ? "Filter installed…" : "Search or browse popular…"
           color: Theme.textMute
           font.family: Theme.fontFamily
           font.pixelSize: Theme.fontSize
@@ -348,34 +400,9 @@ ColumnLayout {
     }
   }
 
-  RowLayout {
-    Layout.fillWidth: true
-    Layout.maximumWidth: 520
-    visible: root.results.length > 0 && !root.confirming && !root.applying
-    Text {
-      Layout.fillWidth: true
-      text: root.selectedCount + " of " + root.results.length + " selected"
-      color: Theme.textDim
-      font.family: Theme.fontFamily
-      font.pixelSize: 12
-    }
-    Text {
-      text: root.selectedCount === root.results.length ? "Select none" : "Select all"
-      color: Theme.accent
-      font.family: Theme.fontFamily
-      font.pixelSize: 12
-      font.bold: true
-      MouseArea {
-        anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        onClicked: root.setAllSelected(root.selectedCount !== root.results.length)
-      }
-    }
-  }
-
   Text {
     Layout.fillWidth: true
-    text: root.busy ? "Searching…" : root.status
+    text: root.busy ? "Loading…" : root.status
     color: Theme.textDim
     font.family: Theme.fontFamily
     font.pixelSize: 12
@@ -383,108 +410,44 @@ ColumnLayout {
     visible: root.results.length === 0 && !root.confirming && !root.applying
   }
 
-  Repeater {
+  ListView {
+    id: list
+    Layout.fillWidth: true
+    Layout.maximumWidth: 520
+    Layout.preferredHeight: Math.min(root.listMaxHeight, Math.max(0, contentHeight))
+    clip: true
+    spacing: 8
+    visible: !root.confirming
     model: root.results
-    Rectangle {
+    boundsBehavior: Flickable.StopAtBounds
+    delegate: PackagesPickerRow {
       required property var modelData
-      Layout.fillWidth: true
-      Layout.maximumWidth: 520
-      Layout.preferredHeight: row.implicitHeight + 20
-      radius: Theme.radiusMd
-      color: Theme.bgPanel
-      border.width: 1
-      border.color: modelData.selected ? Theme.accent : Theme.border
-      visible: !root.confirming
-      opacity: root.applying ? 0.7 : 1
-      RowLayout {
-        id: row
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.margins: Theme.spaceMd
-        spacing: Theme.spaceMd
-        Rectangle {
-          Layout.preferredWidth: 20
-          Layout.preferredHeight: 20
-          radius: 4
-          color: modelData.selected ? Theme.accent : "transparent"
-          border.width: 1
-          border.color: modelData.selected ? Theme.accent : Theme.border
-          Text {
-            anchors.centerIn: parent
-            text: modelData.selected ? "✓" : ""
-            color: "#ffffff"
-            font.bold: true
-            visible: modelData.selected
-          }
-        }
-        ColumnLayout {
-          Layout.fillWidth: true
-          spacing: 2
-          Text {
-            Layout.fillWidth: true
-            text: modelData.name
-            color: Theme.text
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSize
-            font.bold: true
-            elide: Text.ElideRight
-          }
-          Text {
-            Layout.fillWidth: true
-            text: modelData.ref + (modelData.version ? (" · " + modelData.version) : "")
-            color: Theme.textDim
-            font.family: Theme.fontFamily
-            font.pixelSize: 11
-            elide: Text.ElideMiddle
-          }
-          Text {
-            Layout.fillWidth: true
-            text: modelData.desc || ""
-            color: Theme.textMute
-            font.family: Theme.fontFamily
-            font.pixelSize: 11
-            wrapMode: Text.WordWrap
-            visible: !!(modelData.desc && modelData.desc.length && modelData.desc !== modelData.ref)
-          }
-        }
-      }
-      MouseArea {
-        anchors.fill: parent
-        enabled: !root.applying
-        cursorShape: Qt.PointingHandCursor
-        onClicked: root.setSelected(modelData.ref, !modelData.selected)
-      }
+      width: list.width
+      title: modelData.name || modelData.ref
+      subtitle: modelData.desc || modelData.ref || ""
+      version: modelData.version || ""
+      badge: (!root.onInstalled && modelData.installed) ? "Installed" : ""
+      selected: !!modelData.selected
+      rowEnabled: root.onInstalled || !modelData.installed
+      applying: root.applying
+      showAction: root.onInstalled || !modelData.installed
+      actionLabel: root.onInstalled ? "Remove" : "Install"
+      actionDanger: root.onInstalled
+      onToggled: root.setSelected(modelData.ref, !modelData.selected)
+      onActionClicked: root.proposeOne(modelData.ref)
     }
   }
 
-  Rectangle {
-    Layout.fillWidth: true
-    Layout.maximumWidth: 520
-    Layout.preferredHeight: 44
-    radius: Theme.radiusMd
-    color: root.mode === "remove" ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.14) : Theme.accentSoft
-    border.width: 1
-    border.color: root.mode === "remove" ? Theme.danger : Theme.accent
+  PackagesActionBar {
     visible: root.flatpakOk && !root.confirming
-    opacity: (root.applying || root.selectedCount === 0) ? 0.5 : 1
-    Text {
-      anchors.centerIn: parent
-      text: root.applying ? "Applying…"
-          : (root.selectedCount === 0
-              ? (root.mode === "remove" ? "Select Flatpaks to remove" : "Select Flatpaks to install")
-              : ((root.mode === "remove" ? "Remove " : "Install ") + root.selectedCount + "…"))
-      color: Theme.text
-      font.family: Theme.fontFamily
-      font.bold: true
-      font.pixelSize: 12
-    }
-    MouseArea {
-      anchors.fill: parent
-      enabled: !root.applying && root.selectedCount > 0
-      cursorShape: Qt.PointingHandCursor
-      onClicked: root.proposeBatch()
-    }
+    selectedCount: root.selectedCount
+    totalCount: root.results.length
+    applying: root.applying
+    danger: root.onInstalled
+    idleLabel: root.onInstalled ? "Select apps to remove" : "Select apps to install"
+    activePrefix: root.onInstalled ? "Remove" : "Install"
+    onSelectAllClicked: root.setAllSelected(root.selectedCount !== root.results.length)
+    onActionClicked: root.proposeBatch()
   }
 
   Text {
@@ -493,11 +456,13 @@ ColumnLayout {
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11
+    wrapMode: Text.WordWrap
   }
 
   Timer {
     id: debounce
     interval: 280
+    repeat: false
     onTriggered: root.search()
   }
 
@@ -528,32 +493,36 @@ ColumnLayout {
           }
         }
         Packages.noteFlathubConfigured(hub)
-        if (root.active && root.flatpakOk && !hub)
+        if (root.active && root.flatpakOk && !hub && !root.onInstalled)
           root.ensureFlathubPrompt()
+        else if (root.active && !root.onInstalled && hub)
+          root.search()
       }
     }
   }
 
   Process {
     id: installedProc
-    command: ["flatpak", "list", "--user", "--app", "--columns=application:f,name"]
+    command: ["flatpak", "list", "--user", "--app", "--columns=application:f,name,version,description"]
     stdout: StdioCollector {
       onStreamFinished: {
         const out = []
         text.trim().split("\n").forEach(line => {
           if (!line.length)
             return
-          const parts = line.split(/\t+|\s{2,}/)
+          const parts = line.split(/\t/)
           const ref = (parts[0] || "").trim()
           if (!ref.length || ref === "Application")
             return
           out.push({
             ref: ref,
-            name: (parts[1] || ref).trim()
+            name: (parts[1] || ref).trim(),
+            version: (parts[2] || "").trim(),
+            desc: (parts[3] || "").trim()
           })
         })
         root.installed = out
-        if (root.mode === "remove" && root.active)
+        if (root.active && root.onInstalled)
           root.search()
       }
     }
@@ -561,30 +530,24 @@ ColumnLayout {
 
   Process {
     id: browseProc
-    command: [
-      "bash",
-      "-lc",
-      "flatpak remote-ls flathub --app --columns=application:f,name 2>/dev/null | head -n " + String(root.resultCap)
-    ]
+    command: ["true"]
     stdout: StdioCollector {
       onStreamFinished: {
-        if (root.mode !== "install" || root.query.trim().length >= 2)
+        if (root.onInstalled || root.query.trim().length >= 2)
           return
         const out = []
         text.trim().split("\n").forEach(line => {
           if (!line.length)
             return
-          const parts = line.split(/\t+|\s{2,}/)
+          const parts = line.split("\t")
           const ref = (parts[0] || "").trim()
-          if (!ref.length || ref === "Application")
-            return
-          if (root.isInstalled(ref))
+          if (!ref.length || root.isInstalled(ref))
             return
           out.push({
             ref: ref,
-            name: (parts[1] || ref).trim(),
-            version: "",
-            desc: ref,
+            name: (parts[1] || ref).trim() || ref,
+            version: (parts[2] || "").trim(),
+            desc: (parts[3] || ref).trim(),
             installed: false,
             repo: "flathub",
             selected: false
@@ -592,13 +555,13 @@ ColumnLayout {
         })
         root.results = out.slice(0, root.resultCap)
         root.busy = false
-        root.status = root.results.length
-            ? "Browsing Flathub — type ≥2 characters to search."
-            : "No Flathub browse results."
+        root.status = out.length
+            ? "Popular Flatpaks — type ≥2 characters to search."
+            : "No popular Flatpaks available to install."
       }
     }
     onExited: (exitCode, exitStatus) => {
-      if (root.busy && root.mode === "install" && root.query.trim().length < 2 && root.results.length === 0 && exitCode !== 0)
+      if (root.busy && !root.onInstalled && root.query.trim().length < 2 && root.results.length === 0 && exitCode !== 0)
         root.busy = false
     }
   }
@@ -649,21 +612,28 @@ ColumnLayout {
 
   onActiveChanged: {
     if (active) {
+      restoreUi()
       Packages.refreshHelpers()
       if (Packages.flatpakAvailable) {
         refreshMeta()
-        status = mode === "remove" ? "" : (hasFlathub
-            ? "Loading Flathub…"
-            : "Checking Flathub remote…")
-        if (mode === "remove" || hasFlathub)
+        if (onInstalled)
           search()
+        forceActiveFocus()
         Qt.callLater(() => searchInput.forceActiveFocus())
       } else {
         status = "Install flatpak to use Flathub from Settings."
       }
     } else {
+      persistUi()
       debounce.stop()
       clearPending()
+    }
+  }
+
+  onModeChanged: {
+    if (active && flatpakOk) {
+      persistUi()
+      search()
     }
   }
 }

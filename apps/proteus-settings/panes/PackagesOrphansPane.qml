@@ -57,14 +57,16 @@ ColumnLayout {
     }
   }
 
+  PackagesOpProgress {}
+
   Text {
     Layout.fillWidth: true
-    text: root.applying ? Packages.packageOpStatus : root.status
+    text: root.status
     color: Theme.textDim
     font.family: Theme.fontFamily
     font.pixelSize: 12
     wrapMode: Text.WordWrap
-    visible: (root.orphans.length === 0 || root.applying) && !root.confirming
+    visible: root.orphans.length === 0 && !root.confirming && !root.applying
   }
 
   Repeater {

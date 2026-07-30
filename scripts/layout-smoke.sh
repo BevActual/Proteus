@@ -57,7 +57,10 @@ done
 ok "required singletons/helpers present ($(printf '%s\n' "${REQUIRED[@]}" | wc -l) files)"
 
 KIT_REQUIRED=(
+  PackagesActionBar.qml
   PackagesConfirm.qml
+  PackagesOpProgress.qml
+  PackagesPickerRow.qml
   SettingsFormRow.qml
   SettingsGroup.qml
   SettingsHubList.qml
