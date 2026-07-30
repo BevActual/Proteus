@@ -102,7 +102,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Network** (`network`) | Category → This machine / Devices / Wi‑Fi / Bluetooth / Tailscale / VPN — leaf files + FormRow kit | hostnamectl / nmcli / bluetoothctl / tailscale | `shipped` |
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse; later touchpad / tablet | keybinds + input hyprctl | `shipped` |
 | **Power** (`power`) | Battery charge / health / estimate (UPower); logind idle + lid policy read-only with conf escape hatch | UPower / `logind.conf` | `partial` |
-| **Users** (`users`) | Session actions; current + other local users (read-only); greeter planned | `id` / getent · `Config.session` | `partial` |
+| **Users** (`users`) | Session Lock/Logout/Reboot/Shutdown; current + other local users (read-only + Refresh); greetd status + conf escape | `Config.session` · id/getent · greetd/`/etc/greetd/config.toml` | `shipped` |
 | **Online accounts** (`accounts`) | Mail / contacts / cloud provider seats (coming soon; no OAuth) | TBD (not inventing mail/contacts apps here) | `partial` |
 | **Date & time** (`datetime`) | Live clock, searchable timezone picker, network time toggle, locale, **Location** (shared system place + units) | `timedatectl` / `localectl` / Open-Meteo | `partial` |
 | **Privacy** (`privacy`) | Permission categories listed; grants not enforced yet | EnvGate / adaptive apps later | `partial` |
@@ -268,12 +268,13 @@ FormRow/Group — not a single mega-inline `NetworkPane` body.
 **Power** and **Date & time** are `partial` (see §2) — remaining work is
 write-gaps (logind helper, locale set, forecast UI), not greenfield panes.
 
-**Users · Online accounts · Privacy** are `partial` — session actions +
-read-only local users shipped; provider OAuth and permission enforcement Out.
+**Online accounts · Privacy** are `partial` — provider OAuth and permission
+enforcement Out. **Users** session/greeter status shipped (add-remove + writing
+greeter prefs stay Out).
 
 Depth order for what’s left:
 
-1. **Users** — greeter / autologin; add-remove stays Out of Settings  
+1. **Users depth** — write greeter/autologin prefs; add-remove stays Out of Settings  
 2. **Online accounts** — real provider connect when adaptive mail/contacts exist  
 3. **Privacy** — grant model when adaptive apps need it  
 4. **Power** — privileged logind idle/lid writer (read-only today)  
@@ -286,6 +287,7 @@ Depth order for what’s left:
 *(Displays layout + Revert follow-ups shipped — removed from growth depth.)*
 *(Network hub + FormRow polish shipped — depth wizards stay on the list.)*
 *(Control Center notifications + QS depth shipped — Settings Notifications pane stays Out.)*
+*(Users session + greetd status shipped — writing greeter prefs / useradd stay Out.)*
 
 Virt / container setup stays a **separate app**, not a Settings growth item.
 

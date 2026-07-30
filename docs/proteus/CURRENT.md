@@ -93,7 +93,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Network → This machine / Devices / Wi‑Fi / Bluetooth / Tailscale / VPN (`network`) | `shipped` — Desktop-style hub + `Network*Leaf` StickyPaneLoaders; hostname Apply; device/Wi‑Fi FormRow honesty; BT/TS/VPN status + escape hatches; password Wi‑Fi / pairing / Headscale stay system tools |
 | Power (battery via UPower; logind idle/lid read-only + conf escape hatch) | `partial` — writing lid/idle needs a privileged helper |
 | Date & time (clock, timezone search, NTP, locale, **Location**) | `partial` — timezone/NTP polkit-gated; location is explicit place search (never IP); Open-Meteo weather for that place + desktop/lock weather widget; no forecast view |
-| Users (session actions + read-only local users) | `partial` — no add/remove; greeter planned |
+| Users (session actions + read-only local users · greetd status) | `shipped` — Session FormRow honesty (Lock/Logout/Reboot/Shutdown); current/other users + Refresh; greetd active/autologin status + read-only conf escape; no add/remove; Settings does not write greeter prefs |
 | Online accounts (provider seats) | `partial` — coming soon; no OAuth |
 | Privacy (permission categories) | `partial` — listed; not enforced |
 | About (hardware class / capabilities) | `partial` — session actions → Users |
