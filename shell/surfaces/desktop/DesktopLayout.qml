@@ -91,18 +91,119 @@ QtObject {
     }
   }
 
+  readonly property real overlapGap: 10
+
+  function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh, gap) {
+    const g = gap === undefined ? overlapGap : gap
+    return !(ax + aw + g <= bx || bx + bw + g <= ax || ay + ah + g <= by || by + bh + g <= ay)
+  }
+
+  function otherFrames(excludeId, othersOverride) {
+    if (othersOverride && othersOverride.length !== undefined)
+      return othersOverride.filter(o => o && String(o.id) !== String(excludeId || ""))
+    const list = widgets || []
+    const out = []
+    const ex = String(excludeId || "")
+    for (let i = 0; i < list.length; i++) {
+      const w = list[i]
+      if (!w || !w.enabled)
+        continue
+      if (String(w.id) === ex)
+        continue
+      const size = w.size || "md"
+      const width = contentWidth(w.type, size)
+      const height = contentHeight(w.type, size)
+      const p = pixelFromFreeNorm(w.x, w.y, width, height)
+      out.push({
+        id: String(w.id),
+        x: p.x,
+        y: p.y,
+        width: width,
+        height: height
+      })
+    }
+    return out
+  }
+
+  function collidesAt(px, py, width, height, excludeId, othersOverride) {
+    const others = otherFrames(excludeId, othersOverride)
+    for (let i = 0; i < others.length; i++) {
+      const o = others[i]
+      if (rectsOverlap(px, py, width, height, o.x, o.y, o.width, o.height, overlapGap))
+        return true
+    }
+    return false
+  }
+
   // Snap widget center to nearest graph intersection; clamp to usable area.
   function snapPixel(px, py, width, height) {
     const cx = px + width * 0.5
     const cy = py + height * 0.5
     let ix = Math.round((cx - originX) / pitch)
     let iy = Math.round((cy - originY) / pitch)
-    // Keep center on a drawn intersection (halfCols/halfRows).
     ix = Math.max(-halfCols, Math.min(halfCols, ix))
     iy = Math.max(-halfRows, Math.min(halfRows, iy))
     const gx = ix * pitch
     const gy = iy * pitch
     return clampPixel(originX + gx - width * 0.5, originY + gy - height * 0.5, width, height)
+  }
+
+  function snapPixelIndices(ix, iy, width, height) {
+    const cx = Math.max(-halfCols, Math.min(halfCols, ix))
+    const cy = Math.max(-halfRows, Math.min(halfRows, iy))
+    return clampPixel(originX + cx * pitch - width * 0.5, originY + cy * pitch - height * 0.5, width, height)
+  }
+
+  // Place at desired pixel without overlapping others (spiral / grid search).
+  // othersOverride: optional [{id,x,y,width,height}, ...] instead of live Config widgets.
+  function resolveNoOverlap(px, py, width, height, excludeId, othersOverride) {
+    let desired = clampPixel(px, py, width, height)
+    if (snapToGrid)
+      desired = snapPixel(desired.x, desired.y, width, height)
+    if (!collidesAt(desired.x, desired.y, width, height, excludeId, othersOverride))
+      return desired
+
+    if (snapToGrid) {
+      const cx = desired.x + width * 0.5
+      const cy = desired.y + height * 0.5
+      const baseIx = Math.round((cx - originX) / pitch)
+      const baseIy = Math.round((cy - originY) / pitch)
+      let best = null
+      let bestDist = Infinity
+      for (let ring = 0; ring <= Math.max(halfCols, halfRows) + 2; ring++) {
+        for (let dx = -ring; dx <= ring; dx++) {
+          for (let dy = -ring; dy <= ring; dy++) {
+            if (ring > 0 && Math.max(Math.abs(dx), Math.abs(dy)) !== ring)
+              continue
+            const cand = snapPixelIndices(baseIx + dx, baseIy + dy, width, height)
+            if (collidesAt(cand.x, cand.y, width, height, excludeId, othersOverride))
+              continue
+            const dist = Math.abs(cand.x - desired.x) + Math.abs(cand.y - desired.y)
+            if (dist < bestDist) {
+              bestDist = dist
+              best = cand
+            }
+          }
+        }
+        if (best)
+          return best
+      }
+      return desired
+    }
+
+    const step = Math.max(12, Math.round(pitch / 2))
+    for (let ring = 1; ring <= 40; ring++) {
+      for (let dx = -ring; dx <= ring; dx++) {
+        for (let dy = -ring; dy <= ring; dy++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring)
+            continue
+          const cand = clampPixel(desired.x + dx * step, desired.y + dy * step, width, height)
+          if (!collidesAt(cand.x, cand.y, width, height, excludeId, othersOverride))
+            return cand
+        }
+      }
+    }
+    return desired
   }
 
   function freeNormFromPixel(px, py, width, height) {

@@ -163,18 +163,31 @@ QtObject {
   function snapAllDesktopWidgetsToGrid(layout) {
     if (!layout)
       return
-    const list = host.desktopWidgetsList
-    Config.desktopWidgets = list.map(w => {
+    const list = host.desktopWidgetsList.slice()
+    const peers = []
+    const out = []
+    for (let i = 0; i < list.length; i++) {
+      const w = list[i]
       if (!w)
-        return w
+        continue
       const width = layout.contentWidth(w.type, w.size || "md")
       const height = layout.contentHeight(w.type, w.size || "md")
-      const snapped = layout.snapNorm(w.x, w.y, width, height)
-      return Object.assign({}, w, {
-        x: snapped.x,
-        y: snapped.y
+      const raw = layout.pixelFromFreeNorm(w.x, w.y, width, height)
+      const resolved = layout.resolveNoOverlap(raw.x, raw.y, width, height, w.id, peers)
+      const n = layout.freeNormFromPixel(resolved.x, resolved.y, width, height)
+      peers.push({
+        id: String(w.id),
+        x: resolved.x,
+        y: resolved.y,
+        width: width,
+        height: height
       })
-    }).filter(w => w !== null)
+      out.push(Object.assign({}, w, {
+        x: n.x,
+        y: n.y
+      }))
+    }
+    Config.desktopWidgets = out
     if (!Config.deferSettingsWrites)
       Config.flushSettings()
   }

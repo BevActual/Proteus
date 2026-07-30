@@ -132,40 +132,41 @@ Item {
 
     onClicked: root.selectApplet()
     onPressed: mouse => {
-      root.selectApplet()
-      root.dragging = true
-      root.dragX = root.x
-      root.dragY = root.y
+      // Capture position BEFORE dragging flips x/y bindings (else dragX reads 0 → edge warp).
+      const startX = root.frame ? root.frame.x : root.x
+      const startY = root.frame ? root.frame.y : root.y
+      root.dragX = startX
+      root.dragY = startY
       pressOX = mouse.x
       pressOY = mouse.y
+      root.selectApplet()
+      root.dragging = true
       mouse.accepted = true
     }
     onPositionChanged: mouse => {
       if (!root.dragging || !root.parent)
         return
-      // Lock-style: cursor in parent space minus press offset in local space.
+      // Parent-space cursor via scene map — stable while the item moves.
       const p = mapToItem(root.parent, mouse.x, mouse.y)
       const rawX = p.x - pressOX
       const rawY = p.y - pressOY
-      if (root.layout && root.layout.snapToGrid) {
-        const s = root.layout.snapPixel(rawX, rawY, root.width, root.height)
-        root.dragX = s.x
-        root.dragY = s.y
-      } else if (root.layout) {
-        const c = root.layout.clampPixel(rawX, rawY, root.width, root.height)
-        root.dragX = c.x
-        root.dragY = c.y
+      const wid = root.widgetId
+      if (root.layout) {
+        const placed = root.layout.resolveNoOverlap(rawX, rawY, root.width, root.height, wid)
+        root.dragX = placed.x
+        root.dragY = placed.y
       } else {
         root.dragX = Math.max(0, Math.min(Math.max(0, root.surfaceWidth - root.width), rawX))
         root.dragY = Math.max(0, Math.min(Math.max(0, root.surfaceHeight - root.height), rawY))
       }
     }
     onReleased: mouse => {
-      if (root.dragging) {
-        if (root.layout) {
-          const n = root.layout.normFromPixel(root.dragX, root.dragY, 0, 0, root.width, root.height)
-          root.dragMoved(n.x, n.y)
-        }
+      if (root.dragging && root.layout) {
+        const placed = root.layout.resolveNoOverlap(root.dragX, root.dragY, root.width, root.height, root.widgetId)
+        root.dragX = placed.x
+        root.dragY = placed.y
+        const n = root.layout.normFromPixel(placed.x, placed.y, 0, 0, root.width, root.height)
+        root.dragMoved(n.x, n.y)
       }
       root.dragging = false
     }
