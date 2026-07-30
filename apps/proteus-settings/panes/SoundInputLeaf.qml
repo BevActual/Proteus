@@ -5,22 +5,22 @@ import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Leaf UI for SoundPane — Input.
+// Leaf UI for SoundPane — Input (SettingsFormRow honesty).
 ColumnLayout {
   id: root
   property Item host
   width: parent ? parent.width : implicitWidth
   spacing: Theme.spaceMd
 
-  Text {
-    Layout.fillWidth: true
-    Layout.maximumWidth: 480
+  SettingsGroup {
+    title: "Microphone"
     visible: host && !host.sources.length
-    text: "No capture devices reported."
-    color: Theme.textMute
-    font.family: Theme.fontFamily
-    font.pixelSize: 12
-    wrapMode: Text.WordWrap
+
+    SettingsFormRow {
+      label: "Capture"
+      hint: "No capture devices reported"
+      showSeparator: false
+    }
   }
 
   SettingsGroup {
@@ -29,10 +29,12 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "Level"
-      hint: host ? (host.inputVolume + "%") : ""
+      hint: !host ? ""
+          : (host.inputMuted ? (host.inputVolume + "% · muted")
+              : (host.inputVolume + "% · live"))
       showSeparator: true
       Slider {
-        Layout.preferredWidth: 150
+        Layout.preferredWidth: 160
         from: 0
         to: 100
         stepSize: 1
@@ -50,7 +52,7 @@ ColumnLayout {
     SettingsFormRow {
       label: "Mute input"
       hint: host && host.inputMuted ? "Muted" : "Live"
-      showSeparator: false
+      showSeparator: true
       Switch {
         checked: host ? host.inputMuted : false
         onToggled: {
@@ -63,50 +65,29 @@ ColumnLayout {
         }
       }
     }
-  }
 
-  SettingsGroup {
-    visible: host && host.sources.length > 0
-    title: "Input level"
+    SettingsFormRow {
+      label: "Peak meter"
+      hint: host && host.inputMuted ? "Paused while muted"
+          : (Math.round(host ? host.inputPeak : 0) + "% peak · speak to test")
+      showSeparator: false
 
-    Item {
-      Layout.fillWidth: true
-      Layout.preferredHeight: 56
-
-      ColumnLayout {
-        anchors.fill: parent
-        anchors.leftMargin: Theme.spaceMd
-        anchors.rightMargin: Theme.spaceMd
-        anchors.topMargin: Theme.spaceSm
-        anchors.bottomMargin: Theme.spaceSm
-        spacing: Theme.spaceSm
+      Rectangle {
+        Layout.preferredWidth: 120
+        Layout.preferredHeight: 10
+        radius: 3
+        color: Theme.bg
+        border.width: 1
+        border.color: Theme.border
+        clip: true
 
         Rectangle {
-          Layout.fillWidth: true
-          Layout.preferredHeight: 10
-          radius: 3
-          color: Theme.bg
-          border.width: 1
-          border.color: Theme.border
-          clip: true
-
-          Rectangle {
-            anchors.left: parent.left
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            width: parent.width * Math.max(0, Math.min(1, (host ? host.inputPeak : 0) / 100))
-            color: host && host.inputMuted ? Theme.textMute
-                : ((host && host.inputPeak > 90) ? Theme.danger : Theme.accent)
-          }
-        }
-
-        Text {
-          Layout.fillWidth: true
-          text: host && host.inputMuted ? "Meter paused while muted"
-              : (Math.round(host ? host.inputPeak : 0) + "% peak · speak to test")
-          color: Theme.textMute
-          font.family: Theme.fontFamily
-          font.pixelSize: 11
+          anchors.left: parent.left
+          anchors.top: parent.top
+          anchors.bottom: parent.bottom
+          width: parent.width * Math.max(0, Math.min(1, (host ? host.inputPeak : 0) / 100))
+          color: host && host.inputMuted ? Theme.textMute
+              : ((host && host.inputPeak > 90) ? Theme.danger : Theme.accent)
         }
       }
     }
@@ -123,7 +104,7 @@ ColumnLayout {
         required property var modelData
         required property int index
         label: modelData.label
-        hint: modelData.name
+        hint: host ? host.deviceHint(modelData) : ""
         showSeparator: host && index < host.sources.length - 1
         interactive: !modelData.isDefault
         onActivated: {

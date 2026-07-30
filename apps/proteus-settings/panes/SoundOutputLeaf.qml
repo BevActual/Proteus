@@ -5,7 +5,7 @@ import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Leaf UI for SoundPane — Output.
+// Leaf UI for SoundPane — Output (SettingsFormRow honesty).
 ColumnLayout {
   id: root
   property Item host
@@ -17,10 +17,12 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "Volume"
-      hint: host ? (host.volume + "%") : ""
+      hint: !host ? ""
+          : (host.muted ? (host.volume + "% · muted")
+              : (host.volume + "% · audible"))
       showSeparator: true
       Slider {
-        Layout.preferredWidth: 150
+        Layout.preferredWidth: 160
         from: 0
         to: 100
         stepSize: 1
@@ -52,7 +54,7 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "Test sound"
-      hint: "Play a short tone on the default device"
+      hint: "Short tone on the default output"
       showSeparator: false
       interactive: true
       onActivated: Audio.playTestSound()
@@ -67,6 +69,7 @@ ColumnLayout {
 
   SettingsGroup {
     title: "Device"
+    visible: host && host.sinks.length > 0
 
     Repeater {
       model: host ? host.sinks : []
@@ -93,26 +96,23 @@ ColumnLayout {
     }
   }
 
-  Text {
-    Layout.fillWidth: true
-    Layout.maximumWidth: 480
-    visible: host && host.status.length > 0
-    text: host ? host.status : ""
-    color: Theme.textDim
-    font.family: Theme.fontFamily
-    font.pixelSize: 12
-    wrapMode: Text.WordWrap
-  }
+  SettingsGroup {
+    title: "Status"
+    visible: host && (host.status.length > 0 || host.nullSinkHint.length > 0)
 
-  Text {
-    Layout.fillWidth: true
-    Layout.maximumWidth: 480
-    visible: host && host.nullSinkHint.length > 0
-    text: host ? host.nullSinkHint : ""
-    color: Theme.textDim
-    font.family: Theme.fontFamily
-    font.pixelSize: 12
-    wrapMode: Text.WordWrap
+    SettingsFormRow {
+      visible: host && host.status.length > 0
+      label: "Devices"
+      hint: host ? host.status : ""
+      showSeparator: host && host.nullSinkHint.length > 0
+    }
+
+    SettingsFormRow {
+      visible: host && host.nullSinkHint.length > 0
+      label: "Default sink"
+      hint: host ? host.nullSinkHint : ""
+      showSeparator: false
+    }
   }
 
   Text {
