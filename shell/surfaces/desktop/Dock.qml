@@ -42,13 +42,25 @@ Item {
   property int menuIndex: -1
   property bool menuOpen: false
 
+  // Long-press reorder (macOS-like): middle pins only.
+  property bool reorderMode: false
+  property int reorderIndex: -1
+  property real reorderGrabX: 0
+  property real reorderItemX: 0
+  property real reorderDragX: 0
+  property real reorderDragY: 0
+  property bool reorderRemoving: false
+  property bool suppressClick: false
+  readonly property real removeThreshold: shelfHeight * 0.85
+
   readonly property real rowWidth: count > 0
       ? count * iconSize + Math.max(0, count - 1) * spacing
       : 0
 
   readonly property int shelfHeight: iconSize + padTop + padBottom
   readonly property int magHeadroom: (maxIconSize - iconSize) + tipH + tipGap + 12
-  readonly property real plateRadius: shelfHeight * 0.5
+  // Match SquircleIcon continuous corners — not a stadium pill (was height/2).
+  readonly property real plateRadius: shelfHeight * Theme.squircleCornerRatio
 
   implicitWidth: Math.round(rowWidth + padX * 2)
   implicitHeight: Math.round(shelfHeight + magHeadroom)
@@ -58,6 +70,8 @@ Item {
   }
 
   function scaleAt(index) {
+    if (reorderMode)
+      return restScale
     if (!hovered || mouseX < 0)
       return restScale
     const d = Math.abs(mouseX - centerAt(index))
@@ -83,6 +97,22 @@ Item {
     return -1
   }
 
+  function insertPinIndexForX(x) {
+    const pins = DockApps.pinIdList()
+    const n = pins.length
+    if (n <= 0)
+      return 0
+    let insertAt = 0
+    for (let p = 0; p < n; p++) {
+      const dockI = 1 + p
+      if (dockI >= count)
+        break
+      if (x >= centerAt(dockI))
+        insertAt = p + 1
+    }
+    return Math.max(0, Math.min(n, insertAt))
+  }
+
   function menuEntry() {
     if (menuIndex < 0 || menuIndex >= items.length)
       return null
@@ -90,6 +120,8 @@ Item {
   }
 
   function openPinMenu(index, x, y) {
+    if (reorderMode)
+      return
     if (index < 0 || index >= items.length)
       return
     const entry = items[index]
@@ -110,6 +142,56 @@ Item {
     root.menuIndex = -1
   }
 
+  function beginReorder(index) {
+    if (index < 0 || index >= items.length)
+      return
+    const entry = items[index]
+    if (!DockApps.canReorder(entry))
+      return
+    root.closePinMenu()
+    root.reorderMode = true
+    root.reorderIndex = index
+    root.reorderItemX = padX + index * (iconSize + spacing)
+    root.reorderGrabX = root.mouseX
+    root.reorderDragX = root.reorderItemX
+    root.reorderDragY = 0
+    root.reorderRemoving = false
+    root.suppressClick = true
+    root.tipIndex = -1
+  }
+
+  function endReorder(commit) {
+    if (!reorderMode) {
+      holdTimer.stop()
+      return
+    }
+    const idx = reorderIndex
+    const entry = (idx >= 0 && idx < items.length) ? items[idx] : null
+    const removing = reorderRemoving && entry && DockApps.canUnpin(entry)
+    const dragX = reorderDragX
+    root.reorderMode = false
+    root.reorderIndex = -1
+    root.reorderRemoving = false
+    root.reorderDragY = 0
+    holdTimer.stop()
+
+    if (!commit || !entry)
+      return
+    if (removing) {
+      DockApps.unpinEntry(entry)
+      return
+    }
+    const fromPin = DockApps.pinIdList().indexOf(DockApps.normalizeDesktopId(entry.desktopId || entry.id))
+    if (fromPin < 0)
+      return
+    const insertAt = insertPinIndexForX(dragX + iconSize * 0.5)
+    let dest = insertAt
+    if (dest > fromPin)
+      dest -= 1
+    if (dest !== fromPin)
+      DockApps.reorderPinnedDesktopId(entry.desktopId || entry.id, dest)
+  }
+
   Rectangle {
     id: plate
     anchors.horizontalCenter: parent.horizontalCenter
@@ -119,29 +201,11 @@ Item {
     radius: root.plateRadius
     color: Theme.dockPlateFill
     antialiasing: true
+    // No child specular — Qt clip on radius does not mask children to the
+    // curve, which left a hard straight highlight across the top edge.
     border.width: Theme.chromeClear ? 0 : 1
     border.color: Theme.chromeHairline
     z: 1
-
-    // Top specular — floating glass edge (menu bar is full-bleed; dock needs this)
-    Rectangle {
-      anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.top: parent.top
-      height: Math.max(1, Math.round(parent.height * 0.08))
-      radius: parent.radius
-      visible: Theme.dockPlateSpecular.a > 0.01
-      gradient: Gradient {
-        GradientStop {
-          position: 0.0
-          color: Theme.dockPlateSpecular
-        }
-        GradientStop {
-          position: 1.0
-          color: "transparent"
-        }
-      }
-    }
 
     Behavior on color {
       ColorAnimation {
@@ -157,16 +221,26 @@ Item {
     }
   }
 
+  Timer {
+    id: holdTimer
+    interval: 450
+    repeat: false
+    onTriggered: {
+      if (root.pressIndex >= 0)
+        root.beginReorder(root.pressIndex)
+    }
+  }
+
   MouseArea {
     id: dockMa
     anchors.fill: parent
     hoverEnabled: true
     acceptedButtons: Qt.LeftButton | Qt.RightButton
-    cursorShape: Qt.PointingHandCursor
+    cursorShape: root.reorderMode ? Qt.ClosedHandCursor : Qt.PointingHandCursor
     z: 10
     onEntered: root.hovered = true
     onExited: {
-      if (root.menuOpen)
+      if (root.menuOpen || root.reorderMode)
         return
       root.hovered = false
       root.mouseX = -1000
@@ -175,13 +249,30 @@ Item {
     onPositionChanged: mouse => {
       root.hovered = true
       root.setMouse(mouse.x)
+      if (root.reorderMode) {
+        root.reorderDragX = root.reorderItemX + (mouse.x - root.reorderGrabX)
+        // Drag toward desktop (up from bottom shelf) to remove.
+        const shelfTop = root.height - root.shelfHeight
+        root.reorderDragY = Math.max(0, shelfTop - mouse.y)
+        root.reorderRemoving = root.reorderDragY > root.removeThreshold
+        root.tipIndex = -1
+        return
+      }
       root.tipIndex = root.indexAt(mouse.x)
+      if (root.pressIndex >= 0 && Math.abs(mouse.x - root.reorderGrabX) > 8)
+        holdTimer.stop()
     }
     onClicked: mouse => {
+      if (root.suppressClick) {
+        root.suppressClick = false
+        return
+      }
       if (root.menuOpen) {
         root.closePinMenu()
         return
       }
+      if (root.reorderMode)
+        return
       const i = root.indexAt(mouse.x)
       if (i < 0)
         return
@@ -194,9 +285,40 @@ Item {
     onPressed: mouse => {
       root.setMouse(mouse.x)
       root.pressIndex = root.indexAt(mouse.x)
+      root.reorderGrabX = mouse.x
+      holdTimer.stop()
+      if (mouse.button === Qt.LeftButton && root.pressIndex >= 0) {
+        const e = root.items[root.pressIndex]
+        if (DockApps.canReorder(e))
+          holdTimer.restart()
+      }
     }
-    onReleased: root.pressIndex = -1
-    onCanceled: root.pressIndex = -1
+    onReleased: mouse => {
+      holdTimer.stop()
+      if (root.reorderMode)
+        root.endReorder(true)
+      root.pressIndex = -1
+    }
+    onCanceled: {
+      holdTimer.stop()
+      if (root.reorderMode)
+        root.endReorder(false)
+      root.pressIndex = -1
+    }
+  }
+
+  // Remove hint while dragging a pin off the shelf
+  Text {
+    z: 60
+    visible: root.reorderMode && root.reorderRemoving
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.bottom: plate.top
+    anchors.bottomMargin: 8
+    text: "Remove"
+    color: Qt.rgba(1, 0.35, 0.35, 0.95)
+    font.family: Theme.fontFamily
+    font.pixelSize: Theme.fontSizeSm
+    font.weight: Font.Medium
   }
 
   // Context menu — Keep in Dock / Remove from Dock (macOS Options pattern)
@@ -292,11 +414,13 @@ Item {
       property real displayS: s
       property real displayPress: 1
       readonly property real rise: root.maxIconSize * (displayS - root.restScale)
-      readonly property bool tipOn: root.tipIndex === index && !root.menuOpen
+      readonly property bool tipOn: root.tipIndex === index && !root.menuOpen && !root.reorderMode
       readonly property bool brandIcon: modelData.special === "launcher"
           || modelData.special === "settings"
           || modelData.icon === "proteus-launcher"
           || modelData.icon === "proteus-settings"
+      readonly property bool isDragging: root.reorderMode && root.reorderIndex === index
+      readonly property real restX: root.padX + index * (root.iconSize + root.spacing)
 
       onSChanged: displayS = s
       Connections {
@@ -323,13 +447,33 @@ Item {
         }
       }
 
-      x: root.padX + index * (root.iconSize + root.spacing)
+      x: isDragging ? root.reorderDragX : restX
+      opacity: isDragging && root.reorderRemoving ? 0.45 : 1
       width: root.iconSize
       height: root.iconSize + root.magHeadroom
       anchors.bottom: parent.bottom
       anchors.bottomMargin: root.padBottom
-      z: tipOn ? 20 : Math.round(10 + index + (displayS - root.restScale) * 40)
+      z: isDragging ? 40 : (tipOn ? 20 : Math.round(10 + index + (displayS - root.restScale) * 40))
       clip: false
+
+      // Soft jiggle cue while a sibling is being reordered; lift while dragging.
+      transform: [
+        Translate {
+          y: isDragging ? -Math.min(root.reorderDragY, root.maxIconSize) : 0
+        },
+        Rotation {
+          origin.x: cell.width * 0.5
+          origin.y: cell.height * 0.7
+          angle: (!isDragging && root.reorderMode && DockApps.canReorder(modelData))
+              ? ((index % 2 === 0) ? -2.5 : 2.5)
+              : 0
+          Behavior on angle {
+            NumberAnimation {
+              duration: 120
+            }
+          }
+        }
+      ]
 
       Rectangle {
         visible: cell.tipOn

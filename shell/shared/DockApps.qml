@@ -17,7 +17,8 @@ Singleton {
     "label": "Settings",
     "icon": "proteus-settings",
     "special": "settings",
-    "match": "proteus-settings",
+    // FloatingWindow WM class is "quickshell" (see proteus-settings.desktop).
+    "match": "quickshell",
     "desktopId": "proteus-settings",
     "command": ["proteus-settings"]
   }
@@ -48,6 +49,20 @@ Singleton {
 
   function normalizeDesktopId(id) {
     return String(id || "").trim().replace(/\.desktop$/i, "")
+  }
+
+  // Shell chrome / Settings QS — never a transient dock icon.
+  function isShellChromeClass(cls) {
+    const c = String(cls || "").trim().toLowerCase()
+    if (!c.length)
+      return false
+    if (c === "quickshell" || c === "qs")
+      return true
+    if (c.indexOf("org.quickshell") === 0)
+      return true
+    if (c.indexOf("proteus-qs") === 0)
+      return true
+    return false
   }
 
   function pinIdList() {
@@ -177,7 +192,7 @@ Singleton {
     const tops = Hyprland.toplevels.values
     for (let i = 0; i < tops.length; i++) {
       const cls = classOf(tops[i])
-      if (!cls.length)
+      if (!cls.length || isShellChromeClass(cls))
         continue
       const e = entryFromWindowClass(cls)
       if (!e)
@@ -186,7 +201,7 @@ Singleton {
       if (!id.length || isPinned(id) || seen[id])
         continue
       // Skip Settings chrome if somehow matched
-      if (id === "proteus-settings" || id === "settings")
+      if (id === "proteus-settings" || id === "settings" || isShellChromeClass(id))
         continue
       e.transient = true
       pushEntry(e)
@@ -200,12 +215,14 @@ Singleton {
     const c = String(cls || "").trim().toLowerCase()
     if (!c.length)
       return null
+    // Settings FloatingWindow + any chrome QS share class "quickshell".
+    // Settings is a fixed pin; never invent a "Quickshell" transient.
+    if (isShellChromeClass(c) || c.indexOf("proteus-settings") >= 0 || c === "settings")
+      return null
 
     // Known aliases
     if (c.indexOf("ghostty") >= 0)
       return entryFromDesktopId("com.mitchellh.ghostty")
-    if (c.indexOf("proteus-settings") >= 0 || c === "settings")
-      return null
 
     const apps = DesktopEntries.applications.values
     for (let i = 0; i < apps.length; i++) {
@@ -224,6 +241,9 @@ Singleton {
       } catch (err) {
       }
       if (wm === c || idLower === c || short === c || idLower.endsWith("." + c)) {
+        // Desktop entry for Settings (StartupWMClass=quickshell) — not transient.
+        if (idLower === "proteus-settings" || short === "settings" || isShellChromeClass(wm))
+          return null
         const e = entryFromDesktopId(id)
         if (e) {
           e.match = short.length ? short : c
@@ -311,6 +331,31 @@ Singleton {
     if (!canUnpin(entry))
       return false
     return unpinDesktopId(entry.desktopId || entry.id)
+  }
+
+  // Middle pins only (Spotlight + Settings stay fixed). toPinIndex is 0..pins.length.
+  function canReorder(entry) {
+    if (!entry || entry.special === "launcher" || entry.special === "settings")
+      return false
+    if (isTransient(entry))
+      return false
+    const id = normalizeDesktopId(entry.desktopId || entry.id)
+    return id.length && pinIdList().indexOf(id) >= 0
+  }
+
+  function reorderPinnedDesktopId(desktopId, toPinIndex) {
+    const id = normalizeDesktopId(desktopId)
+    if (!id.length)
+      return false
+    const ids = pinIdList()
+    const from = ids.indexOf(id)
+    if (from < 0)
+      return false
+    ids.splice(from, 1)
+    const to = Math.max(0, Math.min(ids.length, Math.round(Number(toPinIndex))))
+    ids.splice(to, 0, id)
+    setPinIds(ids)
+    return true
   }
 
   function iconFor(entry) {
