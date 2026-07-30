@@ -17,6 +17,7 @@ run software-reliability-smoke.sh
 run hw-probe-smoke.sh
 run install-smoke.sh
 run session-smoke.sh
+run qs-version-smoke.sh
 
 # Guest: always attempt (skips if SSH down unless PROTEUS_GUEST=1)
 run qs-guest-smoke.sh

@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # qs-guest-smoke — guest Quickshell cold start (SHELL_OK / SETTINGS_OK)
 # Skip if SSH unreachable unless PROTEUS_GUEST=1 (then fail closed).
+#
+# Version / upgrade path (#1174):
+#   After upgrading Quickshell on the guest (`pacman -Syu`), re-run this script
+#   (or PROTEUS_GUEST=1 ./scripts/smoke-all.sh). It prints
+#   "qs-guest-smoke: quickshell version: …" then asserts SHELL_OK / SETTINGS_OK.
+#   Pin policy: record + smoke — not pacman IgnorePkg (COMPOSITOR Out). ISO pin Later.
 set -euo pipefail
 
 HOST="${PROTEUS_GUEST_HOST:-127.0.0.1}"

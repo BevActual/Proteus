@@ -94,7 +94,7 @@ Prefer these for OS facts before inventing daemons.
 | **Hyprland-shaped integrations** | Best backend for desktop/couch compositor postures — not universal |
 | **Output / session fragility** | Crashes reported on monitor hotplug, TTY switch, KVM, sleep — **v1:** `shell/scripts/proteus-qs` backoff loop from Hyprland `exec-once`; never keep sole truth in QS memory |
 | **Session start hygiene** | `vm/guest/proteus-session` prefers `start-hyprland`; hypr seed `exec-once` = qs/bg/cliphist only (no terminal); `hide-system-apps` from apps + post-install; host `session-smoke` / `install-smoke` |
-| **Young / moving target** | **v1:** record `quickshell --version` in `qs-guest-smoke` (do **not** `IgnorePkg`-pin rolling Arch); ISO pin later; smoke after upgrades |
+| **Young / moving target** | **v1:** record `quickshell --version` in `qs-guest-smoke` / `qs-version-smoke` (do **not** `IgnorePkg`-pin rolling Arch); after `pacman -Syu` re-run `PROTEUS_GUEST=1 ./scripts/smoke-all.sh`; ISO pin later |
 | **QML is programming** | Shared modules; Rust helpers for messy IO |
 | **Settings as second `quickshell -p`** | OK now; files are SoT; revisit Tauri Settings if lifecycle hurts |
 | **Not a virt/ops UI kit** | Host console ≠ Portainer in a panel |
@@ -192,7 +192,7 @@ compositor chrome for that unit.
 | Settings → keybinds → hypr conf | `shipped` |
 | Settings → gaps/borders via hyprctl | `shipped` |
 | Per-posture hypr profiles | `partial` — desktop + media/host/home stubs + `set-hypr-profile.sh`; wearable/xr/vehicle planned |
-| QS respawn / crash policy | `partial` — `proteus-qs` backoff; not systemd supervisor |
+| QS respawn / crash policy | `partial` — `proteus-qs` flock/backoff/`--restart`; optional `proteus-qs.service` user unit (hypr exec-once still default) |
 | Capability resolver | `planned` |
 | Pin QS version in guest docs/ISO | `partial` — version **recorded** in smoke; IgnorePkg/ISO pin Out |
 | Greeter/lock in QS | `partial` — lock screen shipped (PAM); greetd/tuigreet still login |

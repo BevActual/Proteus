@@ -51,7 +51,7 @@ the thesis ahead of code where marked `planned`.
 | Quickshell shell | `shipped` | Chrome runtime; `/mnt/proteus/shell` via 9p |
 | Nested Hyprland (host) | `shipped` | `scripts/run-nested.sh` — shell-only quick test |
 | Hyprland posture profiles | `partial` — desktop + media/host/home stubs + `proteus-profile.conf`; see [COMPOSITOR.md](./COMPOSITOR.md) |
-| QS version pin / respawn policy | `partial` — `proteus-qs` flock (one chrome per path) + crash backoff + `--restart`; version recorded in `qs-guest-smoke`; IgnorePkg/ISO pin later |
+| QS version pin / respawn policy | `partial` — `proteus-qs` flock + `--restart` + orphan reap + backoff; optional systemd `--user` unit; version recorded in `qs-guest-smoke` / `qs-version-smoke`; after QS upgrade re-run guest smoke; IgnorePkg/ISO pin Out |
 
 ---
 
