@@ -13,7 +13,7 @@ Singleton {
   readonly property bool blur: Config.chromeBlur
   readonly property bool chromeClear: chromeAlpha < 0.01
 
-  // Glass plate alpha for bar/dock — tracks Opacity smoothly.
+  // Glass plate alpha for dock — tracks Opacity smoothly.
   // With blur: soft floor so frosted glass still reads; without: linear to clear.
   readonly property real glassAlpha: {
     if (chromeClear)
@@ -22,6 +22,17 @@ Singleton {
       return Math.max(0.20, Math.min(0.90, chromeAlpha * 0.82 + 0.06))
     return chromeAlpha
   }
+
+  // Menu bar: wallpaper-first (Tahoe-adjacent) — clearer than dock at same Opacity.
+  // Soft floor only with blur so text can keep a legibility plate; 0% still clears.
+  readonly property real menuBarAlpha: {
+    if (chromeClear)
+      return 0
+    if (blur)
+      return Math.max(0.05, Math.min(0.48, chromeAlpha * 0.38 + 0.03))
+    return Math.max(0, Math.min(0.72, chromeAlpha * 0.42))
+  }
+  readonly property bool menuBarNeedsLegibility: menuBarAlpha > 0.001 && menuBarAlpha < 0.32
 
   // Grouped-background canvas; elevated = inset list cards
   readonly property color bg: light ? "#f2f2f7" : "#000000"
@@ -46,13 +57,15 @@ Singleton {
   readonly property color chromeAccentSoft: Qt.rgba(accent.r, accent.g, accent.b, chromeAlpha * (light ? 0.22 : 0.28))
   readonly property color scrimFill: Qt.rgba(bg.r, bg.g, bg.b, (light ? 0.28 : 0.45) * Math.max(chromeAlpha, 0.4))
 
-  // Menu bar / Dock — shared Tahoe-adjacent glass (same RGB family; hairline edge)
+  // Menu bar — wallpaper-first plate (clearer than dock at same Opacity)
   readonly property color menuBarFill: light
+      ? Qt.rgba(0.96, 0.96, 0.97, menuBarAlpha)
+      : Qt.rgba(0.11, 0.11, 0.12, menuBarAlpha)
+  // Dock keeps stronger frost (glassAlpha); same RGB family as bar.
+  readonly property color dockPlateFill: light
       ? Qt.rgba(0.96, 0.96, 0.97, glassAlpha)
       : Qt.rgba(0.11, 0.11, 0.12, glassAlpha)
-  // Same plate as menu bar so blur+opacity read as one chrome family.
-  readonly property color dockPlateFill: menuBarFill
-  // Floating menus / context plates — same glass family (CHROME · #1149)
+  // Floating menus / context plates — dock glass family (CHROME · #1149)
   readonly property color menuPlateFill: dockPlateFill
   readonly property color chromeHairline: light
       ? Qt.rgba(0, 0, 0, chromeClear ? 0 : (blur ? 0.10 : 0.12))

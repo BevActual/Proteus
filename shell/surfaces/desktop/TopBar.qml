@@ -37,14 +37,14 @@ Item {
     }
   }
 
-  // Bottom hairline
+  // Bottom hairline (hidden when fully clear)
   Rectangle {
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.bottom: parent.bottom
     height: 1
     color: Theme.chromeHairline
-    opacity: Theme.chromeClear ? 0 : 1
+    opacity: Theme.chromeClear || Theme.menuBarAlpha < 0.08 ? 0 : Math.min(1, Theme.menuBarAlpha + 0.15)
 
     Behavior on opacity {
       NumberAnimation {
@@ -53,6 +53,12 @@ Item {
       }
     }
   }
+
+  // Soft text outline when the plate is thin (wallpaper-first legibility floor)
+  readonly property int barTextStyle: Theme.menuBarNeedsLegibility ? Text.Outline : Text.Normal
+  readonly property color barTextStyleColor: Theme.light
+      ? Qt.rgba(1, 1, 1, 0.72)
+      : Qt.rgba(0, 0, 0, 0.55)
 
   Item {
     anchors.fill: parent
@@ -82,6 +88,8 @@ Item {
           font.family: Theme.fontFamily
           font.pixelSize: 12
           font.weight: Font.DemiBold
+          style: root.barTextStyle
+          styleColor: root.barTextStyleColor
         }
 
         MouseArea {
@@ -104,6 +112,8 @@ Item {
         elide: Text.ElideRight
         opacity: text.length ? 0.92 : 0
         visible: text.length > 0
+        style: root.barTextStyle
+        styleColor: root.barTextStyleColor
       }
 
       Workspaces {
@@ -164,6 +174,8 @@ Item {
           color: Theme.textDim
           font.family: Theme.fontFamily
           font.pixelSize: Theme.fontSizeSm
+          style: root.barTextStyle
+          styleColor: root.barTextStyleColor
         }
 
         Text {
@@ -173,6 +185,8 @@ Item {
           font.family: Theme.fontFamily
           font.pixelSize: Theme.fontSizeSm
           font.weight: Font.Medium
+          style: root.barTextStyle
+          styleColor: root.barTextStyleColor
         }
       }
 

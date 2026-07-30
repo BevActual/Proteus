@@ -1074,8 +1074,8 @@ Singleton {
       property string accentId: "blue"
       property string accentCustom: "#3d8bfd"
       property string chromeMode: "dark"
-      property real chromeOpacity: 1
-      property bool chromeBlur: false
+      property real chromeOpacity: 0.28
+      property bool chromeBlur: true
       property bool lockOnSessionStart: true
       property bool notificationsDnd: false
       // match | color | image | daily | video | reactive
