@@ -144,7 +144,7 @@ the sub-settings list:
 | Lock screen | Same Kind/color kit as Background + dim; Match desktop; **widgets only via lock Customize** (long-press) — not in Settings |
 | Icons | **Default / Dark / Clear / Tinted** side-by-side squircle compare (`kit/SettingsIconStylePicker`); Tinted tint graph; custom art Switch/Reset; dock Keep/Remove via right-click (running apps appear on dock) |
 | Desktop widgets | **Not in Settings** — unlocked desktop long-press or `Super+Shift+W` → Customize; free place (not stacked); separate `desktopWidgets[]` |
-| Notifications / DND | **Shell Control Center** (top-bar status cluster); no Settings pane yet — deep Sound/Network stay in existing panes |
+| Notifications / DND | **Shell Control Center** (top-bar status cluster) — list depth · toast/`showToast` · DND · QS volume/tiles; deep Sound/Network stay in Settings panes; **no Settings Notifications category** |
 | Font | Searchable system/user list (`kit/SettingsFontPicker`); **Add font…** user-scoped install (`~/.local/share/fonts/proteus` · `userFonts`); size slider; live Aa preview |
 
 Open a row → leaf controls; **‹ Appearance** / Esc returns to the list. Desktop
@@ -281,9 +281,11 @@ Depth order for what’s left:
 6. **Network depth** — Tailscale login-server (Headscale); peer/exit-node UI; in-pane pairing; WireGuard / password Wi‑Fi wizard (hub + leaves shipped)  
 7. **Peripherals** — touchpad / tablet  
 8. **Software** — dep graphs later; Omarchy-style Install/Remove pickers + mode-safe loads + op narrative shipped (`partial`; Snap Out)  
+9. **Settings Notifications pane** — optional later; shell Control Center is the SoT today  
 
 *(Displays layout + Revert follow-ups shipped — removed from growth depth.)*
 *(Network hub + FormRow polish shipped — depth wizards stay on the list.)*
+*(Control Center notifications + QS depth shipped — Settings Notifications pane stays Out.)*
 
 Virt / container setup stays a **separate app**, not a Settings growth item.
 

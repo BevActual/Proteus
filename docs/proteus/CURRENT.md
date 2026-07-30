@@ -61,8 +61,8 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 
 | Feature | Status |
 |---------|--------|
-| Top bar (launcher, workspaces, title, clock, settings) | `partial` — glass menu bar; app title on left; status cluster → Control Center |
-| Control Center (notifications + quick settings) | `partial` — DND, volume/mute, network editor, battery; toasts; no Settings pane yet |
+| Top bar (launcher, workspaces, title, clock, settings) | `partial` — glass menu bar; app title on left; status cluster → Control Center (unread badge · DND label) |
+| Control Center (notifications + quick settings) | `shipped` — list empty/Dismiss honesty; toast/`showToast` SoT (DND · CC-open suppress); QS Mute/Unmute + elevated tiles; Settings/NM escapes; no Settings Notifications pane |
 | App launcher (`Super+Space` / `Super+D`) | `partial` — Apps / Files / Clipboard modes (Ctrl+1–3); fuzzy + tags + Settings; calc/convert; cliphist clipboard; home-folder file search; no Actions yet |
 | Dock (pins, magnify, running dots) | `shipped` — floating glass shelf (menu-bar glass family + hairline/specular); smooth magnify; running disc vs active accent pill; Keep/Remove context menu |
 | Session start (`proteus-session`) | `partial` — `start-hyprland` watchdog; no Ghostty exec-once; stray system apps hidden from launcher |
