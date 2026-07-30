@@ -130,7 +130,8 @@ Item {
         spacing: 10
 
         Rectangle {
-          visible: Notifications.unreadCount > 0
+          // Unread clears when Control Center opens (Notifications.markAllRead).
+          visible: Notifications.unreadCount > 0 && !ShellState.controlCenterOpen
           anchors.verticalCenter: parent.verticalCenter
           width: Math.max(16, badgeLabel.implicitWidth + 8)
           height: 16
@@ -149,9 +150,11 @@ Item {
         Text {
           anchors.verticalCenter: parent.verticalCenter
           visible: Config.notificationsDnd
-          text: "☾"
+          text: "DND"
           color: Theme.accent
-          font.pixelSize: 12
+          font.family: Theme.fontFamily
+          font.pixelSize: 10
+          font.weight: Font.DemiBold
         }
 
         Text {

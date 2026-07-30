@@ -2,11 +2,11 @@ import QtQuick
 import QtQuick.Layouts
 import "../../shared"
 
-// Transient toast for a new notification (suppressed when DND or Control Center open).
+// Transient toast — suppressed when DND or Control Center open (Notifications.showToast).
 Item {
   id: root
   anchors.fill: parent
-  visible: !!Notifications.toastNotification && !ShellState.controlCenterOpen && !Config.notificationsDnd
+  visible: Notifications.showToast
   z: 30
 
   readonly property var n: Notifications.toastNotification
@@ -19,7 +19,7 @@ Item {
     anchors.topMargin: Theme.barHeight + 12
     anchors.rightMargin: 12
     width: Math.min(340, parent.width - 24)
-    implicitHeight: col.implicitHeight + 24
+    implicitHeight: col.implicitHeight + Theme.spaceMd * 2
     radius: Theme.radiusXl
     color: Theme.elevatedFill
     border.width: 1
@@ -40,13 +40,33 @@ Item {
       anchors.margins: Theme.spaceMd
       spacing: 4
 
-      Text {
-        text: (root.n && root.n.appName) ? root.n.appName : "Notification"
-        color: Theme.textDim
-        font.family: Theme.fontFamily
-        font.pixelSize: 11
+      RowLayout {
         Layout.fillWidth: true
-        elide: Text.ElideRight
+        Text {
+          text: (root.n && root.n.appName) ? root.n.appName : "Notification"
+          color: Theme.textDim
+          font.family: Theme.fontFamily
+          font.pixelSize: 11
+          Layout.fillWidth: true
+          elide: Text.ElideRight
+        }
+        Text {
+          text: "Dismiss"
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: 12
+          MouseArea {
+            anchors.fill: parent
+            anchors.margins: -6
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              if (root.n)
+                Notifications.dismiss(root.n)
+              else
+                Notifications.clearToast()
+            }
+          }
+        }
       }
       Text {
         visible: !!(root.n && root.n.summary && String(root.n.summary).length)
@@ -69,10 +89,19 @@ Item {
         elide: Text.ElideRight
         Layout.fillWidth: true
       }
+      Text {
+        Layout.fillWidth: true
+        text: "Open Control Center"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: 11
+      }
     }
 
     MouseArea {
       anchors.fill: parent
+      z: -1
+      cursorShape: Qt.PointingHandCursor
       onClicked: {
         Notifications.clearToast()
         ShellState.openControlCenter()

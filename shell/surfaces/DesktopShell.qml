@@ -338,9 +338,7 @@ Scope {
         return mon ? mon.focused : (modelData === Quickshell.screens[0])
       }
 
-      readonly property bool showToast: !!Notifications.toastNotification
-          && !ShellState.controlCenterOpen
-          && !Config.notificationsDnd
+      readonly property bool showToast: Notifications.showToast
 
       visible: !ShellState.sessionLocked && isFocused
           && (ShellState.controlCenterOpen || showToast)

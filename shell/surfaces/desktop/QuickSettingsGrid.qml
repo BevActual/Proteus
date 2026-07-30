@@ -160,7 +160,7 @@ ColumnLayout {
         {
           id: "dnd",
           title: "Do Not Disturb",
-          subtitle: Config.notificationsDnd ? "On" : "Off",
+          subtitle: Config.notificationsDnd ? "On · toasts off" : "Off · toasts on",
           accent: Config.notificationsDnd
         },
         {

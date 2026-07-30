@@ -16,6 +16,10 @@ Singleton {
   readonly property int count: server.trackedNotifications ? server.trackedNotifications.values.length : 0
   readonly property bool dnd: Config.notificationsDnd
 
+  // Single SoT for toast suppress (DND · Control Center open).
+  readonly property bool toastsSuppressed: dnd || ShellState.controlCenterOpen
+  readonly property bool showToast: !!toastNotification && !toastsSuppressed
+
   NotificationServer {
     id: server
     keepOnReload: true
@@ -26,9 +30,11 @@ Singleton {
 
     onNotification: notification => {
       notification.tracked = true
+      // Unread badge only when CC is closed (open clears / stays at 0).
       if (!ShellState.controlCenterOpen)
         root.unreadCount += 1
-      if (!Config.notificationsDnd && !ShellState.controlCenterOpen) {
+      // Toasts suppressed while DND or CC open — alerts still queue in the list.
+      if (!root.toastsSuppressed) {
         root.toastNotification = notification
         root.toastSeq += 1
       }
@@ -36,8 +42,11 @@ Singleton {
   }
 
   function setDnd(on) {
-    Config.notificationsDnd = !!on
+    const next = !!on
+    Config.notificationsDnd = next
     Config.flushSettings()
+    if (next)
+      root.clearToast()
   }
 
   function toggleDnd() {
@@ -53,8 +62,11 @@ Singleton {
   }
 
   function dismiss(notification) {
-    if (notification)
-      notification.dismiss()
+    if (!notification)
+      return
+    if (root.toastNotification === notification)
+      root.clearToast()
+    notification.dismiss()
   }
 
   function clearAll() {
@@ -78,6 +90,14 @@ Singleton {
         root.markAllRead()
         root.clearToast()
       }
+    }
+  }
+
+  Connections {
+    target: Config
+    function onNotificationsDndChanged() {
+      if (Config.notificationsDnd)
+        root.clearToast()
     }
   }
 }
