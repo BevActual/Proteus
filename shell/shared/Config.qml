@@ -654,6 +654,23 @@ Singleton {
     }
   }
 
+  // Customize / drag: keep JsonAdapter in memory; skip disk round-trip that
+  // reloads FileView and fights live applet positions.
+  property bool suppressSettingsReload: false
+  property bool deferSettingsWrites: false
+
+  function beginLiveConfigEdits() {
+    suppressSettingsReload = true
+    deferSettingsWrites = true
+    settingsWriteTimer.stop()
+  }
+
+  function endLiveConfigEdits() {
+    deferSettingsWrites = false
+    flushSettings()
+    suppressSettingsReload = false
+  }
+
   // Coalesce JsonAdapter churn from color graphs / sliders (was writing every tick).
   Timer {
     id: settingsWriteTimer
@@ -984,10 +1001,16 @@ Singleton {
     id: configFile
     path: Quickshell.env("HOME") + "/.config/proteus/settings.json"
     watchChanges: true
-    onFileChanged: reload()
+    onFileChanged: {
+      if (root.suppressSettingsReload)
+        return
+      reload()
+    }
     onAdapterUpdated: {
       // Block writes until disk hydrate finishes — otherwise defaults clobber Daily sources.
       if (!root.settingsReady || root.domainHydrating)
+        return
+      if (root.deferSettingsWrites)
         return
       // Settings defers Background/Widgets hydrate; pull them in before any write.
       if (!root.domainHydrated)

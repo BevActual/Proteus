@@ -76,11 +76,16 @@ Singleton {
       return
     launcherOpen = false
     controlCenterOpen = false
+    if (!desktopCustomizeMode)
+      Config.beginLiveConfigEdits()
     desktopCustomizeMode = true
   }
 
   function exitDesktopCustomize() {
+    if (!desktopCustomizeMode)
+      return
     desktopCustomizeMode = false
+    Config.endLiveConfigEdits()
   }
 
   function lockSession() {

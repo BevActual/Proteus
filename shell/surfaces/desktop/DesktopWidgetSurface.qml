@@ -11,9 +11,10 @@ Item {
   property string selectedWidgetId: ""
   property bool showGallery: false
   property bool snapToGrid: Config.desktopWidgetsSnapToGrid
+  property bool appletDragging: false
 
   DesktopLayout {
-    id: layout
+    id: deskLayout
     surfaceWidth: root.width
     surfaceHeight: root.height
     widgets: Widgets.desktopWidgetsEnabledList
@@ -30,21 +31,27 @@ Item {
     ShellState.exitDesktopCustomize()
     root.selectedWidgetId = ""
     root.showGallery = false
+    root.appletDragging = false
   }
 
   function setSnapToGrid(on) {
     const want = !!on
     Config.desktopWidgetsSnapToGrid = want
-    Config.flushSettings()
     if (want)
-      Widgets.snapAllDesktopWidgetsToGrid(layout)
+      Widgets.snapAllDesktopWidgetsToGrid(deskLayout)
+    gridCanvas.requestPaint()
   }
 
-  // Empty-desktop long-press / customize backdrop
+  // Empty desktop: long-press enters Customize; click clears selection.
+  // Keep below applets; do not cover them (z:0). Guides/dim are paint-only.
   MouseArea {
     anchors.fill: parent
     z: 0
-    onPressAndHold: root.enterCustomize()
+    enabled: !root.appletDragging
+    onPressAndHold: {
+      if (!root.customizeMode)
+        root.enterCustomize()
+    }
     onClicked: {
       if (root.customizeMode)
         root.selectedWidgetId = ""
@@ -56,58 +63,66 @@ Item {
     z: 1
     visible: root.customizeMode
     color: Qt.rgba(0, 0, 0, 0.35)
+    // Paint only — must not steal applet drags.
+    enabled: false
   }
 
-  // Graph-paper guides — origin at screen center (stronger crosshair).
-  Item {
-    id: gridOverlay
+  // Single Canvas so line Items cannot participate in picking.
+  Canvas {
+    id: gridCanvas
     anchors.fill: parent
     z: 2
     visible: root.customizeMode && root.snapToGrid
-    readonly property real pitch: layout.pitch
-    readonly property real ox: layout.originX
-    readonly property real oy: layout.originY
-    readonly property int halfC: layout.halfCols
-    readonly property int halfR: layout.halfRows
+    enabled: false
+    antialiasing: true
 
-    // Vertical lines (ix from -halfCols … +halfCols)
-    Repeater {
-      model: layout.gridCols
-      Rectangle {
-        required property int index
-        readonly property int ix: index - gridOverlay.halfC
-        width: ix === 0 ? 2 : 1
-        height: parent.height
-        x: gridOverlay.ox + ix * gridOverlay.pitch - width * 0.5
-        y: 0
-        color: ix === 0 ? Qt.rgba(1, 1, 1, 0.28) : Qt.rgba(1, 1, 1, 0.1)
-      }
+    onWidthChanged: requestPaint()
+    onHeightChanged: requestPaint()
+    onVisibleChanged: if (visible)
+      requestPaint()
+
+    Connections {
+      target: deskLayout
+      function onPitchChanged() { gridCanvas.requestPaint() }
+      function onOriginXChanged() { gridCanvas.requestPaint() }
+      function onOriginYChanged() { gridCanvas.requestPaint() }
+      function onHalfColsChanged() { gridCanvas.requestPaint() }
+      function onHalfRowsChanged() { gridCanvas.requestPaint() }
     }
 
-    // Horizontal lines (iy from -halfRows … +halfRows)
-    Repeater {
-      model: layout.gridRows
-      Rectangle {
-        required property int index
-        readonly property int iy: index - gridOverlay.halfR
-        height: iy === 0 ? 2 : 1
-        width: parent.width
-        y: gridOverlay.oy + iy * gridOverlay.pitch - height * 0.5
-        x: 0
-        color: iy === 0 ? Qt.rgba(1, 1, 1, 0.28) : Qt.rgba(1, 1, 1, 0.1)
+    onPaint: {
+      const ctx = getContext("2d")
+      ctx.reset()
+      const pitch = deskLayout.pitch
+      const ox = deskLayout.originX
+      const oy = deskLayout.originY
+      const hc = deskLayout.halfCols
+      const hr = deskLayout.halfRows
+      for (let ix = -hc; ix <= hc; ix++) {
+        const x = ox + ix * pitch
+        ctx.beginPath()
+        ctx.strokeStyle = ix === 0 ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.10)"
+        ctx.lineWidth = ix === 0 ? 2 : 1
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, height)
+        ctx.stroke()
       }
-    }
-
-    // Center anchor dot
-    Rectangle {
-      width: 8
-      height: 8
-      radius: 4
-      anchors.horizontalCenter: parent.horizontalCenter
-      anchors.verticalCenter: parent.verticalCenter
-      color: Qt.rgba(1, 1, 1, 0.35)
-      border.width: 1
-      border.color: Qt.rgba(1, 1, 1, 0.5)
+      for (let iy = -hr; iy <= hr; iy++) {
+        const y = oy + iy * pitch
+        ctx.beginPath()
+        ctx.strokeStyle = iy === 0 ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.10)"
+        ctx.lineWidth = iy === 0 ? 2 : 1
+        ctx.moveTo(0, y)
+        ctx.lineTo(width, y)
+        ctx.stroke()
+      }
+      ctx.beginPath()
+      ctx.fillStyle = "rgba(255,255,255,0.35)"
+      ctx.strokeStyle = "rgba(255,255,255,0.5)"
+      ctx.lineWidth = 1
+      ctx.arc(ox, oy, 4, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.stroke()
     }
   }
 
@@ -116,25 +131,22 @@ Item {
     anchors.fill: parent
     z: 3
 
+    // Stable model = widget list (not rebuilt frame objects every bind).
     Repeater {
-      model: layout.frames
+      model: Widgets.desktopWidgetsEnabledList
       DesktopAppletHost {
         required property var modelData
-        frame: modelData
-        layout: layout
+        frame: deskLayout ? deskLayout.frameForWidget(modelData) : null
+        layout: deskLayout
         customizeMode: root.customizeMode
-        selected: root.selectedWidgetId === modelData.id
+        selected: root.selectedWidgetId === String(modelData.id)
         surfaceWidth: root.width
         surfaceHeight: root.height
         onRequestCustomize: root.enterCustomize()
-        onSelectApplet: root.selectedWidgetId = modelData.id
+        onSelectApplet: root.selectedWidgetId = String(modelData.id)
+        onDraggingChanged: root.appletDragging = dragging
         onDragMoved: (nx, ny) => {
-          if (root.snapToGrid) {
-            const snapped = layout.snapNorm(nx, ny, modelData.width, modelData.height)
-            Widgets.moveDesktopWidget(modelData.id, snapped.x, snapped.y)
-          } else {
-            Widgets.moveDesktopWidget(modelData.id, nx, ny)
-          }
+          Widgets.moveDesktopWidget(modelData.id, nx, ny)
         }
       }
     }
@@ -190,6 +202,7 @@ Item {
       if (!ShellState.desktopCustomizeMode) {
         root.selectedWidgetId = ""
         root.showGallery = false
+        root.appletDragging = false
       }
     }
   }

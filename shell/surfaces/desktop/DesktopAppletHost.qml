@@ -1,7 +1,7 @@
 import QtQuick
 import "../../shared"
 
-// Grid-snapped desktop applet — Customize drag snaps to cell origins.
+// Desktop applet — Customize drag (free or snap). Interaction matches lock applets.
 Item {
   id: root
 
@@ -16,9 +16,6 @@ Item {
   signal selectApplet()
   signal dragMoved(real normX, real normY)
 
-  readonly property int colSpan: frame && frame.colSpan ? frame.colSpan : 2
-  readonly property int rowSpan: frame && frame.rowSpan ? frame.rowSpan : 1
-
   readonly property var widgetData: frame && frame.widget ? frame.widget : null
   readonly property string widgetId: widgetData ? String(widgetData.id) : ""
   readonly property string widgetType: widgetData ? String(widgetData.type) : ""
@@ -27,29 +24,14 @@ Item {
   y: dragging ? dragY : (frame ? frame.y : 0)
   width: frame ? frame.width : 100
   height: frame ? frame.height : 80
-  // Scale from top-left so magnify doesn't bias snap toward geometric center.
-  transformOrigin: Item.TopLeft
 
   property bool dragging: false
   property real dragX: 0
   property real dragY: 0
-  property real grabParentX: 0
-  property real grabParentY: 0
-  property real grabItemX: 0
-  property real grabItemY: 0
-
-  scale: (customizeMode && selected) ? 1.04 : (customizeMode ? 1.02 : 1)
-  Behavior on scale {
-    NumberAnimation {
-      duration: 120
-    }
-  }
 
   Loader {
     id: bodyLoader
     anchors.fill: parent
-    // Component path comes from Widgets.widgetCatalog — a new applet type needs
-    // no change here, only a catalog entry and a file under widgets/.
     source: {
       const s = Widgets.widgetSourceFor(root.widgetType)
       return s.length ? Qt.resolvedUrl(s) : ""
@@ -81,6 +63,7 @@ Item {
     when: !!bodyLoader.item && root.widgetType === "media"
   }
 
+  // Selection chrome only — never scale the drag root (breaks mapToItem).
   Rectangle {
     anchors.fill: parent
     anchors.margins: -4
@@ -142,6 +125,7 @@ Item {
     anchors.fill: parent
     z: 4
     enabled: root.customizeMode
+    hoverEnabled: false
     preventStealing: true
     property real pressOX: 0
     property real pressOY: 0
@@ -152,55 +136,42 @@ Item {
       root.dragging = true
       root.dragX = root.x
       root.dragY = root.y
-      const p = mapToItem(root.parent, mouse.x, mouse.y)
-      root.grabParentX = p.x
-      root.grabParentY = p.y
-      root.grabItemX = root.x
-      root.grabItemY = root.y
       pressOX = mouse.x
       pressOY = mouse.y
+      mouse.accepted = true
     }
     onPositionChanged: mouse => {
       if (!root.dragging || !root.parent)
         return
-      // Parent-space delta — survives snap jumps + scale better than local pressOX alone.
+      // Lock-style: cursor in parent space minus press offset in local space.
       const p = mapToItem(root.parent, mouse.x, mouse.y)
-      const rawX = root.grabItemX + (p.x - root.grabParentX)
-      const rawY = root.grabItemY + (p.y - root.grabParentY)
+      const rawX = p.x - pressOX
+      const rawY = p.y - pressOY
       if (root.layout && root.layout.snapToGrid) {
-        const snapped = root.layout.snapPixel(rawX, rawY, root.width, root.height)
-        root.dragX = snapped.x
-        root.dragY = snapped.y
+        const s = root.layout.snapPixel(rawX, rawY, root.width, root.height)
+        root.dragX = s.x
+        root.dragY = s.y
       } else if (root.layout) {
         const c = root.layout.clampPixel(rawX, rawY, root.width, root.height)
         root.dragX = c.x
         root.dragY = c.y
       } else {
-        const maxX = Math.max(0, root.surfaceWidth - root.width)
-        const maxY = Math.max(0, root.surfaceHeight - root.height)
-        root.dragX = Math.max(0, Math.min(maxX, rawX))
-        root.dragY = Math.max(0, Math.min(maxY, rawY))
+        root.dragX = Math.max(0, Math.min(Math.max(0, root.surfaceWidth - root.width), rawX))
+        root.dragY = Math.max(0, Math.min(Math.max(0, root.surfaceHeight - root.height), rawY))
       }
     }
-    onReleased: {
+    onReleased: mouse => {
       if (root.dragging) {
         if (root.layout) {
-          const n = root.layout.normFromPixel(root.dragX, root.dragY, root.colSpan, root.rowSpan, root.width, root.height)
+          const n = root.layout.normFromPixel(root.dragX, root.dragY, 0, 0, root.width, root.height)
           root.dragMoved(n.x, n.y)
-        } else {
-          const margin = Math.max(12, Math.min(root.surfaceWidth, root.surfaceHeight) * 0.02)
-          const maxX = Math.max(1, root.surfaceWidth - root.width - margin)
-          const maxY = Math.max(1, root.surfaceHeight - root.height - margin)
-          const nx = (root.dragX - margin) / maxX
-          const ny = (root.dragY - margin) / maxY
-          root.dragMoved(Math.max(0, Math.min(1, nx)), Math.max(0, Math.min(1, ny)))
         }
       }
       root.dragging = false
     }
+    onCanceled: root.dragging = false
   }
 
-  // Long-press enters Customize without blocking media/battery controls.
   Timer {
     id: holdTimer
     interval: 550

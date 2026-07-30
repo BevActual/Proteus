@@ -137,41 +137,46 @@ QtObject {
     return freeNormFromPixel(px, py, width, height)
   }
 
+  function frameForWidget(w) {
+    if (!w || !w.enabled)
+      return null
+    const size = w.size || "md"
+    const colSpan = colSpanFor(w.type, size)
+    const rowSpan = rowSpanFor(w.type, size)
+    const width = contentWidth(w.type, size)
+    const height = contentHeight(w.type, size)
+    let x
+    let y
+    if (snapToGrid) {
+      const snapped = snapNorm(w.x, w.y, width, height)
+      const p = pixelFromFreeNorm(snapped.x, snapped.y, width, height)
+      x = p.x
+      y = p.y
+    } else {
+      const p = pixelFromFreeNorm(w.x, w.y, width, height)
+      x = p.x
+      y = p.y
+    }
+    return {
+      id: String(w.id),
+      type: String(w.type),
+      x: x,
+      y: y,
+      width: width,
+      height: height,
+      colSpan: colSpan,
+      rowSpan: rowSpan,
+      widget: w
+    }
+  }
+
   readonly property var frames: {
     const list = widgets || []
     const out = []
     for (let i = 0; i < list.length; i++) {
-      const w = list[i]
-      if (!w || !w.enabled)
-        continue
-      const size = w.size || "md"
-      const colSpan = colSpanFor(w.type, size)
-      const rowSpan = rowSpanFor(w.type, size)
-      const width = contentWidth(w.type, size)
-      const height = contentHeight(w.type, size)
-      let x
-      let y
-      if (snapToGrid) {
-        const snapped = snapNorm(w.x, w.y, width, height)
-        const p = pixelFromFreeNorm(snapped.x, snapped.y, width, height)
-        x = p.x
-        y = p.y
-      } else {
-        const p = pixelFromFreeNorm(w.x, w.y, width, height)
-        x = p.x
-        y = p.y
-      }
-      out.push({
-        id: String(w.id),
-        type: String(w.type),
-        x: x,
-        y: y,
-        width: width,
-        height: height,
-        colSpan: colSpan,
-        rowSpan: rowSpan,
-        widget: w
-      })
+      const f = frameForWidget(list[i])
+      if (f)
+        out.push(f)
     }
     return out
   }

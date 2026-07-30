@@ -175,7 +175,8 @@ QtObject {
         y: snapped.y
       })
     }).filter(w => w !== null)
-    Config.flushSettings()
+    if (!Config.deferSettingsWrites)
+      Config.flushSettings()
   }
 
   function setDesktopWidgetSize(id, size) {
