@@ -129,7 +129,8 @@ bash /mnt/proteus/vm/guest/install-desktop-conf.sh
 # Build mutator on the host first if needed:
 #   (cd services/proteus-pkg && cargo build --release)
 bash /mnt/proteus/vm/guest/install-settings-app.sh
-# (also runs hide-system-apps.sh — pavucontrol/blueman/nm-editor hidden from launcher)
+# (also runs hide-system-apps.sh — Settings-covered tools + Quickshell hidden; Calculator stays)
+# Overlay apps + post-install re-run hide-system-apps idempotently.
 # or just the package helper:
 #   sudo bash /mnt/proteus/vm/guest/install-proteus-pkg.sh
 ```

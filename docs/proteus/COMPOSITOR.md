@@ -93,6 +93,7 @@ Prefer these for OS facts before inventing daemons.
 | **Shell ≠ app platform** | Chrome + Settings in QS; product apps → Tauri ([STACK.md](./STACK.md)) |
 | **Hyprland-shaped integrations** | Best backend for desktop/couch compositor postures — not universal |
 | **Output / session fragility** | Crashes reported on monitor hotplug, TTY switch, KVM, sleep — **v1:** `shell/scripts/proteus-qs` backoff loop from Hyprland `exec-once`; never keep sole truth in QS memory |
+| **Session start hygiene** | `vm/guest/proteus-session` prefers `start-hyprland`; hypr seed `exec-once` = qs/bg/cliphist only (no terminal); `hide-system-apps` from apps + post-install; host `session-smoke` / `install-smoke` |
 | **Young / moving target** | **v1:** record `quickshell --version` in `qs-guest-smoke` (do **not** `IgnorePkg`-pin rolling Arch); ISO pin later; smoke after upgrades |
 | **QML is programming** | Shared modules; Rust helpers for messy IO |
 | **Settings as second `quickshell -p`** | OK now; files are SoT; revisit Tauri Settings if lifecycle hurts |
