@@ -96,7 +96,7 @@ Left-nav + content pane (macOS System Settings style).
 | Category | Holds | Backend | Status |
 |----------|-------|---------|--------|
 | **Appearance** (`style`) | Category → Accent, Background, Lock screen, Icons (style compare + dock pins), Font (searchable + Add) | `settings.json`, Theme, `proteus-bg`; shared Kind/color/font/icon kit | `partial` |
-| **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Launcher (Spotlight tags/recents) | json + hyprctl + `proteus-general.conf` · `launcherRecents` / `launcherTagCatalog` / `launcherAppTags` | `shipped` |
+| **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Launcher (Spotlight tags/recents) — leaf files + FormRow kit | json + hyprctl + `proteus-general.conf` · `launcherRecents` / `launcherTagCatalog` / `launcherAppTags` | `shipped` |
 | **Displays** (`displays`) | Per-monitor scale + mode + layout canvas (Apply); conf escape hatch | hyprctl + `proteus-monitors.conf` | `partial` |
 | **Sound** (`sound`) | Category → Output (volume/mute/device/test tone), Input (level, meter, device), Applications (per-app volume), Latency & buffer | pactl + `parec` + `pw-metadata` | `partial` |
 | **Network** (`network`) | Hostname; Wi‑Fi scan/connect; Bluetooth; Tailscale; NM VPN | hostnamectl / nmcli / bluetoothctl / tailscale | `partial` |
@@ -176,8 +176,17 @@ terminal, workspaces, etc. (`env/hypr/proteus-keybinds.conf` template).
 
 ## 6. Desktop + Displays
 
-Desktop: click sidebar → heading **Desktop** + sub-settings list (Gaps,
-Borders & rounding, Motion, Dock & menu bar, Launcher), then leaf pages.
+Desktop: click sidebar → heading **Desktop** + sub-settings list, then leaf
+pages via `kit/StickyPaneLoader` (`DesktopGapsLeaf`, `DesktopChromeLeaf`,
+`DesktopMotionLeaf`, `DesktopDockLeaf`, `DesktopLauncherLeaf`).
+
+| Sub-setting | Role |
+|-------------|------|
+| Gaps | Inner/outer `SettingsFormRow` sliders; live hypr |
+| Borders & rounding | Border size + window rounding FormRows; live hypr |
+| Motion | Window animations switch |
+| Dock & menu bar | Show/hide/monitor/size FormRows; Advanced → `proteus-general.conf` |
+| Launcher | Spotlight help; Clear recents; app tag catalog FormRows |
 
 | Pane | Live apply | On-disk fragment | Guest seed |
 |------|------------|------------------|----------|
@@ -186,6 +195,9 @@ Borders & rounding, Motion, Dock & menu bar, Launcher), then leaf pages.
 
 Templates: `env/hypr/proteus-general.conf`, `env/hypr/proteus-monitors.conf`. Nested
 `env/hypr/hyprland.conf` sources both plus keybinds.
+
+**Module rule:** Desktop leaf helpers stay in `panes/Desktop*Leaf.qml` + `kit/`
+FormRow/Group — not a single mega-inline `DesktopPane` body.
 
 ---
 
