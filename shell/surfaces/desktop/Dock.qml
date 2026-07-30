@@ -16,7 +16,7 @@ Item {
   readonly property int padX: Math.max(14, Math.round(iconSize * 0.32))
   readonly property int padTop: Math.max(6, Math.round(iconSize * 0.14))
   readonly property int padBottom: Math.max(8, Math.round(iconSize * 0.18))
-  readonly property real magRange: Math.max(96, iconSize * 2.2)
+  readonly property real magRange: Math.max(110, iconSize * 2.55)
 
   readonly property real restScale: iconSize / maxIconSize
   readonly property real peakScale: 1.0
@@ -69,7 +69,7 @@ Item {
 
   function setMouse(x) {
     const qx = Math.round(x)
-    if (mouseX >= 0 && Math.abs(qx - mouseX) < 2)
+    if (mouseX >= 0 && Math.abs(qx - mouseX) < 1)
       return
     mouseX = qx
   }
@@ -289,20 +289,46 @@ Item {
       required property int index
 
       readonly property real s: root.scaleAt(index)
-      readonly property real rise: root.maxIconSize * (s - root.restScale)
+      property real displayS: s
+      property real displayPress: 1
+      readonly property real rise: root.maxIconSize * (displayS - root.restScale)
       readonly property bool tipOn: root.tipIndex === index && !root.menuOpen
-      readonly property real press: root.pressIndex === index ? 0.92 : 1
       readonly property bool brandIcon: modelData.special === "launcher"
           || modelData.special === "settings"
           || modelData.icon === "proteus-launcher"
           || modelData.icon === "proteus-settings"
+
+      onSChanged: displayS = s
+      Connections {
+        target: root
+        function onPressIndexChanged() {
+          cell.displayPress = root.pressIndex === cell.index ? 0.90 : 1
+        }
+      }
+      Component.onCompleted: {
+        displayS = s
+        displayPress = root.pressIndex === index ? 0.90 : 1
+      }
+
+      Behavior on displayS {
+        NumberAnimation {
+          duration: 70
+          easing.type: Easing.OutCubic
+        }
+      }
+      Behavior on displayPress {
+        NumberAnimation {
+          duration: 90
+          easing.type: Easing.OutCubic
+        }
+      }
 
       x: root.padX + index * (root.iconSize + root.spacing)
       width: root.iconSize
       height: root.iconSize + root.magHeadroom
       anchors.bottom: parent.bottom
       anchors.bottomMargin: root.padBottom
-      z: tipOn ? 20 : (10 + index)
+      z: tipOn ? 20 : Math.round(10 + index + (displayS - root.restScale) * 40)
       clip: false
 
       Rectangle {
@@ -341,8 +367,8 @@ Item {
         transform: Scale {
           origin.x: glyph.width * 0.5
           origin.y: glyph.height
-          xScale: cell.s * cell.press
-          yScale: cell.s * cell.press
+          xScale: cell.displayS * cell.displayPress
+          yScale: cell.displayS * cell.displayPress
         }
 
         SquircleIcon {
@@ -358,16 +384,37 @@ Item {
         }
       }
 
+      // Running = soft disc; active/focused = short accent pill
       Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: -6
-        width: active ? 4 : 3
-        height: width
-        radius: width / 2
-        color: active ? Theme.accent : (Theme.light ? Qt.rgba(0, 0, 0, 0.45) : Qt.rgba(1, 1, 1, 0.7))
-        opacity: shown ? (active ? 1 : 0.55) : 0
+        anchors.bottomMargin: -5
+        width: active ? 7 : 3.5
+        height: active ? 3 : 3.5
+        radius: height / 2
+        color: active ? Theme.accent
+            : (Theme.light ? Qt.rgba(0, 0, 0, 0.42) : Qt.rgba(1, 1, 1, 0.72))
+        opacity: shown ? (active ? 1 : 0.65) : 0
         z: 5
+
+        Behavior on width {
+          NumberAnimation {
+            duration: 120
+            easing.type: Easing.OutCubic
+          }
+        }
+        Behavior on height {
+          NumberAnimation {
+            duration: 120
+            easing.type: Easing.OutCubic
+          }
+        }
+        Behavior on opacity {
+          NumberAnimation {
+            duration: 140
+            easing.type: Easing.OutCubic
+          }
+        }
 
         readonly property bool active: DockApps.isActive(modelData)
         readonly property bool shown: modelData.special === "launcher"
