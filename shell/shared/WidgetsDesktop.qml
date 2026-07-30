@@ -22,14 +22,9 @@ QtObject {
 
   function nextDesktopWidgetPos(list) {
     const n = (list && list.length) ? list.length : 0
-    // Prefer discrete 8×12 cell origins (md span 2 → maxCol 6).
-    const col = (n % 3) * 2
-    const row = Math.floor(n / 3) * 2
-    const maxCol = 6
-    const maxRow = 11
     return {
-      x: maxCol > 0 ? Math.min(maxCol, col) / maxCol : 0,
-      y: maxRow > 0 ? Math.min(maxRow, row) / maxRow : 0
+      x: Math.min(0.72, 0.08 + (n % 3) * 0.28),
+      y: Math.min(0.68, 0.12 + Math.floor(n / 3) * 0.22)
     }
   }
 
@@ -159,11 +154,28 @@ QtObject {
   }
 
   function moveDesktopWidget(id, x, y) {
-    // Caller should pass already-snapped norms; clamp only.
     patchDesktopWidget(id, {
       x: clamp01(x, 0.5),
       y: clamp01(y, 0.2)
     })
+  }
+
+  function snapAllDesktopWidgetsToGrid(layout) {
+    if (!layout)
+      return
+    const list = host.desktopWidgetsList
+    Config.desktopWidgets = list.map(w => {
+      if (!w)
+        return w
+      const cs = layout.colSpanFor(w.type, w.size || "md")
+      const rs = layout.rowSpanFor(w.type, w.size || "md")
+      const snapped = layout.snapNorm(w.x, w.y, cs, rs)
+      return Object.assign({}, w, {
+        x: snapped.x,
+        y: snapped.y
+      })
+    }).filter(w => w !== null)
+    Config.flushSettings()
   }
 
   function setDesktopWidgetSize(id, size) {

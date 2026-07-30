@@ -235,6 +235,7 @@ Singleton {
   function setDesktopWidgetEnabled(id, on) { return deskApi.setDesktopWidgetEnabled(id, on) }
   function patchDesktopWidget(id, patch) { return deskApi.patchDesktopWidget(id, patch) }
   function moveDesktopWidget(id, x, y) { return deskApi.moveDesktopWidget(id, x, y) }
+  function snapAllDesktopWidgetsToGrid(layout) { return deskApi.snapAllDesktopWidgetsToGrid(layout) }
   function setDesktopWidgetSize(id, size) { return deskApi.setDesktopWidgetSize(id, size) }
   function cycleDesktopWidgetSize(id) { return deskApi.cycleDesktopWidgetSize(id) }
   function desktopHasWidgetType(type) { return deskApi.desktopHasWidgetType(type) }

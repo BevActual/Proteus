@@ -155,10 +155,14 @@ Item {
       const p = mapToItem(root.parent, mouse.x, mouse.y)
       const rawX = p.x - pressOX
       const rawY = p.y - pressOY
-      if (root.layout) {
+      if (root.layout && root.layout.snapToGrid) {
         const snapped = root.layout.snapPixel(rawX, rawY, root.colSpan, root.rowSpan)
         root.dragX = snapped.x
         root.dragY = snapped.y
+      } else if (root.layout) {
+        const c = root.layout.clampPixel(rawX, rawY, root.width, root.height)
+        root.dragX = c.x
+        root.dragY = c.y
       } else {
         const maxX = Math.max(0, root.surfaceWidth - root.width)
         const maxY = Math.max(0, root.surfaceHeight - root.height)
@@ -169,7 +173,7 @@ Item {
     onReleased: {
       if (root.dragging) {
         if (root.layout) {
-          const n = root.layout.normFromPixel(root.dragX, root.dragY, root.colSpan, root.rowSpan)
+          const n = root.layout.normFromPixel(root.dragX, root.dragY, root.colSpan, root.rowSpan, root.width, root.height)
           root.dragMoved(n.x, n.y)
         } else {
           const margin = Math.max(12, Math.min(root.surfaceWidth, root.surfaceHeight) * 0.02)

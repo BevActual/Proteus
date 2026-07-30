@@ -12,6 +12,9 @@ Rectangle {
 
   signal addWidget()
   signal done()
+  signal toggleSnapGrid()
+
+  property bool snapToGrid: false
 
   RowLayout {
     anchors.fill: parent
@@ -45,6 +48,29 @@ Rectangle {
         anchors.fill: parent
         cursorShape: Qt.PointingHandCursor
         onClicked: root.addWidget()
+      }
+    }
+
+    Rectangle {
+      Layout.preferredHeight: 32
+      Layout.preferredWidth: snapLabel.implicitWidth + 20
+      radius: 16
+      color: root.snapToGrid ? Theme.accentSoft : Qt.rgba(1, 1, 1, 0.1)
+      border.width: root.snapToGrid ? 1 : 0
+      border.color: Theme.accent
+      Text {
+        id: snapLabel
+        anchors.centerIn: parent
+        text: root.snapToGrid ? "Snap on" : "Snap to Grid"
+        color: "#f5f5f7"
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.Medium
+      }
+      MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.toggleSnapGrid()
       }
     }
 

@@ -23,7 +23,7 @@ One schema for all postures; panes enable/disable by capability.
 | Desktop / Hypr | `gapsIn`, `gapsOut`, `borderSize`, `rounding`, `animationsEnabled`, `mouse*` | `Config` / `ConfigHypr` → `proteus-general.conf` |
 | Chrome | `accentId`, `accentCustom`, `chromeMode`, `chromeOpacity`, `chromeBlur`, `dock*`, `bar*`, `iconPlateMode`, `iconPlateCustom`, `iconOverrides` | Theme + ConfigHypr + DockApps |
 | Lock prefs | `lockOnSessionStart`, `lockDim`, `lockBackgroundMode`, `lockWallpaper*`, `lockDaily*` | Background |
-| Lock/desktop applets | `lockWidgets[]`, `desktopWidgets[]`, `lockShowClock` | Widgets |
+| Lock/desktop applets | `lockWidgets[]`, `desktopWidgets[]`, `desktopWidgetsSnapToGrid`, `lockShowClock` | Widgets |
 | Wallpaper | `wallpaperKind`, `wallpaperId`, `wallpaperMode`, `wallpaperColor`, `wallpaperCustomPath`, `wallpaperFolder`, `wallpaperShuffle`, `wallpaperAlbum*`, `wallpaperSlideshow*`, `wallpaperDaily*`, `wallpaperVideo*`, `wallpaperReactive*` | Background |
 | Audio prefs | `audioLatency` | Audio |
 | Location / weather | `location*`, `weatherUnits` | Weather / DateTime |

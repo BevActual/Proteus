@@ -2,7 +2,7 @@ import Quickshell
 import QtQuick
 import "../../shared"
 
-// Unlocked desktop widgets — grid snap in Customize; span-aware cells.
+// Unlocked desktop widgets — free place by default; optional snap-to-grid.
 Item {
   id: root
   anchors.fill: parent
@@ -10,12 +10,14 @@ Item {
   property bool customizeMode: ShellState.desktopCustomizeMode
   property string selectedWidgetId: ""
   property bool showGallery: false
+  property bool snapToGrid: Config.desktopWidgetsSnapToGrid
 
   DesktopLayout {
     id: layout
     surfaceWidth: root.width
     surfaceHeight: root.height
     widgets: Widgets.desktopWidgetsEnabledList
+    snapToGrid: root.snapToGrid
   }
 
   function enterCustomize() {
@@ -28,6 +30,14 @@ Item {
     ShellState.exitDesktopCustomize()
     root.selectedWidgetId = ""
     root.showGallery = false
+  }
+
+  function setSnapToGrid(on) {
+    const want = !!on
+    Config.desktopWidgetsSnapToGrid = want
+    Config.flushSettings()
+    if (want)
+      Widgets.snapAllDesktopWidgetsToGrid(layout)
   }
 
   // Empty-desktop long-press / customize backdrop
@@ -48,29 +58,31 @@ Item {
     color: Qt.rgba(0, 0, 0, 0.35)
   }
 
-  // Customize grid — even gutters; guides only (not interactive).
+  // Guides only while Snap to Grid is on.
   Item {
     id: gridOverlay
     anchors.fill: parent
     z: 2
-    visible: root.customizeMode
+    visible: root.customizeMode && root.snapToGrid
     readonly property real margin: layout.margin
     readonly property real cellW: layout.cellWidth
     readonly property real cellH: layout.cellHeight
     readonly property real gutter: layout.gutter
 
     Repeater {
-      model: layout.gridCols
+      model: layout.gridCols * layout.gridRows
       Rectangle {
         required property int index
-        x: gridOverlay.margin + index * (gridOverlay.cellW + gridOverlay.gutter)
-        y: gridOverlay.margin
+        readonly property int col: index % layout.gridCols
+        readonly property int row: Math.floor(index / layout.gridCols)
+        x: gridOverlay.margin + col * (gridOverlay.cellW + gridOverlay.gutter)
+        y: gridOverlay.margin + row * (gridOverlay.cellH + gridOverlay.gutter)
         width: gridOverlay.cellW
-        height: Math.max(0, root.height - gridOverlay.margin * 2)
-        color: Qt.rgba(1, 1, 1, 0.04)
+        height: gridOverlay.cellH
+        color: Qt.rgba(1, 1, 1, 0.03)
         border.width: 1
-        border.color: Qt.rgba(1, 1, 1, 0.12)
-        radius: 6
+        border.color: Qt.rgba(1, 1, 1, 0.1)
+        radius: 4
       }
     }
   }
@@ -93,10 +105,14 @@ Item {
         onRequestCustomize: root.enterCustomize()
         onSelectApplet: root.selectedWidgetId = modelData.id
         onDragMoved: (nx, ny) => {
-          const cs = modelData.colSpan || 2
-          const rs = modelData.rowSpan || 1
-          const snapped = layout.snapNorm(nx, ny, cs, rs)
-          Widgets.moveDesktopWidget(modelData.id, snapped.x, snapped.y)
+          if (root.snapToGrid) {
+            const cs = modelData.colSpan || 2
+            const rs = modelData.rowSpan || 1
+            const snapped = layout.snapNorm(nx, ny, cs, rs)
+            Widgets.moveDesktopWidget(modelData.id, snapped.x, snapped.y)
+          } else {
+            Widgets.moveDesktopWidget(modelData.id, nx, ny)
+          }
         }
       }
     }
@@ -107,7 +123,7 @@ Item {
     visible: root.customizeMode && Widgets.desktopWidgetsEnabledList.length === 0
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.verticalCenter: parent.verticalCenter
-    text: "Tap Add Widget, then drag on the grid"
+    text: root.snapToGrid ? "Tap Add Widget, then drag on the grid" : "Tap Add Widget, then drag anywhere"
     color: Qt.rgba(1, 1, 1, 0.55)
     font.family: Theme.fontFamily
     font.pixelSize: 14
@@ -119,8 +135,10 @@ Item {
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.top: parent.top
     anchors.topMargin: 18
-    width: Math.min(380, parent.width - 32)
+    width: Math.min(460, parent.width - 32)
+    snapToGrid: root.snapToGrid
     onAddWidget: root.showGallery = true
+    onToggleSnapGrid: root.setSnapToGrid(!root.snapToGrid)
     onDone: root.exitCustomize()
   }
 

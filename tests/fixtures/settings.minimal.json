@@ -43,6 +43,7 @@
   "lockWallpaperShuffle": false,
   "lockWidgets": [],
   "desktopWidgets": [],
+  "desktopWidgetsSnapToGrid": false,
   "wallpaperKind": "image",
   "wallpaperColor": "#0f1419",
   "wallpaperId": "default",

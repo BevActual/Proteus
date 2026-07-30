@@ -58,6 +58,8 @@ Singleton {
   property alias lockWidgets: adapter.lockWidgets
   // Desktop free-place applets: [{ id, type, enabled, x, y, size, ... }, ...]
   property alias desktopWidgets: adapter.desktopWidgets
+  // Customize: free place by default; optional iOS-like cell snap
+  property alias desktopWidgetsSnapToGrid: adapter.desktopWidgetsSnapToGrid
   property alias wallpaperKind: adapter.wallpaperKind
   property alias wallpaperColor: adapter.wallpaperColor
   property alias wallpaperId: adapter.wallpaperId
@@ -1074,6 +1076,7 @@ Singleton {
       property var lockWidgets: []
       // Desktop free-place: [{ id, type, enabled, x, y, size, ... }, ...]
       property var desktopWidgets: []
+      property bool desktopWidgetsSnapToGrid: false
       property string wallpaperKind: "image"
       property string wallpaperColor: "#0f1419"
       property string wallpaperId: "default"
