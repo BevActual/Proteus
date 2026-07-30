@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 # System session wrapper installed to /usr/local/bin/proteus-session
+#
+# Contract (Session start hygiene #1167):
+#   - Best-effort mount /mnt/proteus when that is the product root
+#   - Export PROTEUS_SURFACE, PROTEUS_ROOT, QS_ICON_THEME, PATH for chrome/scripts
+#   - Prefer start-hyprland (watchdog) when available; else bare Hyprland
+#   - Never exec-once a terminal from this wrapper (Dock / Super+Return only)
 set -euo pipefail
 
 if ! mountpoint -q /mnt/proteus 2>/dev/null; then
@@ -19,8 +25,34 @@ export QS_ICON_THEME="${QS_ICON_THEME:-Papirus-Dark}"
 export QT_QPA_PLATFORMTHEME="${QT_QPA_PLATFORMTHEME:-gtk3}"
 
 # Prefer the watchdog wrapper (crash recovery / safe mode). Bare `Hyprland`
-# is only for nested debug (scripts/run-nested.sh).
-if command -v start-hyprland >/dev/null 2>&1; then
-  exec start-hyprland
+# is only for nested debug (scripts/run-nested.sh) or hosts without the wrapper.
+resolve_start_hyprland() {
+  if command -v start-hyprland >/dev/null 2>&1; then
+    command -v start-hyprland
+    return 0
+  fi
+  local candidate
+  for candidate in \
+    /usr/local/bin/start-hyprland \
+    /usr/bin/start-hyprland \
+    "${HOME}/.local/share/omarchy/bin/start-hyprland" \
+    /usr/share/omarchy/bin/start-hyprland
+  do
+    if [[ -x "${candidate}" ]]; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+if start_hypr="$(resolve_start_hyprland)"; then
+  exec "${start_hypr}"
 fi
-exec Hyprland
+
+if command -v Hyprland >/dev/null 2>&1; then
+  exec Hyprland
+fi
+
+echo "proteus-session: neither start-hyprland nor Hyprland found on PATH" >&2
+exit 127
