@@ -380,9 +380,12 @@ Item {
         }
         return rows
       }
+      // Search: Folders section then Files — depth ≤5 · 40-cap honesty via filesHint.
+      const folders = []
+      const filesOnly = []
       for (let i = 0; i < _files.length; i++) {
         const f = _files[i]
-        rows.push({
+        const row = {
           kind: "file",
           entry: null,
           path: f.path,
@@ -392,8 +395,45 @@ Item {
           blocked: false,
           score: 1000 - i,
           clipLine: "",
+          calcValue: "",
+          section: f.dir ? "folders" : "files"
+        }
+        if (f.dir)
+          folders.push(row)
+        else
+          filesOnly.push(row)
+      }
+      if (folders.length) {
+        rows.push({
+          kind: "section",
+          entry: null,
+          path: "",
+          name: "Folders",
+          subtitle: "",
+          icon: "",
+          blocked: true,
+          score: 3000,
+          clipLine: "",
           calcValue: ""
         })
+        for (let i = 0; i < folders.length; i++)
+          rows.push(folders[i])
+      }
+      if (filesOnly.length) {
+        rows.push({
+          kind: "section",
+          entry: null,
+          path: "",
+          name: "Files",
+          subtitle: "",
+          icon: "",
+          blocked: true,
+          score: 2000,
+          clipLine: "",
+          calcValue: ""
+        })
+        for (let i = 0; i < filesOnly.length; i++)
+          rows.push(filesOnly[i])
       }
       return rows
     }
@@ -1154,11 +1194,12 @@ Item {
             visible: !root.tagging
             text: {
               if (root.mode === "files") {
-                if (root.filesHint.length && root.fileHits.length)
-                  return root.filesHint
-                if (!search.text.trim().length)
-                  return "Files · Places · type to search ~"
-                return "Files · home folder · depth ≤5"
+                if (search.text.trim().length) {
+                  if (root.filesHint.length)
+                    return root.filesHint
+                  return "Files · Folders then Files · depth ≤5"
+                }
+                return "Files · Places · type to search ~"
               }
               if (root.mode === "clipboard")
                 return root.clipHint.length && !root.clipHits.length
