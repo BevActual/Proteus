@@ -19,6 +19,18 @@ ColumnLayout {
   property var otherUsers: []
   property string loadError: ""
   property string sessionBusy: ""
+  property bool usersBusy: false
+  property bool usersLoaded: false
+
+  readonly property string currentUserHint: {
+    if (root.loadError.length)
+      return root.loadError
+    if (root.usersBusy || !root.usersLoaded)
+      return "Reading getent / id…"
+    if (root.currentName.length)
+      return root.currentName + " · this session"
+    return "Unknown"
+  }
 
   readonly property var sessionActions: [
     {
@@ -52,6 +64,8 @@ ColumnLayout {
   ]
 
   function refresh() {
+    root.usersBusy = true
+    root.loadError = ""
     usersProc.running = false
     usersProc.running = true
   }
@@ -115,26 +129,57 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "Username"
-      hint: root.currentName.length ? root.currentName : "…"
+      hint: root.currentUserHint
       showSeparator: true
+      labelColor: root.loadError.length ? Theme.danger : Theme.text
     }
 
     SettingsFormRow {
       label: "UID"
-      hint: root.currentUid.length ? root.currentUid : "…"
+      hint: {
+        if (root.usersBusy || !root.usersLoaded)
+          return "…"
+        return root.currentUid.length ? root.currentUid : "—"
+      }
       showSeparator: true
     }
 
     SettingsFormRow {
       label: "Groups"
-      hint: root.currentGroups.length ? root.currentGroups : "…"
+      hint: {
+        if (root.usersBusy || !root.usersLoaded)
+          return "…"
+        if (root.currentGroups.length)
+          return root.currentGroups
+        return "No supplementary groups"
+      }
+      showSeparator: true
+    }
+
+    SettingsFormRow {
+      label: "Refresh users"
+      hint: root.usersBusy ? "Reading…" : "Reload id / getent passwd"
       showSeparator: false
+      interactive: !root.usersBusy
+      onActivated: root.refresh()
+      Text {
+        text: root.usersBusy ? "…" : "↻"
+        color: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+      }
     }
   }
 
   SettingsGroup {
-    visible: root.otherUsers.length > 0
     title: "Other local users"
+
+    SettingsFormRow {
+      visible: !root.usersBusy && root.usersLoaded && root.otherUsers.length === 0 && !root.loadError.length
+      label: "Accounts"
+      hint: "No other login-capable users (UID ≥ 1000)"
+      showSeparator: false
+    }
 
     Repeater {
       model: root.otherUsers
@@ -143,8 +188,14 @@ ColumnLayout {
         required property var modelData
         required property int index
         label: modelData.name || "—"
-        hint: modelData.uid ? ("UID " + modelData.uid) : ""
+        hint: modelData.uid ? ("UID " + modelData.uid + " · login shell") : "Local account"
         showSeparator: index < root.otherUsers.length - 1
+        Text {
+          text: "Read-only"
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: 12
+        }
       }
     }
   }
@@ -163,17 +214,6 @@ ColumnLayout {
       hint: "greetd / autologin prefs — planned"
       showSeparator: false
     }
-  }
-
-  Text {
-    Layout.fillWidth: true
-    Layout.maximumWidth: 480
-    visible: root.loadError.length > 0
-    text: root.loadError
-    color: Theme.danger
-    font.family: Theme.fontFamily
-    font.pixelSize: 11
-    wrapMode: Text.WordWrap
   }
 
   Text {
@@ -206,9 +246,15 @@ ColumnLayout {
     running: false
     stdout: StdioCollector {
       onStreamFinished: {
+        root.usersBusy = false
+        root.usersLoaded = true
         const raw = String(this.text || "").trim()
         if (!raw.length) {
           root.loadError = "Could not read local users"
+          root.currentName = ""
+          root.currentUid = ""
+          root.currentGroups = ""
+          root.otherUsers = []
           return
         }
         try {
@@ -220,6 +266,7 @@ ColumnLayout {
           root.loadError = ""
         } catch (e) {
           root.loadError = "Could not parse user list"
+          root.otherUsers = []
         }
       }
     }
