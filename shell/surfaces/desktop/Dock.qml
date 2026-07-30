@@ -590,66 +590,6 @@ Item {
         }
       ]
 
-      // iOS-style − remove control
-      Rectangle {
-        visible: cell.showMinus
-        anchors.left: parent.left
-        anchors.top: parent.top
-        anchors.leftMargin: -2
-        anchors.topMargin: root.magHeadroom - root.maxIconSize - 2
-        width: 18
-        height: 18
-        radius: 9
-        z: 50
-        color: Qt.rgba(0.75, 0.2, 0.2, 0.95)
-        border.width: 1
-        border.color: Qt.rgba(1, 1, 1, 0.35)
-        Text {
-          anchors.centerIn: parent
-          text: "−"
-          color: "white"
-          font.pixelSize: 14
-          font.bold: true
-        }
-        MouseArea {
-          anchors.fill: parent
-          anchors.margins: -4
-          cursorShape: Qt.PointingHandCursor
-          onClicked: {
-            DockApps.unpinEntry(modelData)
-          }
-        }
-      }
-
-      // iOS-ish + keep for running unpinned apps
-      Rectangle {
-        visible: cell.showKeepBadge
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.rightMargin: -2
-        anchors.topMargin: root.magHeadroom - root.maxIconSize - 2
-        width: 18
-        height: 18
-        radius: 9
-        z: 50
-        color: Theme.accent
-        border.width: 1
-        border.color: Qt.rgba(1, 1, 1, 0.35)
-        Text {
-          anchors.centerIn: parent
-          text: "+"
-          color: "white"
-          font.pixelSize: 13
-          font.bold: true
-        }
-        MouseArea {
-          anchors.fill: parent
-          anchors.margins: -4
-          cursorShape: Qt.PointingHandCursor
-          onClicked: DockApps.pinDesktopId(modelData.desktopId || modelData.id)
-        }
-      }
-
       Rectangle {
         visible: cell.tipOn
         anchors.horizontalCenter: parent.horizontalCenter
@@ -682,6 +622,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         clip: false
+        z: 15
 
         transform: Scale {
           origin.x: glyph.width * 0.5
@@ -691,6 +632,7 @@ Item {
         }
 
         SquircleIcon {
+          id: squircle
           anchors.centerIn: parent
           width: parent.width * Theme.iconFrameScale
           height: width
@@ -700,6 +642,62 @@ Item {
           glyphScale: cell.brandIcon ? Theme.iconGlyphScaleBrand : Theme.iconGlyphScaleApp
           plate: Theme.iconPlateFill
           source: DockApps.iconSource(modelData)
+        }
+
+        // iOS: − sits on the squircle’s top-left corner
+        Rectangle {
+          visible: cell.showMinus
+          width: 17
+          height: 17
+          radius: 8.5
+          z: 60
+          x: squircle.x - width * 0.35
+          y: squircle.y - height * 0.35
+          color: Qt.rgba(0.72, 0.18, 0.18, 0.98)
+          border.width: 1.5
+          border.color: Qt.rgba(1, 1, 1, 0.92)
+          Text {
+            anchors.centerIn: parent
+            text: "−"
+            color: "white"
+            font.pixelSize: 13
+            font.bold: true
+          }
+          MouseArea {
+            anchors.fill: parent
+            anchors.margins: -6
+            cursorShape: Qt.PointingHandCursor
+            z: 61
+            onClicked: DockApps.unpinEntry(modelData)
+          }
+        }
+
+        // iOS-ish +: Keep on top-right of squircle (running unpinned)
+        Rectangle {
+          visible: cell.showKeepBadge
+          width: 17
+          height: 17
+          radius: 8.5
+          z: 60
+          x: squircle.x + squircle.width - width * 0.65
+          y: squircle.y - height * 0.35
+          color: Theme.accent
+          border.width: 1.5
+          border.color: Qt.rgba(1, 1, 1, 0.92)
+          Text {
+            anchors.centerIn: parent
+            text: "+"
+            color: "white"
+            font.pixelSize: 12
+            font.bold: true
+          }
+          MouseArea {
+            anchors.fill: parent
+            anchors.margins: -6
+            cursorShape: Qt.PointingHandCursor
+            z: 61
+            onClicked: DockApps.pinDesktopId(modelData.desktopId || modelData.id)
+          }
         }
       }
 
