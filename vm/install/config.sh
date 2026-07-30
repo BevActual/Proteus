@@ -78,6 +78,23 @@ if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
     echo "exec-once = wl-paste --type image --watch cliphist store"
   } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
 fi
+
+# Session start hygiene (#1168): never autostart a terminal — Dock / Super+Return only.
+if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
+  && grep -qiE '^[[:space:]]*exec-once[[:space:]]*=.*(ghostty|kitty|alacritty|foot|proteus-terminal|wezterm)' \
+    "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
+  proteus_log "stripping terminal exec-once from hyprland.conf (on-demand only)"
+  proteus_as_user sed -i -E \
+    '/^[[:space:]]*exec-once[[:space:]]*=.*(ghostty|kitty|alacritty|foot|proteus-terminal|wezterm)/I d' \
+    "${HYPR_DIR}/hyprland.conf" || true
+  if ! grep -q 'do not exec-once' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
+    {
+      echo ""
+      echo "# Terminal is on-demand (Dock / Super+Return) — do not exec-once Ghostty"
+    } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
+  fi
+fi
+
 if [[ ! -f "${HYPR_DIR}/hypridle.conf" ]]; then
   proteus_as_user tee "${HYPR_DIR}/hypridle.conf" >/dev/null <<'EOF'
 # Proteus — idle → session lock (Quickshell lock screen)

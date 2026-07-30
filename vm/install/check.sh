@@ -71,6 +71,24 @@ fi
 grep -q '^Icon=proteus-settings' "${ROOT}/apps/proteus-settings/proteus-settings.desktop" && ok "settings.desktop Icon" || bad "settings.desktop Icon"
 grep -q '^Icon=proteus' "${ROOT}/vm/guest/proteus.desktop" && ok "session.desktop Icon" || bad "session.desktop Icon"
 
+# #1168 — seed hyprland.conf: qs/bg/cliphist present; no terminal exec-once
+HYPR_SEED="${ROOT}/env/hypr/hyprland.conf"
+if [[ -f "${HYPR_SEED}" ]]; then
+  grep -qE '^[[:space:]]*exec-once[[:space:]].*proteus-qs' "${HYPR_SEED}" \
+    && ok "hypr seed proteus-qs exec-once" || bad "hypr seed missing proteus-qs exec-once"
+  grep -qE '^[[:space:]]*exec-once[[:space:]].*proteus-bg' "${HYPR_SEED}" \
+    && ok "hypr seed proteus-bg exec-once" || bad "hypr seed missing proteus-bg exec-once"
+  grep -q 'cliphist store' "${HYPR_SEED}" \
+    && ok "hypr seed cliphist exec-once" || bad "hypr seed missing cliphist"
+  if grep -qiE '^[[:space:]]*exec-once[[:space:]]*=.*(ghostty|kitty|alacritty|foot|proteus-terminal|wezterm)' "${HYPR_SEED}"; then
+    bad "hypr seed must not exec-once a terminal"
+  else
+    ok "hypr seed no terminal exec-once"
+  fi
+  grep -qi 'do not exec-once' "${HYPR_SEED}" \
+    && ok "hypr seed terminal comment lock" || bad "hypr seed missing terminal comment lock"
+fi
+
 # shellcheck source=helpers.sh
 source "${INSTALL}/helpers.sh"
 export PROTEUS_ROOT="${ROOT}"
