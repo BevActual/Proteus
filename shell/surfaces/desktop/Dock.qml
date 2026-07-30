@@ -647,25 +647,25 @@ Item {
         // iOS: − sits on the squircle’s top-left corner
         Rectangle {
           visible: cell.showMinus
-          width: 17
-          height: 17
-          radius: 8.5
+          width: Math.round(squircle.width * 0.42)
+          height: width
+          radius: width * 0.5
           z: 60
-          x: squircle.x - width * 0.35
-          y: squircle.y - height * 0.35
+          x: squircle.x - width * 0.28
+          y: squircle.y - height * 0.28
           color: Qt.rgba(0.72, 0.18, 0.18, 0.98)
-          border.width: 1.5
-          border.color: Qt.rgba(1, 1, 1, 0.92)
+          border.width: 2
+          border.color: Qt.rgba(1, 1, 1, 0.95)
           Text {
             anchors.centerIn: parent
             text: "−"
             color: "white"
-            font.pixelSize: 13
+            font.pixelSize: Math.round(parent.width * 0.72)
             font.bold: true
           }
           MouseArea {
             anchors.fill: parent
-            anchors.margins: -6
+            anchors.margins: -4
             cursorShape: Qt.PointingHandCursor
             z: 61
             onClicked: DockApps.unpinEntry(modelData)
@@ -675,25 +675,25 @@ Item {
         // iOS-ish +: Keep on top-right of squircle (running unpinned)
         Rectangle {
           visible: cell.showKeepBadge
-          width: 17
-          height: 17
-          radius: 8.5
+          width: Math.round(squircle.width * 0.42)
+          height: width
+          radius: width * 0.5
           z: 60
-          x: squircle.x + squircle.width - width * 0.65
-          y: squircle.y - height * 0.35
+          x: squircle.x + squircle.width - width * 0.72
+          y: squircle.y - height * 0.28
           color: Theme.accent
-          border.width: 1.5
-          border.color: Qt.rgba(1, 1, 1, 0.92)
+          border.width: 2
+          border.color: Qt.rgba(1, 1, 1, 0.95)
           Text {
             anchors.centerIn: parent
             text: "+"
             color: "white"
-            font.pixelSize: 12
+            font.pixelSize: Math.round(parent.width * 0.62)
             font.bold: true
           }
           MouseArea {
             anchors.fill: parent
-            anchors.margins: -6
+            anchors.margins: -4
             cursorShape: Qt.PointingHandCursor
             z: 61
             onClicked: DockApps.pinDesktopId(modelData.desktopId || modelData.id)
