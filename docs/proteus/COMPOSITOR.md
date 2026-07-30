@@ -176,7 +176,8 @@ compositor chrome for that unit.
 1. **Hyprland is a backend** — Proteus defines posture; hypr conf expresses it.  
 2. **Quickshell is chrome (+ Settings for now)** — not the app platform.  
 3. **SoT on disk / CLI** — QS restart must not lose config.  
-4. **Respawn the shell** — `proteus-qs` backoff wrapper for chrome; assume hotplug/TTY pain until proven otherwise.  
+4. **Respawn the shell** — `proteus-qs` flock/backoff/`--restart` (optional
+   systemd `--user` unit); assume hotplug/TTY pain until proven otherwise.  
 5. **No Hyprland/QS forks** early — profile, wrap, contribute upstream.  
 6. **Not every posture needs Hyprland** — host defaults lean/headless; ops UI
    is **on demand** (terminal-only remoters vs operators who want chrome) —

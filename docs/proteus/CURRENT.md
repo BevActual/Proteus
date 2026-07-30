@@ -190,7 +190,7 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 
 - Snap / dependency graphs in Software  
 - Remaining posture hypr profiles beyond stubs (wearable / xr / vehicle; media/host/home chrome)  
-- systemd/user-unit QS supervisor; pacman IgnorePkg / ISO QS version pin  
+- pacman IgnorePkg / ISO QS version pin (record + smoke only today)  
 - Host posture chrome or workload panes  
 - Second personal posture beyond stub  
 - First-party Tauri app under `apps/`  

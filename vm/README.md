@@ -108,6 +108,14 @@ your user password. `Super+L` locks again anytime.
 Disable auto-lock on session start by setting `"lockOnSessionStart": false` in
 `~/.config/proteus/settings.json` (Settings UI later).
 
+### Quickshell chrome supervisor
+
+Default: Hyprland `exec-once` → `proteus-qs` (flock / backoff / `--restart`).
+Optional: `bash /mnt/proteus/vm/guest/install-proteus-qs-user-unit.sh` then
+`systemctl --user enable --now proteus-qs.service` (comment out the hypr
+`exec-once` line). After upgrading Quickshell: `PROTEUS_GUEST=1 ./scripts/smoke-all.sh`
+(records version; do not IgnorePkg-pin on rolling Arch).
+
 ### Start a graphical session (manual / debug)
 
 If greetd is not running, log in on a TTY and run:

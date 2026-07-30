@@ -2,7 +2,7 @@
 doc: facts
 role: reference
 audience: coding agents, contributors
-last_updated: "2026-07-29"
+last_updated: "2026-07-30"
 doc_status: active
 scope: On-disk truth paths; QML façade vs services mutators
 related:
@@ -30,6 +30,7 @@ before inventing a second store.
 | `~/.config/hypr/proteus-profile.conf` | `set-hypr-profile.sh` / seed | Hyprland `source =` → `profiles/*.conf` |
 | `~/.config/hypr/profiles/*.conf` | seed / manual | Active posture via pointer |
 | `~/.local/share/proteus/backgrounds/` | Background daily/album flows | `proteus-bg` / wallpaper runner |
+| `~/.config/systemd/user/proteus-qs.service` | `install-proteus-qs-user-unit.sh` (opt-in) | `systemctl --user` · alternative to hypr `exec-once` |
 
 Seed templates for nested/host sessions: [`env/`](../../env/) — see
 [`env/README.md`](../../env/README.md). Guest installers that **place** those
