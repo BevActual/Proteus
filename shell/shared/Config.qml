@@ -674,6 +674,13 @@ Singleton {
     return raw.split(",").map(s => s.trim()).filter(s => s.length)
   }
 
+  function clearLauncherRecents() {
+    if (!String(launcherRecents || "").length)
+      return
+    launcherRecents = ""
+    flushSettings()
+  }
+
   function recordLauncherRecent(desktopId) {
     const id = String(desktopId || "").trim()
     if (!id.length)

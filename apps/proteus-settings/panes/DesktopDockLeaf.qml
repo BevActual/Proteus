@@ -25,11 +25,29 @@ ColumnLayout {
     return 0
   }
 
+  function syncMonitors() {
+    dockMonBox.currentIndex = root.screenIndex(Config.dockMonitor)
+    barMonBox.currentIndex = root.screenIndex(Config.barMonitor)
+  }
+
+  Connections {
+    target: Config
+    function onDockMonitorChanged() {
+      dockMonBox.currentIndex = root.screenIndex(Config.dockMonitor)
+    }
+    function onBarMonitorChanged() {
+      barMonBox.currentIndex = root.screenIndex(Config.barMonitor)
+    }
+  }
+
+  Component.onCompleted: syncMonitors()
+
   SettingsGroup {
     title: "Dock"
 
     SettingsFormRow {
       label: "Show dock"
+      hint: Config.dockEnabled ? "Floating shelf at the bottom" : "Hidden"
       showSeparator: true
       Switch {
         checked: Config.dockEnabled
@@ -39,7 +57,7 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "Automatically hide"
-      hint: "Reveal at the bottom edge"
+      hint: Config.dockEnabled ? "Reveal at the bottom edge" : "Requires Show dock"
       showSeparator: true
       Switch {
         checked: Config.dockAutoHide
@@ -50,25 +68,27 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "Show on"
-      hint: Config.dockMonitor === "all" ? "Every display" : Config.dockMonitor
+      hint: !Config.dockEnabled ? "Requires Show dock"
+          : (Config.dockMonitor === "all" ? "Every display" : Config.dockMonitor)
       showSeparator: true
       ComboBox {
+        id: dockMonBox
         Layout.preferredWidth: 168
         enabled: Config.dockEnabled
         textRole: "label"
         valueRole: "id"
         model: root.screenOpts
-        Component.onCompleted: currentIndex = root.screenIndex(Config.dockMonitor)
         onActivated: Config.dockMonitor = String(currentValue || "all")
       }
     }
 
     SettingsFormRow {
       label: "Icon size"
-      hint: Config.dockIconSize + " px"
+      hint: Config.dockEnabled ? (Config.dockIconSize + " px") : "Requires Show dock"
       showSeparator: false
       Slider {
-        Layout.preferredWidth: 140
+        Layout.preferredWidth: 160
+        enabled: Config.dockEnabled
         from: 36
         to: 72
         stepSize: 2
@@ -96,11 +116,11 @@ ColumnLayout {
       hint: Config.barMonitor === "all" ? "Every display" : Config.barMonitor
       showSeparator: true
       ComboBox {
+        id: barMonBox
         Layout.preferredWidth: 168
         textRole: "label"
         valueRole: "id"
         model: root.screenOpts
-        Component.onCompleted: currentIndex = root.screenIndex(Config.barMonitor)
         onActivated: Config.barMonitor = String(currentValue || "all")
       }
     }
@@ -110,7 +130,7 @@ ColumnLayout {
       hint: Config.barHeight + " px"
       showSeparator: false
       Slider {
-        Layout.preferredWidth: 140
+        Layout.preferredWidth: 160
         from: 28
         to: 48
         stepSize: 1
@@ -120,16 +140,20 @@ ColumnLayout {
     }
   }
 
-  SettingsFormRow {
-    label: "Edit compositor config…"
-    hint: "proteus-general.conf"
-    interactive: true
-    showSeparator: false
-    onActivated: Config.openGeneralConfInEditor()
-    Text {
-      text: "›"
-      color: Theme.textMute
-      font.pixelSize: 16
+  SettingsGroup {
+    title: "Advanced"
+
+    SettingsFormRow {
+      label: "Edit compositor config…"
+      hint: "proteus-general.conf · gaps, borders, rounding"
+      interactive: true
+      showSeparator: false
+      onActivated: Config.openGeneralConfInEditor()
+      Text {
+        text: "›"
+        color: Theme.textMute
+        font.pixelSize: 16
+      }
     }
   }
 }

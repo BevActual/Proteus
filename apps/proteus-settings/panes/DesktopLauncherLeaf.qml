@@ -5,11 +5,70 @@ import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Leaf UI for DesktopPane — Launcher (Spotlight tags).
+// Leaf UI for DesktopPane — Launcher (Spotlight tags + recents).
 ColumnLayout {
   id: root
   width: parent ? parent.width : implicitWidth
   spacing: Theme.spaceMd
+
+  readonly property var tagList: {
+    const _ = Config.launcherTagCatalog
+    return Config.launcherTagCatalogList()
+  }
+
+  readonly property int recentCount: {
+    const _ = Config.launcherRecents
+    return Config.launcherRecentList().length
+  }
+
+  function appCountForTag(tag) {
+    const _m = Config.launcherAppTags
+    const map = Config.parseLauncherAppTagMap()
+    let n = 0
+    const ids = Object.keys(map)
+    for (let i = 0; i < ids.length; i++) {
+      if (map[ids[i]].indexOf(tag) >= 0)
+        n++
+    }
+    return n
+  }
+
+  SettingsGroup {
+    title: "Spotlight"
+
+    Text {
+      Layout.fillWidth: true
+      Layout.leftMargin: Theme.spaceMd
+      Layout.rightMargin: Theme.spaceMd
+      Layout.topMargin: Theme.spaceSm
+      Layout.bottomMargin: Theme.spaceSm
+      text: "Modes: Ctrl+1 Apps · Ctrl+2 Files · Ctrl+3 Clipboard. Tag an app with Ctrl+T or # · filter with #tag. Math and unit conversions work in the search field."
+      color: Theme.textMute
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.fontSizeSm
+      wrapMode: Text.WordWrap
+    }
+
+    SettingsFormRow {
+      label: "Recent apps"
+      hint: root.recentCount === 0 ? "None yet"
+          : (root.recentCount === 1 ? "1 app" : root.recentCount + " apps")
+      showSeparator: false
+      Text {
+        visible: root.recentCount > 0
+        text: "Clear"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: 13
+        MouseArea {
+          anchors.fill: parent
+          anchors.margins: -8
+          cursorShape: Qt.PointingHandCursor
+          onClicked: Config.clearLauncherRecents()
+        }
+      }
+    }
+  }
 
   SettingsGroup {
     title: "App tags"
@@ -19,25 +78,21 @@ ColumnLayout {
       Layout.leftMargin: Theme.spaceMd
       Layout.rightMargin: Theme.spaceMd
       Layout.topMargin: Theme.spaceSm
-      text: "Optional labels to group apps in Spotlight Apps mode. Assign with Ctrl+T or # on a result; filter with #tag. Modes: Ctrl+1 Apps · Ctrl+2 Files · Ctrl+3 Clipboard. Type math (e.g. 12*7) or conversions (32 f to c)."
+      text: "Optional labels to group apps in Spotlight Apps mode."
       color: Theme.textMute
       font.family: Theme.fontFamily
       font.pixelSize: Theme.fontSizeSm
       wrapMode: Text.WordWrap
     }
 
-    RowLayout {
-      Layout.fillWidth: true
-      Layout.leftMargin: Theme.spaceMd
-      Layout.rightMargin: Theme.spaceMd
-      Layout.topMargin: Theme.spaceSm
-      Layout.bottomMargin: Theme.spaceSm
-      spacing: Theme.spaceSm
-
+    SettingsFormRow {
+      label: "Add tag"
+      hint: "Letters, numbers, hyphens"
+      showSeparator: root.tagList.length > 0
       TextField {
         id: newTagField
-        Layout.fillWidth: true
-        placeholderText: "New tag (e.g. work)"
+        Layout.preferredWidth: 140
+        placeholderText: "work"
         color: Theme.text
         placeholderTextColor: Theme.textMute
         font.family: Theme.fontFamily
@@ -48,87 +103,60 @@ ColumnLayout {
             text = ""
         }
       }
-
-      Button {
+      Text {
         text: "Add"
-        onClicked: {
-          if (Config.ensureLauncherTag(newTagField.text))
-            newTagField.text = ""
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: 13
+        MouseArea {
+          anchors.fill: parent
+          anchors.margins: -8
+          cursorShape: Qt.PointingHandCursor
+          onClicked: {
+            if (Config.ensureLauncherTag(newTagField.text))
+              newTagField.text = ""
+          }
         }
       }
     }
 
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: 1
-      color: Theme.separator
-      opacity: 0.5
-    }
+    Repeater {
+      model: root.tagList
 
-    ColumnLayout {
-      Layout.fillWidth: true
-      Layout.leftMargin: Theme.spaceMd
-      Layout.rightMargin: Theme.spaceMd
-      Layout.topMargin: Theme.spaceSm
-      Layout.bottomMargin: Theme.spaceMd
-      spacing: Theme.spaceSm
-
-      Repeater {
-        model: {
-          const _ = Config.launcherTagCatalog
-          return Config.launcherTagCatalogList()
+      delegate: SettingsFormRow {
+        required property string modelData
+        label: "#" + modelData
+        hint: {
+          const n = root.appCountForTag(modelData)
+          return n === 1 ? "1 app" : (n + " apps")
         }
-
-        delegate: RowLayout {
-          required property string modelData
-          Layout.fillWidth: true
-          spacing: Theme.spaceSm
-
-          Text {
-            Layout.fillWidth: true
-            text: "#" + modelData
-            color: Theme.text
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSize
-          }
-
-          Text {
-            text: {
-              const _m = Config.launcherAppTags
-              const map = Config.parseLauncherAppTagMap()
-              let n = 0
-              const ids = Object.keys(map)
-              for (let i = 0; i < ids.length; i++) {
-                if (map[ids[i]].indexOf(modelData) >= 0)
-                  n++
-              }
-              return n === 1 ? "1 app" : (n + " apps")
-            }
-            color: Theme.textMute
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSizeSm
-          }
-
-          Button {
-            text: "Remove"
-            flat: true
+        showSeparator: true
+        Text {
+          text: "Remove"
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: 13
+          MouseArea {
+            anchors.fill: parent
+            anchors.margins: -8
+            cursorShape: Qt.PointingHandCursor
             onClicked: Config.removeLauncherTag(modelData)
           }
         }
       }
+    }
 
-      Text {
-        visible: {
-          const _ = Config.launcherTagCatalog
-          return Config.launcherTagCatalogList().length === 0
-        }
-        Layout.fillWidth: true
-        text: "No tags yet — add one above, or create while tagging an app in Spotlight."
-        color: Theme.textMute
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSizeSm
-        wrapMode: Text.WordWrap
-      }
+    Text {
+      visible: root.tagList.length === 0
+      Layout.fillWidth: true
+      Layout.leftMargin: Theme.spaceMd
+      Layout.rightMargin: Theme.spaceMd
+      Layout.bottomMargin: Theme.spaceMd
+      text: "No tags yet — add one above, or create while tagging an app in Spotlight."
+      color: Theme.textMute
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.fontSizeSm
+      wrapMode: Text.WordWrap
     }
   }
 }
