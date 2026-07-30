@@ -728,7 +728,7 @@ Singleton {
     command: [
       "bash",
       "-lc",
-      "fc-list : family 2>/dev/null | sed 's/,.*//' | sort -u | head -n 80 | python3 -c "
+      "fc-list : family 2>/dev/null | sed 's/,.*//' | sort -u | head -n 240 | python3 -c "
           + "'import sys,json; fams=[l.strip() for l in sys.stdin if l.strip()]; "
           + "print(json.dumps([{\"id\":f,\"label\":f} for f in fams]))'"
     ]
