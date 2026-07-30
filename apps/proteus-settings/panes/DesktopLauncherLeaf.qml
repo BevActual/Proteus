@@ -42,7 +42,7 @@ ColumnLayout {
       Layout.rightMargin: Theme.spaceMd
       Layout.topMargin: Theme.spaceSm
       Layout.bottomMargin: Theme.spaceSm
-      text: "Modes: Ctrl+1 Apps · Ctrl+2 Files · Ctrl+3 Clipboard. Tag an app with Ctrl+T or # · filter with #tag. Math and unit conversions work in the search field."
+      text: "Modes: Ctrl+1 Apps · Ctrl+2 Files · Ctrl+3 Clipboard · Ctrl+4 Actions (allowlisted). Tag an app with Ctrl+T or # · filter with #tag. Math and unit conversions work in the search field."
       color: Theme.textMute
       font.family: Theme.fontFamily
       font.pixelSize: Theme.fontSizeSm
