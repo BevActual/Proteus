@@ -64,7 +64,7 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 | Top bar (launcher, workspaces, title, clock, settings) | `partial` — glass menu bar; app title on left; status cluster → Control Center |
 | Control Center (notifications + quick settings) | `partial` — DND, volume/mute, network editor, battery; toasts; no Settings pane yet |
 | App launcher (`Super+Space` / `Super+D`) | `partial` — Apps / Files / Clipboard modes (Ctrl+1–3); fuzzy + tags + Settings; calc/convert; cliphist clipboard; home-folder file search; no Actions yet |
-| Dock (pins, magnify, running dots) | `partial` — floating glass shelf + Mag; closer to macOS Dock |
+| Dock (pins, magnify, running dots) | `shipped` — floating glass shelf (menu-bar glass family + hairline/specular); smooth magnify; running disc vs active accent pill; Keep/Remove context menu |
 | Session start (`proteus-session`) | `partial` — `start-hyprland` watchdog; no Ghostty exec-once; stray system apps hidden from launcher |
 | Desktop widgets (free place; Customize) | `partial` — long-press empty desktop or `Super+Shift+W`; catalog via `Widgets.qml`; separate from lock |
 | Lock screen (`Super+L`, PAM + `WlSessionLock`) | `shipped` — Customize mode, zone layout, applets; cold boot auto-lock; attempt cooldown after 3 misses |
