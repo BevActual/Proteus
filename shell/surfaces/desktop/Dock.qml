@@ -384,18 +384,20 @@ Item {
         }
       }
 
-      // Running = soft disc; active/focused = short accent pill
+      // Running = soft disc; active/focused = short accent pill (readable at rest size)
       Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: -5
-        width: active ? 7 : 3.5
-        height: active ? 3 : 3.5
+        anchors.bottomMargin: -4
+        width: active ? 8 : 4
+        height: active ? 3 : 4
         radius: height / 2
         color: active ? Theme.accent
-            : (Theme.light ? Qt.rgba(0, 0, 0, 0.42) : Qt.rgba(1, 1, 1, 0.72))
-        opacity: shown ? (active ? 1 : 0.65) : 0
+            : (Theme.light ? Qt.rgba(0.05, 0.05, 0.06, 0.50) : Qt.rgba(1, 1, 1, 0.78))
+        opacity: shown ? (active ? 1 : 0.7) : 0
         z: 5
+        border.width: active || !shown ? 0 : 1
+        border.color: Theme.light ? Qt.rgba(1, 1, 1, 0.35) : Qt.rgba(0, 0, 0, 0.25)
 
         Behavior on width {
           NumberAnimation {
