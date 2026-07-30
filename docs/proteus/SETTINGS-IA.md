@@ -35,7 +35,7 @@ Code: `apps/proteus-settings/` (`Settings.qml` shell + `kit/*` form primitives +
 | [3. Containers](#3-containers) | Top-level vs submenu vs sections |
 | [4. Appearance hub](#4-appearance-hub) | Drill-in |
 | [5. Keyboard pattern](#5-keyboard-pattern) | Prototype hybrid feature |
-| [6. Desktop + Displays](#6-desktop--displays) | Same hybrid pattern |
+| [6. Desktop + Displays](#6-desktop--displays) | Same hybrid pattern (+ Sound · Network) |
 | [7. Growth](#7-growth) | Next panes |
 | [8. UX locks](#8-ux-locks) | Calm chrome |
 
@@ -99,7 +99,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Launcher (Spotlight tags/recents) — leaf files + FormRow kit | json + hyprctl + `proteus-general.conf` · `launcherRecents` / `launcherTagCatalog` / `launcherAppTags` | `shipped` |
 | **Displays** (`displays`) | Layout canvas + per-monitor scale/mode/orientation; 10s Revert; Refresh/hotplug honesty; conf escape | hyprctl + `proteus-monitors.conf` | `shipped` |
 | **Sound** (`sound`) | Category → Output / Input / Applications / Latency & buffer — leaf files + FormRow kit | pactl + `audio-peak.py` + `pw-metadata` | `shipped` |
-| **Network** (`network`) | Hostname; Wi‑Fi scan/connect; Bluetooth; Tailscale; NM VPN | hostnamectl / nmcli / bluetoothctl / tailscale | `partial` |
+| **Network** (`network`) | Category → This machine / Devices / Wi‑Fi / Bluetooth / Tailscale / VPN — leaf files + FormRow kit | hostnamectl / nmcli / bluetoothctl / tailscale | `shipped` |
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse; later touchpad / tablet | keybinds + input hyprctl | `shipped` |
 | **Power** (`power`) | Battery charge / health / estimate (UPower); logind idle + lid policy read-only with conf escape hatch | UPower / `logind.conf` | `partial` |
 | **Users** (`users`) | Session actions; current + other local users (read-only); greeter planned | `id` / getent · `Config.session` | `partial` |
@@ -237,6 +237,30 @@ via `kit/StickyPaneLoader` (`SoundOutputLeaf`, `SoundInputLeaf`,
 **Module rule:** Sound leaf helpers stay in `panes/Sound*Leaf.qml` + `kit/`
 FormRow/Group — not a single mega-inline `SoundPane` body.
 
+### Network
+
+Network: click sidebar → heading **Network** + sub-settings list, then leaf pages
+via `kit/StickyPaneLoader` (`NetworkMachineLeaf`, `NetworkDevicesLeaf`,
+`NetworkWifiLeaf`, `NetworkBluetoothLeaf`, `NetworkTailscaleLeaf`,
+`NetworkVpnLeaf`). Hub state lives in `NetworkPane.qml`
+(`property Item host` on leaves).
+
+| Sub-setting | Role |
+|-------------|------|
+| This machine | Hostname draft + Apply (`hostnamectl`); Refresh all |
+| Devices | nmcli interfaces with type · state · connection hints |
+| Wi‑Fi | Scan/connect/disconnect FormRows; signal/security hints; Rescan |
+| Bluetooth | Adapter Powered/Off; blueman escape (pairing Out) |
+| Tailscale | Status / IP copy / peers / up·down·login; `tailscale status` escape |
+| VPN | NM VPN/WireGuard profile list; single NetworkManager escape |
+
+| Pane | Live apply | On-disk / helper |
+|------|------------|------------------|
+| Network | `hostnamectl` set · `nmcli` wifi · `tailscale` up/down · clipboard IP | Escape: blueman / NetworkManager / `nmtui` — password Wi‑Fi, pairing, Headscale, WireGuard wizard Out |
+
+**Module rule:** Network leaf helpers stay in `panes/Network*Leaf.qml` + `kit/`
+FormRow/Group — not a single mega-inline `NetworkPane` body.
+
 ---
 
 ## 7. Growth
@@ -254,11 +278,12 @@ Depth order for what’s left:
 3. **Privacy** — grant model when adaptive apps need it  
 4. **Power** — privileged logind idle/lid writer (read-only today)  
 5. **Date & time** — locale set; weather forecast view  
-6. **Network** — Tailscale login-server (Headscale); peer/exit-node UI; in-pane pairing; WireGuard wizard  
+6. **Network depth** — Tailscale login-server (Headscale); peer/exit-node UI; in-pane pairing; WireGuard / password Wi‑Fi wizard (hub + leaves shipped)  
 7. **Peripherals** — touchpad / tablet  
 8. **Software** — dep graphs later; Omarchy-style Install/Remove pickers + mode-safe loads + op narrative shipped (`partial`; Snap Out)  
 
 *(Displays layout + Revert follow-ups shipped — removed from growth depth.)*
+*(Network hub + FormRow polish shipped — depth wizards stay on the list.)*
 
 Virt / container setup stays a **separate app**, not a Settings growth item.
 
