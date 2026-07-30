@@ -11,6 +11,7 @@ for guest overlay install.
 | `ghostty/` | Minimal Ghostty seed (no opacity/blur) |
 | `fastfetch/` | P monogram + modules on shell start |
 | `shell/proteus-bashrc.sh` | Run fastfetch when Ghostty opens |
+| `systemd/user/` | Optional `proteus-qs.service` (opt-in vs hypr exec-once) |
 
 **vs `vm/guest/`:** guest scripts *install* session pieces onto the dogfood VM.
 `env/` seeds the same *kinds* of facts for nested / first boot.

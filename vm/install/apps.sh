@@ -29,6 +29,9 @@ done
 proteus_root bash "${GUEST}/install-settings-app.sh"
 # Idempotent: refresh NoDisplay stubs even if Settings install was a no-op
 proteus_root bash "${GUEST}/hide-system-apps.sh"
+proteus_root bash "${GUEST}/install-proteus-qs-user-unit.sh" || {
+  echo "apps: note — proteus-qs user-unit install skipped" >&2
+}
 proteus_root bash "${GUEST}/install-lock-pam.sh" || {
   echo "apps: note — install-lock-pam skipped or failed (lock falls back to login PAM)" >&2
 }

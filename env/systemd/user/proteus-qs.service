@@ -1,0 +1,25 @@
+# Proteus Quickshell chrome supervisor (optional alternative to Hyprland exec-once).
+# Install: bash vm/guest/install-proteus-qs-user-unit.sh
+# Enable:  systemctl --user enable --now proteus-qs.service
+# Then comment out the proteus-qs exec-once in ~/.config/hypr/hyprland.conf
+# (proteus-qs flock refuses double chrome, but one SoT is cleaner).
+#
+# COMPOSITOR: record Quickshell version in smoke — do not pin via pacman on rolling Arch.
+[Unit]
+Description=Proteus Quickshell chrome (proteus-qs)
+Documentation=file:///mnt/proteus/docs/proteus/COMPOSITOR.md
+PartOf=graphical-session.target
+After=graphical-session-pre.target
+
+[Service]
+Type=simple
+Environment=PROTEUS_SURFACE=desktop
+Environment=QS_ICON_THEME=Papirus-Dark
+Environment=PROTEUS_ROOT=/mnt/proteus
+# Wrapper loops with crash backoff; Restart only if the wrapper process exits.
+ExecStart=/mnt/proteus/shell/scripts/proteus-qs /mnt/proteus/shell
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

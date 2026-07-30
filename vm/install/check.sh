@@ -118,6 +118,23 @@ else
   bad "missing hide-system-apps.sh"
 fi
 
+
+UNIT="${ROOT}/env/systemd/user/proteus-qs.service"
+if [[ -f "${UNIT}" ]]; then
+  grep -q 'proteus-qs' "${UNIT}" && ok "proteus-qs.service template" || bad "proteus-qs.service ExecStart"
+  grep -q 'WantedBy=graphical-session.target' "${UNIT}" && ok "proteus-qs.service WantedBy" || bad "proteus-qs.service WantedBy"
+  grep -qiE '^IgnorePkg|pacman.*IgnorePkg' "${UNIT}" && bad "unit must not IgnorePkg-pin" || ok "proteus-qs.service no IgnorePkg pin"
+else
+  bad "missing env/systemd/user/proteus-qs.service"
+fi
+INST="${ROOT}/vm/guest/install-proteus-qs-user-unit.sh"
+if [[ -f "${INST}" ]]; then
+  bash -n "${INST}" 2>/dev/null && ok "install-proteus-qs-user-unit.sh bash -n" || bad "install-proteus-qs-user-unit.sh bash -n"
+  grep -q 'proteus-qs.service' "${INST}" && ok "install-proteus-qs-user-unit installs unit" || bad "install script missing unit"
+else
+  bad "missing install-proteus-qs-user-unit.sh"
+fi
+
 # shellcheck source=helpers.sh
 source "${INSTALL}/helpers.sh"
 export PROTEUS_ROOT="${ROOT}"
