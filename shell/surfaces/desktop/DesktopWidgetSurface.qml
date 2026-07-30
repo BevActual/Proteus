@@ -184,6 +184,7 @@ Item {
     onLoaded: {
       if (item) {
         item.scope = "desktop"
+        item.deskLayout = deskLayout
         item.open()
         item.closed.connect(() => {
           root.showGallery = false

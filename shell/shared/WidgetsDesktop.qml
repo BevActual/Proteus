@@ -89,7 +89,7 @@ QtObject {
     hydrateDesktopFromRaw("")
   }
 
-  function addDesktopWidget(type, size) {
+  function addDesktopWidget(type, size, layout) {
     const t = String(type || "")
     let found = null
     for (let i = 0; i < host.desktopWidgetCatalog.length; i++) {
@@ -111,19 +111,32 @@ QtObject {
       }
     }
     const pos = nextDesktopWidgetPos(list)
+    let nx = pos.x
+    let ny = pos.y
+    const sz = size || found.defaultSize || "md"
+    if (layout) {
+      const width = layout.contentWidth(t, sz)
+      const height = layout.contentHeight(t, sz)
+      const raw = layout.pixelFromFreeNorm(nx, ny, width, height)
+      const resolved = layout.resolveNoOverlap(raw.x, raw.y, width, height, "")
+      const n = layout.freeNormFromPixel(resolved.x, resolved.y, width, height)
+      nx = n.x
+      ny = n.y
+    }
     const w = normalizeDesktopWidget({
       id: desktopWidgetIdNew(),
       type: t,
       enabled: true,
       showControls: true,
       showWhenIdle: t === "media",
-      size: size || found.defaultSize || "md",
-      x: pos.x,
-      y: pos.y
+      size: sz,
+      x: nx,
+      y: ny
     })
     list.push(w)
     Config.desktopWidgets = list
-    Config.flushSettings()
+    if (!Config.deferSettingsWrites)
+      Config.flushSettings()
     return w
   }
 

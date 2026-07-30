@@ -18,6 +18,7 @@ Rectangle {
   // "lock" | "desktop"
   property string scope: "desktop"
   property string pickSize: "md"
+  property var deskLayout: null
   signal closed()
 
   readonly property bool isLock: root.scope === "lock"
@@ -55,7 +56,7 @@ Rectangle {
         Widgets.addLockWidget(id, root.pickSize)
       return
     }
-    Widgets.addDesktopWidget(id, root.pickSize)
+    Widgets.addDesktopWidget(id, root.pickSize, root.deskLayout)
   }
 
   function open() {

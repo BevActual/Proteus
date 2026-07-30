@@ -230,7 +230,7 @@ Singleton {
   function normalizeDesktopWidget(w) { return deskApi.normalizeDesktopWidget(w) }
   function hydrateDesktopFromRaw(raw) { return deskApi.hydrateDesktopFromRaw(raw) }
   function hydrateDesktopWidgetsFromFile() { return deskApi.hydrateDesktopWidgetsFromFile() }
-  function addDesktopWidget(type, size) { return deskApi.addDesktopWidget(type, size) }
+  function addDesktopWidget(type, size, layout) { return deskApi.addDesktopWidget(type, size, layout) }
   function removeDesktopWidget(id) { return deskApi.removeDesktopWidget(id) }
   function setDesktopWidgetEnabled(id, on) { return deskApi.setDesktopWidgetEnabled(id, on) }
   function patchDesktopWidget(id, patch) { return deskApi.patchDesktopWidget(id, patch) }
