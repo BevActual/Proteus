@@ -19,7 +19,10 @@ ColumnLayout {
   property var remotes: []
   property string status: ""
   property bool busy: false
-  property string query: ""
+  property string installQuery: ""
+  property string installedQuery: ""
+  property int searchGen: 0
+  property bool syncingQuery: false
   property string pendingDetail: ""
   property string pendingAction: "" // install | remove | update | flathub
   property var pendingRefs: []
@@ -30,6 +33,7 @@ ColumnLayout {
   readonly property bool applying: Packages.packageOpBusy
   readonly property bool flatpakOk: Packages.flatpakAvailable
   readonly property bool onInstalled: mode === "installed"
+  readonly property string activeQuery: onInstalled ? installedQuery : installQuery
   readonly property bool hasFlathub: {
     if (Packages.flathubConfigured)
       return true
@@ -68,7 +72,7 @@ ColumnLayout {
   }
 
   function persistUi() {
-    Packages.saveLeafUi(leafKey, mode, query)
+    Packages.saveLeafUi(leafKey, mode, installQuery, installedQuery)
   }
 
   function restoreUi() {
@@ -77,7 +81,31 @@ ColumnLayout {
       return
     if (st.mode === "install" || st.mode === "installed")
       mode = st.mode
-    query = st.query || ""
+    installQuery = st.installQuery || (st.mode === "install" ? (st.query || "") : "")
+    installedQuery = st.installedQuery || (st.mode === "installed" ? (st.query || "") : "")
+  }
+
+  function abortInstallLoads() {
+    debounce.stop()
+    // Invalidate before kill so late stdout cannot apply under a newer gen.
+    browseProc.requestGen = -1
+    searchProc.requestGen = -1
+    if (browseProc.running)
+      browseProc.running = false
+    if (searchProc.running)
+      searchProc.running = false
+  }
+
+  function beginSearch() {
+    searchGen += 1
+    results = []
+    return searchGen
+  }
+
+  function syncSearchField() {
+    syncingQuery = true
+    searchInput.text = activeQuery
+    syncingQuery = false
   }
 
   function refreshMeta() {
@@ -90,7 +118,7 @@ ColumnLayout {
   }
 
   function ensureFlathubPrompt() {
-    if (!flatpakOk || hasFlathub || confirming || applying)
+    if (!flatpakOk || hasFlathub || confirming || applying || onInstalled)
       return
     pendingAction = "flathub"
     pendingDetail = "Adds the Flathub remote for your user (--if-not-exists). Needed to search and install apps."
@@ -114,8 +142,38 @@ ColumnLayout {
     results = next
   }
 
-  function startPopularBrowse() {
+  function fillInstalledResults(gen) {
+    if (gen !== searchGen || mode !== "installed")
+      return
+    const q = installedQuery.trim().toLowerCase()
+    const out = []
+    for (let i = 0; i < installed.length; i++) {
+      const it = installed[i]
+      const hay = (it.name + " " + it.ref + " " + (it.desc || "")).toLowerCase()
+      if (q.length && hay.indexOf(q) < 0)
+        continue
+      out.push({
+        ref: it.ref,
+        name: it.name,
+        version: it.version || "",
+        desc: it.desc || it.ref,
+        repo: "flathub",
+        installed: true,
+        selected: false
+      })
+    }
+    if (gen !== searchGen || mode !== "installed")
+      return
+    results = Packages.sortSearchResults(installedQuery, out).slice(0, resultCap)
+    busy = false
+    status = results.length ? "" : (q.length ? "No installed Flatpaks matched." : "No user Flatpaks installed.")
+  }
+
+  function startPopularBrowse(gen) {
+    if (gen !== searchGen || mode !== "install")
+      return
     const seeds = Packages.popularFlatpakApps.join(" ")
+    browseProc.requestGen = gen
     browseProc.command = [
       "bash",
       "-lc",
@@ -142,27 +200,11 @@ ColumnLayout {
       busy = false
       return
     }
-    if (onInstalled) {
-      const q = query.trim().toLowerCase()
-      const out = []
-      for (let i = 0; i < installed.length; i++) {
-        const it = installed[i]
-        const hay = (it.name + " " + it.ref + " " + (it.desc || "")).toLowerCase()
-        if (q.length && hay.indexOf(q) < 0)
-          continue
-        out.push({
-          ref: it.ref,
-          name: it.name,
-          version: it.version || "",
-          desc: it.desc || it.ref,
-          repo: "flathub",
-          installed: true,
-          selected: false
-        })
-      }
-      results = Packages.sortSearchResults(query, out).slice(0, resultCap)
+    const gen = beginSearch()
+    if (mode === "installed") {
+      abortInstallLoads()
       busy = false
-      status = results.length ? "" : (q.length ? "No installed Flatpaks matched." : "No user Flatpaks installed.")
+      fillInstalledResults(gen)
       return
     }
     if (!hasFlathub) {
@@ -172,22 +214,23 @@ ColumnLayout {
       ensureFlathubPrompt()
       return
     }
-    const q = query.trim()
+    const q = installQuery.trim()
     if (q.length < 2) {
       busy = true
       status = "Loading popular Flatpaks…"
-      startPopularBrowse()
+      startPopularBrowse(gen)
       return
     }
     busy = true
     status = "Searching Flathub…"
+    searchProc.requestGen = gen
     searchProc.command = ["flatpak", "search", "--columns=application:f,name,version,description", q]
     searchProc.running = false
     searchProc.running = true
   }
 
   function scheduleSearch() {
-    if (!flatpakOk)
+    if (!flatpakOk || syncingQuery)
       return
     debounce.restart()
   }
@@ -273,8 +316,14 @@ ColumnLayout {
     ]
     selected: root.mode
     onActivated: id => {
+      if (root.mode === id)
+        return
+      root.abortInstallLoads()
       root.mode = id
       root.results = []
+      root.busy = false
+      root.status = ""
+      root.syncSearchField()
       root.search()
       Qt.callLater(() => searchInput.forceActiveFocus())
     }
@@ -374,9 +423,14 @@ ColumnLayout {
         font.pixelSize: Theme.fontSize
         selectByMouse: true
         clip: true
-        text: root.query
+        text: root.activeQuery
         onTextChanged: {
-          root.query = text
+          if (root.syncingQuery)
+            return
+          if (root.onInstalled)
+            root.installedQuery = text
+          else
+            root.installQuery = text
           root.scheduleSearch()
         }
         Keys.onReturnPressed: {
@@ -504,9 +558,12 @@ ColumnLayout {
           }
         }
         Packages.noteFlathubConfigured(hub)
-        if (root.active && root.flatpakOk && !hub && !root.onInstalled)
+        // Only refresh Install browse/search — never overwrite Installed.
+        if (!root.active || root.mode !== "install")
+          return
+        if (root.flatpakOk && !hub)
           root.ensureFlathubPrompt()
-        else if (root.active && !root.onInstalled && hub)
+        else if (hub)
           root.search()
       }
     }
@@ -533,7 +590,7 @@ ColumnLayout {
           })
         })
         root.installed = out
-        if (root.active && root.onInstalled)
+        if (root.active && root.mode === "installed")
           root.search()
       }
     }
@@ -541,10 +598,14 @@ ColumnLayout {
 
   Process {
     id: browseProc
+    property int requestGen: -1
     command: ["true"]
     stdout: StdioCollector {
       onStreamFinished: {
-        if (root.onInstalled || root.query.trim().length >= 2)
+        const gen = browseProc.requestGen
+        if (gen < 0 || gen !== root.searchGen || root.mode !== "install")
+          return
+        if (root.installQuery.trim().length >= 2)
           return
         const out = []
         text.trim().split("\n").forEach(line => {
@@ -564,6 +625,8 @@ ColumnLayout {
             selected: false
           })
         })
+        if (gen !== root.searchGen || root.mode !== "install")
+          return
         root.results = out.slice(0, root.resultCap)
         root.busy = false
         root.status = out.length
@@ -572,16 +635,23 @@ ColumnLayout {
       }
     }
     onExited: (exitCode, exitStatus) => {
-      if (root.busy && !root.onInstalled && root.query.trim().length < 2 && root.results.length === 0 && exitCode !== 0)
+      const gen = browseProc.requestGen
+      if (gen < 0 || gen !== root.searchGen || root.mode !== "install")
+        return
+      if (root.busy && root.installQuery.trim().length < 2 && root.results.length === 0 && exitCode !== 0)
         root.busy = false
     }
   }
 
   Process {
     id: searchProc
+    property int requestGen: -1
     command: ["true"]
     stdout: StdioCollector {
       onStreamFinished: {
+        const gen = searchProc.requestGen
+        if (gen < 0 || gen !== root.searchGen || root.mode !== "install")
+          return
         const out = []
         text.trim().split("\n").forEach(line => {
           if (!line.length)
@@ -602,13 +672,18 @@ ColumnLayout {
             selected: false
           })
         })
-        root.results = Packages.sortSearchResults(root.query, out).slice(0, root.resultCap)
+        if (gen !== root.searchGen || root.mode !== "install")
+          return
+        root.results = Packages.sortSearchResults(root.installQuery, out).slice(0, root.resultCap)
         root.busy = false
         root.status = root.results.length ? "" : "No Flatpaks matched."
       }
     }
     stderr: StdioCollector {
       onStreamFinished: {
+        const gen = searchProc.requestGen
+        if (gen < 0 || gen !== root.searchGen || root.mode !== "install")
+          return
         if (text.trim().length && root.results.length === 0) {
           root.busy = false
           root.status = text.trim().split("\n")[0]
@@ -616,6 +691,9 @@ ColumnLayout {
       }
     }
     onExited: (exitCode, exitStatus) => {
+      const gen = searchProc.requestGen
+      if (gen < 0 || gen !== root.searchGen || root.mode !== "install")
+        return
       if (root.busy && root.results.length === 0 && exitCode !== 0)
         root.busy = false
     }
@@ -624,11 +702,11 @@ ColumnLayout {
   onActiveChanged: {
     if (active) {
       restoreUi()
+      syncSearchField()
       Packages.refreshHelpers()
       if (Packages.flatpakAvailable) {
         refreshMeta()
-        if (onInstalled)
-          search()
+        search()
         forceActiveFocus()
         Qt.callLater(() => searchInput.forceActiveFocus())
       } else {
@@ -636,15 +714,15 @@ ColumnLayout {
       }
     } else {
       persistUi()
-      debounce.stop()
+      abortInstallLoads()
+      results = []
+      busy = false
       clearPending()
     }
   }
 
   onModeChanged: {
-    if (active && flatpakOk) {
+    if (active)
       persistUi()
-      search()
-    }
   }
 }

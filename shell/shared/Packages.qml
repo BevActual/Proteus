@@ -150,17 +150,29 @@ Singleton {
     _finishPkgMutator(false, "Cancelled.")
   }
 
-  // Leaf UI memory (Install|Installed + query) across visits in this Settings session.
+  // Leaf UI memory (Install|Installed + per-mode query) across visits in this Settings session.
   property var leafUiState: ({})
 
-  function saveLeafUi(key, mode, query) {
+  function saveLeafUi(key, mode, installQuery, installedQuery) {
     const k = String(key || "")
     if (!k.length)
       return
     const next = Object.assign({}, leafUiState)
+    // Back-compat: third arg used to be a single query string.
+    let iq = ""
+    let rq = ""
+    if (arguments.length >= 4) {
+      iq = String(installQuery || "")
+      rq = String(installedQuery || "")
+    } else {
+      const q = String(installQuery || "")
+      iq = mode === "install" ? q : ""
+      rq = mode === "installed" ? q : ""
+    }
     next[k] = {
       mode: String(mode || "installed"),
-      query: String(query || "")
+      installQuery: iq,
+      installedQuery: rq
     }
     leafUiState = next
   }
@@ -172,6 +184,9 @@ Singleton {
       return null
     return {
       mode: st.mode || "installed",
+      installQuery: st.installQuery || "",
+      installedQuery: st.installedQuery || "",
+      // legacy single-query field
       query: st.query || ""
     }
   }

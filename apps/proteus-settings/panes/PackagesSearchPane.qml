@@ -17,7 +17,10 @@ ColumnLayout {
   property var results: []
   property string status: ""
   property bool busy: false
-  property string query: ""
+  property string installQuery: ""
+  property string installedQuery: ""
+  property int searchGen: 0
+  property bool syncingQuery: false
   property string pendingDetail: ""
   property string pendingAction: ""
   property var pendingNames: []
@@ -28,6 +31,7 @@ ColumnLayout {
   readonly property bool confirming: pendingAction.length > 0
   readonly property bool applying: Packages.packageOpBusy
   readonly property bool onInstalled: mode === "installed"
+  readonly property string activeQuery: onInstalled ? installedQuery : installQuery
   readonly property var selectedNames: {
     const out = []
     for (let i = 0; i < results.length; i++) {
@@ -54,7 +58,7 @@ ColumnLayout {
   }
 
   function persistUi() {
-    Packages.saveLeafUi(leafKey, mode, query)
+    Packages.saveLeafUi(leafKey, mode, installQuery, installedQuery)
   }
 
   function restoreUi() {
@@ -63,7 +67,30 @@ ColumnLayout {
       return
     if (st.mode === "install" || st.mode === "installed")
       mode = st.mode
-    query = st.query || ""
+    installQuery = st.installQuery || (st.mode === "install" ? (st.query || "") : "")
+    installedQuery = st.installedQuery || (st.mode === "installed" ? (st.query || "") : "")
+  }
+
+  function abortInstallLoads() {
+    debounce.stop()
+    browseProc.requestGen = -1
+    searchProc.requestGen = -1
+    if (browseProc.running)
+      browseProc.running = false
+    if (searchProc.running)
+      searchProc.running = false
+  }
+
+  function abortInstalledLoads() {
+    removeListProc.requestGen = -1
+    if (removeListProc.running)
+      removeListProc.running = false
+  }
+
+  function beginSearch() {
+    searchGen += 1
+    results = []
+    return searchGen
   }
 
   function setSelected(name, on) {
@@ -84,8 +111,11 @@ ColumnLayout {
     results = next
   }
 
-  function startPopularBrowse() {
+  function startPopularBrowse(gen) {
+    if (gen !== searchGen || mode !== "install")
+      return
     const seeds = Packages.popularRepoPackages.join(" ")
+    browseProc.requestGen = gen
     browseProc.command = [
       "bash",
       "-lc",
@@ -108,29 +138,42 @@ ColumnLayout {
   function search() {
     clearPending()
     persistUi()
+    const gen = beginSearch()
     if (onInstalled) {
+      abortInstallLoads()
       busy = true
       status = "Loading installed packages…"
+      removeListProc.requestGen = gen
       removeListProc.running = false
       removeListProc.running = true
       return
     }
-    const q = query.trim()
+    abortInstalledLoads()
+    const q = installQuery.trim()
     if (q.length < 2) {
       busy = true
       status = "Loading popular packages…"
-      startPopularBrowse()
+      startPopularBrowse(gen)
       return
     }
     busy = true
     status = "Searching…"
+    searchProc.requestGen = gen
     searchProc.command = ["pacman", "-Ss", "--", q]
     searchProc.running = false
     searchProc.running = true
   }
 
   function scheduleSearch() {
+    if (syncingQuery)
+      return
     debounce.restart()
+  }
+
+  function syncSearchField() {
+    syncingQuery = true
+    searchInput.text = activeQuery
+    syncingQuery = false
   }
 
   function proposeBatch() {
@@ -208,8 +251,15 @@ ColumnLayout {
     ]
     selected: root.mode
     onActivated: id => {
+      if (root.mode === id)
+        return
+      root.abortInstallLoads()
+      root.abortInstalledLoads()
       root.mode = id
       root.results = []
+      root.busy = false
+      root.status = ""
+      root.syncSearchField()
       root.search()
       Qt.callLater(() => searchInput.forceActiveFocus())
     }
@@ -247,9 +297,14 @@ ColumnLayout {
         font.pixelSize: Theme.fontSize
         selectByMouse: true
         clip: true
-        text: root.query
+        text: root.activeQuery
         onTextChanged: {
-          root.query = text
+          if (root.syncingQuery)
+            return
+          if (root.onInstalled)
+            root.installedQuery = text
+          else
+            root.installQuery = text
           root.scheduleSearch()
         }
         Keys.onReturnPressed: {
@@ -380,6 +435,7 @@ ColumnLayout {
 
   Process {
     id: removeListProc
+    property int requestGen: -1
     command: [
       "bash",
       "-lc",
@@ -389,7 +445,10 @@ ColumnLayout {
     ]
     stdout: StdioCollector {
       onStreamFinished: {
-        const q = root.query.trim().toLowerCase()
+        const gen = removeListProc.requestGen
+        if (gen < 0 || gen !== root.searchGen || root.mode !== "installed")
+          return
+        const q = root.installedQuery.trim().toLowerCase()
         const out = []
         text.trim().split("\n").forEach(line => {
           if (!line.length)
@@ -412,7 +471,9 @@ ColumnLayout {
             selected: false
           })
         })
-        const ranked = Packages.sortSearchResults(root.query, out)
+        if (gen !== root.searchGen || root.mode !== "installed")
+          return
+        const ranked = Packages.sortSearchResults(root.installedQuery, out)
         root.results = ranked.slice(0, root.resultCap)
         root.busy = false
         root.status = ranked.length
@@ -424,10 +485,14 @@ ColumnLayout {
 
   Process {
     id: browseProc
+    property int requestGen: -1
     command: ["true"]
     stdout: StdioCollector {
       onStreamFinished: {
-        if (root.onInstalled || root.query.trim().length >= 2)
+        const gen = browseProc.requestGen
+        if (gen < 0 || gen !== root.searchGen || root.mode !== "install")
+          return
+        if (root.installQuery.trim().length >= 2)
           return
         const out = []
         text.trim().split("\n").forEach(line => {
@@ -446,6 +511,8 @@ ColumnLayout {
             selected: false
           })
         })
+        if (gen !== root.searchGen || root.mode !== "install")
+          return
         root.results = out.slice(0, root.resultCap)
         root.busy = false
         root.status = out.length
@@ -454,16 +521,23 @@ ColumnLayout {
       }
     }
     onExited: (exitCode, exitStatus) => {
-      if (root.busy && !root.onInstalled && root.query.trim().length < 2 && root.results.length === 0 && exitCode !== 0)
+      const gen = browseProc.requestGen
+      if (gen < 0 || gen !== root.searchGen || root.mode !== "install")
+        return
+      if (root.busy && root.installQuery.trim().length < 2 && root.results.length === 0 && exitCode !== 0)
         root.busy = false
     }
   }
 
   Process {
     id: searchProc
+    property int requestGen: -1
     command: ["true"]
     stdout: StdioCollector {
       onStreamFinished: {
+        const gen = searchProc.requestGen
+        if (gen < 0 || gen !== root.searchGen || root.mode !== "install")
+          return
         const lines = text.split("\n")
         const out = []
         let cur = null
@@ -489,7 +563,9 @@ ColumnLayout {
         }
         if (cur)
           out.push(cur)
-        const ranked = Packages.sortSearchResults(root.query, out)
+        if (gen !== root.searchGen || root.mode !== "install")
+          return
+        const ranked = Packages.sortSearchResults(root.installQuery, out)
         root.results = ranked.slice(0, root.resultCap)
         root.busy = false
         root.status = ranked.length ? "" : "No packages matched."
@@ -497,6 +573,9 @@ ColumnLayout {
     }
     stderr: StdioCollector {
       onStreamFinished: {
+        const gen = searchProc.requestGen
+        if (gen < 0 || gen !== root.searchGen || root.mode !== "install")
+          return
         if (text.trim().length && root.results.length === 0) {
           root.busy = false
           root.status = text.trim().split("\n")[0]
@@ -504,6 +583,9 @@ ColumnLayout {
       }
     }
     onExited: (exitCode, exitStatus) => {
+      const gen = searchProc.requestGen
+      if (gen < 0 || gen !== root.searchGen || root.mode !== "install")
+        return
       if (root.busy && root.results.length === 0 && exitCode !== 0)
         root.busy = false
     }
@@ -512,21 +594,23 @@ ColumnLayout {
   onActiveChanged: {
     if (active) {
       restoreUi()
+      syncSearchField()
       refreshInstalled()
       search()
       forceActiveFocus()
       Qt.callLater(() => searchInput.forceActiveFocus())
     } else {
       persistUi()
-      debounce.stop()
+      abortInstallLoads()
+      abortInstalledLoads()
+      results = []
+      busy = false
       clearPending()
     }
   }
 
   onModeChanged: {
-    if (active) {
+    if (active)
       persistUi()
-      search()
-    }
   }
 }
