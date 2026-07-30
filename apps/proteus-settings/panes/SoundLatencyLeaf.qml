@@ -5,7 +5,7 @@ import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Leaf UI for SoundPane — Latency & buffer.
+// Leaf UI for SoundPane — Latency & buffer (FormRow polish).
 ColumnLayout {
   id: root
   property Item host
@@ -21,22 +21,14 @@ ColumnLayout {
     return null
   }
 
-  Text {
-    Layout.fillWidth: true
-    Layout.maximumWidth: 480
-    text: "PipeWire quantum — higher is smoother, lower is snappier."
-    color: Theme.textMute
-    font.family: Theme.fontFamily
-    font.pixelSize: 12
-    wrapMode: Text.WordWrap
-  }
-
   SettingsGroup {
     title: "Buffer size"
 
     SettingsFormRow {
       label: "Profile"
-      hint: root.activeProfile ? root.activeProfile.hint : ""
+      hint: root.activeProfile
+          ? (root.activeProfile.hint + " · higher smoother, lower snappier")
+          : "Higher is smoother · lower is snappier"
       showSeparator: true
       SettingsSegmented {
         Layout.preferredWidth: 190
@@ -53,21 +45,17 @@ ColumnLayout {
     SettingsFormRow {
       label: "Quantum"
       hint: "Frames per buffer at the graph rate"
-      showSeparator: false
+      showSeparator: host ? host.clockSummary.length === 0 : true
       Text {
-        text: root.activeProfile ? String(root.activeProfile.quantum) : "—"
+        text: root.activeProfile ? (root.activeProfile.quantum + " frames") : "—"
         color: Theme.textDim
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSize
       }
     }
-  }
-
-  SettingsGroup {
-    visible: host && host.clockSummary.length > 0
-    title: "Reported"
 
     SettingsFormRow {
+      visible: host && host.clockSummary.length > 0
       label: "PipeWire"
       hint: host ? host.clockSummary : ""
       showSeparator: false

@@ -5,22 +5,33 @@ import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Leaf UI for SoundPane — Applications.
+// Leaf UI for SoundPane — Applications (FormRow polish).
 ColumnLayout {
   id: root
   property Item host
   width: parent ? parent.width : implicitWidth
   spacing: Theme.spaceMd
 
-  Text {
-    Layout.fillWidth: true
-    Layout.maximumWidth: 480
+  function appHint(app) {
+    if (!app)
+      return ""
+    const vol = (app.volume || 0) + "%"
+    if (app.muted)
+      return app.detail && app.detail.length ? (app.detail + " · muted") : "Muted"
+    if (app.detail && app.detail.length)
+      return app.detail + " · " + vol
+    return vol + " · playing"
+  }
+
+  SettingsGroup {
+    title: "Playing now"
     visible: host && !host.apps.length
-    text: "No playing apps right now. Start audio elsewhere and this list fills in."
-    color: Theme.textMute
-    font.family: Theme.fontFamily
-    font.pixelSize: 12
-    wrapMode: Text.WordWrap
+
+    SettingsFormRow {
+      label: "Applications"
+      hint: "No playing apps — start audio elsewhere and this fills in"
+      showSeparator: false
+    }
   }
 
   SettingsGroup {
@@ -34,13 +45,11 @@ ColumnLayout {
         required property var modelData
         required property int index
         label: modelData.name
-        hint: (modelData.detail && modelData.detail.length)
-            ? (modelData.detail + " · " + modelData.volume + "%")
-            : (modelData.volume + "%")
+        hint: root.appHint(modelData)
         showSeparator: host && index < host.apps.length - 1
 
         Slider {
-          Layout.preferredWidth: 120
+          Layout.preferredWidth: 160
           from: 0
           to: 100
           stepSize: 1
