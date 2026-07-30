@@ -14,12 +14,12 @@ Singleton {
   readonly property bool chromeClear: chromeAlpha < 0.01
 
   // Glass plate alpha for dock — tracks Opacity smoothly.
-  // With blur: soft floor so frosted glass still reads; without: linear to clear.
+  // With blur: richer frost floor so the shelf reads as one continuous glass body.
   readonly property real glassAlpha: {
     if (chromeClear)
       return 0
     if (blur)
-      return Math.max(0.20, Math.min(0.90, chromeAlpha * 0.82 + 0.06))
+      return Math.max(0.26, Math.min(0.88, chromeAlpha * 0.72 + 0.12))
     return chromeAlpha
   }
 
@@ -70,11 +70,13 @@ Singleton {
   readonly property color chromeHairline: light
       ? Qt.rgba(0, 0, 0, chromeClear ? 0 : (blur ? 0.10 : 0.12))
       : Qt.rgba(1, 1, 1, chromeClear ? 0 : (blur ? 0.08 : 0.10))
-  // Soft top specular reserved for masked glass (dock shelf no longer paints a
-  // child strip — Qt radius clip left a hard straight highlight on top).
-  readonly property color dockPlateSpecular: light
-      ? Qt.rgba(1, 1, 1, chromeClear ? 0 : (blur ? 0.22 : 0.10))
-      : Qt.rgba(1, 1, 1, chromeClear ? 0 : (blur ? 0.14 : 0.06))
+  // Soft edge light for continuous glass (curve-following; never a straight strip)
+  readonly property color dockEdgeGlow: light
+      ? Qt.rgba(1, 1, 1, chromeClear ? 0 : (blur ? 0.16 : 0.08))
+      : Qt.rgba(1, 1, 1, chromeClear ? 0 : (blur ? 0.10 : 0.05))
+  // Soft top specular reserved historically — do not paint as a child strip
+  // (Qt radius clip left a hard straight highlight). Prefer dockEdgeGlow.
+  readonly property color dockPlateSpecular: dockEdgeGlow
 
   // Squircle icon plate — macOS Tahoe Icon & widget style: Default / Dark / Clear / Tinted
   readonly property color iconPlateDefault: light

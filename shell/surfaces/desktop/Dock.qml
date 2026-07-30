@@ -259,6 +259,23 @@ Item {
       DockApps.reorderPinnedDesktopId(entry.desktopId || entry.id, dest)
   }
 
+  // Soft curve-following rim (behind plate) — continuous glass edge, not a
+  // straight specular band (Qt clip can't mask a top strip to the squircle).
+  Rectangle {
+    anchors.horizontalCenter: plate.horizontalCenter
+    anchors.bottom: plate.bottom
+    anchors.bottomMargin: -1
+    width: plate.width + 2
+    height: plate.height + 2
+    radius: root.plateRadius + 1
+    color: "transparent"
+    border.width: Theme.chromeClear || !Theme.blur ? 0 : 1
+    border.color: Theme.dockEdgeGlow
+    antialiasing: true
+    z: 0
+    visible: Theme.blur && !Theme.chromeClear
+  }
+
   Rectangle {
     id: plate
     anchors.horizontalCenter: parent.horizontalCenter
@@ -268,9 +285,9 @@ Item {
     radius: root.plateRadius
     color: Theme.dockPlateFill
     antialiasing: true
-    // No child specular — Qt clip on radius does not mask children to the
-    // curve, which left a hard straight highlight across the top edge.
-    border.width: Theme.chromeClear ? 0 : 1
+    // Hairline only when not frosted — blur+edge glow carry the rim instead
+    // of a hard 1px stroke that fights the squircle.
+    border.width: Theme.chromeClear ? 0 : (Theme.blur ? 0 : 1)
     border.color: Theme.chromeHairline
     z: 1
 
