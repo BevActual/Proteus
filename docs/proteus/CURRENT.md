@@ -51,7 +51,7 @@ the thesis ahead of code where marked `planned`.
 | Quickshell shell | `shipped` | Chrome runtime; `/mnt/proteus/shell` via 9p |
 | Nested Hyprland (host) | `shipped` | `scripts/run-nested.sh` — shell-only quick test |
 | Hyprland posture profiles | `partial` — desktop + media/host/home stubs + `proteus-profile.conf`; see [COMPOSITOR.md](./COMPOSITOR.md) |
-| QS version pin / respawn policy | `partial` — `proteus-qs` backoff + version recorded in `qs-guest-smoke`; IgnorePkg/ISO pin later |
+| QS version pin / respawn policy | `partial` — `proteus-qs` flock (one chrome per path) + crash backoff + `--restart`; version recorded in `qs-guest-smoke`; IgnorePkg/ISO pin later |
 
 ---
 
@@ -64,9 +64,9 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 | Top bar (launcher, workspaces, title, clock, settings) | `partial` — glass menu bar; app title on left; status cluster → Control Center (unread badge · DND label) |
 | Control Center (notifications + quick settings) | `shipped` — list empty/Dismiss honesty; toast/`showToast` SoT (DND · CC-open suppress); QS Mute/Unmute + elevated tiles; Settings/NM escapes; no Settings Notifications pane |
 | App launcher (`Super+Space` / `Super+D`) | `partial` — Apps / Files / Clipboard / Actions (Ctrl+1–4; active mode pill labels); fuzzy + tags + Settings; EnvGate unavailable honesty (badge · reasons); calc/convert + near-miss hint; cliphist missing-vs-empty; home-folder Files (depth ≤5 · 40-cap); allowlisted Actions (lock/logout/settings/CC/DND/power) |
-| Dock (pins, magnify, running dots) | `shipped` — floating glass shelf (menu-bar glass family + hairline/specular); smooth magnify; running disc vs active accent pill; Keep/Remove context menu |
+| Dock (pins, magnify, running dots) | `shipped` — floating glass shelf (menu-bar glass family + hairline); smooth magnify; running disc vs active accent pill; long-press edit (−/+ · Done); press-drag reorder / drag-off remove; glass Keep/Remove (`ChromeMenuPlate`) |
 | Session start (`proteus-session`) | `partial` — `start-hyprland` watchdog; no Ghostty exec-once; stray system apps hidden from launcher |
-| Desktop widgets (free place; Customize) | `partial` — long-press empty desktop or `Super+Shift+W`; catalog via `Widgets.qml`; separate from lock |
+| Desktop widgets (free place; Customize) | `partial` — long-press empty desktop or `Super+Shift+W`; free-place + optional Snap to Grid (center graph · no overlap); catalog via `Widgets.qml`; separate from lock |
 | Lock screen (`Super+L`, PAM + `WlSessionLock`) | `shipped` — Customize mode, zone layout, applets; cold boot auto-lock; attempt cooldown after 3 misses |
 | Global shortcuts (launcher, settings, lock) | `shipped` |
 | Hardware probe at session start (`Hardware.qml`) | `shipped` — Wave A |
