@@ -15,6 +15,9 @@ Singleton {
 
   property bool packageOpBusy: false
   property string packageOpStatus: ""
+  property string packageOpCommand: ""
+  property string packageOpLastError: ""
+  property bool packageOpLastOk: true
   property string packageBinPath: ""
   property var packageOpLines: []
 
@@ -117,6 +120,24 @@ Singleton {
     for (let i = 0; i < scored.length; i++)
       out.push(scored[i].item)
     return out
+  }
+
+  function formatOpCommand(args) {
+    if (!args || !args.length)
+      return ""
+    const parts = []
+    for (let i = 0; i < args.length; i++)
+      parts.push(shellQuote(args[i]))
+    return parts.join(" ")
+  }
+
+  function _beginPackageOp(label, args) {
+    packageOpBusy = true
+    packageOpLastError = ""
+    packageOpLastOk = true
+    packageOpCommand = formatOpCommand(args)
+    packageOpLines = [label || "Running…"]
+    packageOpStatus = packageOpLines[0]
   }
 
   function _trimOpLines(maxKeep) {
@@ -342,9 +363,7 @@ Singleton {
       return
     if (!args || !args.length)
       return
-    packageOpBusy = true
-    packageOpLines = [label || "Running…"]
-    packageOpStatus = packageOpLines[0]
+    _beginPackageOp(label || "Running…", args)
     pkgPendingAction = "user"
     pkgPendingPkg = ""
     userOpProc.command = args
@@ -491,14 +510,12 @@ Singleton {
       return
     if (packageOpBusy)
       return
-    packageOpBusy = true
-    packageOpLines = ["Adding AppImage…"]
-    packageOpStatus = packageOpLines[0]
     const base = src.split("/").pop() || "app.AppImage"
     const id = _safeAppImageId(base.replace(/\.AppImage$/i, ""))
     const dest = appImageDir + "/" + id + ".AppImage"
     const desktop = appImageDesktopDir + "/proteus-appimage-" + id + ".desktop"
     const label = id.replace(/-/g, " ")
+    _beginPackageOp("Adding AppImage…", ["install-appimage", src, dest])
     const script = "set -euo pipefail\n"
         + "mkdir -p " + shellQuote(appImageDir) + " " + shellQuote(appImageDesktopDir) + "\n"
         + "cp -f " + shellQuote(src) + " " + shellQuote(dest) + "\n"
@@ -523,11 +540,9 @@ Singleton {
     const safe = _safeAppImageId(id)
     if (!safe.length || packageOpBusy)
       return
-    packageOpBusy = true
-    packageOpLines = ["Removing AppImage…"]
-    packageOpStatus = packageOpLines[0]
     const dest = appImageDir + "/" + safe + ".AppImage"
     const desktop = appImageDesktopDir + "/proteus-appimage-" + safe + ".desktop"
+    _beginPackageOp("Removing AppImage…", ["rm", "-f", dest, desktop])
     const script = "rm -f " + shellQuote(dest) + " " + shellQuote(desktop) + "; printf '%s' ok"
     appImageMutProc.command = ["bash", "-lc", script]
     appImageMutProc.running = false
@@ -575,6 +590,9 @@ Singleton {
     }
 
     packageOpBusy = true
+    packageOpLastError = ""
+    packageOpLastOk = true
+    packageOpCommand = ""
     packageOpLines = ["Looking up proteus-pkg…"]
     packageOpStatus = packageOpLines[0]
     pkgPendingAction = action
@@ -608,8 +626,6 @@ Singleton {
 
   function _startPkgMutator(bin) {
     packageBinPath = bin
-    packageOpLines = ["Authenticate to apply…"]
-    packageOpStatus = packageOpLines[0]
     const args = ["pkexec", bin, pkgPendingAction]
     if (pkgPendingAction === "install" || pkgPendingAction === "remove") {
       if (pkgPendingPkgs.length) {
@@ -622,6 +638,9 @@ Singleton {
       for (let i = 0; i < pkgPendingPkgs.length; i++)
         args.push(pkgPendingPkgs[i])
     }
+    packageOpCommand = formatOpCommand(args)
+    packageOpLines = ["Authenticate to apply…"]
+    packageOpStatus = packageOpLines[0]
     pkgMutatorProc.command = args
     pkgMutatorProc.running = false
     pkgMutatorProc.running = true
@@ -630,10 +649,15 @@ Singleton {
   function _finishPkgMutator(ok, message) {
     const action = pkgPendingAction
     packageOpBusy = false
+    packageOpLastOk = !!ok
     if (message && String(message).length)
       _pushOpLine(message)
     else if (!packageOpStatus.length)
       packageOpStatus = ok ? "Done." : "Failed."
+    if (!ok)
+      packageOpLastError = String(message || "Failed.")
+    else
+      packageOpLastError = ""
     pkgPendingAction = ""
     pkgPendingPkg = ""
     pkgPendingPkgs = []
