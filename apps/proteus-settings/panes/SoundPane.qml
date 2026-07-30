@@ -5,12 +5,12 @@ import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Sound category: list of sub-settings → leaf, same drill-in as Appearance.
+// Sound category hub → leaf loaders (Desktop/Appearance pattern).
 // Page ids: sound · sound-output · sound-input · sound-apps · sound-latency.
 ColumnLayout {
   id: root
   Layout.fillWidth: true
-  spacing: 12
+  spacing: Theme.spaceMd
 
   property string page: "sound"
   signal requestGo(string id)
@@ -143,7 +143,6 @@ ColumnLayout {
   }
 
   function patchApp(id, patch) {
-    // Keep the local model responsive until the next poll.
     const next = root.apps.slice()
     const idx = next.findIndex(a => String(a.id) === String(id))
     if (idx >= 0) {
@@ -159,7 +158,6 @@ ColumnLayout {
     onTriggered: root.refresh()
   }
 
-  // Soft-decay display of Audio.sourcePeak while Input leaf is open.
   Timer {
     id: peakDecayTimer
     interval: 80
@@ -201,416 +199,34 @@ ColumnLayout {
     onTriggered: root.refreshApps()
   }
 
-  // —— Category list ——
   SettingsHubList {
     visible: root.page === "sound"
     items: root.sections
     onActivated: key => root.requestGo(key)
   }
 
-  // —— Output ——
-  ColumnLayout {
-    visible: root.page === "sound-output"
-    Layout.fillWidth: true
-    spacing: Theme.spaceMd
-
-    SettingsGroup {
-      title: "Output"
-
-      SettingsFormRow {
-        label: "Volume"
-        hint: root.volume + "%"
-        showSeparator: true
-        Slider {
-          Layout.preferredWidth: 150
-          from: 0
-          to: 100
-          stepSize: 1
-          value: root.volume
-          enabled: !root.muted
-          onMoved: {
-            root.volume = Math.round(value)
-            Audio.setVolume(root.volume)
-          }
-        }
-      }
-
-      SettingsFormRow {
-        label: "Mute output"
-        hint: root.muted ? "Silenced" : "Audible"
-        showSeparator: true
-        Switch {
-          checked: root.muted
-          onToggled: {
-            root.muted = checked
-            Audio.setMute(checked)
-          }
-        }
-      }
-
-      SettingsFormRow {
-        label: "Test sound"
-        hint: "Play a short tone on the default device"
-        showSeparator: false
-        interactive: true
-        onActivated: Audio.playTestSound()
-        Text {
-          text: "Play"
-          color: Theme.accent
-          font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSize
-        }
-      }
-    }
-
-    SettingsGroup {
-      title: "Device"
-
-      Repeater {
-        model: root.sinks
-
-        SettingsFormRow {
-          required property var modelData
-          required property int index
-          label: modelData.label
-          hint: root.deviceHint(modelData)
-          showSeparator: index < root.sinks.length - 1
-          interactive: !modelData.isDefault
-          onActivated: root.selectSink(modelData.name)
-          Text {
-            visible: !!modelData.isDefault
-            text: "Default"
-            color: Theme.accent
-            font.family: Theme.fontFamily
-            font.pixelSize: 12
-          }
-        }
-      }
-    }
-
-    Text {
-      Layout.fillWidth: true
-      Layout.maximumWidth: 480
-      visible: root.status.length > 0
-      text: root.status
-      color: Theme.textDim
-      font.family: Theme.fontFamily
-      font.pixelSize: 12
-      wrapMode: Text.WordWrap
-    }
-
-    Text {
-      Layout.fillWidth: true
-      Layout.maximumWidth: 480
-      visible: root.nullSinkHint.length > 0
-      text: root.nullSinkHint
-      color: Theme.textDim
-      font.family: Theme.fontFamily
-      font.pixelSize: 12
-      wrapMode: Text.WordWrap
-    }
-
-    Text {
-      Layout.fillWidth: true
-      Layout.maximumWidth: 480
-      text: "Fact: pactl list short sinks · pactl set-sink-volume."
-      color: Theme.textMute
-      font.family: Theme.fontFamily
-      font.pixelSize: 11
-      wrapMode: Text.WordWrap
-    }
+  StickyPaneLoader {
+    want: root.page === "sound-output"
+    source: "SoundOutputLeaf.qml"
+    onLoaded: item.host = root
   }
 
-  // —— Input ——
-  ColumnLayout {
-    visible: root.page === "sound-input"
-    Layout.fillWidth: true
-    spacing: Theme.spaceMd
-
-    Text {
-      Layout.fillWidth: true
-      Layout.maximumWidth: 480
-      visible: !root.sources.length
-      text: "No capture devices reported."
-      color: Theme.textMute
-      font.family: Theme.fontFamily
-      font.pixelSize: 12
-      wrapMode: Text.WordWrap
-    }
-
-    SettingsGroup {
-      visible: root.sources.length > 0
-      title: "Microphone"
-
-      SettingsFormRow {
-        label: "Level"
-        hint: root.inputVolume + "%"
-        showSeparator: true
-        Slider {
-          Layout.preferredWidth: 150
-          from: 0
-          to: 100
-          stepSize: 1
-          value: root.inputVolume
-          enabled: !root.inputMuted
-          onMoved: {
-            root.inputVolume = Math.round(value)
-            Audio.setSourceVolume(root.inputVolume)
-          }
-        }
-      }
-
-      SettingsFormRow {
-        label: "Mute input"
-        hint: root.inputMuted ? "Muted" : "Live"
-        showSeparator: false
-        Switch {
-          checked: root.inputMuted
-          onToggled: {
-            root.inputMuted = checked
-            Audio.setSourceMute(checked)
-            if (checked)
-              root.inputPeak = 0
-          }
-        }
-      }
-    }
-
-    SettingsGroup {
-      visible: root.sources.length > 0
-      title: "Input level"
-
-      Item {
-        Layout.fillWidth: true
-        Layout.preferredHeight: 56
-
-        ColumnLayout {
-          anchors.fill: parent
-          anchors.leftMargin: Theme.spaceMd
-          anchors.rightMargin: Theme.spaceMd
-          anchors.topMargin: Theme.spaceSm
-          anchors.bottomMargin: Theme.spaceSm
-          spacing: Theme.spaceSm
-
-          Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 10
-            radius: 3
-            color: Theme.bg
-            border.width: 1
-            border.color: Theme.border
-            clip: true
-
-            Rectangle {
-              anchors.left: parent.left
-              anchors.top: parent.top
-              anchors.bottom: parent.bottom
-              width: parent.width * Math.max(0, Math.min(1, root.inputPeak / 100))
-              color: root.inputMuted ? Theme.textMute
-                  : (root.inputPeak > 90 ? Theme.danger : Theme.accent)
-            }
-          }
-
-          Text {
-            Layout.fillWidth: true
-            text: root.inputMuted ? "Meter paused while muted"
-                : (Math.round(root.inputPeak) + "% peak · speak to test")
-            color: Theme.textMute
-            font.family: Theme.fontFamily
-            font.pixelSize: 11
-          }
-        }
-      }
-    }
-
-    SettingsGroup {
-      visible: root.sources.length > 0
-      title: "Device"
-
-      Repeater {
-        model: root.sources
-
-        SettingsFormRow {
-          required property var modelData
-          required property int index
-          label: modelData.label
-          hint: modelData.name
-          showSeparator: index < root.sources.length - 1
-          interactive: !modelData.isDefault
-          onActivated: root.selectSource(modelData.name)
-          Text {
-            visible: !!modelData.isDefault
-            text: "Default"
-            color: Theme.accent
-            font.family: Theme.fontFamily
-            font.pixelSize: 12
-          }
-        }
-      }
-    }
-
-    Text {
-      Layout.fillWidth: true
-      Layout.maximumWidth: 480
-      text: "Fact: pactl for devices · streaming audio-peak.py for the meter."
-      color: Theme.textMute
-      font.family: Theme.fontFamily
-      font.pixelSize: 11
-      wrapMode: Text.WordWrap
-    }
+  StickyPaneLoader {
+    want: root.page === "sound-input"
+    source: "SoundInputLeaf.qml"
+    onLoaded: item.host = root
   }
 
-  // —— Applications ——
-  ColumnLayout {
-    visible: root.page === "sound-apps"
-    Layout.fillWidth: true
-    spacing: Theme.spaceMd
-
-    Text {
-      Layout.fillWidth: true
-      Layout.maximumWidth: 480
-      visible: !root.apps.length
-      text: "No playing apps right now. Start audio elsewhere and this list fills in."
-      color: Theme.textMute
-      font.family: Theme.fontFamily
-      font.pixelSize: 12
-      wrapMode: Text.WordWrap
-    }
-
-    SettingsGroup {
-      visible: root.apps.length > 0
-      title: "Playing now"
-
-      Repeater {
-        model: root.apps
-
-        SettingsFormRow {
-          required property var modelData
-          required property int index
-          label: modelData.name
-          hint: (modelData.detail && modelData.detail.length)
-              ? (modelData.detail + " · " + modelData.volume + "%")
-              : (modelData.volume + "%")
-          showSeparator: index < root.apps.length - 1
-
-          Slider {
-            Layout.preferredWidth: 120
-            from: 0
-            to: 100
-            stepSize: 1
-            value: modelData.volume
-            enabled: !modelData.muted
-            onMoved: {
-              const v = Math.round(value)
-              Audio.setSinkInputVolume(modelData.id, v)
-              root.patchApp(modelData.id, {
-                volume: v
-              })
-            }
-          }
-
-          Switch {
-            checked: !!modelData.muted
-            onToggled: {
-              Audio.setSinkInputMute(modelData.id, checked)
-              root.patchApp(modelData.id, {
-                muted: checked
-              })
-              refreshAppsSoon.restart()
-            }
-          }
-        }
-      }
-    }
-
-    Text {
-      Layout.fillWidth: true
-      Layout.maximumWidth: 480
-      text: "Fact: pactl list sink-inputs · set-sink-input-volume / -mute."
-      color: Theme.textMute
-      font.family: Theme.fontFamily
-      font.pixelSize: 11
-      wrapMode: Text.WordWrap
-    }
+  StickyPaneLoader {
+    want: root.page === "sound-apps"
+    source: "SoundAppsLeaf.qml"
+    onLoaded: item.host = root
   }
 
-  // —— Latency & buffer ——
-  ColumnLayout {
-    id: latencyLeaf
-    visible: root.page === "sound-latency"
-    Layout.fillWidth: true
-    spacing: Theme.spaceMd
-
-    readonly property var activeProfile: {
-      const list = Audio.audioLatencyProfiles
-      for (let i = 0; i < list.length; i++) {
-        if (list[i].id === Config.audioLatency)
-          return list[i]
-      }
-      return null
-    }
-
-    Text {
-      Layout.fillWidth: true
-      Layout.maximumWidth: 480
-      text: "PipeWire quantum — higher is smoother, lower is snappier."
-      color: Theme.textMute
-      font.family: Theme.fontFamily
-      font.pixelSize: 12
-      wrapMode: Text.WordWrap
-    }
-
-    SettingsGroup {
-      title: "Buffer size"
-
-      SettingsFormRow {
-        label: "Profile"
-        hint: latencyLeaf.activeProfile ? latencyLeaf.activeProfile.hint : ""
-        showSeparator: true
-        SettingsSegmented {
-          Layout.preferredWidth: 190
-          options: Audio.audioLatencyProfiles
-          selected: Config.audioLatency
-          onActivated: id => {
-            Audio.setAudioLatency(id)
-            refreshTimer.restart()
-          }
-        }
-      }
-
-      SettingsFormRow {
-        label: "Quantum"
-        hint: "Frames per buffer at the graph rate"
-        showSeparator: false
-        Text {
-          text: latencyLeaf.activeProfile ? String(latencyLeaf.activeProfile.quantum) : "—"
-          color: Theme.textDim
-          font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSize
-        }
-      }
-    }
-
-    SettingsGroup {
-      visible: root.clockSummary.length > 0
-      title: "Reported"
-
-      SettingsFormRow {
-        label: "PipeWire"
-        hint: root.clockSummary
-        showSeparator: false
-      }
-    }
-
-    Text {
-      Layout.fillWidth: true
-      Layout.maximumWidth: 480
-      text: "Fact: pw-metadata -n settings 0 clock.force-quantum."
-      color: Theme.textMute
-      font.family: Theme.fontFamily
-      font.pixelSize: 11
-      wrapMode: Text.WordWrap
-    }
+  StickyPaneLoader {
+    want: root.page === "sound-latency"
+    source: "SoundLatencyLeaf.qml"
+    onLoaded: item.host = root
   }
 
   onActiveChanged: {
