@@ -2,7 +2,7 @@
 doc: settings-ia
 role: reference
 audience: UI, contributors
-last_updated: "2026-07-29"
+last_updated: "2026-07-30"
 doc_status: active
 scope: Settings control-center categories, backends, hybrid UX pattern
 related:
@@ -95,7 +95,7 @@ Left-nav + content pane (macOS System Settings style).
 
 | Category | Holds | Backend | Status |
 |----------|-------|---------|--------|
-| **Appearance** (`style`) | Category → Accent, Background, Lock screen, Icons (plate + dock pins), Font | `settings.json`, Theme, `proteus-bg` | `partial` |
+| **Appearance** (`style`) | Category → Accent, Background, Lock screen, Icons (plate + dock pins), Font | `settings.json`, Theme, `proteus-bg`; shared Kind/color kit | `partial` |
 | **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Launcher (Spotlight tags/recents) | json + hyprctl + `proteus-general.conf` · `launcherRecents` / `launcherTagCatalog` / `launcherAppTags` | `shipped` |
 | **Displays** (`displays`) | Per-monitor scale + mode + layout canvas (Apply); conf escape hatch | hyprctl + `proteus-monitors.conf` | `partial` |
 | **Sound** (`sound`) | Category → Output (volume/mute/device/test tone), Input (level, meter, device), Applications (per-app volume), Latency & buffer | pactl + `parec` + `pw-metadata` | `partial` |
@@ -139,18 +139,21 @@ the sub-settings list:
 
 | Sub-setting | Role |
 |-------------|------|
-| Accent color | Presets + custom hex + **HSV color graph**; **Dark / Light**; **Opacity** (0% clear · 100% solid, live) + **Blur** (frosted bar/dock/launcher; debounced Hypr apply) |
-| Background | Kind hub (Qt dialogs): Color (+ presets + **HSV color graph**) · Image (+ folder slideshow) · Video (Qt Multimedia) · Animated (Drift / Pulse / Orbit / Aurora / Beacon). Applied by **`proteus-bg`** (Hypr `exec-once`) |
-| Lock screen | Wallpaper Kind + dim in Settings; **widgets only via lock Customize** (long-press) |
+| Accent color | Presets + custom hex + **HSV color graph** (`kit/ColorGraphPicker`); **Dark / Light** (`kit/SettingsSegmented`); **Opacity** (0% clear · 100% solid, live) + **Blur** (frosted bar/dock/launcher; debounced Hypr apply) |
+| Background | Kind hub (`kit/SettingsKindPicker`): Color (`kit/SettingsColorPresetGroup` + graph) · Image (built-in stock + albums/slideshow; empty-album honesty; Missing thumb overlay) · Daily · Video · Animated. Applied by **`proteus-bg`** (Hypr `exec-once`) |
+| Lock screen | Same Kind/color kit as Background + dim; Match desktop; **widgets only via lock Customize** (long-press) — not in Settings |
 | Icons | **Default / Dark / Clear / Tinted** restyle icon artwork (macOS Tahoe); custom art Switch/Reset; dock **Keep / Remove** via right-click (running apps appear on dock) |
 | Desktop widgets | **Not in Settings** — unlocked desktop long-press or `Super+Shift+W` → Customize; free place (not stacked); separate `desktopWidgets[]` |
 | Notifications / DND | **Shell Control Center** (top-bar status cluster); no Settings pane yet — deep Sound/Network stay in existing panes |
-| Font | System `fc-list` discovery + size; live preview |
+| Font | System `fc-list` discovery + size; live preview (elide-safe cards) |
 
 Open a row → leaf controls; **‹ Appearance** / Esc returns to the list. Desktop
 uses the same pattern. Pane visibility is owned by `Settings.qml` (only one
 category visible at a time). Page id remains `style` / `style-*`.
 
+**Module rule:** Appearance helpers (`ColorGraphPicker`, Kind/color pickers,
+segmented chrome) live in `kit/` (or `shell/shared`) — not bare `panes/` types
+without a qmldir.
 ---
 
 ## 5. Keyboard pattern

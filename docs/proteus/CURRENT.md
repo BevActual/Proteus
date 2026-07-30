@@ -2,7 +2,7 @@
 doc: current
 role: status
 audience: contributors, coding agents
-last_updated: "2026-07-29"
+last_updated: "2026-07-30"
 doc_status: active
 scope: Honest inventory of what exists in the repo / guest today
 related:
@@ -84,7 +84,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 
 | Pane | Status |
 |------|--------|
-| Appearance → Accent / Background / Lock / Icons / Font (`style`) | `partial` — lock wallpaper/dim in Settings; widgets via lock Customize (long-press); Kind parity, daily, slideshow, fonts, `proteus-bg` |
+| Appearance → Accent / Background / Lock / Icons / Font (`style`) | `partial` — Kind/color chrome shared via `kit/` (`SettingsKindPicker`, `SettingsColorPresetGroup`, `ColorGraphPicker`); Dark/Light segmented; empty-album honesty + Missing stock thumbs; lock wallpaper/dim in Settings (widgets via lock Customize); daily/slideshow/fonts/`proteus-bg`; mega-page merge Out |
 | Desktop → Gaps / Borders / Motion / Dock & menu bar / Launcher (`proteus-general.conf` + sizes + Spotlight tags/recents) | `shipped` |
 | Displays (scale / mode / orientation, Identify; layout canvas) | `partial` — drag layout + full-snapshot Revert; multi-monitor dogfood preferred |
 | Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) | `shipped` |
