@@ -27,10 +27,16 @@ Item {
   y: dragging ? dragY : (frame ? frame.y : 0)
   width: frame ? frame.width : 100
   height: frame ? frame.height : 80
+  // Scale from top-left so magnify doesn't bias snap toward geometric center.
+  transformOrigin: Item.TopLeft
 
   property bool dragging: false
   property real dragX: 0
   property real dragY: 0
+  property real grabParentX: 0
+  property real grabParentY: 0
+  property real grabItemX: 0
+  property real grabItemY: 0
 
   scale: (customizeMode && selected) ? 1.04 : (customizeMode ? 1.02 : 1)
   Behavior on scale {
@@ -146,15 +152,21 @@ Item {
       root.dragging = true
       root.dragX = root.x
       root.dragY = root.y
+      const p = mapToItem(root.parent, mouse.x, mouse.y)
+      root.grabParentX = p.x
+      root.grabParentY = p.y
+      root.grabItemX = root.x
+      root.grabItemY = root.y
       pressOX = mouse.x
       pressOY = mouse.y
     }
     onPositionChanged: mouse => {
       if (!root.dragging || !root.parent)
         return
+      // Parent-space delta — survives snap jumps + scale better than local pressOX alone.
       const p = mapToItem(root.parent, mouse.x, mouse.y)
-      const rawX = p.x - pressOX
-      const rawY = p.y - pressOY
+      const rawX = root.grabItemX + (p.x - root.grabParentX)
+      const rawY = root.grabItemY + (p.y - root.grabParentY)
       if (root.layout && root.layout.snapToGrid) {
         const snapped = root.layout.snapPixel(rawX, rawY, root.width, root.height)
         root.dragX = snapped.x

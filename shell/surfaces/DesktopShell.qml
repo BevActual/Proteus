@@ -111,13 +111,10 @@ Scope {
       exclusiveZone: 0
       color: "transparent"
 
-      // Keep widgets out from under the translucent dock — otherwise clock/date
-      // (and other applet text) ghosts through the shelf when chrome is clear/blurred.
-      readonly property int dockClearance: {
-        if (ShellState.desktopCustomizeMode || !Config.dockEnabled)
-          return 0
-        return Theme.dockReserved
-      }
+      // Usable desktop only — keep applets out from under menu bar + dock
+      // (including Customize; snap grid covers this surface, not chrome).
+      readonly property int topClearance: Theme.barHeight
+      readonly property int bottomClearance: Config.dockEnabled ? Theme.dockReserved : Theme.spaceMd
 
       anchors {
         top: true
@@ -125,7 +122,8 @@ Scope {
         right: true
         bottom: true
       }
-      margins.bottom: dockClearance
+      margins.top: topClearance
+      margins.bottom: bottomClearance
 
       Component.onCompleted: {
         if (deskWidgetsWin.WlrLayershell != null) {

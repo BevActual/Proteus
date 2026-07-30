@@ -1,6 +1,7 @@
 import QtQuick
 
-// Desktop widget frames — free place by default; optional center-anchored graph snap.
+// Desktop widget frames — free place by default; optional center-anchored graph snap
+// over the usable surface (shell insets exclude menu bar + dock).
 QtObject {
   id: root
 
@@ -9,18 +10,16 @@ QtObject {
   property var widgets: []
   property bool snapToGrid: false
 
-  // Graph-paper pitch (px). Origin is screen center — dead-middle is always a snap.
-  readonly property real pitch: 48
-  readonly property real margin: Math.max(12, Math.min(surfaceWidth, surfaceHeight) * 0.02)
+  // Graph-paper pitch (px). Origin = usable-surface center (dead-middle always snaps).
+  readonly property real pitch: 40
+  readonly property real margin: Math.max(8, Math.min(surfaceWidth, surfaceHeight) * 0.015)
   readonly property real originX: surfaceWidth * 0.5
   readonly property real originY: surfaceHeight * 0.5
 
-  // Overlay bookkeeping (how many lines each side of center).
-  readonly property int halfCols: Math.max(1, Math.ceil((surfaceWidth * 0.5 - margin) / pitch))
-  readonly property int halfRows: Math.max(1, Math.ceil((surfaceHeight * 0.5 - margin) / pitch))
+  readonly property int halfCols: Math.max(1, Math.floor((surfaceWidth * 0.5 - margin) / pitch))
+  readonly property int halfRows: Math.max(1, Math.floor((surfaceHeight * 0.5 - margin) / pitch))
   readonly property int gridCols: halfCols * 2 + 1
   readonly property int gridRows: halfRows * 2 + 1
-  // Compat aliases for older overlay bits
   readonly property real cellWidth: pitch
   readonly property real cellHeight: pitch
   readonly property real gutter: 0
@@ -80,39 +79,47 @@ QtObject {
     return 96
   }
 
+  // Keep the whole widget inside the usable surface.
   function clampPixel(px, py, width, height) {
-    const maxX = Math.max(0, surfaceWidth - width)
-    const maxY = Math.max(0, surfaceHeight - height)
+    const minX = margin
+    const minY = margin
+    const maxX = Math.max(minX, surfaceWidth - width - margin)
+    const maxY = Math.max(minY, surfaceHeight - height - margin)
     return {
-      x: Math.max(0, Math.min(maxX, px)),
-      y: Math.max(0, Math.min(maxY, py))
+      x: Math.max(minX, Math.min(maxX, px)),
+      y: Math.max(minY, Math.min(maxY, py))
     }
   }
 
-  // Snap widget *center* to nearest graph intersection (center = 0,0).
+  // Snap widget center to nearest graph intersection; clamp to usable area.
   function snapPixel(px, py, width, height) {
     const cx = px + width * 0.5
     const cy = py + height * 0.5
-    const gx = Math.round((cx - originX) / pitch) * pitch
-    const gy = Math.round((cy - originY) / pitch) * pitch
+    let ix = Math.round((cx - originX) / pitch)
+    let iy = Math.round((cy - originY) / pitch)
+    // Keep center on a drawn intersection (halfCols/halfRows).
+    ix = Math.max(-halfCols, Math.min(halfCols, ix))
+    iy = Math.max(-halfRows, Math.min(halfRows, iy))
+    const gx = ix * pitch
+    const gy = iy * pitch
     return clampPixel(originX + gx - width * 0.5, originY + gy - height * 0.5, width, height)
   }
 
   function freeNormFromPixel(px, py, width, height) {
-    const maxX = Math.max(1, surfaceWidth - width - margin)
-    const maxY = Math.max(1, surfaceHeight - height - margin)
+    const spanX = Math.max(1, surfaceWidth - width - 2 * margin)
+    const spanY = Math.max(1, surfaceHeight - height - 2 * margin)
     return {
-      x: Math.max(0, Math.min(1, (px - margin) / maxX)),
-      y: Math.max(0, Math.min(1, (py - margin) / maxY))
+      x: Math.max(0, Math.min(1, (px - margin) / spanX)),
+      y: Math.max(0, Math.min(1, (py - margin) / spanY))
     }
   }
 
   function pixelFromFreeNorm(nx, ny, width, height) {
-    const maxX = Math.max(0, surfaceWidth - width - margin)
-    const maxY = Math.max(0, surfaceHeight - height - margin)
+    const spanX = Math.max(0, surfaceWidth - width - 2 * margin)
+    const spanY = Math.max(0, surfaceHeight - height - 2 * margin)
     return {
-      x: margin + Math.max(0, Math.min(1, Number(nx))) * maxX,
-      y: margin + Math.max(0, Math.min(1, Number(ny))) * maxY
+      x: margin + Math.max(0, Math.min(1, Number(nx))) * spanX,
+      y: margin + Math.max(0, Math.min(1, Number(ny))) * spanY
     }
   }
 
