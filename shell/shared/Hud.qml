@@ -3,8 +3,8 @@ pragma Singleton
 import Quickshell
 import QtQuick
 
-// Status / HUD glass family SoT — show/hide/auto-dismiss only (#1157).
-// Volume/brightness wiring lands in #1158–#1159.
+  // Soften comment — volume wired #1158; brightness #1159
+  // Status / HUD glass family SoT — show/hide/auto-dismiss.
 Singleton {
   id: root
 

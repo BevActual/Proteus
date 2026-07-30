@@ -44,6 +44,7 @@ REQUIRED=(
   LockLayoutZones.qml
   Notifications.qml
   Hud.qml
+  Brightness.qml
   Packages.qml
   DockApps.qml
   Time.qml

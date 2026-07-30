@@ -69,6 +69,20 @@ Scope {
     onPressed: Audio.toggleMuteHud()
   }
 
+  GlobalShortcut {
+    appid: "proteus"
+    name: "brightness-up"
+    description: "Raise brightness"
+    onPressed: Brightness.stepBrightness(5)
+  }
+
+  GlobalShortcut {
+    appid: "proteus"
+    name: "brightness-down"
+    description: "Lower brightness"
+    onPressed: Brightness.stepBrightness(-5)
+  }
+
   IpcHandler {
     target: "lock"
     function lock(): void {
@@ -95,6 +109,15 @@ Scope {
     }
     function volumeMute(): void {
       Audio.toggleMuteHud()
+    }
+    function brightnessUp(): void {
+      Brightness.stepBrightness(5)
+    }
+    function brightnessDown(): void {
+      Brightness.stepBrightness(-5)
+    }
+    function brightnessDemo(): void {
+      Hud.show("brightness", 60, "Brightness")
     }
     function hide(): void {
       Hud.hide()

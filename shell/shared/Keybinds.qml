@@ -262,6 +262,24 @@ Singleton {
       key: "XF86AudioMute",
       dispatcher: "global",
       arg: "proteus:volume-mute"
+    },
+    {
+      id: "brightness-up",
+      category: "Media",
+      label: "Brightness up",
+      mods: "",
+      key: "XF86MonBrightnessUp",
+      dispatcher: "global",
+      arg: "proteus:brightness-up"
+    },
+    {
+      id: "brightness-down",
+      category: "Media",
+      label: "Brightness down",
+      mods: "",
+      key: "XF86MonBrightnessDown",
+      dispatcher: "global",
+      arg: "proteus:brightness-down"
     }
   ]
 
