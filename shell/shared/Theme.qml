@@ -67,6 +67,10 @@ Singleton {
       : Qt.rgba(0.11, 0.11, 0.12, glassAlpha)
   // Floating menus / context plates — dock glass family (CHROME · #1149)
   readonly property color menuPlateFill: dockPlateFill
+  // Status HUD chip — elevated glass family (slightly clearer than dock frost)
+  readonly property color hudFill: light
+      ? Qt.rgba(0.96, 0.96, 0.97, Math.max(menuBarAlpha, Math.min(0.78, glassAlpha * 0.92)))
+      : Qt.rgba(0.14, 0.14, 0.15, Math.max(menuBarAlpha, Math.min(0.82, glassAlpha * 0.95)))
   readonly property color chromeHairline: light
       ? Qt.rgba(0, 0, 0, chromeClear ? 0 : (blur ? 0.10 : 0.12))
       : Qt.rgba(1, 1, 1, chromeClear ? 0 : (blur ? 0.08 : 0.10))

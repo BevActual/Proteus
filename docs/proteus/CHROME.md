@@ -118,8 +118,8 @@ honest empty.
 | `scrimFill` | `bg` × (0.28 light / 0.45 dark) × max(alpha, 0.4) | Dim overlays |
 | `glassAlpha` | linear opacity; richer frost floor when blur on | Dock frost amount |
 | `menuBarAlpha` | clearer curve than dock (wallpaper-first) | Menu bar frost |
-| `menuBarFill` / `dockPlateFill` / `menuPlateFill` | frosted plate × bar/dock alpha | Menu bar · Dock shelf · context menus |
-| `dockEdgeGlow` | soft curve-following rim (not a straight strip) | Dock continuous glass edge |
+| `menuBarFill` / `dockPlateFill` / `menuPlateFill` / `hudFill` | frosted plate × bar/dock/HUD alpha | Menu bar · Dock · menus · Status HUD |
+| `dockEdgeGlow` | soft curve-following rim (not a straight strip) | Dock continuous glass edge · HUD rim |
 | `chromeHairline` | black/white @ ~8–12% (hidden when clear) | Hairlines on glass chrome |
 | `chromeClear` | `chromeAlpha < 0.01` | Fully clear plate |
 

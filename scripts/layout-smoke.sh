@@ -43,6 +43,7 @@ REQUIRED=(
   ShellState.qml
   LockLayoutZones.qml
   Notifications.qml
+  Hud.qml
   Packages.qml
   DockApps.qml
   Time.qml

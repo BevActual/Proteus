@@ -55,6 +55,22 @@ Scope {
     }
   }
 
+  IpcHandler {
+    target: "hud"
+    function ping(): void {
+      Hud.show("demo", 64, "HUD")
+    }
+    function volume(value: int): void {
+      Hud.show("volume", value, "")
+    }
+    function brightness(value: int): void {
+      Hud.show("brightness", value, "")
+    }
+    function hide(): void {
+      Hud.hide()
+    }
+  }
+
   WlSessionLock {
     id: sessionLock
     locked: ShellState.sessionLocked
@@ -374,6 +390,54 @@ Scope {
       Region {
         id: toastMask
         item: toastLayer.cardItem
+      }
+    }
+  }
+
+  // Status / HUD glass chip (own overlay — independent of toast/CC)
+  Variants {
+    model: Quickshell.screens
+
+    PanelWindow {
+      id: hudWin
+      required property var modelData
+      screen: modelData
+
+      readonly property bool isFocused: {
+        const mon = Hyprland.monitorFor(modelData)
+        return mon ? mon.focused : (modelData === Quickshell.screens[0])
+      }
+
+      visible: !ShellState.sessionLocked && isFocused && Hud.hudVisible
+      exclusionMode: ExclusionMode.Ignore
+      color: "transparent"
+
+      anchors {
+        top: true
+        left: true
+        right: true
+        bottom: true
+      }
+
+      Component.onCompleted: {
+        if (hudWin.WlrLayershell != null) {
+          hudWin.WlrLayershell.namespace = "proteus-hud"
+          hudWin.WlrLayershell.layer = WlrLayer.Overlay
+        }
+      }
+
+      StatusHud {
+        id: hudLayer
+        anchors.fill: parent
+      }
+
+      // Click-through: only the chip geometry is in the input region, and the
+      // chip itself has no MouseArea — Wayland still needs a non-empty mask
+      // for some compositors to map the layer.
+      mask: hudMask
+      Region {
+        id: hudMask
+        item: hudLayer.cardItem
       }
     }
   }

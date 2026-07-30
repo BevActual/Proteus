@@ -53,7 +53,7 @@ Item {
     if (blurOn) {
       out += "# Proteus chrome blur (Settings → Appearance) — Hyprland ≥0.56\n"
       out += "# Scope to chrome namespaces only (not wallpaper / desktop widgets).\n"
-      const namespaces = ["proteus-bar", "proteus-dock", "proteus-launcher", "proteus-control-center"]
+      const namespaces = ["proteus-bar", "proteus-dock", "proteus-launcher", "proteus-control-center", "proteus-hud"]
       for (let i = 0; i < namespaces.length; i++)
         out += "layerrule = blur on, ignore_alpha " + ignoreAlpha + ", match:namespace " + namespaces[i] + "\n"
     }
@@ -219,7 +219,7 @@ Item {
       command: ["hyprctl", "keyword", "decoration:blur:ignore_opacity", "1"]
     })
     if (p.enabled) {
-      const namespaces = ["proteus-bar", "proteus-dock", "proteus-launcher", "proteus-control-center"]
+      const namespaces = ["proteus-bar", "proteus-dock", "proteus-launcher", "proteus-control-center", "proteus-hud"]
       for (let i = 0; i < namespaces.length; i++) {
         Quickshell.execDetached({
           command: ["hyprctl", "keyword", "layerrule", "blur on, ignore_alpha " + p.ignoreAlpha + ", match:namespace " + namespaces[i]]
