@@ -139,5 +139,35 @@ function tryConvert(expr) {
 }
 
 function tryCalc(expr) {
-  return tryConvert(expr) || tryMath(expr)
+  const conv = tryConvert(expr)
+  if (conv) {
+    conv.kind = "convert"
+    return conv
+  }
+  const math = tryMath(expr)
+  if (math) {
+    math.kind = "math"
+    return math
+  }
+  return null
+}
+
+// True when the query looks like calc/convert but may still fail to evaluate.
+function looksLikeCalc(expr) {
+  const raw = stripSpaces(expr)
+  if (!raw.length || raw.length > 80)
+    return false
+  if (!/\d/.test(raw))
+    return false
+  if (/^(?:to|in|as)\b/i.test(raw))
+    return false
+  // Unit convert shape: "32 f to c" / "10km in miles"
+  if (/^-?\d+(?:\.\d+)?\s*[a-z]+\s+(?:to|in|as)\s+[a-z]+$/i.test(raw))
+    return true
+  if (/^-?\d+(?:\.\d+)?[a-z]+\s+(?:to|in|as)\s+[a-z]+$/i.test(raw))
+    return true
+  // Math shape: digits + operators (not a plain integer/decimal alone)
+  if (/^[\d+\-*/().%\s^]+$/.test(raw) && /[+\-*/^%]/.test(raw))
+    return true
+  return false
 }

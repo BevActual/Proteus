@@ -220,10 +220,10 @@ Item {
 
   function runFileSearch() {
     const q = search.text.trim()
-    filesHint = q.length ? "Searching…" : "Type a name to search your home folder"
+    filesHint = q.length ? "Searching home folder…" : "Type a name to search your home folder (depth ≤5)."
     if (!q.length) {
       fileHits = []
-      filesHint = "Type a name to search your home folder"
+      filesHint = "Type a name to search your home folder (depth ≤5)."
       return
     }
     fileProc.running = false
@@ -236,6 +236,7 @@ Item {
           + "home_depth = home.count(os.sep)\n"
           + "skip = {'.git','node_modules','.cache','Trash','.npm','.cargo','.local'}\n"
           + "hits = []\n"
+          + "capped = False\n"
           + "for root, dirs, files in os.walk(home):\n"
           + "  if root.count(os.sep) - home_depth > 5:\n"
           + "    dirs[:] = []\n"
@@ -249,8 +250,9 @@ Item {
           + "    path = os.path.join(root, name)\n"
           + "    hits.append({'path': path, 'name': name, 'dir': os.path.isdir(path)})\n"
           + "    if len(hits) >= 40:\n"
-          + "      print(json.dumps(hits)); raise SystemExit\n"
-          + "print(json.dumps(hits))\n",
+          + "      capped = True\n"
+          + "      print(json.dumps({'hits': hits, 'capped': True})); raise SystemExit\n"
+          + "print(json.dumps({'hits': hits, 'capped': False}))\n",
       q
     ]
     fileProc.running = true
@@ -388,17 +390,31 @@ Item {
 
     const calc = Calc.tryCalc(rawQ)
     if (calc) {
+      const kindLabel = calc.kind === "convert" ? "Convert" : "Calculator"
       rows.push({
         kind: "calc",
         entry: null,
         path: "",
         name: calc.display,
-        subtitle: "= " + calc.expression,
+        subtitle: kindLabel + " · Enter copies · = " + calc.expression,
         icon: "accessories-calculator",
         blocked: false,
         score: 5000,
         clipLine: "",
         calcValue: String(calc.display)
+      })
+    } else if (Calc.looksLikeCalc(rawQ)) {
+      rows.push({
+        kind: "hint",
+        entry: null,
+        path: "",
+        name: "Can't evaluate",
+        subtitle: "Try 2+2, 32 F to C, or 10 km in miles",
+        icon: "accessories-calculator",
+        blocked: true,
+        score: 4500,
+        clipLine: "",
+        calcValue: ""
       })
     }
 
@@ -741,14 +757,14 @@ Item {
       if (filesHint.length)
         return filesHint
       if (search.text.trim().length)
-        return "No files match in your home folder."
-      return "Type a name to search your home folder."
+        return "No files match under ~ (depth ≤5, skips dotdirs)."
+      return "Type a name to search your home folder (depth ≤5)."
     }
     if (mode === "clipboard") {
       if (clipHint.length && !clipHits.length)
         return clipHint
       if (search.text.trim().length)
-        return "No clipboard matches."
+        return "No clipboard matches in recent history."
       return "Clipboard history is empty — needs cliphist + wl-paste watchers."
     }
     if (mode === "actions") {
@@ -1006,10 +1022,15 @@ Item {
             Layout.leftMargin: 8
             visible: !root.tagging
             text: {
-              if (root.mode === "files")
-                return "Files · home folder"
+              if (root.mode === "files") {
+                if (root.filesHint.length && root.fileHits.length)
+                  return root.filesHint
+                return "Files · home folder · depth ≤5"
+              }
               if (root.mode === "clipboard")
-                return "Clipboard · cliphist"
+                return root.clipHint.length && !root.clipHits.length
+                    ? root.clipHint
+                    : "Clipboard · cliphist"
               if (root.mode === "actions")
                 return "Actions · allowlisted"
               if (root.showUnavailable)
@@ -1337,12 +1358,27 @@ Item {
     stdout: StdioCollector {
       onStreamFinished: {
         try {
-          const list = JSON.parse(text.trim() || "[]")
-          root.fileHits = Array.isArray(list) ? list : []
-          root.filesHint = root.fileHits.length ? "" : "No files match."
+          const raw = text.trim() || "{}"
+          let list = []
+          let capped = false
+          const parsed = JSON.parse(raw)
+          if (Array.isArray(parsed)) {
+            list = parsed
+          } else if (parsed && typeof parsed === "object") {
+            list = Array.isArray(parsed.hits) ? parsed.hits : []
+            capped = !!parsed.capped
+          }
+          root.fileHits = list
+          if (list.length) {
+            root.filesHint = capped
+                ? "Showing first 40 matches under ~ (depth ≤5)."
+                : ""
+          } else {
+            root.filesHint = "No files match under ~ (depth ≤5, skips dotdirs)."
+          }
         } catch (e) {
           root.fileHits = []
-          root.filesHint = "File search failed."
+          root.filesHint = "File search failed — needs python3 on PATH."
         }
       }
     }
@@ -1350,13 +1386,25 @@ Item {
 
   Process {
     id: clipProc
-    command: ["bash", "-lc", "command -v cliphist >/dev/null && cliphist list | head -n 80 || true"]
+    command: [
+      "bash",
+      "-lc",
+      "if ! command -v cliphist >/dev/null 2>&1; then printf '%s\\n' '__CLIPHIST_MISSING__'; exit 0; fi\n"
+          + "out=$(cliphist list 2>/dev/null | head -n 80 || true)\n"
+          + "if [ -z \"$out\" ]; then printf '%s\\n' '__CLIPHIST_EMPTY__'; exit 0; fi\n"
+          + "printf '%s\\n' \"$out\""
+    ]
     stdout: StdioCollector {
       onStreamFinished: {
         const raw = text.trim()
-        if (!raw.length) {
+        if (!raw.length || raw === "__CLIPHIST_MISSING__") {
           root.clipHits = []
-          root.clipHint = "No clipboard history (install cliphist + wl-paste watchers)."
+          root.clipHint = "cliphist not installed — Clipboard mode needs cliphist + wl-paste watchers."
+          return
+        }
+        if (raw === "__CLIPHIST_EMPTY__") {
+          root.clipHits = []
+          root.clipHint = "Clipboard history is empty — copy something, or check wl-paste watchers."
           return
         }
         const lines = raw.split("\n")
@@ -1374,7 +1422,9 @@ Item {
           })
         }
         root.clipHits = out
-        root.clipHint = out.length ? "" : "Clipboard history is empty."
+        root.clipHint = out.length
+            ? ""
+            : "Clipboard history is empty — copy something, or check wl-paste watchers."
       }
     }
   }
