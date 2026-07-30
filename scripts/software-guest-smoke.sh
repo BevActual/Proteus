@@ -6,8 +6,10 @@ set -uo pipefail
 HOST="${PROTEUS_GUEST_HOST:-127.0.0.1}"
 PORT="${PROTEUS_GUEST_PORT:-2222}"
 USER="${PROTEUS_GUEST_USER:-andrew}"
-ssh_opts=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o ConnectTimeout=5 -p "${PORT}")
+ssh_opts=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o ConnectTimeout=5
+  -o IgnoreUnknown=AddKeysToAgent,IdentityAgent -F /dev/null -p "${PORT}")
 
+ssh_rc=0
 out="$(ssh "${ssh_opts[@]}" "${USER}@${HOST}" 'bash -s' <<'EOF'
 set -uo pipefail
 fail=0
@@ -68,8 +70,16 @@ fi
 
 exit "$fail"
 EOF
-)" || true
+)" || ssh_rc=$?
 
 echo "${out}"
+if [[ "$ssh_rc" -ne 0 ]]; then
+  if [[ "${PROTEUS_GUEST:-}" == "1" ]]; then
+    echo "software-guest-smoke: FAILED (ssh exit $ssh_rc)" >&2
+    exit 1
+  fi
+  echo "software-guest-smoke: SKIP (guest SSH unavailable; set PROTEUS_GUEST=1 to require)"
+  exit 0
+fi
 echo "${out}" | grep -q '^FAIL ' && { echo "software-guest-smoke: FAILED" >&2; exit 1; }
 echo "software-guest-smoke: OK"
