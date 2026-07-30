@@ -146,7 +146,7 @@ ColumnLayout {
     if (root.revertName.length) {
       const ri = root.indexOfMonitorName(next, root.revertName)
       if (ri < 0 || !root.revertJson.length) {
-        root.cancelRevert("Display removed — Revert cancelled.")
+        root.cancelRevert("That display is gone — Revert cancelled.")
       } else {
         root.revertIndex = ri
       }
@@ -163,13 +163,13 @@ ColumnLayout {
 
     if (prev.length > 0 && prev.length !== next.length && root.active) {
       const msg = next.length > prev.length
-          ? ("Monitor added — " + next.length + " display(s)")
-          : ("Monitor removed — " + next.length + " display(s)")
+          ? ("Display added — now " + next.length)
+          : ("Display removed — now " + next.length)
       if (!root.applyStatus.length || root.applyStatus.indexOf("Revert") < 0)
         root.applyStatus = msg
     }
 
-    root.status = next.length ? "" : "No monitors reported."
+    root.status = next.length ? "" : "No displays reported — is Hyprland running?"
     if (next.length)
       Displays.ensureMonitorsConfStub(next.map(m => root.liveSpec(m)))
   }
@@ -184,7 +184,7 @@ ColumnLayout {
   function refresh(opts) {
     // Re-read live monitors — any pending Revert snapshot is no longer trustworthy.
     const keepStatus = !!(opts && opts.keepStatus)
-    const cancelMsg = root.canRevert ? "Displays refreshed — Revert cancelled." : ""
+    const cancelMsg = root.canRevert ? "Refreshed — Revert cancelled." : ""
     root.clearRevert()
     status = "Loading displays…"
     if (!keepStatus)
@@ -459,7 +459,7 @@ ColumnLayout {
           + ((from.transform || 0) !== (to.transform || 0)
               ? (" · orient " + (from.transform || 0) + "→" + (to.transform || 0))
               : "")
-          + ". Large change — confirm, then Revert is available for 10s."
+          + ". Large jump — confirm to Apply. Revert stays available for 10 seconds."
       return
     }
     applyOne(index)
@@ -490,7 +490,7 @@ ColumnLayout {
 
     // Apply every monitor rule so x/y + siblings stay consistent (VM Revert fix).
     const rules = all.map(s => Displays.monitorRule(s))
-    root.applyStatus = "Applying… " + Displays.monitorRule(next)
+    root.applyStatus = "Applying " + (next.name || "display") + "…"
     runMonitorRules(rules, all, "apply")
   }
 
@@ -586,7 +586,7 @@ ColumnLayout {
     // Rebind index by connector name — hotplug must not target a shifted row.
     const ri = root.indexOfMonitorName(root.monitors, root.revertName)
     if (ri < 0) {
-      root.cancelRevert("Display removed — Revert cancelled.")
+      root.cancelRevert("That display is gone — Revert cancelled.")
       return
     }
     root.revertIndex = ri
@@ -597,7 +597,7 @@ ColumnLayout {
       all = []
     }
     if (!all.length) {
-      root.applyStatus = "Revert snapshot empty — refresh and re-Apply."
+      root.applyStatus = "Revert snapshot empty — Refresh, then Apply again."
       return
     }
     // Drop snapshot rows for connectors that vanished; keep known names.
@@ -623,13 +623,13 @@ ColumnLayout {
         filtered.push(root.liveSpec(root.monitors[i]))
     }
     if (!filtered.length) {
-      root.applyStatus = "Revert snapshot empty — refresh and re-Apply."
+      root.applyStatus = "Revert snapshot empty — Refresh, then Apply again."
       return
     }
     const rules = []
     for (let i = 0; i < filtered.length; i++)
       rules.push(Displays.monitorRule(filtered[i]))
-    root.applyStatus = "Reverting… " + rules.length + " monitor(s)"
+    root.applyStatus = "Reverting " + filtered.length + " display(s)…"
     revertTick.stop()
     // UI updates only after hyprctl succeeds (VM reliability).
     runMonitorRules(rules, filtered, "revert")
@@ -752,19 +752,19 @@ ColumnLayout {
           root.clearLayoutDirty()
         }
         if (action === "apply") {
-          root.applyStatus = "Applied — press Revert within " + root.revertSeconds + "s"
+          root.applyStatus = "Applied — Revert available for " + root.revertSeconds + "s"
           if (root.canRevert)
             driftWatch.restart()
         } else if (action === "revert") {
-          root.applyStatus = "Reverted OK"
+          root.applyStatus = "Reverted."
           root.clearRevert()
           refreshTimer.restart()
         } else {
-          root.applyStatus = "Monitor updated"
+          root.applyStatus = "Display updated."
         }
         return
       }
-      root.applyStatus = "hyprctl failed (exit " + exitCode + ") — see ~/.cache/proteus-displays.log"
+      root.applyStatus = "Apply failed — check ~/.cache/proteus-displays.log"
       if (action === "apply") {
         // Keep revert window so the user can still try Revert / Refresh.
         root.revertSeconds = Math.max(root.revertSeconds, 8)
@@ -788,15 +788,14 @@ ColumnLayout {
       if (root.revertSeconds <= 1) {
         root.clearRevert()
         if (root.applyStatus.indexOf("Revert") >= 0)
-          root.applyStatus = "Apply settled."
+          root.applyStatus = "Apply settled — Revert window closed."
         return
       }
       root.revertSeconds = root.revertSeconds - 1
       if (root.revertName.length) {
         const ri = root.indexOfMonitorName(root.monitors, root.revertName)
         const label = ri >= 0 ? root.monitors[ri].name : root.revertName
-        root.applyStatus = "Applied " + label
-            + " — Revert available for " + root.revertSeconds + "s"
+        root.applyStatus = "Applied " + label + " — " + root.revertSeconds + "s to Revert"
       }
     }
   }
@@ -831,7 +830,7 @@ ColumnLayout {
           const live = parsed.map(m => root.enrichMonitor(m))
           const fp = root.fingerprintFromMonitors(live)
           if (fp !== root.postApplyFingerprint) {
-            root.cancelRevert("Displays changed since Apply — Revert cancelled.")
+            root.cancelRevert("Displays changed — Revert cancelled.")
             root.refresh({ keepStatus: true })
           }
         } catch (e) {
@@ -863,7 +862,7 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Arrange displays on the canvas, then scale/mode below. Apply writes hyprctl + proteus-monitors.conf; Revert is offered for 10s (full snapshot)."
+    text: "Drag the layout canvas, then set scale and mode per display. Apply writes Hyprland + proteus-monitors.conf. After Apply you get 10 seconds to Revert."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 12
@@ -874,7 +873,7 @@ ColumnLayout {
     open: root.confirming
     title: "Apply large display change?"
     detail: root.pendingDetail
-    footnote: "You can Revert for 10 seconds after Apply."
+    footnote: "Revert stays available for 10 seconds if the result looks wrong."
     Layout.maximumWidth: 520
     onCancelled: root.clearPending()
     onConfirmed: {
@@ -996,7 +995,7 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "Apply layout"
-      hint: root.layoutDirty ? "Pending position changes" : "No layout changes"
+      hint: root.layoutDirty ? "Write pending positions to Hyprland" : "Canvas matches live layout"
       showSeparator: true
       interactive: root.layoutDirty || root.monitors.length > 1
       labelColor: root.layoutDirty ? Theme.accent : Theme.textMute
@@ -1012,7 +1011,7 @@ ColumnLayout {
     SettingsFormRow {
       visible: root.canRevert
       label: "Revert"
-      hint: "Restore previous layout/modes — " + root.revertSeconds + "s left"
+      hint: "Undo last Apply — " + root.revertSeconds + "s left"
       showSeparator: false
       interactive: true
       labelColor: Theme.danger
@@ -1139,8 +1138,8 @@ ColumnLayout {
       SettingsFormRow {
         label: "Apply"
         hint: monGroup.modelData.dirty
-            ? "Pending changes on this display"
-            : "No changes to apply"
+            ? "Write mode / scale / orientation for this display"
+            : "No pending changes"
         showSeparator: monGroup.revertable
         interactive: monGroup.modelData.dirty
         labelColor: monGroup.modelData.dirty ? Theme.accent : Theme.textMute
@@ -1156,7 +1155,7 @@ ColumnLayout {
       SettingsFormRow {
         visible: monGroup.revertable
         label: "Revert"
-        hint: "Restore the previous mode — " + root.revertSeconds + "s left"
+        hint: "Undo last Apply — " + root.revertSeconds + "s left"
         showSeparator: false
         interactive: true
         labelColor: Theme.danger
@@ -1187,7 +1186,7 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "Refresh"
-      hint: "Re-read hyprctl monitors"
+      hint: "Re-read live monitors (cancels an open Revert)"
       showSeparator: true
       interactive: true
       onActivated: root.refresh()
@@ -1201,7 +1200,7 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "Edit monitors conf…"
-      hint: "~/.config/hypr/proteus-monitors.conf"
+      hint: "Escape hatch · ~/.config/hypr/proteus-monitors.conf"
       showSeparator: false
       interactive: true
       onActivated: Displays.openMonitorsConfInEditor()
@@ -1217,7 +1216,7 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Fact: hyprctl monitors · Apply: hyprctl keyword monitor … + ~/.config/hypr/proteus-monitors.conf"
+    text: "Fact: hyprctl monitors -j · Apply persists live monitor= lines to proteus-monitors.conf."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11
@@ -1236,7 +1235,7 @@ ColumnLayout {
             root.status = "Unexpected hyprctl output."
             root.clearPending()
             if (root.revertName.length)
-              root.cancelRevert("Displays unreadable — Revert cancelled.")
+              root.cancelRevert("Could not read displays — Revert cancelled.")
             return
           }
           root.adoptMonitorList(parsed)
@@ -1245,7 +1244,7 @@ ColumnLayout {
           root.status = "Could not read monitors (is Hyprland running?)."
           root.clearPending()
           if (root.revertName.length)
-            root.cancelRevert("Displays unreadable — Revert cancelled.")
+            root.cancelRevert("Could not read displays — Revert cancelled.")
         }
       }
     }
