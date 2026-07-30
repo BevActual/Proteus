@@ -2,6 +2,12 @@
 # Hide Arch/desktop-kit apps from Spotlight when Proteus Settings already owns
 # the feature. Packages stay installed as escape hatches (Settings still opens
 # nm-connection-editor / blueman / …).
+#
+# Invoked from:
+#   vm/guest/install-settings-app.sh  (apps stage)
+#   vm/install/apps.sh                (idempotent re-run)
+#   vm/install/post-install.sh        (refresh after overlay)
+# Manual: sudo bash /mnt/proteus/vm/guest/hide-system-apps.sh
 set -euo pipefail
 
 # System-wide overrides beat /usr/share/applications for the same basename.
@@ -41,6 +47,10 @@ hide blueman-applet "Bluetooth Applet" blueman-applet
 hide avahi-discover "Avahi Zeroconf Browser" avahi-discover
 hide bssh "Avahi SSH Server Browser" bssh
 hide bvnc "Avahi VNC Server Browser" bvnc
+
+# Quickshell runtime / docs launchers — chrome is session, not a dock app
+hide org.quickshell.Quickshell "Quickshell" quickshell
+hide quickshell "Quickshell" quickshell
 
 # Keep gnome-calculator visible — dedicated Calculator for dogfood
 # (Spotlight expression calc remains as a quick path). Drop prior NoDisplay stubs.

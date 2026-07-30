@@ -21,9 +21,9 @@ sudo bash /mnt/proteus/vm/install/bootstrap.sh
 | `config.sh` | seatd, QS symlink, hypr/ghostty/fastfetch seeds, hypridle |
 | `hardware.sh` | Detect GPU → optional drivers (`hardware/*`) |
 | `login.sh` | greetd / `proteus-session` |
-| `apps.sh` | Settings, keybinds, desktop conf, PAM, interim capture bins |
+| `apps.sh` | Settings, keybinds, desktop conf, PAM, `hide-system-apps`, interim capture bins |
 | `desktop.sh` | [`proteus-desktop.packages`](./proteus-desktop.packages) (default on) |
-| `post-install.sh` | status file + next steps |
+| `post-install.sh` | status file + next steps; refresh `hide-system-apps` |
 
 ## Knobs
 

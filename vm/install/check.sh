@@ -89,6 +89,35 @@ if [[ -f "${HYPR_SEED}" ]]; then
     && ok "hypr seed terminal comment lock" || bad "hypr seed missing terminal comment lock"
 fi
 
+HIDE="${ROOT}/vm/guest/hide-system-apps.sh"
+if [[ -f "${HIDE}" ]]; then
+  if bash -n "${HIDE}" 2>/dev/null; then
+    ok "hide-system-apps.sh bash -n"
+  else
+    bad "hide-system-apps.sh (bash -n)"
+  fi
+  for app in pavucontrol nm-connection-editor blueman-manager quickshell; do
+    grep -q "hide ${app} " "${HIDE}" || grep -qE "hide ${app}\"" "${HIDE}" \
+      || grep -q "hide ${app} " "${HIDE}" \
+      || true
+    if grep -qE "hide ${app}( |$)" "${HIDE}" || grep -q "hide ${app} " "${HIDE}"; then
+      ok "hide-system-apps targets ${app}"
+    elif grep -q "hide ${app}" "${HIDE}"; then
+      ok "hide-system-apps targets ${app}"
+    else
+      bad "hide-system-apps missing hide ${app}"
+    fi
+  done
+  grep -q 'NoDisplay=true' "${HIDE}" && ok "hide-system-apps NoDisplay" || bad "hide-system-apps NoDisplay"
+  grep -q 'install-settings-app.sh' "${ROOT}/vm/install/apps.sh" \
+    && grep -q 'hide-system-apps.sh' "${ROOT}/vm/install/apps.sh" \
+    && ok "apps.sh invokes hide-system-apps" || bad "apps.sh must invoke hide-system-apps"
+  grep -q 'hide-system-apps.sh' "${ROOT}/vm/install/post-install.sh" \
+    && ok "post-install refreshes hide-system-apps" || bad "post-install missing hide-system-apps"
+else
+  bad "missing hide-system-apps.sh"
+fi
+
 # shellcheck source=helpers.sh
 source "${INSTALL}/helpers.sh"
 export PROTEUS_ROOT="${ROOT}"

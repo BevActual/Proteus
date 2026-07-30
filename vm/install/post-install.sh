@@ -8,6 +8,12 @@ USER_NAME="$(proteus_session_user)"
 proteus_status_ensure
 STATUS="$(proteus_status_dir)"
 
+# Refresh launcher NoDisplay stubs (Settings-covered tools + Quickshell)
+if [[ -n "${PROTEUS_ROOT:-}" && -f "${PROTEUS_ROOT}/vm/guest/hide-system-apps.sh" ]]; then
+  proteus_root bash "${PROTEUS_ROOT}/vm/guest/hide-system-apps.sh" \
+    || proteus_log "note: hide-system-apps failed (non-fatal)"
+fi
+
 proteus_log "overlay complete for user ${USER_NAME}"
 {
   echo "user=${USER_NAME}"
