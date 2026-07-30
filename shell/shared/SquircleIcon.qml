@@ -15,15 +15,26 @@ Item {
   property color borderColor: Qt.rgba(1, 1, 1, 0.14)
   // When false, skip Dark/Clear/Tinted effects (raw artwork)
   property bool styleEnabled: true
+  // Optional overrides for style comparison previews (Settings Icons leaf).
+  property string styleModeOverride: ""
+  property color plateOverride: "transparent"
+  property color tintOverride: "transparent"
 
-  readonly property string styleMode: root.styleEnabled ? Config.iconPlateStyle : "default"
+  readonly property string styleMode: {
+    if (root.styleModeOverride.length)
+      return root.styleModeOverride
+    return root.styleEnabled ? Config.iconPlateStyle : "default"
+  }
   readonly property bool styled: styleMode === "dark" || styleMode === "clear" || styleMode === "tinted"
   readonly property color tintColor: {
+    if (root.tintOverride.a > 0)
+      return root.tintOverride
     const h = Config.normalizeAccentHex(Config.iconPlateCustom)
     if (h.length)
       return h
     return Theme.accent
   }
+  readonly property color plateColor: root.plateOverride.a > 0 ? root.plateOverride : root.plate
 
   width: 48
   height: width
@@ -32,7 +43,7 @@ Item {
     id: body
     anchors.fill: parent
     radius: width * root.cornerRatio
-    color: root.plate
+    color: root.plateColor
     clip: true
     antialiasing: true
     border.width: root.showBorder ? 1 : 0
