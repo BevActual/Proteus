@@ -185,7 +185,7 @@ ColumnLayout {
     ColumnLayout {
       visible: host.browseKind === "daily"
       Layout.fillWidth: true
-      spacing: Theme.spaceLg
+      spacing: Theme.spaceMd
 
       Connections {
         target: Config
@@ -526,7 +526,7 @@ ColumnLayout {
     ColumnLayout {
       visible: host.browseKind === "image"
       Layout.fillWidth: true
-      spacing: Theme.spaceLg
+      spacing: Theme.spaceMd
 
       SettingsGroup {
         title: "Built-in"
@@ -552,11 +552,24 @@ ColumnLayout {
                 border.color: Theme.accent
                 clip: true
                 Image {
+                  id: stockImg
                   anchors.fill: parent
                   anchors.margins: Config.wallpaperId === modelData.id ? 2 : 0
                   source: "file://" + modelData.path
                   fillMode: Image.PreserveAspectCrop
                   asynchronous: true
+                }
+                Rectangle {
+                  visible: stockImg.status === Image.Error || stockImg.status === Image.Null
+                  anchors.fill: parent
+                  color: Theme.bgElevated
+                  Text {
+                    anchors.centerIn: parent
+                    text: "Missing"
+                    color: Theme.textMute
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 10
+                  }
                 }
                 Text {
                   anchors.left: parent.left
@@ -593,6 +606,19 @@ ColumnLayout {
             color: Theme.textMute
             font.pixelSize: 16
           }
+        }
+        Text {
+          visible: Background.wallpaperAlbumsList.length === 0
+          Layout.fillWidth: true
+          Layout.leftMargin: Theme.spaceMd
+          Layout.rightMargin: Theme.spaceMd
+          Layout.topMargin: Theme.spaceSm
+          Layout.bottomMargin: Theme.spaceSm
+          text: "No albums yet."
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: 12
+          wrapMode: Text.WordWrap
         }
         Repeater {
           model: Background.wallpaperAlbumsList
@@ -637,14 +663,32 @@ ColumnLayout {
         title: "Album images"
         SettingsFormRow {
           label: Background.activeAlbumLabel
-          hint: Background.wallpaperFolderResolved
+          hint: Background.wallpaperFolderResolved.length
+              ? Background.wallpaperFolderResolved
+              : "No folder resolved for this album"
           showSeparator: Background.wallpaperFolderEntries.length > 0 || Background.wallpaperFolderScanning
+              || (!Background.wallpaperFolderScanning && Background.wallpaperFolderResolved.length > 0)
           Text {
             visible: Background.wallpaperFolderScanning
             text: "…"
             color: Theme.textMute
             font.pixelSize: 12
           }
+        }
+        Text {
+          visible: !Background.wallpaperFolderScanning
+              && !Background.wallpaperFolderResolved.length
+              && Background.wallpaperAlbumsList.length === 0
+          Layout.fillWidth: true
+          Layout.leftMargin: Theme.spaceMd
+          Layout.rightMargin: Theme.spaceMd
+          Layout.topMargin: Theme.spaceSm
+          Layout.bottomMargin: Theme.spaceSm
+          text: "No albums yet. Add a folder above to collect slideshow images."
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: 12
+          wrapMode: Text.WordWrap
         }
         Item {
           visible: Background.wallpaperFolderEntries.length > 0 || (!Background.wallpaperFolderScanning && Background.wallpaperFolderResolved.length > 0)
@@ -684,10 +728,23 @@ ColumnLayout {
                 border.color: Theme.accent
                 clip: true
                 Image {
+                  id: folderImg
                   anchors.fill: parent
                   source: "file://" + modelData.path
                   fillMode: Image.PreserveAspectCrop
                   asynchronous: true
+                }
+                Rectangle {
+                  visible: folderImg.status === Image.Error || folderImg.status === Image.Null
+                  anchors.fill: parent
+                  color: Theme.bgElevated
+                  Text {
+                    anchors.centerIn: parent
+                    text: "Missing"
+                    color: Theme.textMute
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 10
+                  }
                 }
                 Text {
                   anchors.left: parent.left
@@ -830,7 +887,7 @@ ColumnLayout {
     ColumnLayout {
       visible: host.browseKind === "video"
       Layout.fillWidth: true
-      spacing: Theme.spaceLg
+      spacing: Theme.spaceMd
 
       SettingsGroup {
         title: "Video"
@@ -873,7 +930,7 @@ ColumnLayout {
     ColumnLayout {
       visible: host.browseKind === "reactive"
       Layout.fillWidth: true
-      spacing: Theme.spaceLg
+      spacing: Theme.spaceMd
 
       SettingsGroup {
         title: "Style"

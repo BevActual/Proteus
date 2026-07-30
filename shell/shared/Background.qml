@@ -252,8 +252,10 @@ Singleton {
 
   readonly property string wallpaperDir: {
     // Settings runs as apps/proteus-settings; wallpapers module under shell/wallpaper.
-    const root = Quickshell.shellRoot
-    if (root && root.length) {
+    const root = (Quickshell.shellDir && String(Quickshell.shellDir).length)
+        ? String(Quickshell.shellDir)
+        : String(Quickshell.shellRoot || "")
+    if (root.length) {
       const marker = "/apps/proteus-settings"
       const idx = root.indexOf(marker)
       if (idx >= 0)
@@ -303,12 +305,19 @@ Singleton {
   }
   readonly property string assetsDir: {
     // Settings runs as apps/proteus-settings; wallpapers live under shell/assets.
-    const root = Quickshell.shellRoot
-    if (root && root.length) {
+    // Prefer shellDir (shellRoot is deprecated in Quickshell).
+    const root = (Quickshell.shellDir && String(Quickshell.shellDir).length)
+        ? String(Quickshell.shellDir)
+        : String(Quickshell.shellRoot || "")
+    if (root.length) {
       const marker = "/apps/proteus-settings"
       const idx = root.indexOf(marker)
       if (idx >= 0)
         return root.slice(0, idx) + "/shell/assets"
+      if (root.indexOf("/shell") >= 0) {
+        const sidx = root.indexOf("/shell")
+        return root.slice(0, sidx) + "/shell/assets"
+      }
       return root + "/assets"
     }
     return "/mnt/proteus/shell/assets"

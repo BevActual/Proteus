@@ -10,7 +10,7 @@ import "../kit"
 ColumnLayout {
   id: root
   Layout.fillWidth: true
-  spacing: Theme.spaceLg
+  spacing: Theme.spaceMd
 
   Component.onCompleted: Config.ensureDomainHydrated()
 
@@ -191,7 +191,7 @@ ColumnLayout {
   ColumnLayout {
     visible: root.lockBrowseKind === "image"
     Layout.fillWidth: true
-    spacing: Theme.spaceLg
+    spacing: Theme.spaceMd
     SettingsGroup {
       title: "Built-in"
       Item {
@@ -216,11 +216,24 @@ ColumnLayout {
               border.color: Theme.accent
               clip: true
               Image {
+                id: lockStockImg
                 anchors.fill: parent
                 anchors.margins: Config.lockWallpaperId === modelData.id ? 2 : 0
                 source: "file://" + modelData.path
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
+              }
+              Rectangle {
+                visible: lockStockImg.status === Image.Error || lockStockImg.status === Image.Null
+                anchors.fill: parent
+                color: Theme.bgElevated
+                Text {
+                  anchors.centerIn: parent
+                  text: "Missing"
+                  color: Theme.textMute
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 10
+                }
               }
               Text {
                 anchors.left: parent.left
@@ -248,6 +261,19 @@ ColumnLayout {
     }
     SettingsGroup {
       title: "Albums"
+      Text {
+        visible: Background.wallpaperAlbumsList.length === 0
+        Layout.fillWidth: true
+        Layout.leftMargin: Theme.spaceMd
+        Layout.rightMargin: Theme.spaceMd
+        Layout.topMargin: Theme.spaceSm
+        Layout.bottomMargin: Theme.spaceSm
+        text: "No albums yet. Add folders under Appearance → Background."
+        color: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+        wrapMode: Text.WordWrap
+      }
       Repeater {
         model: Background.wallpaperAlbumsList
         SettingsFormRow {
@@ -360,7 +386,7 @@ ColumnLayout {
   ColumnLayout {
     visible: root.lockBrowseKind === "daily"
     Layout.fillWidth: true
-    spacing: Theme.spaceLg
+    spacing: Theme.spaceMd
     SettingsGroup {
       title: "Daily source"
       Text {
@@ -417,7 +443,7 @@ ColumnLayout {
   ColumnLayout {
     visible: root.lockBrowseKind === "video"
     Layout.fillWidth: true
-    spacing: Theme.spaceLg
+    spacing: Theme.spaceMd
     SettingsGroup {
       title: "Video"
       SettingsFormRow {
@@ -439,7 +465,7 @@ ColumnLayout {
   ColumnLayout {
     visible: root.lockBrowseKind === "reactive"
     Layout.fillWidth: true
-    spacing: Theme.spaceLg
+    spacing: Theme.spaceMd
     SettingsGroup {
       title: "Style"
       Repeater {
