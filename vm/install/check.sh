@@ -51,6 +51,9 @@ if [[ -f "${ROOT}/shell/scripts/proteus-qs" ]]; then
   else
     bad "shell/scripts/proteus-qs (bash -n)"
   fi
+  grep -q 'flock' "${ROOT}/shell/scripts/proteus-qs" && ok "proteus-qs flock" || bad "proteus-qs missing flock"
+  grep -q -- '--restart' "${ROOT}/shell/scripts/proteus-qs" && ok "proteus-qs --restart" || bad "proteus-qs missing --restart"
+  grep -q 'reap_chrome' "${ROOT}/shell/scripts/proteus-qs" && ok "proteus-qs orphan reap" || bad "proteus-qs missing reap_chrome"
 else
   bad shell/scripts/proteus-qs
 fi
