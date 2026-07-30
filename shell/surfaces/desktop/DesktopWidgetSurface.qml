@@ -58,32 +58,56 @@ Item {
     color: Qt.rgba(0, 0, 0, 0.35)
   }
 
-  // Guides only while Snap to Grid is on.
+  // Graph-paper guides — origin at screen center (stronger crosshair).
   Item {
     id: gridOverlay
     anchors.fill: parent
     z: 2
     visible: root.customizeMode && root.snapToGrid
-    readonly property real margin: layout.margin
-    readonly property real cellW: layout.cellWidth
-    readonly property real cellH: layout.cellHeight
-    readonly property real gutter: layout.gutter
+    readonly property real pitch: layout.pitch
+    readonly property real ox: layout.originX
+    readonly property real oy: layout.originY
+    readonly property int halfC: layout.halfCols
+    readonly property int halfR: layout.halfRows
 
+    // Vertical lines (ix from -halfCols … +halfCols)
     Repeater {
-      model: layout.gridCols * layout.gridRows
+      model: layout.gridCols
       Rectangle {
         required property int index
-        readonly property int col: index % layout.gridCols
-        readonly property int row: Math.floor(index / layout.gridCols)
-        x: gridOverlay.margin + col * (gridOverlay.cellW + gridOverlay.gutter)
-        y: gridOverlay.margin + row * (gridOverlay.cellH + gridOverlay.gutter)
-        width: gridOverlay.cellW
-        height: gridOverlay.cellH
-        color: Qt.rgba(1, 1, 1, 0.03)
-        border.width: 1
-        border.color: Qt.rgba(1, 1, 1, 0.1)
-        radius: 4
+        readonly property int ix: index - gridOverlay.halfC
+        width: ix === 0 ? 2 : 1
+        height: parent.height
+        x: gridOverlay.ox + ix * gridOverlay.pitch - width * 0.5
+        y: 0
+        color: ix === 0 ? Qt.rgba(1, 1, 1, 0.28) : Qt.rgba(1, 1, 1, 0.1)
       }
+    }
+
+    // Horizontal lines (iy from -halfRows … +halfRows)
+    Repeater {
+      model: layout.gridRows
+      Rectangle {
+        required property int index
+        readonly property int iy: index - gridOverlay.halfR
+        height: iy === 0 ? 2 : 1
+        width: parent.width
+        y: gridOverlay.oy + iy * gridOverlay.pitch - height * 0.5
+        x: 0
+        color: iy === 0 ? Qt.rgba(1, 1, 1, 0.28) : Qt.rgba(1, 1, 1, 0.1)
+      }
+    }
+
+    // Center anchor dot
+    Rectangle {
+      width: 8
+      height: 8
+      radius: 4
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.verticalCenter: parent.verticalCenter
+      color: Qt.rgba(1, 1, 1, 0.35)
+      border.width: 1
+      border.color: Qt.rgba(1, 1, 1, 0.5)
     }
   }
 
@@ -106,9 +130,7 @@ Item {
         onSelectApplet: root.selectedWidgetId = modelData.id
         onDragMoved: (nx, ny) => {
           if (root.snapToGrid) {
-            const cs = modelData.colSpan || 2
-            const rs = modelData.rowSpan || 1
-            const snapped = layout.snapNorm(nx, ny, cs, rs)
+            const snapped = layout.snapNorm(nx, ny, modelData.width, modelData.height)
             Widgets.moveDesktopWidget(modelData.id, snapped.x, snapped.y)
           } else {
             Widgets.moveDesktopWidget(modelData.id, nx, ny)

@@ -167,9 +167,9 @@ QtObject {
     Config.desktopWidgets = list.map(w => {
       if (!w)
         return w
-      const cs = layout.colSpanFor(w.type, w.size || "md")
-      const rs = layout.rowSpanFor(w.type, w.size || "md")
-      const snapped = layout.snapNorm(w.x, w.y, cs, rs)
+      const width = layout.contentWidth(w.type, w.size || "md")
+      const height = layout.contentHeight(w.type, w.size || "md")
+      const snapped = layout.snapNorm(w.x, w.y, width, height)
       return Object.assign({}, w, {
         x: snapped.x,
         y: snapped.y

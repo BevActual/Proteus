@@ -156,7 +156,7 @@ Item {
       const rawX = p.x - pressOX
       const rawY = p.y - pressOY
       if (root.layout && root.layout.snapToGrid) {
-        const snapped = root.layout.snapPixel(rawX, rawY, root.colSpan, root.rowSpan)
+        const snapped = root.layout.snapPixel(rawX, rawY, root.width, root.height)
         root.dragX = snapped.x
         root.dragY = snapped.y
       } else if (root.layout) {
