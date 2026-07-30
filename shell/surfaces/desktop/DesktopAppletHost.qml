@@ -1,11 +1,12 @@
 import QtQuick
 import "../../shared"
 
-// Free-place desktop applet — drag anywhere in Customize; not stacked.
+// Grid-snapped desktop applet — Customize drag snaps to cell origins.
 Item {
   id: root
 
   property var frame: null
+  property var layout: null
   property bool customizeMode: false
   property bool selected: false
   property real surfaceWidth: 400
@@ -14,6 +15,9 @@ Item {
   signal requestCustomize()
   signal selectApplet()
   signal dragMoved(real normX, real normY)
+
+  readonly property int colSpan: frame && frame.colSpan ? frame.colSpan : 2
+  readonly property int rowSpan: frame && frame.rowSpan ? frame.rowSpan : 1
 
   readonly property var widgetData: frame && frame.widget ? frame.widget : null
   readonly property string widgetId: widgetData ? String(widgetData.id) : ""
@@ -149,19 +153,32 @@ Item {
       if (!root.dragging || !root.parent)
         return
       const p = mapToItem(root.parent, mouse.x, mouse.y)
-      const maxX = Math.max(0, root.surfaceWidth - root.width)
-      const maxY = Math.max(0, root.surfaceHeight - root.height)
-      root.dragX = Math.max(0, Math.min(maxX, p.x - pressOX))
-      root.dragY = Math.max(0, Math.min(maxY, p.y - pressOY))
+      const rawX = p.x - pressOX
+      const rawY = p.y - pressOY
+      if (root.layout) {
+        const snapped = root.layout.snapPixel(rawX, rawY, root.colSpan, root.rowSpan)
+        root.dragX = snapped.x
+        root.dragY = snapped.y
+      } else {
+        const maxX = Math.max(0, root.surfaceWidth - root.width)
+        const maxY = Math.max(0, root.surfaceHeight - root.height)
+        root.dragX = Math.max(0, Math.min(maxX, rawX))
+        root.dragY = Math.max(0, Math.min(maxY, rawY))
+      }
     }
     onReleased: {
       if (root.dragging) {
-        const margin = Math.max(12, Math.min(root.surfaceWidth, root.surfaceHeight) * 0.02)
-        const maxX = Math.max(1, root.surfaceWidth - root.width - margin)
-        const maxY = Math.max(1, root.surfaceHeight - root.height - margin)
-        const nx = (root.dragX - margin) / maxX
-        const ny = (root.dragY - margin) / maxY
-        root.dragMoved(Math.max(0, Math.min(1, nx)), Math.max(0, Math.min(1, ny)))
+        if (root.layout) {
+          const n = root.layout.normFromPixel(root.dragX, root.dragY, root.colSpan, root.rowSpan)
+          root.dragMoved(n.x, n.y)
+        } else {
+          const margin = Math.max(12, Math.min(root.surfaceWidth, root.surfaceHeight) * 0.02)
+          const maxX = Math.max(1, root.surfaceWidth - root.width - margin)
+          const maxY = Math.max(1, root.surfaceHeight - root.height - margin)
+          const nx = (root.dragX - margin) / maxX
+          const ny = (root.dragY - margin) / maxY
+          root.dragMoved(Math.max(0, Math.min(1, nx)), Math.max(0, Math.min(1, ny)))
+        }
       }
       root.dragging = false
     }

@@ -22,9 +22,14 @@ QtObject {
 
   function nextDesktopWidgetPos(list) {
     const n = (list && list.length) ? list.length : 0
+    // Prefer discrete 8×12 cell origins (md span 2 → maxCol 6).
+    const col = (n % 3) * 2
+    const row = Math.floor(n / 3) * 2
+    const maxCol = 6
+    const maxRow = 11
     return {
-      x: Math.min(0.72, 0.08 + (n % 3) * 0.28),
-      y: Math.min(0.68, 0.12 + Math.floor(n / 3) * 0.22)
+      x: maxCol > 0 ? Math.min(maxCol, col) / maxCol : 0,
+      y: maxRow > 0 ? Math.min(maxRow, row) / maxRow : 0
     }
   }
 
@@ -154,6 +159,7 @@ QtObject {
   }
 
   function moveDesktopWidget(id, x, y) {
+    // Caller should pass already-snapped norms; clamp only.
     patchDesktopWidget(id, {
       x: clamp01(x, 0.5),
       y: clamp01(y, 0.2)
