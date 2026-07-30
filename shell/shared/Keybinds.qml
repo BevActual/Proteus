@@ -235,6 +235,33 @@ Singleton {
       key: "C",
       dispatcher: "exec",
       arg: "proteus-colorpick"
+    },
+    {
+      id: "volume-up",
+      category: "Media",
+      label: "Volume up",
+      mods: "",
+      key: "XF86AudioRaiseVolume",
+      dispatcher: "global",
+      arg: "proteus:volume-up"
+    },
+    {
+      id: "volume-down",
+      category: "Media",
+      label: "Volume down",
+      mods: "",
+      key: "XF86AudioLowerVolume",
+      dispatcher: "global",
+      arg: "proteus:volume-down"
+    },
+    {
+      id: "volume-mute",
+      category: "Media",
+      label: "Volume mute",
+      mods: "",
+      key: "XF86AudioMute",
+      dispatcher: "global",
+      arg: "proteus:volume-mute"
     }
   ]
 

@@ -48,6 +48,27 @@ Scope {
     onPressed: ShellState.enterDesktopCustomize()
   }
 
+  GlobalShortcut {
+    appid: "proteus"
+    name: "volume-up"
+    description: "Raise volume"
+    onPressed: Audio.stepVolume(5)
+  }
+
+  GlobalShortcut {
+    appid: "proteus"
+    name: "volume-down"
+    description: "Lower volume"
+    onPressed: Audio.stepVolume(-5)
+  }
+
+  GlobalShortcut {
+    appid: "proteus"
+    name: "volume-mute"
+    description: "Toggle mute"
+    onPressed: Audio.toggleMuteHud()
+  }
+
   IpcHandler {
     target: "lock"
     function lock(): void {
@@ -65,6 +86,15 @@ Scope {
     }
     function brightness(value: int): void {
       Hud.show("brightness", value, "")
+    }
+    function volumeUp(): void {
+      Audio.stepVolume(5)
+    }
+    function volumeDown(): void {
+      Audio.stepVolume(-5)
+    }
+    function volumeMute(): void {
+      Audio.toggleMuteHud()
     }
     function hide(): void {
       Hud.hide()
@@ -90,6 +120,11 @@ Scope {
     function onSessionLockedChanged() {
       // Keep lock object in sync explicitly (binding can race on first lock)
       sessionLock.locked = ShellState.sessionLocked
+    }
+    function onControlCenterOpenChanged() {
+      // Volume HUD must not stack over the quick menu
+      if (ShellState.controlCenterOpen)
+        Hud.hide()
     }
   }
 

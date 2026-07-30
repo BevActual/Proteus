@@ -24,6 +24,9 @@ Singleton {
 
   function show(k, v, t) {
     const kindIn = String(k || "demo")
+    // Volume/brightness HUD stays out of the way of Control Center quick menu
+    if (ShellState.controlCenterOpen && (kindIn === "volume" || kindIn === "brightness"))
+      return
     kind = kindIn.length ? kindIn : "demo"
     value = Math.max(0, Math.min(100, Math.round(Number(v) || 0)))
     const titleIn = String(t || "")

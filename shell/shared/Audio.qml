@@ -55,6 +55,50 @@ Singleton {
     })
   }
 
+  // Media-key / HUD path — step 0–100%, show Status HUD (#1158).
+  // HUD self-suppresses while Control Center is open (see Hud.show).
+  function stepVolume(delta) {
+    const d = Math.round(Number(delta) || 0)
+    getMute(muted => {
+      getVolume(v => {
+        let cur = Math.max(0, Math.min(150, Math.round(v)))
+        if (muted) {
+          if (d > 0) {
+            setMute(false)
+            muted = false
+          } else {
+            Hud.show("volume", 0, "Muted")
+            return
+          }
+        }
+        const next = Math.max(0, Math.min(100, cur + d))
+        setVolume(next)
+        Hud.show("volume", next, "Sound")
+      })
+    })
+  }
+
+  function toggleMuteHud() {
+    getMute(muted => {
+      const next = !muted
+      setMute(next)
+      if (next) {
+        Hud.show("volume", 0, "Muted")
+        return
+      }
+      getVolume(v => {
+        Hud.show("volume", Math.min(100, Math.max(0, Math.round(v))), "Sound")
+      })
+    })
+  }
+
+  function showVolumeHud(pct, muted) {
+    if (muted)
+      Hud.show("volume", 0, "Muted")
+    else
+      Hud.show("volume", Math.min(100, Math.max(0, Math.round(pct))), "Sound")
+  }
+
   function getMute(callback) {
     muteProc.callback = callback
     muteProc.running = false
