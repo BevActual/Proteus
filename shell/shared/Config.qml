@@ -461,6 +461,8 @@ Singleton {
     const n = normalizeAccentHex(hex)
     if (!n.length)
       return false
+    if (accentCustom === n && accentId === "custom")
+      return true
     accentCustom = n
     accentId = "custom"
     applyHyprland()
@@ -485,9 +487,11 @@ Singleton {
     const n = normalizeAccentHex(hex)
     if (!n.length)
       return false
+    if (iconPlateCustom === n && iconPlateMode === "tinted")
+      return true
     iconPlateCustom = n
     iconPlateMode = "tinted"
-    flushSettings()
+    // Persist via debounced onAdapterUpdated (live Theme update is enough mid-drag).
     return true
   }
 
@@ -640,9 +644,26 @@ Singleton {
   function flushSettings() {
     if (!settingsReady)
       return
+    // Cancel pending debounce so intentional flushes land immediately.
+    settingsWriteTimer.stop()
     try {
       configFile.writeAdapter()
     } catch (e) {
+    }
+  }
+
+  // Coalesce JsonAdapter churn from color graphs / sliders (was writing every tick).
+  Timer {
+    id: settingsWriteTimer
+    interval: 100
+    repeat: false
+    onTriggered: {
+      if (!root.settingsReady || root.domainHydrating)
+        return
+      try {
+        configFile.writeAdapter()
+      } catch (e) {
+      }
     }
   }
 
@@ -962,7 +983,7 @@ Singleton {
       // Settings defers Background/Widgets hydrate; pull them in before any write.
       if (!root.domainHydrated)
         root.ensureDomainHydrated()
-      writeAdapter()
+      settingsWriteTimer.restart()
     }
     onLoaded: {
       if (root.isSettingsApp) {

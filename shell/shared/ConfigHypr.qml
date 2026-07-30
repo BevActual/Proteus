@@ -119,8 +119,16 @@ Item {
     onTriggered: host.persistGeneralConfNow()
   }
 
+  // Accent/color graph drags used to spam hyprctl every mouse tick.
+  Timer {
+    id: applyHyprLiveTimer
+    interval: 60
+    repeat: false
+    onTriggered: applyHyprlandLive()
+  }
+
   function applyHyprland() {
-    applyHyprlandLive()
+    applyHyprLiveTimer.restart()
     persistGeneralConf()
   }
 

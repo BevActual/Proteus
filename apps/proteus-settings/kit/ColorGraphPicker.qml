@@ -14,8 +14,48 @@ ColumnLayout {
   property real hue: 210
   property real sat: 0.75
   property real val: 0.99
+  property string lastEmittedHex: ""
+  // Live preview signal every distinct hex; commit coalesces disk/hypr work.
+  property int commitDebounceMs: 80
 
   signal hexEdited(string hex)
+  signal hexCommitted(string hex)
+
+  Timer {
+    id: commitTimer
+    interval: Math.max(1, root.commitDebounceMs)
+    repeat: false
+    property string pending: ""
+    onTriggered: {
+      if (pending.length)
+        root.hexCommitted(pending)
+    }
+  }
+
+  Timer {
+    id: svPaintTimer
+    interval: 16
+    repeat: false
+    onTriggered: svCanvas.requestPaint()
+  }
+
+  function scheduleCommit(hx) {
+    if (root.commitDebounceMs <= 0) {
+      root.hexCommitted(hx)
+      return
+    }
+    commitTimer.pending = hx
+    commitTimer.restart()
+  }
+
+  function flushCommit() {
+    if (!commitTimer.pending.length && !root.lastEmittedHex.length)
+      return
+    const hx = commitTimer.pending.length ? commitTimer.pending : root.lastEmittedHex
+    commitTimer.stop()
+    commitTimer.pending = ""
+    root.hexCommitted(hx)
+  }
 
   function clamp01(x) {
     return Math.max(0, Math.min(1, x))
@@ -129,7 +169,11 @@ ColumnLayout {
       return
     const hx = previewHex
     hexField.text = hx
+    if (hx === lastEmittedHex)
+      return
+    lastEmittedHex = hx
     root.hexEdited(hx)
+    root.scheduleCommit(hx)
   }
 
   function pickSv(mx, my) {
@@ -141,7 +185,7 @@ ColumnLayout {
   function pickHue(mx) {
     hue = clamp01(mx / Math.max(1, hueCanvas.width)) * 360
     emitFromHsv()
-    svCanvas.requestPaint()
+    svPaintTimer.restart()
   }
 
   onHexChanged: {
@@ -152,11 +196,15 @@ ColumnLayout {
     if (cur === next)
       return
     syncFromHex(hex)
+    lastEmittedHex = String(hexField.text || "")
   }
 
-  onHueChanged: svCanvas.requestPaint()
+  onHueChanged: svPaintTimer.restart()
 
-  Component.onCompleted: syncFromHex(hex)
+  Component.onCompleted: {
+    syncFromHex(hex)
+    lastEmittedHex = String(hexField.text || "")
+  }
 
   Item {
     Layout.fillWidth: true
@@ -207,11 +255,14 @@ ColumnLayout {
             MouseArea {
               anchors.fill: parent
               cursorShape: Qt.CrossCursor
+              preventStealing: true
               onPressed: mouse => root.pickSv(mouse.x, mouse.y)
               onPositionChanged: mouse => {
                 if (pressed)
                   root.pickSv(mouse.x, mouse.y)
               }
+              onReleased: root.flushCommit()
+              onCanceled: root.flushCommit()
             }
           }
 
@@ -281,11 +332,14 @@ ColumnLayout {
         MouseArea {
           anchors.fill: parent
           cursorShape: Qt.PointingHandCursor
+          preventStealing: true
           onPressed: mouse => root.pickHue(mouse.x)
           onPositionChanged: mouse => {
             if (pressed)
               root.pickHue(mouse.x)
           }
+          onReleased: root.flushCommit()
+          onCanceled: root.flushCommit()
         }
       }
     }
@@ -337,7 +391,9 @@ ColumnLayout {
           }
           const hx = root.rgbToHex(rgb.r, rgb.g, rgb.b)
           root.syncFromHex(hx)
+          root.lastEmittedHex = hx
           root.hexEdited(hx)
+          root.flushCommit()
         }
         Keys.onReturnPressed: editingFinished()
         Keys.onEnterPressed: editingFinished()

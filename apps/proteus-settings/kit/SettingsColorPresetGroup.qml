@@ -79,21 +79,9 @@ SettingsGroup {
       anchors.top: parent.top
       anchors.margins: Theme.spaceMd
       hex: root.graphHex
-      onHexEdited: h => {
-        root.customHexEdited(h)
-        if (root.debounceMs <= 0) {
-          root.customHexCommitted(h)
-          return
-        }
-        applyTimer.hex = h
-        applyTimer.restart()
-      }
-    }
-    Timer {
-      id: applyTimer
-      property string hex: ""
-      interval: Math.max(1, root.debounceMs)
-      onTriggered: root.customHexCommitted(hex)
+      commitDebounceMs: root.debounceMs
+      onHexEdited: h => root.customHexEdited(h)
+      onHexCommitted: h => root.customHexCommitted(h)
     }
   }
 }

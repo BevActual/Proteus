@@ -152,6 +152,11 @@ ColumnLayout {
             host.accentHexDraft = h
             Config.setAccentCustom(h)
           }
+          onHexCommitted: h => {
+            host.accentHexDraft = h
+            Config.setAccentCustom(h)
+            Config.flushSettings()
+          }
         }
       }
     }

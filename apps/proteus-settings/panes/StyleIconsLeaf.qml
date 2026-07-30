@@ -83,6 +83,11 @@ ColumnLayout {
           host.iconPlateHexDraft = h
           Config.setIconPlateCustom(h)
         }
+        onHexCommitted: h => {
+          host.iconPlateHexDraft = h
+          Config.setIconPlateCustom(h)
+          Config.flushSettings()
+        }
       }
     }
   }
