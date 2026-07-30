@@ -75,7 +75,7 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 | Chrome design lock (`CHROME.md`) | `shipped` — principles + token tables + Settings patterns; sibling export `env/chrome/` `shipped` |
 | Theme tokens | `shipped` — space/radius scale + accent/font from Config; company lock [CHROME.md](./CHROME.md) |
 | Shared package layout (flat + helpers) | `shipped` — Config/Background ownership split; Settings `kit/`; guest dogfood OK |
-| Smoke suite (`scripts/*-smoke.sh`) | `shipped` — layout · config-schema · app-manifest · chrome-tokens · hw-probe · install; optional qs-guest |
+| Smoke suite (`scripts/*-smoke.sh`) | `shipped` — layout · config-schema · app-manifest · chrome-tokens · hw-probe · install · session · qs-version; optional qs-guest via `smoke-all` / `PROTEUS_GUEST=1` |
 
 ---
 
@@ -160,10 +160,12 @@ Selection today: `PROTEUS_SURFACE` env (default `desktop`). See POSTURES § Load
 | `bash /mnt/proteus/vm/guest/install-desktop-conf.sh` | `proteus-general.conf` + `proteus-monitors.conf` + sources |
 | `bash /mnt/proteus/vm/guest/install-lock-pam.sh` | `/etc/pam.d/proteus-lock` (falls back to `login` if absent) |
 | `./scripts/run-nested.sh` | Nested Hyprland on host |
-| `./scripts/smoke-all.sh` | Host smokes (layout · config · hw-probe · install); guest QS if SSH or `PROTEUS_GUEST=1` |
+| `./scripts/smoke-all.sh` | Host smokes (layout · config · hw-probe · install · session · qs-version); guest QS if SSH or `PROTEUS_GUEST=1` |
 | `./scripts/layout-smoke.sh` | Flat `shell/shared/` + Settings `kit/` structure |
 | `./scripts/config-schema-smoke.sh` | Config FileView keys ↔ `tests/fixtures/settings.minimal.json` |
 | `./scripts/install-smoke.sh` | Overlay installer tree check |
+| `./scripts/session-smoke.sh` | Host gate for `proteus-session` contract + `proteus.desktop` |
+| `./scripts/qs-version-smoke.sh` | Record QS version policy (no IgnorePkg); checks `qs-guest-smoke` upgrade path |
 | `./scripts/software-reliability-smoke.sh` | Host static checks for Software mode-safe loads + op narrative |
 | `./scripts/software-guest-smoke.sh` | Guest Software dogfood (browse/inventory + Flatpak install/remove; pacman mutator if passwordless sudo) |
 | `./scripts/qs-guest-smoke.sh` | Guest cold-start `SHELL_OK` / `SETTINGS_OK` + record `quickshell` version |
