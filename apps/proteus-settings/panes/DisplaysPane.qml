@@ -35,8 +35,9 @@ ColumnLayout {
   property string revertJson: ""
   property string revertRule: ""
   property int revertIndex: -1
+  property string revertName: ""
   property int revertSeconds: 0
-  readonly property bool canRevert: revertIndex >= 0 && revertSeconds > 0 && revertJson.length > 0
+  readonly property bool canRevert: revertName.length > 0 && revertSeconds > 0 && revertJson.length > 0
   // Fingerprint of the post-Apply live topology — drift (sleep/hotplug) cancels Revert.
   property string postApplyFingerprint: ""
   property bool layoutDirty: false
@@ -89,6 +90,88 @@ ColumnLayout {
     for (let i = 0; i < list.length; i++)
       specs.push(liveSpec(list[i]))
     return specFingerprint(specs)
+  }
+
+  function indexOfMonitorName(list, name) {
+    if (!list || !name)
+      return -1
+    for (let i = 0; i < list.length; i++) {
+      if (list[i] && list[i].name === name)
+        return i
+    }
+    return -1
+  }
+
+  function adoptMonitorList(parsed) {
+    const prev = root.monitors.slice()
+    const prevSelName = (root.layoutSelected >= 0 && root.layoutSelected < prev.length)
+        ? String(prev[root.layoutSelected].name || "")
+        : ""
+    const next = []
+    for (let i = 0; i < parsed.length; i++) {
+      let row = root.enrichMonitor(parsed[i])
+      const oi = root.indexOfMonitorName(prev, row.name)
+      if (oi >= 0 && prev[oi].dirty) {
+        const old = prev[oi]
+        row = Object.assign({}, row, {
+          dirty: true,
+          x: old.x,
+          y: old.y,
+          modeIndex: old.modeIndex,
+          scaleIndex: old.scaleIndex,
+          transformIndex: old.transformIndex
+        })
+        const modes = root.modesFor(row)
+        if (row.modeIndex >= modes.length)
+          row.modeIndex = Math.max(0, modes.length - 1)
+        if (row.scaleIndex >= (row.scaleChoices || []).length)
+          row.scaleIndex = Math.max(0, (row.scaleChoices || []).length - 1)
+        if (row.transformIndex >= root.transformChoices.length)
+          row.transformIndex = 0
+      }
+      next.push(row)
+    }
+
+    root.monitors = next
+
+    let sel = root.indexOfMonitorName(next, prevSelName)
+    if (sel < 0)
+      sel = next.length ? 0 : 0
+    root.layoutSelected = sel
+
+    // Pending large-jump confirm is index-based — drop on topology change.
+    if (root.pendingIndex >= 0)
+      root.clearPending()
+
+    if (root.revertName.length) {
+      const ri = root.indexOfMonitorName(next, root.revertName)
+      if (ri < 0 || !root.revertJson.length) {
+        root.cancelRevert("Display removed — Revert cancelled.")
+      } else {
+        root.revertIndex = ri
+      }
+    }
+
+    let anyDirty = false
+    for (let i = 0; i < next.length; i++) {
+      if (next[i].dirty) {
+        anyDirty = true
+        break
+      }
+    }
+    root.layoutDirty = anyDirty
+
+    if (prev.length > 0 && prev.length !== next.length && root.active) {
+      const msg = next.length > prev.length
+          ? ("Monitor added — " + next.length + " display(s)")
+          : ("Monitor removed — " + next.length + " display(s)")
+      if (!root.applyStatus.length || root.applyStatus.indexOf("Revert") < 0)
+        root.applyStatus = msg
+    }
+
+    root.status = next.length ? "" : "No monitors reported."
+    if (next.length)
+      Displays.ensureMonitorsConfStub(next.map(m => root.liveSpec(m)))
   }
 
   function cancelRevert(reason) {
@@ -400,6 +483,7 @@ ColumnLayout {
     root.revertJson = JSON.stringify(previousAll)
     root.revertRule = Displays.monitorRule(prev)
     root.revertIndex = index
+    root.revertName = String(prev.name || next.name || "")
     root.revertSeconds = 10
     root.postApplyFingerprint = root.specFingerprint(all)
     revertTick.restart()
@@ -423,6 +507,7 @@ ColumnLayout {
     root.revertJson = JSON.stringify(previousAll)
     root.revertRule = Displays.monitorRule(previousAll[0] || {})
     root.revertIndex = 0
+    root.revertName = String((previousAll[0] && previousAll[0].name) || (all[0] && all[0].name) || "")
     root.revertSeconds = 10
     root.postApplyFingerprint = root.specFingerprint(all)
     revertTick.restart()
@@ -494,10 +579,17 @@ ColumnLayout {
 
   function revertLast() {
     const snap = root.revertJson
-    if (!(root.revertIndex >= 0) || !snap.length) {
+    if (!root.revertName.length || !snap.length) {
       root.applyStatus = "Nothing to revert."
       return
     }
+    // Rebind index by connector name — hotplug must not target a shifted row.
+    const ri = root.indexOfMonitorName(root.monitors, root.revertName)
+    if (ri < 0) {
+      root.cancelRevert("Display removed — Revert cancelled.")
+      return
+    }
+    root.revertIndex = ri
     let all = []
     try {
       all = JSON.parse(snap)
@@ -508,13 +600,39 @@ ColumnLayout {
       root.applyStatus = "Revert snapshot empty — refresh and re-Apply."
       return
     }
+    // Drop snapshot rows for connectors that vanished; keep known names.
+    const liveNames = {}
+    for (let i = 0; i < root.monitors.length; i++)
+      liveNames[root.monitors[i].name] = true
+    const filtered = []
+    for (let i = 0; i < all.length; i++) {
+      if (all[i] && all[i].name && liveNames[all[i].name])
+        filtered.push(all[i])
+    }
+    // Also restore any live connectors missing from snapshot using current liveSpec.
+    for (let i = 0; i < root.monitors.length; i++) {
+      const n = root.monitors[i].name
+      let found = false
+      for (let j = 0; j < filtered.length; j++) {
+        if (filtered[j].name === n) {
+          found = true
+          break
+        }
+      }
+      if (!found)
+        filtered.push(root.liveSpec(root.monitors[i]))
+    }
+    if (!filtered.length) {
+      root.applyStatus = "Revert snapshot empty — refresh and re-Apply."
+      return
+    }
     const rules = []
-    for (let i = 0; i < all.length; i++)
-      rules.push(Displays.monitorRule(all[i]))
+    for (let i = 0; i < filtered.length; i++)
+      rules.push(Displays.monitorRule(filtered[i]))
     root.applyStatus = "Reverting… " + rules.length + " monitor(s)"
     revertTick.stop()
     // UI updates only after hyprctl succeeds (VM reliability).
-    runMonitorRules(rules, all, "revert")
+    runMonitorRules(rules, filtered, "revert")
   }
 
   function layoutBounds() {
@@ -587,6 +705,7 @@ ColumnLayout {
     revertJson = ""
     revertRule = ""
     revertIndex = -1
+    revertName = ""
     revertSeconds = 0
     postApplyFingerprint = ""
     revertTick.stop()
@@ -673,9 +792,12 @@ ColumnLayout {
         return
       }
       root.revertSeconds = root.revertSeconds - 1
-      if (root.revertIndex >= 0 && root.revertIndex < root.monitors.length)
-        root.applyStatus = "Applied " + root.monitors[root.revertIndex].name
+      if (root.revertName.length) {
+        const ri = root.indexOfMonitorName(root.monitors, root.revertName)
+        const label = ri >= 0 ? root.monitors[ri].name : root.revertName
+        root.applyStatus = "Applied " + label
             + " — Revert available for " + root.revertSeconds + "s"
+      }
     }
   }
 
@@ -934,7 +1056,7 @@ ColumnLayout {
       visible: !root.confirming
       title: monGroup.modelData.name + (monGroup.modelData.focused ? " · active" : "")
 
-      readonly property bool revertable: root.canRevert && root.revertIndex === monGroup.index
+      readonly property bool revertable: root.canRevert && monGroup.modelData.name === root.revertName
 
       SettingsFormRow {
         visible: !!(monGroup.modelData.description || monGroup.modelData.make)
@@ -1112,15 +1234,18 @@ ColumnLayout {
           if (!Array.isArray(parsed)) {
             root.monitors = []
             root.status = "Unexpected hyprctl output."
+            root.clearPending()
+            if (root.revertName.length)
+              root.cancelRevert("Displays unreadable — Revert cancelled.")
             return
           }
-          root.monitors = parsed.map(m => root.enrichMonitor(m))
-          root.status = root.monitors.length ? "" : "No monitors reported."
-          root.clearLayoutDirty()
-          Displays.ensureMonitorsConfStub(root.monitors.map(m => root.liveSpec(m)))
+          root.adoptMonitorList(parsed)
         } catch (e) {
           root.monitors = []
           root.status = "Could not read monitors (is Hyprland running?)."
+          root.clearPending()
+          if (root.revertName.length)
+            root.cancelRevert("Displays unreadable — Revert cancelled.")
         }
       }
     }
