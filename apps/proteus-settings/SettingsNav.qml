@@ -32,6 +32,10 @@ Singleton {
     {
       id: "sound",
       label: "Sound"
+    },
+    {
+      id: "network",
+      label: "Network"
     }
   ]
 

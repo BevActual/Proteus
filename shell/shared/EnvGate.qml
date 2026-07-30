@@ -237,6 +237,42 @@ Singleton {
       keywords: "wifi ethernet bluetooth vpn tailscale"
     },
     {
+      id: "network-machine",
+      label: "This machine",
+      hubId: "network",
+      keywords: "hostname"
+    },
+    {
+      id: "network-devices",
+      label: "Devices",
+      hubId: "network",
+      keywords: "nmcli interfaces"
+    },
+    {
+      id: "network-wifi",
+      label: "Wi‑Fi",
+      hubId: "network",
+      keywords: "wireless ssid scan"
+    },
+    {
+      id: "network-bluetooth",
+      label: "Bluetooth",
+      hubId: "network",
+      keywords: "bt adapter"
+    },
+    {
+      id: "network-tailscale",
+      label: "Tailscale",
+      hubId: "network",
+      keywords: "mesh vpn peers"
+    },
+    {
+      id: "network-vpn",
+      label: "VPN",
+      hubId: "network",
+      keywords: "wireguard openvpn"
+    },
+    {
       id: "peripherals",
       label: "Peripherals",
       hubId: "peripherals",

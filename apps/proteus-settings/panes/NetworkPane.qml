@@ -5,14 +5,20 @@ import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Network: devices, Wi‑Fi connect/disconnect, hostname, Bluetooth, Tailscale, VPN.
+// Network category hub → leaf loaders (Sound/Desktop pattern).
+// Page ids: network · network-machine · network-devices · network-wifi ·
+// network-bluetooth · network-tailscale · network-vpn.
 // Pairing / password Wi‑Fi wizard / Headscale admin stay Out (SETTINGS-IA §2).
 ColumnLayout {
   id: root
   Layout.fillWidth: true
   spacing: Theme.spaceMd
 
-  property bool active: false
+  property string page: "network"
+  signal requestGo(string id)
+
+  readonly property bool active: page === "network" || page.startsWith("network-")
+
   property var devices: []
   property string status: "Checking network…"
 
@@ -62,6 +68,33 @@ ColumnLayout {
     const b = String(hostnameDraft || "").trim()
     return b.length > 0 && a !== b
   }
+
+  readonly property var sections: [
+    {
+      key: "network-machine",
+      label: "This machine"
+    },
+    {
+      key: "network-devices",
+      label: "Devices"
+    },
+    {
+      key: "network-wifi",
+      label: "Wi‑Fi"
+    },
+    {
+      key: "network-bluetooth",
+      label: "Bluetooth"
+    },
+    {
+      key: "network-tailscale",
+      label: "Tailscale"
+    },
+    {
+      key: "network-vpn",
+      label: "VPN"
+    }
+  ]
 
   function stateHint(dev) {
     const parts = [dev.type, dev.state]
@@ -144,338 +177,51 @@ ColumnLayout {
       refresh()
   }
 
-  SettingsGroup {
-    title: "This machine"
-
-    SettingsFormRow {
-      label: "Hostname"
-      hint: root.hostnameError.length ? root.hostnameError
-          : (root.hostname.length ? root.hostname : "…")
-      showSeparator: true
-      labelColor: root.hostnameError.length ? Theme.danger : Theme.text
-
-      RowLayout {
-        spacing: Theme.spaceSm
-        TextInput {
-          id: hostInput
-          Layout.preferredWidth: 140
-          text: root.hostnameDraft
-          color: Theme.text
-          font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSize
-          verticalAlignment: TextInput.AlignVCenter
-          selectByMouse: true
-          onTextChanged: root.hostnameDraft = text
-          Keys.onReturnPressed: root.applyHostname()
-        }
-        Text {
-          visible: root.hostnameDirty
-          text: root.hostnameBusy ? "…" : "Apply"
-          color: root.hostnameBusy ? Theme.textMute : Theme.accent
-          font.family: Theme.fontFamily
-          font.pixelSize: 12
-          MouseArea {
-            anchors.fill: parent
-            enabled: root.hostnameDirty && !root.hostnameBusy
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.applyHostname()
-          }
-        }
-      }
-    }
-
-    SettingsFormRow {
-      label: "Refresh"
-      hint: "Reload devices, Wi‑Fi, Bluetooth, Tailscale, VPN"
-      showSeparator: false
-      interactive: true
-      onActivated: root.refresh()
-      Text {
-        text: "↻"
-        color: Theme.textMute
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
-      }
-    }
+  Component.onCompleted: {
+    if (active)
+      refresh()
   }
 
-  Text {
-    Layout.fillWidth: true
-    Layout.maximumWidth: 480
-    visible: !root.devices.length
-    text: root.status
-    color: Theme.textMute
-    font.family: Theme.fontFamily
-    font.pixelSize: 12
-    wrapMode: Text.WordWrap
+  SettingsHubList {
+    visible: root.page === "network"
+    items: root.sections
+    onActivated: key => root.requestGo(key)
   }
 
-  SettingsGroup {
-    visible: root.devices.length > 0
-    title: "Devices"
-
-    Repeater {
-      model: root.devices
-
-      SettingsFormRow {
-        required property var modelData
-        required property int index
-        label: modelData.device
-        hint: root.stateHint(modelData)
-        showSeparator: index < root.devices.length - 1
-        Text {
-          text: root.isUp(modelData) ? "Connected" : ""
-          color: Theme.accent
-          font.family: Theme.fontFamily
-          font.pixelSize: 12
-        }
-      }
-    }
+  StickyPaneLoader {
+    want: root.page === "network-machine"
+    source: "NetworkMachineLeaf.qml"
+    onLoaded: item.host = root
   }
 
-  SettingsGroup {
-    title: "Wi‑Fi"
-
-    SettingsFormRow {
-      visible: !root.wifiNetworks.length
-      label: "Networks"
-      hint: root.wifiStatus
-      showSeparator: true
-    }
-
-    SettingsFormRow {
-      visible: root.wifiError.length > 0
-      label: "Note"
-      hint: root.wifiError
-      showSeparator: true
-      labelColor: Theme.danger
-    }
-
-    Repeater {
-      model: root.wifiNetworks
-
-      SettingsFormRow {
-        required property var modelData
-        required property int index
-        label: modelData.ssid || "(hidden)"
-        hint: {
-          const bits = []
-          if (modelData.signal)
-            bits.push(modelData.signal + "%")
-          if (modelData.security)
-            bits.push(modelData.security)
-          if (modelData.active)
-            bits.push("in use")
-          return bits.join(" · ")
-        }
-        showSeparator: index < root.wifiNetworks.length - 1
-        interactive: !root.wifiBusy && modelData.ssid && modelData.ssid.length > 0
-        onActivated: {
-          if (modelData.active)
-            root.disconnectWifi()
-          else
-            root.connectWifi(modelData.ssid)
-        }
-        Text {
-          text: modelData.active ? "Disconnect" : "Connect"
-          color: modelData.active ? Theme.danger : Theme.accent
-          font.family: Theme.fontFamily
-          font.pixelSize: 12
-        }
-      }
-    }
-
-    SettingsFormRow {
-      label: "Rescan Wi‑Fi"
-      hint: root.wifiDevice.length ? ("Interface " + root.wifiDevice) : "Needs a Wi‑Fi device"
-      showSeparator: false
-      interactive: !root.wifiBusy
-      onActivated: {
-        root.wifiBusy = true
-        root.kick(wifiProc)
-        wifiRefresh.restart()
-      }
-      Text {
-        text: "↻"
-        color: Theme.textMute
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
-      }
-    }
+  StickyPaneLoader {
+    want: root.page === "network-devices"
+    source: "NetworkDevicesLeaf.qml"
+    onLoaded: item.host = root
   }
 
-  SettingsGroup {
-    title: "Bluetooth"
-
-    SettingsFormRow {
-      label: root.btAdapter.length ? root.btAdapter : "Adapter"
-      hint: root.btHint
-      showSeparator: true
-      Text {
-        visible: root.btAvailable
-        text: root.btPowered ? "On" : "Off"
-        color: root.btPowered ? Theme.accent : Theme.textMute
-        font.family: Theme.fontFamily
-        font.pixelSize: 12
-      }
-    }
-
-    SettingsFormRow {
-      label: "Open Bluetooth settings"
-      hint: root.btAvailable
-          ? "blueman-manager, or bluetoothctl in a terminal"
-          : "Install BlueZ / blueman when this machine has Bluetooth"
-      showSeparator: false
-      interactive: root.btAvailable
-      onActivated: Config.openBluetoothEditor()
-      Text {
-        text: root.btAvailable ? "›" : ""
-        color: Theme.textMute
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
-      }
-    }
+  StickyPaneLoader {
+    want: root.page === "network-wifi"
+    source: "NetworkWifiLeaf.qml"
+    onLoaded: item.host = root
   }
 
-  SettingsGroup {
-    title: "Tailscale"
-
-    SettingsFormRow {
-      label: "Status"
-      hint: root.tsHint
-      showSeparator: true
-      Text {
-        visible: root.tsAvailable && root.tsRunning
-        text: "Connected"
-        color: Theme.accent
-        font.family: Theme.fontFamily
-        font.pixelSize: 12
-      }
-    }
-
-    SettingsFormRow {
-      visible: root.tsAvailable && root.tsIp.length > 0
-      label: "Tailscale IP"
-      hint: root.tsIp
-      showSeparator: true
-      interactive: true
-      onActivated: root.copyTailscaleIp()
-      Text {
-        text: root.tsCopied.length ? root.tsCopied : "Copy"
-        color: Theme.accent
-        font.family: Theme.fontFamily
-        font.pixelSize: 12
-      }
-    }
-
-    SettingsFormRow {
-      visible: root.tsAvailable && root.tsPeers > 0
-      label: "Peers"
-      hint: root.tsPeers + (root.tsPeers === 1 ? " device online" : " devices online")
-      showSeparator: true
-    }
-
-    SettingsFormRow {
-      visible: root.tsAvailable
-      label: root.tsActionLabel
-      hint: root.tsNeedsLogin
-          ? "Opens Tailscale login (browser or CLI)"
-          : (root.tsRunning ? "tailscale down" : "tailscale up")
-      showSeparator: true
-      interactive: root.tsAvailable && !root.tsBusy && root.tsActionLabel.length > 0
-      onActivated: root.runTailscaleAction()
-      Text {
-        text: "›"
-        color: Theme.textMute
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
-      }
-    }
-
-    SettingsFormRow {
-      label: root.tsAvailable ? "Open Tailscale status" : "Tailscale not installed"
-      hint: root.tsAvailable
-          ? "tailscale status in a terminal"
-          : "Install tailscale · Headscale = set login-server via CLI"
-      showSeparator: false
-      interactive: root.tsAvailable
-      onActivated: Config.openTailscaleStatus()
-      Text {
-        text: root.tsAvailable ? "›" : ""
-        color: Theme.textMute
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
-      }
-    }
+  StickyPaneLoader {
+    want: root.page === "network-bluetooth"
+    source: "NetworkBluetoothLeaf.qml"
+    onLoaded: item.host = root
   }
 
-  SettingsGroup {
-    title: "VPN"
-
-    SettingsFormRow {
-      visible: !root.vpnConnections.length
-      label: "No profiles"
-      hint: root.vpnStatus
-      showSeparator: true
-    }
-
-    Repeater {
-      model: root.vpnConnections
-
-      SettingsFormRow {
-        required property var modelData
-        required property int index
-        label: modelData.name
-        hint: modelData.type || "vpn"
-        showSeparator: true
-        Text {
-          text: modelData.active ? "Connected" : ""
-          color: Theme.accent
-          font.family: Theme.fontFamily
-          font.pixelSize: 12
-        }
-      }
-    }
-
-    SettingsFormRow {
-      label: "Open VPN / NetworkManager"
-      hint: "Add or edit VPN profiles · password Wi‑Fi also lives here"
-      showSeparator: false
-      interactive: true
-      onActivated: Config.openNetworkEditor()
-      Text {
-        text: "›"
-        color: Theme.textMute
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
-      }
-    }
+  StickyPaneLoader {
+    want: root.page === "network-tailscale"
+    source: "NetworkTailscaleLeaf.qml"
+    onLoaded: item.host = root
   }
 
-  SettingsGroup {
-    SettingsFormRow {
-      label: "Open network settings"
-      hint: "NetworkManager editor, or nmtui in a terminal"
-      showSeparator: false
-      interactive: true
-      onActivated: Config.openNetworkEditor()
-      Text {
-        text: "›"
-        color: Theme.textMute
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
-      }
-    }
-  }
-
-  Text {
-    Layout.fillWidth: true
-    Layout.maximumWidth: 480
-    text: "Fact: hostnamectl · nmcli wifi · bluetoothctl · tailscale · wl-copy. Password Wi‑Fi / pairing / Headscale admin → system tools."
-    color: Theme.textMute
-    font.family: Theme.fontFamily
-    font.pixelSize: 11
-    wrapMode: Text.WordWrap
+  StickyPaneLoader {
+    want: root.page === "network-vpn"
+    source: "NetworkVpnLeaf.qml"
+    onLoaded: item.host = root
   }
 
   Timer {

@@ -121,10 +121,37 @@ Item {
     }
   ]
 
+  readonly property var networkChildren: [
+    {
+      key: "network-machine",
+      label: "This machine"
+    },
+    {
+      key: "network-devices",
+      label: "Devices"
+    },
+    {
+      key: "network-wifi",
+      label: "Wi‑Fi"
+    },
+    {
+      key: "network-bluetooth",
+      label: "Bluetooth"
+    },
+    {
+      key: "network-tailscale",
+      label: "Tailscale"
+    },
+    {
+      key: "network-vpn",
+      label: "VPN"
+    }
+  ]
+
   // Every hub's leaf pages, flattened — the title lookup used to walk each
   // list separately, so adding a hub meant another near-identical loop.
   readonly property var allChildren: styleChildren
-      .concat(desktopChildren, peripheralsChildren, packagesChildren, soundChildren)
+      .concat(desktopChildren, peripheralsChildren, packagesChildren, soundChildren, networkChildren)
 
   readonly property string pageTitle: {
     const p = page
@@ -377,9 +404,12 @@ Item {
               }
             }
             StickyPaneLoader {
-              want: root.page === "network"
+              want: root.section === "network"
               source: "panes/NetworkPane.qml"
-              onLoaded: item.active = Qt.binding(() => root.page === "network")
+              onLoaded: {
+                item.page = Qt.binding(() => root.page)
+                item.requestGo.connect(id => SettingsNav.go(id))
+              }
             }
             StickyPaneLoader {
               want: root.page === "power"
