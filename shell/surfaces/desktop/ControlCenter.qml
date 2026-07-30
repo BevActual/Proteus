@@ -77,11 +77,15 @@ Item {
             return "—"
           const p = Number(d.percentage)
           if (isNaN(p))
-            return UPower.onBattery ? "Battery" : "AC"
+            return UPower.onBattery ? "On battery" : "AC power"
           const pct = Math.round(Math.max(0, Math.min(1, p)) * 100)
           const s = String(d.state || "")
           const charging = s.indexOf("Charging") >= 0 || s.indexOf("Fully") >= 0
-          return pct + "%" + (charging ? " · Charging" : (UPower.onBattery ? "" : " · AC"))
+          if (charging)
+            return pct + "% · Charging"
+          if (UPower.onBattery)
+            return pct + "%"
+          return pct + "% · AC"
         }
         onNetworkClicked: {
           Config.openNetworkEditor()
@@ -93,11 +97,12 @@ Item {
 
       Text {
         Layout.fillWidth: true
-        text: "More in Settings → Sound / Network"
+        text: "Deep Sound / Network controls live in Settings"
         color: Theme.textMute
         font.family: Theme.fontFamily
         font.pixelSize: 11
         horizontalAlignment: Text.AlignHCenter
+        wrapMode: Text.WordWrap
       }
     }
   }

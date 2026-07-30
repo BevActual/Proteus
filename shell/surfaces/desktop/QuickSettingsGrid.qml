@@ -5,13 +5,14 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "../../shared"
 
+// Control Center Quick Settings — volume + tile chrome (no emoji clutter).
 ColumnLayout {
   id: root
   spacing: Theme.spaceSm
 
   property int volume: 50
   property bool muted: false
-  property string netSummary: "Network"
+  property string netSummary: "Checking…"
   property string batteryText: "—"
 
   signal volumeChangedByUser(int pct)
@@ -19,6 +20,12 @@ ColumnLayout {
   signal networkClicked()
   signal dndToggled()
   signal settingsClicked()
+
+  readonly property string volumeHint: {
+    if (root.muted)
+      return "Muted"
+    return Math.min(100, root.volume) + "%"
+  }
 
   function refreshAudio() {
     Audio.getVolume(v => {
@@ -80,25 +87,25 @@ ColumnLayout {
     Layout.fillWidth: true
     Layout.preferredHeight: 52
     radius: Theme.radiusLg
-    color: Theme.bgHover
+    color: Theme.elevatedFill
+    border.width: 1
+    border.color: Theme.chromeBorder
 
     RowLayout {
       anchors.fill: parent
       anchors.margins: Theme.spaceSm
       spacing: Theme.spaceSm
 
-      Rectangle {
-        Layout.preferredWidth: 36
-        Layout.preferredHeight: 36
-        radius: 10
-        color: root.muted ? Theme.chromeAccentSoft : Theme.elevatedFill
-        Text {
-          anchors.centerIn: parent
-          text: root.muted ? "🔇" : "🔊"
-          font.pixelSize: 14
-        }
+      Text {
+        text: root.muted ? "Unmute" : "Mute"
+        color: root.muted ? Theme.accent : Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.Medium
+        Layout.preferredWidth: 52
         MouseArea {
           anchors.fill: parent
+          anchors.margins: -6
           cursorShape: Qt.PointingHandCursor
           onClicked: {
             root.muteToggled()
@@ -126,11 +133,11 @@ ColumnLayout {
       }
 
       Text {
-        text: root.muted ? "Mute" : (Math.min(100, root.volume) + "%")
-        color: Theme.textDim
+        text: root.volumeHint
+        color: root.muted ? Theme.textMute : Theme.textDim
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSizeSm
-        Layout.preferredWidth: 40
+        Layout.preferredWidth: 44
         horizontalAlignment: Text.AlignRight
       }
     }
@@ -148,26 +155,36 @@ ColumnLayout {
         {
           id: "net",
           title: "Network",
-          subtitle: root.netSummary,
-          accent: root.netSummary !== "No connection"
+          subtitle: root.netSummary === "No connection"
+              ? "Open NetworkManager"
+              : (root.netSummary + " · editor"),
+          accent: root.netSummary !== "No connection" && root.netSummary !== "Checking…",
+          interactive: true,
+          trailing: "›"
         },
         {
           id: "bat",
           title: "Battery",
           subtitle: root.batteryText,
-          accent: false
+          accent: false,
+          interactive: false,
+          trailing: ""
         },
         {
           id: "dnd",
           title: "Do Not Disturb",
           subtitle: Config.notificationsDnd ? "On · toasts off" : "Off · toasts on",
-          accent: Config.notificationsDnd
+          accent: Config.notificationsDnd,
+          interactive: true,
+          trailing: Config.notificationsDnd ? "On" : "Off"
         },
         {
           id: "settings",
           title: "Settings",
-          subtitle: "Sound · Network",
-          accent: false
+          subtitle: "Sound · Network · more",
+          accent: false,
+          interactive: true,
+          trailing: "›"
         }
       ]
 
@@ -176,34 +193,50 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.preferredHeight: 72
         radius: Theme.radiusLg
-        color: modelData.accent ? Theme.chromeAccentSoft : Theme.bgHover
-        border.width: modelData.accent ? 1 : 0
-        border.color: Theme.accent
+        color: modelData.accent ? Theme.chromeAccentSoft : Theme.elevatedFill
+        border.width: 1
+        border.color: modelData.accent ? Theme.accent : Theme.chromeBorder
 
-        ColumnLayout {
+        RowLayout {
           anchors.fill: parent
           anchors.margins: Theme.spaceMd
-          spacing: 2
-          Text {
-            text: modelData.title
-            color: Theme.text
-            font.family: Theme.fontFamily
-            font.pixelSize: 13
-            font.weight: Font.Medium
-          }
-          Text {
-            text: modelData.subtitle
-            color: Theme.textDim
-            font.family: Theme.fontFamily
-            font.pixelSize: 11
-            elide: Text.ElideRight
+          spacing: Theme.spaceSm
+
+          ColumnLayout {
             Layout.fillWidth: true
+            spacing: 2
+            Text {
+              text: modelData.title
+              color: Theme.text
+              font.family: Theme.fontFamily
+              font.pixelSize: 13
+              font.weight: Font.Medium
+              elide: Text.ElideRight
+              Layout.fillWidth: true
+            }
+            Text {
+              text: modelData.subtitle
+              color: Theme.textDim
+              font.family: Theme.fontFamily
+              font.pixelSize: 11
+              elide: Text.ElideRight
+              Layout.fillWidth: true
+            }
+          }
+
+          Text {
+            visible: modelData.trailing && String(modelData.trailing).length > 0
+            text: modelData.trailing || ""
+            color: modelData.accent ? Theme.accent : Theme.textMute
+            font.family: Theme.fontFamily
+            font.pixelSize: 12
           }
         }
 
         MouseArea {
           anchors.fill: parent
-          cursorShape: Qt.PointingHandCursor
+          enabled: modelData.interactive
+          cursorShape: modelData.interactive ? Qt.PointingHandCursor : Qt.ArrowCursor
           onClicked: {
             if (modelData.id === "net")
               root.networkClicked()
