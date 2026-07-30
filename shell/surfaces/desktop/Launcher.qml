@@ -17,6 +17,7 @@ Item {
   property var tagEditEntry: null
   property var pinMenuEntry: null
   property var fileHits: []
+  property var placeHits: []
   property string filesHint: ""
   property var clipHits: []
   property string clipHint: ""
@@ -133,10 +134,12 @@ Item {
       return
     mode = id
     list.currentIndex = root.firstSelectableIndex()
-    if (id === "files")
+    if (id === "files") {
+      root.refreshPlaces()
       root.queueFileSearch()
-    else if (id === "clipboard")
+    } else if (id === "clipboard") {
       root.refreshClipboard()
+    }
     claimSearchFocus()
   }
 
@@ -218,12 +221,56 @@ Item {
     fileDebounce.restart()
   }
 
+  function refreshPlaces() {
+    placeProc.running = false
+    placeProc.command = [
+      "python3",
+      "-c",
+      "import json, os\n"
+          + "home = os.path.expanduser('~')\n"
+          + "dirs = {}\n"
+          + "p = os.path.join(home, '.config', 'user-dirs.dirs')\n"
+          + "if os.path.isfile(p):\n"
+          + "  for line in open(p, encoding='utf-8', errors='ignore'):\n"
+          + "    line = line.strip()\n"
+          + "    if not line or line.startswith('#') or '=' not in line: continue\n"
+          + "    k, v = line.split('=', 1)\n"
+          + "    v = v.strip().strip('\"').replace('$HOME', home)\n"
+          + "    dirs[k.strip()] = os.path.expanduser(v)\n"
+          + "def pick(keys, fallback):\n"
+          + "  for k in keys:\n"
+          + "    path = dirs.get(k) or fallback\n"
+          + "    if path and os.path.isdir(path): return path\n"
+          + "  return fallback if fallback and os.path.isdir(fallback) else None\n"
+          + "cands = [\n"
+          + "  ('Home', home),\n"
+          + "  ('Desktop', pick(['XDG_DESKTOP_DIR'], os.path.join(home, 'Desktop'))),\n"
+          + "  ('Documents', pick(['XDG_DOCUMENTS_DIR'], os.path.join(home, 'Documents'))),\n"
+          + "  ('Downloads', pick(['XDG_DOWNLOAD_DIR'], os.path.join(home, 'Downloads'))),\n"
+          + "  ('Pictures', pick(['XDG_PICTURES_DIR'], os.path.join(home, 'Pictures'))),\n"
+          + "  ('Music', pick(['XDG_MUSIC_DIR'], os.path.join(home, 'Music'))),\n"
+          + "  ('Videos', pick(['XDG_VIDEOS_DIR'], os.path.join(home, 'Videos'))),\n"
+          + "]\n"
+          + "seen = set()\n"
+          + "out = []\n"
+          + "for name, path in cands:\n"
+          + "  if not path: continue\n"
+          + "  path = os.path.realpath(path)\n"
+          + "  if path in seen: continue\n"
+          + "  if not os.path.isdir(path): continue\n"
+          + "  seen.add(path)\n"
+          + "  out.append({'name': name, 'path': path, 'dir': True})\n"
+          + "print(json.dumps(out))\n"
+    ]
+    placeProc.running = true
+  }
+
   function runFileSearch() {
     const q = search.text.trim()
-    filesHint = q.length ? "Searching home folder…" : "Type a name to search your home folder (depth ≤5)."
+    filesHint = q.length ? "Searching home folder…" : ""
     if (!q.length) {
       fileHits = []
-      filesHint = "Type a name to search your home folder (depth ≤5)."
+      filesHint = ""
       return
     }
     fileProc.running = false
@@ -290,13 +337,49 @@ Item {
     const _tagMap = Config.launcherAppTags
     const _catalog = Config.launcherTagCatalog
     const _files = root.fileHits
+    const _places = root.placeHits
     const _clips = root.clipHits
     const _mode = root.mode
     if (root.tagging)
       return []
 
     if (_mode === "files") {
+      const q = search.text.trim()
       const rows = []
+      // Empty query: calm Places hierarchy (or honest empty) — not a flat home dump.
+      if (!q.length) {
+        if (_places.length) {
+          rows.push({
+            kind: "section",
+            entry: null,
+            path: "",
+            name: "Places",
+            subtitle: "",
+            icon: "",
+            blocked: true,
+            score: 3000,
+            clipLine: "",
+            calcValue: ""
+          })
+          for (let i = 0; i < _places.length; i++) {
+            const p = _places[i]
+            rows.push({
+              kind: "file",
+              entry: null,
+              path: p.path,
+              name: p.name,
+              subtitle: p.path,
+              icon: "folder",
+              blocked: false,
+              score: 2000 - i,
+              clipLine: "",
+              calcValue: "",
+              section: "places"
+            })
+          }
+        }
+        return rows
+      }
       for (let i = 0; i < _files.length; i++) {
         const f = _files[i]
         rows.push({
@@ -797,11 +880,16 @@ Item {
 
   function emptyText() {
     if (mode === "files") {
+      if (search.text.trim().length) {
+        if (filesHint.length)
+          return filesHint
+        return "No files match under ~ (depth ≤5, skips dotdirs)."
+      }
+      if (placeHits.length)
+        return ""
       if (filesHint.length)
         return filesHint
-      if (search.text.trim().length)
-        return "No files match under ~ (depth ≤5, skips dotdirs)."
-      return "Type a name to search your home folder (depth ≤5)."
+      return "No places available — type a name to search your home folder (depth ≤5)."
     }
     if (mode === "clipboard") {
       if (clipHint.length && !clipHits.length)
@@ -1068,6 +1156,8 @@ Item {
               if (root.mode === "files") {
                 if (root.filesHint.length && root.fileHits.length)
                   return root.filesHint
+                if (!search.text.trim().length)
+                  return "Files · Places · type to search ~"
                 return "Files · home folder · depth ≤5"
               }
               if (root.mode === "clipboard")
@@ -1415,6 +1505,23 @@ Item {
     interval: 200
     repeat: false
     onTriggered: root.runFileSearch()
+  }
+
+  Process {
+    id: placeProc
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const raw = text.trim() || "[]"
+          const parsed = JSON.parse(raw)
+          root.placeHits = Array.isArray(parsed) ? parsed : []
+        } catch (e) {
+          root.placeHits = []
+        }
+        if (root.mode === "files")
+          list.currentIndex = root.firstSelectableIndex()
+      }
+    }
   }
 
   Process {
