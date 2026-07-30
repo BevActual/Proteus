@@ -35,25 +35,34 @@ ColumnLayout {
             Rectangle {
               required property var modelData
               width: 100
-              height: 52
+              height: 64
               radius: Theme.radiusMd
               color: Config.fontFamily === modelData.id ? Theme.accentSoft : Theme.bgHover
+              clip: true
               Column {
-                anchors.centerIn: parent
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: 4
+                anchors.rightMargin: 4
                 spacing: 4
                 Text {
+                  width: parent.width
                   text: "Aa"
                   color: Theme.text
                   font.family: modelData.id
                   font.pixelSize: 18
-                  anchors.horizontalCenter: parent.horizontalCenter
+                  horizontalAlignment: Text.AlignHCenter
                 }
                 Text {
+                  width: parent.width
                   text: modelData.label
                   color: Theme.textDim
                   font.family: Theme.fontFamily
                   font.pixelSize: 11
-                  anchors.horizontalCenter: parent.horizontalCenter
+                  horizontalAlignment: Text.AlignHCenter
+                  elide: Text.ElideRight
+                  maximumLineCount: 1
                 }
               }
               MouseArea {

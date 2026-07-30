@@ -147,6 +147,12 @@ Singleton {
       keywords: "lock wallpaper"
     },
     {
+      id: "style-icons",
+      label: "Icons",
+      hubId: "style",
+      keywords: "dock plate papirus tinted"
+    },
+    {
       id: "style-font",
       label: "Font",
       hubId: "style",
