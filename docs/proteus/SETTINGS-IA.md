@@ -139,7 +139,7 @@ the sub-settings list:
 
 | Sub-setting | Role |
 |-------------|------|
-| Accent color | Presets + custom hex + **HSV color graph** (`kit/ColorGraphPicker`, debounced commit / coalesced settings+hypr); **Dark / Light** (`kit/SettingsSegmented`); **Opacity** (0% clear · 100% solid, live) + **Blur** (frosted bar/dock/launcher; debounced Hypr apply) |
+| Accent color | Presets + custom hex + **HSV color graph** (`kit/ColorGraphPicker`, debounced commit / coalesced settings+hypr); **Dark / Light** (`kit/SettingsSegmented`); **Opacity** (0% clear · 100% solid, live — bar uses clearer `menuBarAlpha`, dock richer `glassAlpha`) + **Blur** (frosted bar/dock/launcher; debounced Hypr apply) |
 | Background | Kind hub (`kit/SettingsKindPicker`): Color (`kit/SettingsColorPresetGroup` + graph) · Image (built-in stock + albums/slideshow; empty-album honesty; Missing thumb overlay) · Daily · Video · Animated. Applied by **`proteus-bg`** (Hypr `exec-once`) |
 | Lock screen | Same Kind/color kit as Background + dim; Match desktop; **widgets only via lock Customize** (long-press) — not in Settings |
 | Icons | **Default / Dark / Clear / Tinted** side-by-side squircle compare (`kit/SettingsIconStylePicker`); Tinted tint graph; custom art Switch/Reset; dock Keep/Remove via glass right-click menu + long-press edit (−) / drag-off (running apps appear on dock) |
@@ -186,7 +186,7 @@ pages via `kit/StickyPaneLoader` (`DesktopGapsLeaf`, `DesktopChromeLeaf`,
 | Borders & rounding | Border size + window rounding FormRows; live hypr |
 | Motion | Window animations switch |
 | Dock & menu bar | Show/hide/monitor/size FormRows; Advanced → `proteus-general.conf` |
-| Launcher | Spotlight help (Ctrl+1–4 Apps/Files/Clipboard/Actions); Clear recents; app tag catalog FormRows |
+| Launcher | Spotlight help (Ctrl+1–4 Apps/Files/Clipboard/Actions); empty Apps = Recents section or honest empty; Clear recents; app tag catalog FormRows |
 
 | Pane | Live apply | On-disk fragment | Guest seed |
 |------|------------|------------------|----------|

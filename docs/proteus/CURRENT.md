@@ -61,10 +61,10 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 
 | Feature | Status |
 |---------|--------|
-| Top bar (launcher, workspaces, title, clock, settings) | `partial` — glass menu bar; app title on left; status cluster → Control Center (unread badge · DND label) |
+| Top bar (launcher, workspaces, title, clock, settings) | `partial` — wallpaper-first glass menu bar (`menuBarAlpha` clearer than dock; soft text outline when thin); app title on left; status cluster → Control Center (unread badge · DND label) |
 | Control Center (notifications + quick settings) | `shipped` — list empty/Dismiss honesty; toast/`showToast` SoT (DND · CC-open suppress); QS Mute/Unmute + elevated tiles; Settings/NM escapes; no Settings Notifications pane |
-| App launcher (`Super+Space` / `Super+D`) | `partial` — Apps / Files / Clipboard / Actions (Ctrl+1–4; active mode pill labels); fuzzy + tags + Settings; EnvGate unavailable honesty (badge · reasons); calc/convert + near-miss hint; cliphist missing-vs-empty; home-folder Files (depth ≤5 · 40-cap); allowlisted Actions (lock/logout/settings/CC/DND/power) |
-| Dock (pins, magnify, running dots) | `shipped` — floating glass shelf (menu-bar glass family + hairline); smooth magnify; running disc vs active accent pill; long-press edit (−/+ · Done); press-drag reorder / drag-off remove; glass Keep/Remove (`ChromeMenuPlate`) |
+| App launcher (`Super+Space` / `Super+D`) | `partial` — Apps / Files / Clipboard / Actions (Ctrl+1–4; active mode pill labels); empty Apps = calm **Recents** hierarchy (or honest empty); fuzzy + tags + Settings; EnvGate unavailable honesty (badge · reasons); calc/convert + near-miss hint; cliphist missing-vs-empty; home-folder Files (depth ≤5 · 40-cap); allowlisted Actions (lock/logout/settings/CC/DND/power) |
+| Dock (pins, magnify, running dots) | `shipped` — continuous frosted glass shelf (`glassAlpha` frost floor + curve-following edge glow; no straight specular); smooth magnify; running disc vs active accent pill; long-press edit (−/+ · Done); press-drag reorder / drag-off remove; glass Keep/Remove (`ChromeMenuPlate`) |
 | Session start (`proteus-session`) | `partial` — `start-hyprland` watchdog; no Ghostty exec-once; stray system apps hidden from launcher |
 | Desktop widgets (free place; Customize) | `partial` — long-press empty desktop or `Super+Shift+W`; free-place + optional Snap to Grid (center graph · no overlap); catalog via `Widgets.qml`; separate from lock |
 | Lock screen (`Super+L`, PAM + `WlSessionLock`) | `shipped` — Customize mode, zone layout, applets; cold boot auto-lock; attempt cooldown after 3 misses |

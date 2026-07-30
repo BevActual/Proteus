@@ -2,7 +2,7 @@
 doc: chrome
 role: reference
 audience: UI, contributors, coding agents
-last_updated: "2026-07-29"
+last_updated: "2026-07-30"
 doc_status: active
 scope: Proteus chrome language — principles, tokens, Settings patterns (company reference)
 related:
@@ -101,8 +101,11 @@ From `Theme.qml` (`Config.chromeMode` → `light`).
 
 ## 5. Chrome fills
 
-Alpha tracks `Config.chromeOpacity` (`chromeAlpha` / `glassAlpha`). Blur flag:
-`Config.chromeBlur`.
+Alpha tracks `Config.chromeOpacity` (`chromeAlpha` / `glassAlpha` / `menuBarAlpha`).
+Blur flag: `Config.chromeBlur`. Liquid Glass v1: menu bar is wallpaper-first
+(clearer curve); dock is continuous frost (richer floor + curve edge glow, never
+a straight specular strip); Spotlight Apps empty home is Recents hierarchy or
+honest empty.
 
 | Token | Recipe | Use |
 |-------|--------|-----|
