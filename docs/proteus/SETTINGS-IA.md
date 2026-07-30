@@ -55,8 +55,8 @@ Examples:
 | Gaps / borders / rounding / animations | json + `hyprctl` + `~/.config/hypr/proteus-general.conf` |
 | Keyboard shortcuts | `~/.config/proteus/keybinds.json` + `~/.config/hypr/proteus-keybinds.conf` |
 | Mouse sensitivity / accel | json + `hyprctl` input:* (+ general conf `input` block) |
-| Displays (list) | `hyprctl monitors -j` |
-| Displays scale / mode / orientation / layout | `hyprctl keyword monitor` + `proteus-monitors.conf` (recommended modes; confirm large jumps; 10s full-snapshot Revert; Identify flash; drag layout canvas) |
+| Displays (list) | `hyprctl monitors -j` (name-merge on refresh; add/remove status) |
+| Displays scale / mode / orientation / layout | `hyprctl keyword monitor` + `proteus-monitors.conf` (recommended modes; confirm large jumps; 10s full-snapshot Revert keyed by connector; drift/hotplug cancel; Identify flash; drag layout canvas) |
 | Volume / mute / default sink | `pactl` |
 | Input volume / mute / default source | `pactl` |
 | Input level meter | streaming `audio-peak.py` on default source (Settings Input leaf) |
@@ -97,7 +97,7 @@ Left-nav + content pane (macOS System Settings style).
 |----------|-------|---------|--------|
 | **Appearance** (`style`) | Category → Accent, Background, Lock screen, Icons (style compare + dock pins), Font (searchable + Add) | `settings.json`, Theme, `proteus-bg`; shared Kind/color/font/icon kit | `partial` |
 | **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Launcher (Spotlight tags/recents) — leaf files + FormRow kit | json + hyprctl + `proteus-general.conf` · `launcherRecents` / `launcherTagCatalog` / `launcherAppTags` | `shipped` |
-| **Displays** (`displays`) | Per-monitor scale + mode + layout canvas (Apply); conf escape hatch | hyprctl + `proteus-monitors.conf` | `partial` |
+| **Displays** (`displays`) | Layout canvas + per-monitor scale/mode/orientation; 10s Revert; Refresh/hotplug honesty; conf escape | hyprctl + `proteus-monitors.conf` | `shipped` |
 | **Sound** (`sound`) | Category → Output / Input / Applications / Latency & buffer — leaf files + FormRow kit | pactl + `audio-peak.py` + `pw-metadata` | `shipped` |
 | **Network** (`network`) | Hostname; Wi‑Fi scan/connect; Bluetooth; Tailscale; NM VPN | hostnamectl / nmcli / bluetoothctl / tailscale | `partial` |
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse; later touchpad / tablet | keybinds + input hyprctl | `shipped` |
@@ -191,13 +191,30 @@ pages via `kit/StickyPaneLoader` (`DesktopGapsLeaf`, `DesktopChromeLeaf`,
 | Pane | Live apply | On-disk fragment | Guest seed |
 |------|------------|------------------|----------|
 | Desktop | `hyprctl keyword` (gaps, border, rounding, animations) + dock/menu sizes + Launcher tags/recents in `settings.json` | `proteus-general.conf` + `settings.json` (`launcherRecents`, `launcherTagCatalog`, `launcherAppTags`) | `vm/guest/install-desktop-conf.sh` |
-| Displays | Scale + mode + orientation + layout via `hyprctl keyword monitor` | Live `monitor =` lines in `proteus-monitors.conf` | same |
+| Displays | Scale + mode + orientation + layout via `hyprctl keyword monitor`; Revert snapshot; Refresh/hotplug rebind | Live `monitor =` lines in `proteus-monitors.conf` | same |
 
 Templates: `env/hypr/proteus-general.conf`, `env/hypr/proteus-monitors.conf`. Nested
 `env/hypr/hyprland.conf` sources both plus keybinds.
 
 **Module rule:** Desktop leaf helpers stay in `panes/Desktop*Leaf.qml` + `kit/`
 FormRow/Group — not a single mega-inline `DesktopPane` body.
+
+### Displays
+
+Displays: single pane `DisplaysPane.qml` (layout canvas + per-monitor FormRows).
+Not a leaf-split hub — follow-ups closed Revert honesty after Refresh / sleep /
+hotplug without redesigning the canvas.
+
+| Concern | Role |
+|---------|------|
+| Layout canvas | Drag + edge snap; Apply layout |
+| Modes / scale / orientation | Per-connector FormRows; Identify flash |
+| Revert | 10s full-snapshot; connector-name key; cancel on Refresh, re-entry, topology drift, or monitor events |
+| List honesty | `adoptMonitorList` merges by name; keeps dirty drafts; add/remove status |
+| Escape | Edit `proteus-monitors.conf` |
+
+**Module rule:** Keep Displays logic in `DisplaysPane.qml` + `shell/shared/Displays.qml`
+— no second conf store.
 
 ### Sound
 
@@ -239,8 +256,9 @@ Depth order for what’s left:
 5. **Date & time** — locale set; weather forecast view  
 6. **Network** — Tailscale login-server (Headscale); peer/exit-node UI; in-pane pairing; WireGuard wizard  
 7. **Peripherals** — touchpad / tablet  
-8. **Displays** — layout canvas + drag Apply shipped; re-verify Revert after sleep/hotplug  
-9. **Software** — dep graphs later; Omarchy-style Install/Remove pickers + mode-safe loads + op narrative shipped (`partial`; Snap Out)  
+8. **Software** — dep graphs later; Omarchy-style Install/Remove pickers + mode-safe loads + op narrative shipped (`partial`; Snap Out)  
+
+*(Displays layout + Revert follow-ups shipped — removed from growth depth.)*
 
 Virt / container setup stays a **separate app**, not a Settings growth item.
 

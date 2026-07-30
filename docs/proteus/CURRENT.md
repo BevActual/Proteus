@@ -86,7 +86,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 |------|--------|
 | Appearance → Accent / Background / Lock / Icons / Font (`style`) | `partial` — Kind/color chrome shared via `kit/` (`SettingsKindPicker`, `SettingsColorPresetGroup`, `ColorGraphPicker` with debounced commit); Dark/Light segmented; empty-album honesty + Missing stock thumbs; preview above Kind (Background/Lock); Settings deferred domain hydrate re-entry safe; lock wallpaper/dim in Settings (widgets via lock Customize); daily/slideshow/`proteus-bg`; Font searchable picker (`SettingsFontPicker`) + user-scoped Add/Remove (`userFonts`); Icons per-style squircle compare (`SettingsIconStylePicker`) + Tint graph; settings.json / hypr live apply coalesced mid-drag; mega-page merge Out |
 | Desktop → Gaps / Borders / Motion / Dock & menu bar / Launcher | `shipped` — Appearance-style hub + `Desktop*Leaf` StickyPaneLoaders; Gaps/Borders/Motion `SettingsFormRow` + live hints; Dock disable honesty + Advanced conf escape; Launcher Spotlight blurb, Clear recents, tag FormRows; live hypr + `proteus-general.conf` / `settings.json` |
-| Displays (scale / mode / orientation, Identify; layout canvas) | `partial` — drag layout + full-snapshot Revert; multi-monitor dogfood preferred |
+| Displays (scale / mode / orientation, Identify; layout canvas) | `shipped` — drag layout + full-snapshot Revert; Refresh/re-entry clears Revert; post-Apply topology drift + Hyprland monitor events cancel Revert; list merge by connector name; clearer Apply/Revert status + conf escape |
 | Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) | `shipped` |
 | Software → Updates / Repos / AUR / Flathub / AppImages / Orphans (Install\|Installed mode-safe loads; sticky action bar; rich rows; live op command + Cancel + last error; empty Installed honesty; popular browse; leaf UI memory) | `partial` — optional guest: `yay`/`paru`, `flatpak` + Flathub; AppImages need no helper; dep graphs / Snap Out; `./scripts/software-reliability-smoke.sh` + optional `./scripts/software-guest-smoke.sh` |
 | Sound → Output / Input / Applications / Latency & buffer (`sound`) | `shipped` — Desktop-style hub + `Sound*Leaf` StickyPaneLoaders; Output/Input FormRow density (live volume/mute/peak hints, test tone, deviceHint); Apps empty honesty + per-app volume/mute; Latency profile/quantum/PipeWire clock; pactl + `audio-peak.py` + `pw-metadata` |
@@ -189,7 +189,6 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 
 - Snap / dependency graphs in Software  
 - Remaining posture hypr profiles beyond stubs (wearable / xr / vehicle; media/host/home chrome)  
-- Displays **Revert** edge cases on fragile VM hotplug (full-snapshot Revert shipped; re-verify after sleep/hotplug)
 - systemd/user-unit QS supervisor; pacman IgnorePkg / ISO QS version pin  
 - Host posture chrome or workload panes  
 - Second personal posture beyond stub  
