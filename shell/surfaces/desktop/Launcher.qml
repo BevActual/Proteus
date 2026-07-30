@@ -132,7 +132,7 @@ Item {
     if (mode === id)
       return
     mode = id
-    list.currentIndex = 0
+    list.currentIndex = root.firstSelectableIndex()
     if (id === "files")
       root.queueFileSearch()
     else if (id === "clipboard")
@@ -478,124 +478,144 @@ Item {
       return rows.slice(0, 40)
     }
 
-    for (let i = 0; i < apps.length; i++) {
-      const a = apps[i]
-      if (!a || !a.name)
-        continue
-      if (tagFilter.length && !Config.appHasTag(a.id, tagFilter))
-        continue
-      const name = String(a.name).toLowerCase()
-      const generic = String(a.genericName || "").toLowerCase()
-      const keys = (a.keywords || []).join(" ").toLowerCase()
-      const tags = Config.tagsForApp(a.id)
-      const tagHay = tags.join(" ").toLowerCase()
-      const hay = (name + " " + generic + " " + keys + " " + tagHay).trim()
-      const ri = root.recentIndexFor(a.id)
-      let score = -1
-      if (!q.length && !tagFilter.length) {
-        if (ri >= 0)
-          score = 2000 - ri
-        else
-          continue
-      } else if (!q.length && tagFilter.length) {
-        score = 600 - (ri >= 0 ? ri : 40)
-      } else {
-        score = Math.max(root.scoreQuery(name, q), root.scoreQuery(hay, q), root.scoreQuery(tagHay, q))
-        if (score < 0)
-          continue
-        if (ri >= 0)
-          score += 40 - ri
-        if (tags.some(t => t === q || t.startsWith(q)))
-          score += 60
-      }
-      const ok = EnvGate.appAvailable(a)
-      if (!ok && ((!q.length && !tagFilter.length) || !root.showUnavailable))
-        continue
-      rows.push({
-        kind: "app",
-        entry: a,
-        path: "",
-        name: a.name,
-        subtitle: ok
-          ? root.tagsSubtitle(a.id, ri >= 0 && !q.length && !tagFilter.length ? "Recent" : (a.genericName || "Application"))
-          : root.unavailableSubtitle(EnvGate.appBlockReason(a)),
-        icon: EnvGate.resolveAppIcon(a),
-        blocked: !ok,
-        score: score,
-        clipLine: "",
-        calcValue: ""
-      })
-    }
-
+    // Empty Apps query: calm Recents hierarchy (section headers) — or honest empty.
+    // Do not dump alphabetical apps as a fake home; search/tags remain the browse path.
     if (!q.length && !tagFilter.length) {
-      const seen = {}
-      for (let r = 0; r < rows.length; r++) {
-        if (rows[r].entry)
-          seen[rows[r].entry.id] = true
+      const recentRows = []
+      const recentIds = Config.launcherRecentList()
+      for (let r = 0; r < recentIds.length && recentRows.length < 12; r++) {
+        const id = recentIds[r]
+        let a = null
+        for (let i = 0; i < apps.length; i++) {
+          if (apps[i] && apps[i].id === id) {
+            a = apps[i]
+            break
+          }
+        }
+        if (!a || !a.name)
+          continue
+        const ok = EnvGate.appAvailable(a)
+        if (!ok && !root.showUnavailable)
+          continue
+        recentRows.push({
+          kind: "app",
+          entry: a,
+          path: "",
+          name: a.name,
+          subtitle: ok
+            ? root.tagsSubtitle(a.id, "Recent")
+            : root.unavailableSubtitle(EnvGate.appBlockReason(a)),
+          icon: EnvGate.resolveAppIcon(a),
+          blocked: !ok,
+          score: 2000 - r,
+          clipLine: "",
+          calcValue: "",
+          section: "recents"
+        })
       }
-      const extras = []
+      if (recentRows.length) {
+        rows.push({
+          kind: "section",
+          entry: null,
+          path: "",
+          name: "Recents",
+          subtitle: "",
+          icon: "",
+          blocked: true,
+          score: 3000,
+          clipLine: "",
+          calcValue: ""
+        })
+        for (let i = 0; i < recentRows.length; i++)
+          rows.push(recentRows[i])
+      }
+      // Skip alphabetical dump + settings browse on empty home — honest empty if none.
+    } else {
       for (let i = 0; i < apps.length; i++) {
         const a = apps[i]
-        if (!a || !a.name || seen[a.id] || !EnvGate.appAvailable(a))
+        if (!a || !a.name)
           continue
-        extras.push(a)
-      }
-      extras.sort((x, y) => x.name.localeCompare(y.name))
-      const room = Math.max(0, 24 - rows.filter(r => r.kind === "app").length)
-      for (let i = 0; i < extras.length && i < room; i++) {
-        const a = extras[i]
+        if (tagFilter.length && !Config.appHasTag(a.id, tagFilter))
+          continue
+        const name = String(a.name).toLowerCase()
+        const generic = String(a.genericName || "").toLowerCase()
+        const keys = (a.keywords || []).join(" ").toLowerCase()
+        const tags = Config.tagsForApp(a.id)
+        const tagHay = tags.join(" ").toLowerCase()
+        const hay = (name + " " + generic + " " + keys + " " + tagHay).trim()
+        const ri = root.recentIndexFor(a.id)
+        let score = -1
+        if (!q.length && tagFilter.length) {
+          score = 600 - (ri >= 0 ? ri : 40)
+        } else {
+          score = Math.max(root.scoreQuery(name, q), root.scoreQuery(hay, q), root.scoreQuery(tagHay, q))
+          if (score < 0)
+            continue
+          if (ri >= 0)
+            score += 40 - ri
+          if (tags.some(t => t === q || t.startsWith(q)))
+            score += 60
+        }
+        const ok = EnvGate.appAvailable(a)
+        if (!ok && !root.showUnavailable)
+          continue
         rows.push({
           kind: "app",
           entry: a,
           path: "",
           name: a.name,
-          subtitle: root.tagsSubtitle(a.id, a.genericName || "Application"),
-          icon: EnvGate.resolveAppIcon(a),
-          blocked: false,
-          score: 100 - i,
-          clipLine: "",
-          calcValue: ""
-        })
-      }
-    }
-
-    if (q.length && !tagFilter.length) {
-      const idx = EnvGate.settingsSearchIndex
-      for (let i = 0; i < idx.length; i++) {
-        const p = idx[i]
-        const ok = EnvGate.paneAvailable(p.hubId)
-        if (!ok && !root.showUnavailable)
-          continue
-        const label = String(p.label).toLowerCase()
-        const hay = (label + " " + (p.keywords || "") + " settings").toLowerCase()
-        let score = Math.max(root.scoreQuery(label, q), root.scoreQuery(hay, q))
-        if (score < 0)
-          continue
-        if (label === q || label.startsWith(q))
-          score += 30
-        rows.push({
-          kind: "settings",
-          entry: null,
-          path: "",
-          paneId: p.id,
-          name: p.label,
           subtitle: ok
-            ? "Settings"
-            : root.unavailableSubtitle(EnvGate.paneBlockReason(p.hubId)),
-          icon: "proteus-settings",
+            ? root.tagsSubtitle(a.id, a.genericName || "Application")
+            : root.unavailableSubtitle(EnvGate.appBlockReason(a)),
+          icon: EnvGate.resolveAppIcon(a),
           blocked: !ok,
           score: score,
           clipLine: "",
           calcValue: ""
         })
       }
+
+      if (q.length && !tagFilter.length) {
+        const idx = EnvGate.settingsSearchIndex
+        for (let i = 0; i < idx.length; i++) {
+          const p = idx[i]
+          const ok = EnvGate.paneAvailable(p.hubId)
+          if (!ok && !root.showUnavailable)
+            continue
+          const label = String(p.label).toLowerCase()
+          const hay = (label + " " + (p.keywords || "") + " settings").toLowerCase()
+          let score = Math.max(root.scoreQuery(label, q), root.scoreQuery(hay, q))
+          if (score < 0)
+            continue
+          if (label === q || label.startsWith(q))
+            score += 30
+          rows.push({
+            kind: "settings",
+            entry: null,
+            path: "",
+            paneId: p.id,
+            name: p.label,
+            subtitle: ok
+              ? "Settings"
+              : root.unavailableSubtitle(EnvGate.paneBlockReason(p.hubId)),
+            icon: "proteus-settings",
+            blocked: !ok,
+            score: score,
+            clipLine: "",
+            calcValue: ""
+          })
+        }
+      }
     }
 
-    rows.sort((x, y) => {
-      if (y.score !== x.score)
-        return y.score - x.score
-      return String(x.name).localeCompare(String(y.name))
-    })
+    // Preserve Recents section order on empty home; otherwise rank by score.
+    if (q.length || tagFilter.length) {
+      rows.sort((x, y) => {
+        if (y.score !== x.score)
+          return y.score - x.score
+        return String(x.name).localeCompare(String(y.name))
+      })
+    }
     return rows.slice(0, 40)
   }
 
@@ -651,11 +671,34 @@ Item {
       Notifications.clearAll()
   }
 
+  function firstSelectableIndex() {
+    const rows = filtered
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i] && rows[i].kind !== "section")
+        return i
+    }
+    return 0
+  }
+
+  function moveSelection(delta) {
+    const rows = filtered
+    if (!rows.length)
+      return
+    let i = list.currentIndex
+    for (let step = 0; step < rows.length; step++) {
+      i = (i + delta + rows.length) % rows.length
+      if (rows[i] && rows[i].kind !== "section") {
+        list.currentIndex = i
+        return
+      }
+    }
+  }
+
   function launchIndex(i) {
     if (i < 0 || i >= filtered.length)
       return
     const row = filtered[i]
-    if (row.blocked)
+    if (!row || row.blocked || row.kind === "section" || row.kind === "hint")
       return
     if (row.kind === "calc") {
       Config.copyToClipboard(row.calcValue)
@@ -852,7 +895,7 @@ Item {
               background: Item {}
               verticalAlignment: Text.AlignVCenter
               onTextChanged: {
-                list.currentIndex = 0
+                list.currentIndex = root.firstSelectableIndex()
                 if (root.mode === "files")
                   root.queueFileSearch()
               }
@@ -862,8 +905,8 @@ Item {
                 else
                   ShellState.closeLauncher()
               }
-              Keys.onDownPressed: list.incrementCurrentIndex()
-              Keys.onUpPressed: list.decrementCurrentIndex()
+              Keys.onDownPressed: root.moveSelection(1)
+              Keys.onUpPressed: root.moveSelection(-1)
               Keys.onReturnPressed: root.launchIndex(list.currentIndex)
               Keys.onEnterPressed: root.launchIndex(list.currentIndex)
               Keys.onPressed: event => {
@@ -1205,19 +1248,38 @@ Item {
             model: root.filtered
             currentIndex: 0
             highlightMoveDuration: 70
-            keyNavigationEnabled: true
+            keyNavigationEnabled: false
             focus: true
             visible: !root.tagging
+            onCountChanged: currentIndex = root.firstSelectableIndex()
+            onModelChanged: currentIndex = root.firstSelectableIndex()
 
             delegate: Item {
               required property var modelData
               required property int index
               width: list.width
-              height: modelData.kind === "calc" ? 64 : 52
+              height: modelData.kind === "section" ? 28 : (modelData.kind === "calc" ? 64 : 52)
+
+              // Calm section header (Recents / …) — not selectable
+              Text {
+                visible: modelData.kind === "section"
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: 14
+                anchors.rightMargin: 14
+                text: modelData.name
+                color: Theme.textMute
+                font.family: Theme.fontFamily
+                font.pixelSize: 11
+                font.weight: Font.DemiBold
+                font.letterSpacing: 0.4
+              }
 
               Rectangle {
                 anchors.fill: parent
                 radius: 12
+                visible: modelData.kind !== "section"
                 opacity: modelData.blocked ? 0.45 : 1
                 color: list.currentIndex === index
                     ? Theme.chromeAccentSoft
@@ -1229,6 +1291,7 @@ Item {
                 anchors.leftMargin: 10
                 anchors.rightMargin: 8
                 spacing: 12
+                visible: modelData.kind !== "section"
 
                 SquircleIcon {
                   Layout.preferredWidth: modelData.kind === "calc" ? 40 : 34
@@ -1315,8 +1378,9 @@ Item {
                 id: rowMa
                 anchors.fill: parent
                 anchors.rightMargin: modelData.kind === "app" && !modelData.blocked ? 36 : 0
-                hoverEnabled: true
+                hoverEnabled: modelData.kind !== "section"
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
+                enabled: modelData.kind !== "section"
                 cursorShape: modelData.blocked ? Qt.ForbiddenCursor : Qt.PointingHandCursor
                 onEntered: list.currentIndex = index
                 onClicked: mouse => {
