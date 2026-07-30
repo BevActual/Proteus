@@ -105,7 +105,8 @@ Alpha tracks `Config.chromeOpacity` (`chromeAlpha` / `glassAlpha` / `menuBarAlph
 Blur flag: `Config.chromeBlur`. Liquid Glass v1: menu bar is wallpaper-first
 (clearer curve); dock is continuous frost (richer floor + curve edge glow, never
 a straight specular strip); Spotlight Apps empty home is Recents hierarchy or
-honest empty. Status HUD (volume/brightness) uses the same elevated plate as
+honest empty; Files empty home is Recents + Places (or honest empty), search
+groups Folders then Files. Status HUD (volume/brightness) uses the same elevated plate as
 notification toasts — top-right chip; suppressed while Control Center is open.
 
 | Token | Recipe | Use |

@@ -96,7 +96,7 @@ Left-nav + content pane (macOS System Settings style).
 | Category | Holds | Backend | Status |
 |----------|-------|---------|--------|
 | **Appearance** (`style`) | Category → Accent, Background, Lock screen, Icons (style compare + dock pins), Font (searchable + Add) | `settings.json`, Theme, `proteus-bg`; shared Kind/color/font/icon kit | `partial` |
-| **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Launcher (Spotlight Apps/Files/Clipboard/Actions · tags/recents) — leaf files + FormRow kit | json + hyprctl + `proteus-general.conf` · `launcherRecents` / `launcherTagCatalog` / `launcherAppTags` | `shipped` |
+| **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Launcher (Spotlight Apps/Files/Clipboard/Actions · tags/recents) — leaf files + FormRow kit | json + hyprctl + `proteus-general.conf` · `launcherRecents` / `launcherFileRecents` / `launcherTagCatalog` / `launcherAppTags` | `shipped` |
 | **Displays** (`displays`) | Layout canvas + per-monitor scale/mode/orientation; 10s Revert; Refresh/hotplug honesty; conf escape | hyprctl + `proteus-monitors.conf` | `shipped` |
 | **Sound** (`sound`) | Category → Output / Input / Applications / Latency & buffer — leaf files + FormRow kit | pactl + `audio-peak.py` + `pw-metadata` | `shipped` |
 | **Network** (`network`) | Category → This machine / Devices / Wi‑Fi / Bluetooth / Tailscale / VPN — leaf files + FormRow kit | hostnamectl / nmcli / bluetoothctl / tailscale | `shipped` |
@@ -186,11 +186,11 @@ pages via `kit/StickyPaneLoader` (`DesktopGapsLeaf`, `DesktopChromeLeaf`,
 | Borders & rounding | Border size + window rounding FormRows; live hypr |
 | Motion | Window animations switch |
 | Dock & menu bar | Show/hide/monitor/size FormRows; Advanced → `proteus-general.conf` |
-| Launcher | Spotlight help (Ctrl+1–4 Apps/Files/Clipboard/Actions); empty Apps = Recents section or honest empty; Clear recents; app tag catalog FormRows |
+| Launcher | Spotlight help (Ctrl+1–4 Apps/Files/Clipboard/Actions); empty Apps = Recents section or honest empty; empty Files = Recents + Places (or honest empty); Files search = Folders then Files · depth ≤5 · 40-cap; Clear recent apps / recent files; app tag catalog FormRows |
 
 | Pane | Live apply | On-disk fragment | Guest seed |
 |------|------------|------------------|----------|
-| Desktop | `hyprctl keyword` (gaps, border, rounding, animations) + dock/menu sizes + Launcher tags/recents in `settings.json` | `proteus-general.conf` + `settings.json` (`launcherRecents`, `launcherTagCatalog`, `launcherAppTags`) | `vm/guest/install-desktop-conf.sh` |
+| Desktop | `hyprctl keyword` (gaps, border, rounding, animations) + dock/menu sizes + Launcher tags/recents in `settings.json` | `proteus-general.conf` + `settings.json` (`launcherRecents`, `launcherFileRecents`, `launcherTagCatalog`, `launcherAppTags`) | `vm/guest/install-desktop-conf.sh` |
 | Displays | Scale + mode + orientation + layout via `hyprctl keyword monitor`; Revert snapshot; Refresh/hotplug rebind | Live `monitor =` lines in `proteus-monitors.conf` | same |
 
 Templates: `env/hypr/proteus-general.conf`, `env/hypr/proteus-monitors.conf`. Nested
