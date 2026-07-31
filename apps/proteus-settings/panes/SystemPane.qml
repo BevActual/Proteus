@@ -4,13 +4,14 @@ import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// About: product identity + hardware probe facts.
+// About: product identity · machine facts · load strip · Mission Center · soft profile.
 // Session actions live under Users (SETTINGS-IA §2).
 ColumnLayout {
   id: root
   Layout.fillWidth: true
   spacing: Theme.spaceMd
 
+  property bool active: false
   signal requestGo(string id)
 
   readonly property string hardwareSummary: {
@@ -21,9 +22,20 @@ ColumnLayout {
     return Hardware.probing ? "Detecting hardware…" : "Hardware probe not ready"
   }
 
+  onActiveChanged: {
+    SystemLoad.watching = active
+    if (active) {
+      HyprProfile.refresh()
+      SystemInfo.refresh()
+      MissionCenter.refresh()
+      SystemLoad.refresh()
+    }
+  }
+
   Component.onCompleted: {
     HyprProfile.refresh()
     SystemInfo.refresh()
+    MissionCenter.refresh()
   }
 
   SettingsGroup {
@@ -45,8 +57,8 @@ ColumnLayout {
           fillMode: Image.PreserveAspectFit
           smooth: true
           source: {
-            const root = Quickshell.env("PROTEUS_ROOT")
-            const base = root && root.length ? root : "/mnt/proteus"
+            const rootEnv = Quickshell.env("PROTEUS_ROOT")
+            const base = rootEnv && rootEnv.length ? rootEnv : "/mnt/proteus"
             return "file://" + base + "/brand/proteus-mark.svg"
           }
         }
@@ -63,6 +75,7 @@ ColumnLayout {
           }
           Text {
             text: "Bevington Systems · adaptive host OS"
+                + (SystemInfo.proteusTip.length ? (" · " + SystemInfo.tipLabel) : "")
             color: Theme.textMute
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSizeSm
@@ -122,6 +135,14 @@ ColumnLayout {
     title: "This machine"
 
     SettingsFormRow {
+      label: "Hostname"
+      hint: SystemInfo.busy && !SystemInfo.hostname.length
+          ? "Reading…"
+          : SystemInfo.hostnameLabel
+      showSeparator: true
+    }
+
+    SettingsFormRow {
       label: "Class"
       hint: root.hardwareSummary
       showSeparator: true
@@ -134,65 +155,10 @@ ColumnLayout {
     }
 
     SettingsFormRow {
-      label: "Hyprland profile"
-      hint: HyprProfile.busy
-          ? "Applying…"
-          : (HyprProfile.activeDetail.length
-              ? HyprProfile.activeDetail
-              : (HyprProfile.activeProfileLabel !== "—"
-                  ? ("Using " + HyprProfile.activeProfileLabel)
-                  : HyprProfile.softHonesty))
+      visible: SystemLoad.cpuModel.length > 0
+      label: "Processor"
+      hint: SystemLoad.cpuModel
       showSeparator: true
-      SettingsCombo {
-        preferredWidth: 168
-        enabled: !HyprProfile.busy && !HyprProfile.helperMissing
-            && HyprProfile.profileOptions.length > 0
-        model: HyprProfile.profileOptions
-        currentValue: HyprProfile.activeProfile
-        onActivated: v => {
-          if (!v.length || v === HyprProfile.activeProfile)
-            return
-          HyprProfile.set(v)
-        }
-      }
-    }
-
-    SettingsFormRow {
-      label: "Kind"
-      hint: HyprProfile.softHonesty
-      showSeparator: HyprProfile.statusNote.length > 0
-          || HyprProfile.error.length > 0
-          || HyprProfile.helperMissing
-    }
-
-    SettingsFormRow {
-      visible: HyprProfile.statusNote.length > 0 && !HyprProfile.error.length
-      label: "Status"
-      hint: HyprProfile.statusNote
-      showSeparator: HyprProfile.error.length > 0 || HyprProfile.helperMissing
-    }
-
-    SettingsFormRow {
-      visible: HyprProfile.error.length > 0
-      label: "Error"
-      hint: HyprProfile.error
-      labelColor: Theme.danger
-      showSeparator: true
-    }
-
-    SettingsFormRow {
-      visible: HyprProfile.helperMissing
-      label: "Install desktop conf…"
-      hint: HyprProfile.helperHint
-      showSeparator: true
-      interactive: true
-      onActivated: HyprProfile.openInstallHelper()
-      Text {
-        text: "Install"
-        color: Theme.accent
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
-      }
     }
 
     SettingsFormRow {
@@ -267,12 +233,99 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "Copy system info"
-      hint: "OS · kernel · Hyprland · Quickshell · class"
+      hint: SystemInfo.copiedFlash
+          ? "Copied"
+          : "OS · hostname · versions · load · class"
       showSeparator: false
       interactive: true
       onActivated: SystemInfo.copySummary()
       Text {
-        text: "Copy"
+        text: SystemInfo.copiedFlash ? "Copied" : "Copy"
+        color: SystemInfo.copiedFlash ? Theme.accent : Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+      }
+    }
+  }
+
+  SettingsGroup {
+    title: "Activity"
+
+    SettingsFormRow {
+      label: "Load"
+      hint: SystemLoad.ready ? SystemLoad.summaryLabel : "Sampling…"
+      showSeparator: true
+    }
+
+    SettingsFormRow {
+      label: "Activity Monitor"
+      hint: MissionCenter.hint
+      showSeparator: false
+      interactive: true
+      onActivated: {
+        if (MissionCenter.available)
+          MissionCenter.open()
+        else
+          MissionCenter.openSoftware()
+      }
+      Text {
+        text: MissionCenter.available ? "Open" : "Install…"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+      }
+    }
+  }
+
+  SettingsGroup {
+    title: "Hyprland profile"
+
+    SettingsFormRow {
+      label: "Profile"
+      hint: HyprProfile.busy
+          ? "Applying…"
+          : HyprProfile.softHonesty
+      showSeparator: HyprProfile.statusNote.length > 0
+          || HyprProfile.error.length > 0
+          || HyprProfile.helperMissing
+      SettingsCombo {
+        preferredWidth: 168
+        enabled: !HyprProfile.busy && !HyprProfile.helperMissing
+            && HyprProfile.profileOptions.length > 0
+        model: HyprProfile.profileOptions
+        currentValue: HyprProfile.activeProfile
+        onActivated: v => {
+          if (!v.length || v === HyprProfile.activeProfile)
+            return
+          HyprProfile.set(v)
+        }
+      }
+    }
+
+    SettingsFormRow {
+      visible: HyprProfile.statusNote.length > 0 && !HyprProfile.error.length
+      label: "Status"
+      hint: HyprProfile.statusNote
+      showSeparator: HyprProfile.error.length > 0 || HyprProfile.helperMissing
+    }
+
+    SettingsFormRow {
+      visible: HyprProfile.error.length > 0
+      label: "Error"
+      hint: HyprProfile.error
+      labelColor: Theme.danger
+      showSeparator: HyprProfile.helperMissing
+    }
+
+    SettingsFormRow {
+      visible: HyprProfile.helperMissing
+      label: "Install desktop conf…"
+      hint: HyprProfile.helperHint
+      showSeparator: false
+      interactive: true
+      onActivated: HyprProfile.openInstallHelper()
+      Text {
+        text: "Install"
         color: Theme.accent
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSize
@@ -300,10 +353,10 @@ ColumnLayout {
 
   Text {
     Layout.fillWidth: true
-    Layout.maximumWidth: 480
-    text: "Fact: /etc/os-release + uname · quickshell --version · hyprctl version · "
-        + "hw-probe.json · soft Hyprland profile via set-hypr-profile.sh "
-        + "(console≡media.conf; not a hard posture switch) · session under Users."
+    Layout.maximumWidth: 520
+    text: "Fact: identity from os-release · hostname · /proc load · hw-probe.json · "
+        + "soft Hyprland profile (not a hard posture switch). Activity Monitor opens "
+        + "Mission Center when installed — Settings does not embed a live dashboard."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11

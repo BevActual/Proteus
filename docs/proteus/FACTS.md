@@ -44,7 +44,9 @@ facts: [`vm/guest/`](../../vm/guest/).
 | **Background** | Wallpaper/lock backdrop catalogs, derived paths, setters, fetch/apply | Persisting keys (read/write `Config.*` fields) |
 | **Widgets** | Applet catalog + lock/desktop CRUD | Own FileView |
 | **Theme** | Chrome tokens from Config accent/font/mode | System facts |
-| **SystemInfo** | Read-only OS/kernel/QS/Hypr strings + About copy summary | Privileged writes; hostname edit |
+| **SystemInfo** | Read-only OS/kernel/hostname/QS/Hypr/tip + About copy summary | Privileged writes; hostname edit |
+| **SystemLoad** | About-active CPU/mem/uptime snapshot from `/proc` | Process lists; charts; always-on poll |
+| **MissionCenter** | Detect/open Mission Center (Activity Monitor escape) | Embedding a live dashboard in Settings |
 | **Accounts** | Online accounts catalog + seat status via `proteus-accounts` | OAuth secrets in `settings.json`; inventing mail/contacts apps |
 
 **Why flat `shell/shared/`:** Quickshell directory imports + `property alias`
