@@ -5,14 +5,13 @@ import "../shared"
 import "../kit"
 
 // About: product identity · machine facts · load strip · Mission Center · soft profile.
-// Session actions live under Users (SETTINGS-IA §2).
+// Session actions live under Users only (SETTINGS-IA §2) — not linked from About.
 ColumnLayout {
   id: root
   Layout.fillWidth: true
   spacing: Theme.spaceMd
 
   property bool active: false
-  signal requestGo(string id)
 
   readonly property string hardwareSummary: {
     if (Hardware.ready) {
@@ -327,24 +326,6 @@ ColumnLayout {
       Text {
         text: "Install"
         color: Theme.accent
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
-      }
-    }
-  }
-
-  SettingsGroup {
-    title: "Session"
-
-    SettingsFormRow {
-      label: "Lock, log out, reboot…"
-      hint: "Moved to Users"
-      showSeparator: false
-      interactive: true
-      onActivated: root.requestGo("users")
-      Text {
-        text: "›"
-        color: Theme.textMute
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSize
       }

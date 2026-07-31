@@ -454,10 +454,7 @@ Item {
             StickyPaneLoader {
               want: root.page === "system"
               source: "panes/SystemPane.qml"
-              onLoaded: {
-                item.active = Qt.binding(() => root.page === "system")
-                item.requestGo.connect(id => SettingsNav.go(id))
-              }
+              onLoaded: item.active = Qt.binding(() => root.page === "system")
             }
           }
         }
