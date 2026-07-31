@@ -18,15 +18,29 @@ bad() { echo "FAIL $*"; fail=1; }
 
 help="$(proteus-pkg 2>&1 || true)"
 echo "$help" | grep -q upgrade-packages && ok "proteus-pkg CLI" || bad "proteus-pkg CLI"
-command -v yay >/dev/null && ok "yay" || bad "yay"
+# AUR helper: yay or paru (Settings accepts either)
+aur_helper=""
+if command -v yay >/dev/null; then
+  aur_helper=yay
+  ok "yay"
+elif command -v paru >/dev/null; then
+  aur_helper=paru
+  ok "paru (yay absent)"
+else
+  bad "yay/paru (need one AUR helper)"
+fi
 command -v flatpak >/dev/null && ok "flatpak" || bad "flatpak"
 flatpak remotes --user --columns=name 2>/dev/null | grep -qx flathub && ok "flathub remote" || bad "flathub remote"
 
 n=$(comm -23 <(pacman -Slq | sort -u) <(pacman -Qq | sort -u) | head -n 5 | wc -l | tr -d ' ')
 [[ "$n" -ge 1 ]] && ok "repos browse ($n sample)" || bad "repos browse"
 
-n=$(yay -Slq aur 2>/dev/null | head -n 5 | wc -l | tr -d ' ')
-[[ "$n" -ge 1 ]] && ok "aur browse ($n sample)" || bad "aur browse"
+if [[ -n "$aur_helper" ]]; then
+  n=$("$aur_helper" -Slq aur 2>/dev/null | head -n 5 | wc -l | tr -d ' ')
+  [[ "$n" -ge 1 ]] && ok "aur browse via $aur_helper ($n sample)" || bad "aur browse via $aur_helper"
+else
+  bad "aur browse (no helper)"
+fi
 
 n=$(flatpak remote-ls flathub --app --columns=application:f,name 2>/dev/null | head -n 5 | wc -l | tr -d ' ')
 [[ "$n" -ge 1 ]] && ok "flathub browse ($n sample)" || bad "flathub browse"

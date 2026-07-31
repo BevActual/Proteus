@@ -23,5 +23,6 @@ run qs-version-smoke.sh
 
 # Guest: always attempt (skips if SSH down unless PROTEUS_GUEST=1)
 run qs-guest-smoke.sh
+run software-guest-smoke.sh
 
 echo "smoke-all: OK"
