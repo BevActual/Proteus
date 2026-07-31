@@ -21,7 +21,10 @@ ColumnLayout {
     return Hardware.probing ? "Detecting hardware…" : "Hardware probe not ready"
   }
 
-  Component.onCompleted: HyprProfile.refresh()
+  Component.onCompleted: {
+    HyprProfile.refresh()
+    SystemInfo.refresh()
+  }
 
   SettingsGroup {
     title: "Proteus"
@@ -75,8 +78,26 @@ ColumnLayout {
     }
 
     SettingsFormRow {
-      label: "Base"
-      hint: "Arch Linux guest"
+      label: "Operating system"
+      hint: SystemInfo.busy && !SystemInfo.osPretty.length
+          ? "Reading…"
+          : SystemInfo.osLabel
+      showSeparator: true
+    }
+
+    SettingsFormRow {
+      label: "Kernel"
+      hint: SystemInfo.busy && !SystemInfo.kernelRelease.length
+          ? "Reading…"
+          : SystemInfo.kernelLabel
+      showSeparator: SystemInfo.error.length > 0
+    }
+
+    SettingsFormRow {
+      visible: SystemInfo.error.length > 0
+      label: "Identity"
+      hint: SystemInfo.error
+      labelColor: Theme.danger
       showSeparator: false
     }
   }
@@ -250,8 +271,9 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Fact: hw-probe.json · soft Hyprland profile via set-hypr-profile.sh "
-        + "(console≡media.conf; not a hard posture switch) · session under Users."
+    text: "Fact: /etc/os-release + uname · hw-probe.json · soft Hyprland profile via "
+        + "set-hypr-profile.sh (console≡media.conf; not a hard posture switch) · "
+        + "session under Users."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11

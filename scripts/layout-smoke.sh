@@ -46,6 +46,7 @@ REQUIRED=(
   KeepAwake.qml
   LocalSend.qml
   HyprProfile.qml
+  SystemInfo.qml
   Hud.qml
   Brightness.qml
   Packages.qml
