@@ -77,9 +77,9 @@ Examples:
 | Package picker chrome | `kit/PackagesPickerRow` · `PackagesActionBar` · `PackagesOpProgress` (exact `$` command + last error) |
 | AppImages library | `~/.local/share/proteus/appimages` + `proteus-appimage-*.desktop` |
 | Timezone / network time | `timedatectl set-timezone` / `set-ntp` (polkit-gated; errors surfaced in-pane) |
-| Locale | `localectl status` (read-only + `/etc/locale.conf` escape hatch) |
-| Location | Explicit place search → precise lat/lon in `settings.json` (**never IP-inferred**); Open-Meteo geocoding |
-| Weather | `api.open-meteo.com` current conditions for the stored location — no API key; only those coordinates are sent |
+| Locale | `localectl list-locales` / `set-locale LANG=…` (polkit-gated; stderr in-pane) + `/etc/locale.conf` escape |
+| Location | Explicit place search → precise lat/lon + place timezone in `settings.json` (**never IP-inferred**); Open-Meteo geocoding; optional Match time zone to place |
+| Weather | `api.open-meteo.com` current + 5-day daily forecast for the stored location — no API key; only those coordinates are sent |
 | Battery charge / health / estimate | UPower display device (`Quickshell.Services.UPower`) |
 | Power mode (Performance / Balanced / Eco) | `powerprofilesctl` → `power-profiles-daemon` (`power-saver` labeled Eco); only profiles the driver advertises |
 | Idle / lid policy | `pkexec proteus-logind` → `/etc/systemd/logind.conf.d/99-proteus.conf` (+ **reload** logind — never restart, which drops the seat); effective merge with main conf; escape hatch still opens `logind.conf` |
@@ -99,7 +99,7 @@ Left-nav + content pane (macOS System Settings style).
 
 | Category | Holds | Backend | Status |
 |----------|-------|---------|--------|
-| **Appearance** (`style`) | Category → Accent, Background, Lock screen, Icons (style compare + dock pins), Font (searchable + Add) | `settings.json`, Theme, `proteus-bg`; shared Kind/color/font/icon kit | `partial` |
+| **Appearance** (`style`) | Category → Accent, Background, Lock screen, Icons (style compare + dock pins), Font (searchable + Add) | `settings.json`, Theme, `proteus-bg`; shared Kind/color/font/icon kit | `shipped` |
 | **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Launcher (Spotlight Apps/Files/Clipboard/Actions · tags/recents) — leaf files + FormRow kit | json + hyprctl + `proteus-general.conf` · `launcherRecents` / `launcherFileRecents` / `launcherTagCatalog` / `launcherAppTags` | `shipped` |
 | **Displays** (`displays`) | Layout canvas + per-monitor scale/mode/orientation; 10s Revert; Refresh/hotplug honesty; conf escape | hyprctl + `proteus-monitors.conf` | `shipped` |
 | **Sound** (`sound`) | Category → Output / Input / Applications / Mixer / Latency — leaf files + FormRow kit | pactl + `proteus-audio-mix` / `audio-peak.py` + `pw-metadata` + `pw-link` | `shipped` |
@@ -108,7 +108,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Power** (`power`) | Power mode segmented (PPD); battery (UPower); idle / lid FormRows via `proteus-logind` drop-in + conf escape | `powerprofilesctl` / UPower / `proteus-logind` | `shipped` |
 | **Users** (`users`) | Session Lock/Logout/Reboot/Shutdown; current + other local users (read-only + Refresh); greetd status + conf escape | `Config.session` · id/getent · greetd/`/etc/greetd/config.toml` | `shipped` |
 | **Online accounts** (`accounts`) | Mail / contacts / cloud provider seats (coming soon; no OAuth) | TBD (not inventing mail/contacts apps here) | `partial` |
-| **Date & time** (`datetime`) | Live clock, searchable timezone picker, network time toggle, locale, **Location** (shared system place + units) | `timedatectl` / `localectl` / Open-Meteo | `partial` |
+| **Date & time** (`datetime`) | Live clock, searchable timezone + locale pickers, NTP, **Location** (place + units + 5-day forecast + Match TZ) | `timedatectl` / `localectl set-locale` / Open-Meteo | `shipped` |
 | **Privacy** (`privacy`) | Permission categories listed; grants not enforced yet | EnvGate / adaptive apps later | `partial` |
 | **Software** (`packages`) | Hub → Updates; Repos / AUR / Flathub (Install\|Installed mode-safe, per-mode search, op narrative); AppImages; Orphans — helper honesty when yay/paru/flatpak missing | `pacman` + `proteus-pkg` · yay/paru · flatpak + Flathub · local AppImages | `shipped` |
 | **About** (`system`) | Hardware caps; session actions → Users | probe | `partial` |
@@ -301,9 +301,9 @@ hub); guest `./scripts/software-guest-smoke.sh` in `smoke-all` (SKIP unless SSH 
 
 ## 7. Growth
 
-**Date & time** is `partial` (see §2) — remaining work is write-gaps (locale
-set, forecast UI), not a greenfield pane. **Power** mode (PPD) + logind writer
-shipped; charge-threshold / TLP stay Out.
+**Appearance** hub + five leaves shipped (mega-page merge Out). **Date & time**
+locale set + 5-day forecast + Match TZ shipped; manual time / RTC writers Out.
+**Power** mode (PPD) + logind writer shipped; charge-threshold / TLP stay Out.
 
 **Online accounts · Privacy** are `partial` — provider OAuth and permission
 enforcement Out. **Users** session/greeter status shipped (add-remove + writing
@@ -314,11 +314,10 @@ Depth order for what’s left:
 1. **Users depth** — write greeter/autologin prefs; add-remove stays Out of Settings  
 2. **Online accounts** — real provider connect when adaptive mail/contacts exist  
 3. **Privacy** — grant model when adaptive apps need it  
-4. **Date & time** — locale set; weather forecast view  
-5. **Network depth** — Tailscale login-server (Headscale); peer/exit-node UI; in-pane pairing; WireGuard / password Wi‑Fi wizard (hub + leaves shipped)  
-6. **Peripherals** — touchpad / tablet  
-7. **Software depth** — dependency graphs later; Snap stays Out (hub + six leaves + smoke matrix shipped)  
-8. **Settings Notifications pane** — optional later; shell Control Center is the SoT today  
+4. **Network depth** — Tailscale login-server (Headscale); peer/exit-node UI; in-pane pairing; WireGuard / password Wi‑Fi wizard (hub + leaves shipped)  
+5. **Peripherals** — touchpad / tablet  
+6. **Software depth** — dependency graphs later; Snap stays Out (hub + six leaves + smoke matrix shipped)  
+7. **Settings Notifications pane** — optional later; shell Control Center is the SoT today  
 
 *(Displays layout + Revert follow-ups shipped — removed from growth depth.)*
 *(Network hub + FormRow polish shipped — depth wizards stay on the list.)*
@@ -326,6 +325,7 @@ Depth order for what’s left:
 *(Users session + greetd status shipped — writing greeter prefs / useradd stay Out.)*
 *(Power mode PPD + logind writer shipped — charge thresholds / TLP stay Out.)*
 *(Software hub + six leaves + reliability/guest smoke shipped — dep graphs / Snap stay Out.)*
+*(Appearance hub + Date & time locale/forecast shipped — manual time/RTC Out.)*
 
 Virt / container setup stays a **separate app**, not a Settings growth item.
 
