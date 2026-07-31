@@ -136,6 +136,7 @@ ColumnLayout {
   property string dragKind: ""
   property string dragId: ""
   property string dragOverId: ""
+  property var dragSnapshot: []
 
   function canDragRow(ch) {
     if (!ch || !ch.id)
@@ -145,82 +146,125 @@ ColumnLayout {
     return String(ch.id) !== "proteus_mix_system"
   }
 
+  function _idsOf(list) {
+    const out = []
+    for (let i = 0; i < (list || []).length; i++) {
+      if (list[i] && list[i].id)
+        out.push(list[i].id)
+    }
+    return out
+  }
+
+  function _moveIdBefore(list, fromId, overId) {
+    const src = list || []
+    const from = src.findIndex(x => x && x.id === fromId)
+    const to = src.findIndex(x => x && x.id === overId)
+    if (from < 0 || to < 0 || from === to)
+      return src
+    const next = src.slice()
+    const [item] = next.splice(from, 1)
+    const insertAt = next.findIndex(x => x && x.id === overId)
+    if (insertAt < 0)
+      return src
+    next.splice(insertAt, 0, item)
+    return next
+  }
+
   function beginDrag(kind, id) {
     root.cancelPendingClick()
     root.dragKind = kind
     root.dragId = id
     root.dragOverId = id
+    Audio.mixDragging = true
+    mixFlick.interactive = false
+    if (kind === "mix")
+      root.dragSnapshot = (Audio.mixMixes || []).slice()
+    else if (kind === "channel")
+      root.dragSnapshot = (Audio.mixChannels || []).filter(c => c && c.id !== "proteus_mix_system")
+    else if (kind === "input")
+      root.dragSnapshot = (Audio.mixInputs || []).slice()
+    else
+      root.dragSnapshot = []
   }
 
   function setDragOver(kind, id) {
-    if (!root.dragId.length || root.dragKind !== kind || !id || root.dragId === id)
+    if (!root.dragId.length || root.dragKind !== kind || !id || id === root.dragId)
       return
     if (kind === "channel" && id === "proteus_mix_system")
       return
+    if (root.dragOverId === id)
+      return
     root.dragOverId = id
+    // Snapshot tracks intended order; UI model stays stable so the pressed grip isn't destroyed.
+    root.dragSnapshot = root._moveIdBefore(root.dragSnapshot, root.dragId, id)
   }
 
   function cancelDrag() {
     root.dragKind = ""
     root.dragId = ""
     root.dragOverId = ""
+    root.dragSnapshot = []
+    Audio.mixDragging = false
+    mixFlick.interactive = true
   }
 
   function endDrag() {
     const kind = root.dragKind
     const from = root.dragId
-    const over = root.dragOverId
-    root.cancelDrag()
-    if (!kind || !from || !over || from === over || Audio.mixBusy)
+    const snap = root.dragSnapshot.slice()
+    root.dragKind = ""
+    root.dragId = ""
+    root.dragOverId = ""
+    root.dragSnapshot = []
+    Audio.mixDragging = false
+    mixFlick.interactive = true
+    if (!kind || !from || !snap.length || Audio.mixBusy)
+      return
+    const order = root._idsOf(snap)
+    const idx = order.indexOf(from)
+    if (idx < 0)
       return
     if (kind === "mix") {
-      const mixes = root.mixColumns || []
-      let idx = 0
-      for (let i = 0; i < mixes.length; i++) {
-        if (mixes[i].id === over) {
-          idx = i
-          break
-        }
-      }
+      const before = root._idsOf(Audio.mixMixes || [])
+      if (before.join("\n") === order.join("\n"))
+        return
+      Audio.applyMixOrder("mix", order)
       Audio.moveMixBus(from, idx)
       return
     }
     if (kind === "channel") {
-      const ch = Audio.mixChannels || []
-      const movable = []
-      for (let i = 0; i < ch.length; i++) {
-        if (ch[i].id !== "proteus_mix_system")
-          movable.push(ch[i].id)
-      }
-      let idx = 0
-      for (let i = 0; i < movable.length; i++) {
-        if (movable[i] === over) {
-          idx = i
-          break
-        }
-      }
+      const before = root._idsOf((Audio.mixChannels || []).filter(c => c && c.id !== "proteus_mix_system"))
+      if (before.join("\n") === order.join("\n"))
+        return
+      Audio.applyMixOrder("channel", ["proteus_mix_system"].concat(order))
       Audio.moveMixChannel(from, idx)
       return
     }
     if (kind === "input") {
-      const inn = Audio.mixInputs || []
-      let idx = 0
-      for (let i = 0; i < inn.length; i++) {
-        if (inn[i].id === over) {
-          idx = i
-          break
-        }
-      }
+      const before = root._idsOf(Audio.mixInputs || [])
+      if (before.join("\n") === order.join("\n"))
+        return
+      Audio.applyMixOrder("input", order)
       Audio.moveMixInput(from, idx)
     }
   }
 
-  // Pointer-based reorder (DropArea is unreliable over Flickable + Layout).
+  function trackDragAt(globalX, globalY) {
+    if (!root.dragKind.length)
+      return
+    if (root.dragKind === "mix") {
+      const p = listenRow.mapFromGlobal(globalX, globalY)
+      root.dragOverMixAt(p.x)
+      return
+    }
+    root.dragOverRowAt(globalX, globalY)
+  }
+
   function dragOverMixAt(xInListenRow) {
     const mixes = root.mixColumns || []
     let cx = root.channelIdentityW + root.gutter + root.masterStripW + root.gutter
     for (let i = 0; i < mixes.length; i++) {
-      if (xInListenRow >= cx && xInListenRow < cx + root.mixColW) {
+      if (xInListenRow >= cx - root.gutter / 2 && xInListenRow < cx + root.mixColW + root.gutter / 2) {
         root.setDragOver("mix", mixes[i].id)
         return
       }
@@ -236,7 +280,7 @@ ColumnLayout {
       if (!item)
         continue
       const p = item.mapFromGlobal(globalX, globalY)
-      if (p.y < 0 || p.y > item.height || p.x < 0 || p.x > root.channelIdentityW + 8)
+      if (p.y < 0 || p.y > root.rowH + root.gutter || p.x < -8 || p.x > root.channelIdentityW + 24)
         continue
       const rows = root.mixRows || []
       const ch = rows[i]
@@ -285,11 +329,11 @@ ColumnLayout {
   }
 
   readonly property var mixRows: {
-    const ch = Audio.mixChannels || []
+    const channels = Audio.mixChannels || []
     const inn = Audio.mixInputs || []
-    if (!ch.length && !inn.length)
+    if (!channels.length && !inn.length)
       return Audio.mixChannelCatalog
-    return ch.concat(inn)
+    return channels.concat(inn)
   }
 
   readonly property bool mixChannelsReady: {
@@ -544,22 +588,50 @@ ColumnLayout {
     return true
   }
 
+  readonly property bool peaksWanted: !!host && host.page === "sound-matrix"
+  property bool peaksSubscribed: false
+
+  function syncMixPeaks() {
+    if (root.peaksWanted) {
+      if (!root.peaksSubscribed) {
+        Audio.subscribeMixPeaks(root.peakDeviceList)
+        root.peaksSubscribed = true
+      } else {
+        Audio.refreshMixPeakDevices(root.peakDeviceList)
+      }
+    } else if (root.peaksSubscribed) {
+      Audio.unsubscribeMixPeaks()
+      root.peaksSubscribed = false
+    }
+  }
+
+  onPeaksWantedChanged: root.syncMixPeaks()
+
   Component.onCompleted: {
     Audio.refreshMix()
     root.maybeAutoSetup()
-    Audio.subscribeMixPeaks(root.peakDeviceList)
+    root.syncMixPeaks()
   }
 
-  Component.onDestruction: Audio.unsubscribeMixPeaks()
+  Component.onDestruction: {
+    if (root.peaksSubscribed) {
+      Audio.unsubscribeMixPeaks()
+      root.peaksSubscribed = false
+    }
+    if (Audio.mixDragging)
+      Audio.mixDragging = false
+  }
 
   Connections {
     target: Audio
     function onMixChannelsChanged() {
       root.maybeAutoSetup()
-      Audio.refreshMixPeakDevices(root.peakDeviceList)
+      if (root.peaksWanted)
+        Audio.refreshMixPeakDevices(root.peakDeviceList)
     }
     function onMixInputsChanged() {
-      Audio.refreshMixPeakDevices(root.peakDeviceList)
+      if (root.peaksWanted)
+        Audio.refreshMixPeakDevices(root.peakDeviceList)
     }
   }
 
@@ -784,12 +856,31 @@ ColumnLayout {
           Layout.preferredHeight: root.headerH
           Layout.fillWidth: false
           radius: Theme.radiusSm
+          clip: false
           readonly property bool dragHot: root.dragKind === "mix" && root.dragOverId === modelData.id
-          color: modelData.hear
+              && root.dragId !== modelData.id
+          readonly property bool dragSource: root.dragKind === "mix" && root.dragId === modelData.id
+          opacity: dragSource ? 0.45 : 1
+          color: dragHot
               ? Theme.accentSoft
-              : (dragHot ? Theme.accentSoft : (headerMa.containsMouse ? Theme.bgHover : "transparent"))
-          border.width: modelData.hear || dragHot ? 1 : 0
+              : (modelData.hear
+                  ? Theme.accentSoft
+                  : (headerMa.containsMouse ? Theme.bgHover : "transparent"))
+          border.width: dragHot ? 2 : (modelData.hear ? 1 : 0)
           border.color: Theme.accent
+
+          // Insertion mark — lands before this mix
+          Rectangle {
+            visible: mixHeaderChip.dragHot
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.leftMargin: -4
+            width: 3
+            height: parent.height + 4
+            radius: 1.5
+            color: Theme.accent
+            z: 3
+          }
 
           MouseArea {
             id: headerMa
@@ -832,24 +923,15 @@ ColumnLayout {
                 cursorShape: Qt.SizeAllCursor
                 preventStealing: true
                 enabled: !Audio.mixBusy
-                onPressed: {
-                  mixFlick.interactive = false
-                  root.beginDrag("mix", modelData.id)
-                }
+                onPressed: root.beginDrag("mix", modelData.id)
                 onPositionChanged: mouse => {
                   if (!pressed || root.dragKind !== "mix")
                     return
-                  const p = mapToItem(listenRow, mouse.x, mouse.y)
-                  root.dragOverMixAt(p.x)
+                  const g = mapToGlobal(mouse.x, mouse.y)
+                  root.trackDragAt(g.x, g.y)
                 }
-                onReleased: {
-                  mixFlick.interactive = true
-                  root.endDrag()
-                }
-                onCanceled: {
-                  mixFlick.interactive = true
-                  root.cancelDrag()
-                }
+                onReleased: root.endDrag()
+                onCanceled: root.cancelDrag()
               }
             }
 
@@ -1085,16 +1167,37 @@ ColumnLayout {
             Layout.preferredWidth: root.channelIdentityW
             Layout.preferredHeight: root.rowH
             radius: Theme.radiusSm
-            color: Theme.bgElevated
+            clip: false
             readonly property bool dragHot: {
               const kind = chBlock.isInput ? "input" : "channel"
-              return root.dragKind === kind && root.dragOverId === chBlock.modelData.id
+              return root.dragKind === kind
+                  && root.dragOverId === chBlock.modelData.id
+                  && root.dragId !== chBlock.modelData.id
             }
-            border.width: 1
+            readonly property bool dragSource: {
+              const kind = chBlock.isInput ? "input" : "channel"
+              return root.dragKind === kind && root.dragId === chBlock.modelData.id
+            }
+            opacity: dragSource ? 0.45 : 1
+            color: dragHot ? Theme.accentSoft : Theme.bgElevated
+            border.width: dragHot ? 2 : 1
             border.color: (chBlock.expanded || dragHot) ? Theme.accent : Theme.border
             readonly property real peak: Audio.mixPeakFor(chBlock.modelData.id)
             readonly property string rowKind: chBlock.isInput ? "input" : "channel"
             readonly property bool draggable: root.canDragRow(chBlock.modelData)
+
+            // Insertion mark — lands above this channel/input
+            Rectangle {
+              visible: identityCell.dragHot
+              anchors.horizontalCenter: parent.horizontalCenter
+              anchors.top: parent.top
+              anchors.topMargin: -4
+              width: parent.width + 4
+              height: 3
+              radius: 1.5
+              color: Theme.accent
+              z: 3
+            }
 
             MouseArea {
               anchors.fill: parent
@@ -1135,24 +1238,15 @@ ColumnLayout {
                   cursorShape: identityCell.draggable ? Qt.SizeAllCursor : Qt.ArrowCursor
                   preventStealing: true
                   enabled: !Audio.mixBusy && identityCell.draggable
-                  onPressed: {
-                    mixFlick.interactive = false
-                    root.beginDrag(identityCell.rowKind, chBlock.modelData.id)
-                  }
+                  onPressed: root.beginDrag(identityCell.rowKind, chBlock.modelData.id)
                   onPositionChanged: mouse => {
                     if (!pressed || !root.dragKind.length)
                       return
                     const g = mapToGlobal(mouse.x, mouse.y)
-                    root.dragOverRowAt(g.x, g.y)
+                    root.trackDragAt(g.x, g.y)
                   }
-                  onReleased: {
-                    mixFlick.interactive = true
-                    root.endDrag()
-                  }
-                  onCanceled: {
-                    mixFlick.interactive = true
-                    root.cancelDrag()
-                  }
+                  onReleased: root.endDrag()
+                  onCanceled: root.cancelDrag()
                 }
               }
 
