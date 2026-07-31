@@ -47,8 +47,8 @@ Token export lives under `env/chrome/` (this serial door 5/5).
 ## 1. Principles
 
 1. **One chrome language.** Bar, dock, Control Center, Settings, lock Customize,
-   toasts — same space / radius / text roles / accent rules. Per-control inventing
-   is a defect.
+   desktop Customize, toasts — same space / radius / text roles / accent rules.
+   Per-control inventing is a defect.
 2. **Chrome ≠ canvas.** Theme tokens paint OS chrome and Settings. First-party
    apps may theme their *content* surface (manuscript, media stage) without
    rewriting the frame.
@@ -185,8 +185,10 @@ shell surfaces that rhyme):
 | **SettingsCombo** | Trailing popup picker (Theme chip + elevated menu; not Fusion ComboBox) |
 | **Fact line** | Mute one-liner naming the on-disk / CLI fact |
 
-Shell chrome (TopBar, Dock, Control Center, lock Customize) should reuse the
-same space/radius/text/accent rules even when not importing those QML types.
+Shell chrome (TopBar, Dock, Control Center, lock Customize, desktop Customize)
+should reuse the same space/radius/text/accent rules even when not importing
+those QML types. Desktop Customize bar / empty hint / applet size− use
+`elevatedFill` · `chromeBorder` · `textMute` · `danger` — not hardcoded rgba.
 
 ---
 
