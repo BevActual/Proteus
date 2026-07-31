@@ -111,11 +111,11 @@ Left-nav + content pane (macOS System Settings style).
 | **Date & time** (`datetime`) | Live clock, searchable timezone + locale pickers, NTP, **Location** (place + units + 5-day forecast + Match TZ) | `timedatectl` / `localectl set-locale` / Open-Meteo | `shipped` |
 | **Privacy** (`privacy`) | Permission categories listed; grants not enforced yet | EnvGate / adaptive apps later | `partial` |
 | **Software** (`packages`) | Hub → Updates; Repos / AUR / Flathub (Install\|Installed mode-safe, per-mode search, op narrative); AppImages; Orphans — helper honesty when yay/paru/flatpak missing | `pacman` + `proteus-pkg` · yay/paru · flatpak + Flathub · local AppImages | `shipped` |
-| **About** (`system`) | Hardware caps; soft Hyprland profile picker (console≡media; soft≠hard); session actions → Users | probe · `HyprProfile` / `set-hypr-profile.sh` | `partial` |
+| **About** (`system`) | OS/kernel · QS/Hypr versions; hardware caps; soft Hyprland profile picker (console≡media; soft≠hard); Copy system info; session → Users | `SystemInfo` · probe · `HyprProfile` / `set-hypr-profile.sh` | `shipped` |
 
 VM / container **setup** is **not** a Settings category — a separate host app later.
 About may still show host-relevant hardware facts. Soft profile select does
-**not** flip console/host hard switches.
+**not** flip console/host hard switches. Hostname **edit** stays under Network.
 
 Panes live under `apps/proteus-settings/panes/`. EnvGate capability-gates
 sidebar entries (`display` for Desktop / Displays / Keyboard, audio/network
@@ -327,6 +327,7 @@ Depth order for what’s left:
 *(Power mode PPD + logind writer shipped — charge thresholds / TLP stay Out.)*
 *(Software hub + six leaves + reliability/guest smoke shipped — dep graphs / Snap stay Out.)*
 *(Appearance hub + Date & time locale/forecast shipped — manual time/RTC Out.)*
+*(About OS/kernel · QS/Hypr versions · Copy system info · soft profile shipped — hard posture switch Out.)*
 
 Virt / container setup stays a **separate app**, not a Settings growth item.
 

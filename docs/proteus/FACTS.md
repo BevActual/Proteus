@@ -44,6 +44,7 @@ facts: [`vm/guest/`](../../vm/guest/).
 | **Background** | Wallpaper/lock backdrop catalogs, derived paths, setters, fetch/apply | Persisting keys (read/write `Config.*` fields) |
 | **Widgets** | Applet catalog + lock/desktop CRUD | Own FileView |
 | **Theme** | Chrome tokens from Config accent/font/mode | System facts |
+| **SystemInfo** | Read-only OS/kernel/QS/Hypr strings + About copy summary | Privileged writes; hostname edit |
 
 **Why flat `shell/shared/`:** Quickshell directory imports + `property alias`
 across singletons in *subdirectories* (or via `qmldir`) hit load-order cycles.

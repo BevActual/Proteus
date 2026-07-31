@@ -97,7 +97,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Users (session actions + read-only local users · greetd status) | `shipped` — Session FormRow honesty (Lock/Logout/Reboot/Shutdown); current/other users + Refresh; greetd active/autologin status + read-only conf escape; no add/remove; Settings does not write greeter prefs |
 | Online accounts (provider seats) | `partial` — coming soon; no OAuth |
 | Privacy (permission categories) | `partial` — listed; not enforced |
-| About (hardware class / capabilities) | `partial` — hw-probe class/caps; soft Hyprland profile picker (`HyprProfile` · console≡media); session actions → Users; hard posture switch Out |
+| About (hardware class / capabilities) | `shipped` — OS/kernel (`SystemInfo`); Hyprland/Quickshell versions; hw-probe class/caps; soft Hyprland profile picker; Copy system info; session → Users; hard posture switch Out |
 | Host / VM·container setup | **out of Settings** — separate app later |
 | Cold-start (open feel) | `shipped` — async `shell.qml` → `Settings.qml`; `kit/StickyPaneLoader` (active category first, sticky after visit); Keyboard/Keybinds deferred; Settings QS skips live hw-probe (`Hardware.isSettingsApp` → cache only) |
 
