@@ -59,6 +59,8 @@ Examples:
 | Displays scale / mode / orientation / layout | `hyprctl keyword monitor` + `proteus-monitors.conf` (recommended modes; confirm large jumps; 10s full-snapshot Revert keyed by connector; drift/hotplug cancel; Identify flash; drag layout canvas) |
 | Volume / mute / default sink | `pactl` |
 | Input volume / mute / default source | `pactl` |
+| Audio matrix (node routing) | `pw-link` via `shell/scripts/audio-matrix.py` (Omnibus-style grid) |
+| App mixer (Wave Link–style) | Channels (default Apps/…) + mic/line inputs × mixes; Speakers/mix listen; rename; peaks; `~/.config/proteus/audio-mix.json`; resident `proteus-audio-mix serve` (dump+peaks); mutations `audio-mix.py`; **CC Sound plate** — master on plate; per-source levels in Sources ▾ |
 | Input level meter | streaming `audio-peak.py` on default source (Settings Input leaf) |
 | Per-app volume / mute | `pactl list/set-sink-input-*` |
 | Sound latency / buffer | `settings.json` `audioLatency` → `pw-metadata -n settings 0 clock.force-quantum` (256 / 512 / 1024) |
@@ -98,7 +100,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Appearance** (`style`) | Category → Accent, Background, Lock screen, Icons (style compare + dock pins), Font (searchable + Add) | `settings.json`, Theme, `proteus-bg`; shared Kind/color/font/icon kit | `partial` |
 | **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Launcher (Spotlight Apps/Files/Clipboard/Actions · tags/recents) — leaf files + FormRow kit | json + hyprctl + `proteus-general.conf` · `launcherRecents` / `launcherFileRecents` / `launcherTagCatalog` / `launcherAppTags` | `shipped` |
 | **Displays** (`displays`) | Layout canvas + per-monitor scale/mode/orientation; 10s Revert; Refresh/hotplug honesty; conf escape | hyprctl + `proteus-monitors.conf` | `shipped` |
-| **Sound** (`sound`) | Category → Output / Input / Applications / Latency & buffer — leaf files + FormRow kit | pactl + `audio-peak.py` + `pw-metadata` | `shipped` |
+| **Sound** (`sound`) | Category → Output / Input / Applications / Mixer / Latency — leaf files + FormRow kit | pactl + `proteus-audio-mix` / `audio-peak.py` + `pw-metadata` + `pw-link` | `shipped` |
 | **Network** (`network`) | Category → This machine / Devices / Wi‑Fi / Bluetooth / Tailscale / VPN — leaf files + FormRow kit | hostnamectl / nmcli / bluetoothctl / tailscale | `shipped` |
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse; later touchpad / tablet | keybinds + input hyprctl | `shipped` |
 | **Power** (`power`) | Battery charge / health / estimate (UPower); logind idle + lid policy read-only with conf escape hatch | UPower / `logind.conf` | `partial` |
@@ -145,6 +147,7 @@ the sub-settings list:
 | Icons | **Default / Dark / Clear / Tinted** side-by-side squircle compare (`kit/SettingsIconStylePicker`); Tinted tint graph; custom art Switch/Reset; dock Keep/Remove via glass right-click menu + long-press edit (−) / drag-off (running apps appear on dock) |
 | Desktop widgets | **Not in Settings** — unlocked desktop long-press or `Super+Shift+W` → Customize; free place + optional Snap to Grid; separate `desktopWidgets[]` |
 | Notifications / DND | **Shell Control Center** (top-bar status cluster) — list depth · toast/`showToast` · DND · QS volume/tiles; Status HUD for media-key volume/brightness (suppressed while CC open); deep Sound/Network stay in Settings panes; **no Settings Notifications category** |
+| Mix (inputs) | **Shell Control Center** unified **Sound** plate — master volume on plate; Listen ▾ + Sources ▾ (name · On/Off · peak · volume); Mixer › → Settings |
 | Font | Searchable system/user list (`kit/SettingsFontPicker`); **Add font…** user-scoped install (`~/.local/share/fonts/proteus` · `userFonts`); size slider; live Aa preview |
 
 Open a row → leaf controls; **‹ Appearance** / Esc returns to the list. Desktop
@@ -220,7 +223,8 @@ hotplug without redesigning the canvas.
 
 Sound: click sidebar → heading **Sound** + sub-settings list, then leaf pages
 via `kit/StickyPaneLoader` (`SoundOutputLeaf`, `SoundInputLeaf`,
-`SoundAppsLeaf`, `SoundLatencyLeaf`). Hub state lives in `SoundPane.qml`
+`SoundAppsLeaf`, `SoundMatrixLeaf` (Mixer), `SoundLatencyLeaf`). Hub state lives
+in `SoundPane.qml`
 (`property Item host` on leaves).
 
 | Sub-setting | Role |
@@ -228,11 +232,12 @@ via `kit/StickyPaneLoader` (`SoundOutputLeaf`, `SoundInputLeaf`,
 | Output | Volume/mute FormRows + live hints; test tone; sink list with `deviceHint` |
 | Input | Level/mute FormRows; peak meter FormRow; source list with `deviceHint` |
 | Applications | Per-app volume + mute; empty Playing now honesty |
+| Mixer | Wave Link–style grid: channels/inputs × mixes; Speakers vs mix listen; Level; rename; row peaks; add channel/input/mix. Quick per-source adjust also in Control Center Sources ▾ |
 | Latency & buffer | Profile segmented + quantum frames; PipeWire clock summary when known |
 
 | Pane | Live apply | On-disk / helper |
 |------|------------|------------------|
-| Sound | `pactl` volume/mute/default sink·source · sink-input volume/mute · test tone | `settings.json` `audioLatency` → `pw-metadata` force-quantum; peak via `audio-peak.py` |
+| Sound | `pactl` volume/mute/default sink·source · sink-input volume/mute · test tone · matrix link/unlink · mixer routes | `settings.json` `audioLatency` → `pw-metadata`; Mixer dump+peaks via resident `proteus-audio-mix serve` (Python `audio-mix.py` / `audio-mix-peaks.py` fallback); matrix via `audio-matrix.py` → `pw-link`; mutations via `audio-mix.py` |
 
 **Module rule:** Sound leaf helpers stay in `panes/Sound*Leaf.qml` + `kit/`
 FormRow/Group — not a single mega-inline `SoundPane` body.
