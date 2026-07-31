@@ -23,6 +23,8 @@ Singleton {
 
   property var timezones: []
   property bool loadingZones: false
+  property var locales: []
+  property bool loadingLocales: false
   property bool busy: false
   property string error: ""
 
@@ -47,6 +49,14 @@ Singleton {
     zonesProc.running = true
   }
 
+  function loadLocales() {
+    if (loadingLocales || locales.length)
+      return
+    loadingLocales = true
+    localesProc.running = false
+    localesProc.running = true
+  }
+
   // Filtered zone list for the picker. Matches on any path segment so "york"
   // finds America/New_York.
   function searchTimezones(query, limit) {
@@ -58,6 +68,20 @@ Singleton {
       const tz = list[i]
       if (!q.length || tz.toLowerCase().indexOf(q) >= 0)
         out.push(tz)
+    }
+    return out
+  }
+
+  // Filtered locale list — "us" finds en_US.UTF-8; "utf" finds UTF-8 variants.
+  function searchLocales(query, limit) {
+    const q = String(query || "").trim().toLowerCase().replace(/\s+/g, "_")
+    const cap = limit || 40
+    const list = root.locales
+    const out = []
+    for (let i = 0; i < list.length && out.length < cap; i++) {
+      const loc = list[i]
+      if (!q.length || loc.toLowerCase().indexOf(q) >= 0)
+        out.push(loc)
     }
     return out
   }
@@ -77,6 +101,18 @@ Singleton {
     root.busy = true
     root.error = ""
     setProc.command = ["timedatectl", "set-ntp", on ? "true" : "false"]
+    setProc.running = false
+    setProc.running = true
+  }
+
+  function setLocale(lang) {
+    const name = String(lang || "").trim()
+    if (!name.length || name === root.locale)
+      return
+    root.busy = true
+    root.error = ""
+    // localectl set-locale LANG=… is polkit-gated like timedatectl.
+    setProc.command = ["localectl", "set-locale", "LANG=" + name]
     setProc.running = false
     setProc.running = true
   }
@@ -134,6 +170,17 @@ Singleton {
   }
 
   Process {
+    id: localesProc
+    command: ["localectl", "list-locales"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        root.loadingLocales = false
+        root.locales = text.trim().split("\n").filter(l => l.length)
+      }
+    }
+  }
+
+  Process {
     id: setProc
     command: ["true"]
     stderr: StdioCollector {
@@ -147,7 +194,7 @@ Singleton {
         return
       }
       const e = setErr.text.trim().split("\n")[0]
-      // timedatectl is polkit-gated; without an agent this is the usual failure.
+      // timedatectl / localectl are polkit-gated; without an agent this is usual.
       root.error = e.length ? e : "Change refused (needs authorization)"
     }
   }

@@ -16,6 +16,8 @@ ColumnLayout {
   property bool pickingZone: false
   property string placeQuery: ""
   property bool pickingPlace: false
+  property string localeQuery: ""
+  property bool pickingLocale: false
 
   // Geocoding is a network call per keystroke otherwise.
   Timer {
@@ -27,6 +29,10 @@ ColumnLayout {
 
   readonly property var zoneResults: root.pickingZone
       ? DateTime.searchTimezones(root.zoneQuery, 40)
+      : []
+
+  readonly property var localeResults: root.pickingLocale
+      ? DateTime.searchLocales(root.localeQuery, 40)
       : []
 
   // Live clock rendered in the selected zone — SystemClock ticks locally, and
@@ -44,11 +50,14 @@ ColumnLayout {
     if (active) {
       DateTime.refresh()
       DateTime.loadTimezones()
+      DateTime.loadLocales()
     } else {
       root.pickingZone = false
       root.zoneQuery = ""
       root.pickingPlace = false
       root.placeQuery = ""
+      root.pickingLocale = false
+      root.localeQuery = ""
       Weather.clearSearch()
     }
   }
@@ -57,6 +66,7 @@ ColumnLayout {
     if (active) {
       DateTime.refresh()
       DateTime.loadTimezones()
+      DateTime.loadLocales()
     }
   }
 
@@ -361,7 +371,95 @@ ColumnLayout {
     SettingsFormRow {
       label: "System locale"
       hint: DateTime.locale.length ? DateTime.locale : "Unset"
-      showSeparator: true
+      showSeparator: root.pickingLocale || DateTime.vcKeymap.length > 0
+      interactive: !DateTime.busy
+      onActivated: {
+        root.pickingLocale = !root.pickingLocale
+        root.localeQuery = ""
+        if (root.pickingLocale)
+          DateTime.loadLocales()
+      }
+      Text {
+        text: root.pickingLocale ? "Cancel" : "Change"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+
+    Item {
+      visible: root.pickingLocale
+      Layout.fillWidth: true
+      Layout.preferredHeight: 44
+
+      Rectangle {
+        anchors.fill: parent
+        anchors.leftMargin: Theme.spaceMd
+        anchors.rightMargin: Theme.spaceMd
+        anchors.topMargin: Theme.spaceXs
+        anchors.bottomMargin: Theme.spaceSm
+        radius: Theme.radiusMd
+        color: Theme.bgHover
+        border.width: 1
+        border.color: localeSearch.activeFocus ? Theme.accent : Theme.border
+
+        TextInput {
+          id: localeSearch
+          anchors.fill: parent
+          anchors.leftMargin: Theme.spaceMd
+          anchors.rightMargin: Theme.spaceMd
+          verticalAlignment: TextInput.AlignVCenter
+          color: Theme.text
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSize
+          selectByMouse: true
+          clip: true
+          text: root.localeQuery
+          onTextChanged: root.localeQuery = text
+
+          Text {
+            anchors.fill: parent
+            verticalAlignment: Text.AlignVCenter
+            text: DateTime.loadingLocales ? "Loading locales…" : "Search — e.g. en_US or utf"
+            color: Theme.textMute
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize
+            visible: !localeSearch.text.length && !localeSearch.activeFocus
+          }
+        }
+      }
+    }
+
+    Repeater {
+      model: root.localeResults
+
+      SettingsFormRow {
+        required property var modelData
+        required property int index
+        label: modelData
+        hint: modelData === DateTime.locale ? "Current" : ""
+        showSeparator: index < root.localeResults.length - 1
+        interactive: modelData !== DateTime.locale && !DateTime.busy
+        onActivated: {
+          DateTime.setLocale(modelData)
+          root.pickingLocale = false
+          root.localeQuery = ""
+        }
+        Text {
+          visible: modelData === DateTime.locale
+          text: "✓"
+          color: Theme.accent
+          font.family: Theme.fontFamily
+          font.pixelSize: 13
+        }
+      }
+    }
+
+    SettingsFormRow {
+      visible: root.pickingLocale && !DateTime.loadingLocales && root.localeResults.length === 0
+      label: "No matching locale"
+      hint: "Generate locales on the host, or Edit locale.conf…"
+      showSeparator: false
     }
 
     SettingsFormRow {
@@ -373,7 +471,7 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "Edit locale.conf…"
-      hint: "/etc/locale.conf"
+      hint: "/etc/locale.conf · escape hatch"
       showSeparator: false
       interactive: true
       onActivated: DateTime.openLocaleConf()
@@ -400,7 +498,7 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Fact: timedatectl set-timezone / set-ntp (polkit-gated) · localectl status · "
+    text: "Fact: timedatectl set-timezone / set-ntp · localectl set-locale LANG=… (polkit-gated) · "
         + "weather from api.open-meteo.com (no API key). Only the coordinates you set are sent."
     color: Theme.textMute
     font.family: Theme.fontFamily
