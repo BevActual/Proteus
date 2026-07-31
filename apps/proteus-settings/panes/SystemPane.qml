@@ -21,6 +21,8 @@ ColumnLayout {
     return Hardware.probing ? "Detecting hardware…" : "Hardware probe not ready"
   }
 
+  Component.onCompleted: HyprProfile.refresh()
+
   SettingsGroup {
     title: "Proteus"
 
@@ -91,6 +93,38 @@ ColumnLayout {
     SettingsFormRow {
       label: "Posture hint"
       hint: Hardware.ready ? Hardware.postureHint : "—"
+      showSeparator: true
+    }
+
+    SettingsFormRow {
+      label: "Hyprland profile"
+      hint: HyprProfile.busy
+          ? "Applying…"
+          : (HyprProfile.activeProfileLabel !== "—"
+              ? ("Using " + HyprProfile.activeProfileLabel)
+              : "Soft profile reload")
+      showSeparator: true
+      SettingsCombo {
+        preferredWidth: 168
+        enabled: !HyprProfile.busy && !HyprProfile.helperMissing
+            && HyprProfile.profileOptions.length > 0
+        model: HyprProfile.profileOptions
+        currentValue: HyprProfile.activeProfile
+        onActivated: v => {
+          if (!v.length || v === HyprProfile.activeProfile)
+            return
+          HyprProfile.set(v)
+        }
+      }
+    }
+
+    SettingsFormRow {
+      visible: HyprProfile.helperMissing || HyprProfile.error.length > 0
+      label: HyprProfile.helperMissing ? "Helper" : "Error"
+      hint: HyprProfile.error.length
+          ? HyprProfile.error
+          : "set-hypr-profile.sh not found"
+      labelColor: Theme.danger
       showSeparator: true
     }
 
@@ -186,7 +220,8 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Fact: hw-probe.json from services/proteus-hw-probe · session actions under Users."
+    text: "Fact: hw-probe.json from services/proteus-hw-probe · Hyprland profile via "
+        + "set-hypr-profile.sh (soft reload) · session actions under Users."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11
