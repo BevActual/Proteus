@@ -47,7 +47,9 @@ Singleton {
   }
 
   function openSoftware() {
-    ShellState.openSettings("packages")
+    const q = "io.missioncenter.MissionCenter"
+    Packages.seedPackageSearch(q, "packages-flatpak")
+    ShellState.openSettings("packages-flatpak", q)
   }
 
   Component.onCompleted: root.refresh()
@@ -69,7 +71,7 @@ Singleton {
           + "    except Exception:\n"
           + "        flatpak = False\n"
           + "ok = bool(path) or flatpak\n"
-          + "hint = ('Mission Center · Flatpak' if flatpak else ('Mission Center · ' + path if path else 'Install Mission Center from Software'))\n"
+          + "hint = ('Mission Center · Flatpak' if flatpak else ('Mission Center · ' + path if path else 'Software → Flathub · Mission Center'))\n"
           + "print(json.dumps({'available': ok, 'flatpak': flatpak, 'path': path or '', 'hint': hint}))\n"
     ]
     stdout: StdioCollector {
@@ -84,7 +86,7 @@ Singleton {
           root.available = false
           root.flatpak = false
           root.binaryPath = ""
-          root.hint = "Install Mission Center from Software"
+          root.hint = "Software → Flathub · Mission Center"
         }
       }
     }

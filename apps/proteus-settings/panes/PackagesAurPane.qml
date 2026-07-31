@@ -4,6 +4,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../shared"
 import "../kit"
+import ".." // root module — SettingsNav singleton
 
 // Packages → AUR: Install | Installed with sticky action bar, rich rows, live ops.
 ColumnLayout {
@@ -144,7 +145,7 @@ ColumnLayout {
     clearPending()
     persistUi()
     if (!helperOk) {
-      status = "Install yay or paru to use the AUR from Settings."
+      status = "Install yay to use the AUR from Settings."
       results = []
       busy = false
       return
@@ -186,6 +187,51 @@ ColumnLayout {
     syncingQuery = true
     searchInput.text = activeQuery
     syncingQuery = false
+  }
+
+  property int appliedSeedEpoch: 0
+
+  function applySearchSeed() {
+    let q = ""
+    if (SettingsNav.hasPendingInstall(leafKey))
+      q = SettingsNav.takePendingInstall(leafKey)
+    else if (Packages.hasSearchSeedFor(leafKey))
+      q = Packages.takeSearchSeed()
+    if (!q.length)
+      return false
+    installQuery = q
+    mode = "install"
+    appliedSeedEpoch = Math.max(SettingsNav.pendingInstallEpoch, Packages.searchSeedEpoch)
+    return true
+  }
+
+  function ingestSeed() {
+    if (!applySearchSeed())
+      return false
+    syncSearchField()
+    if (Packages.aurHelper.length)
+      search()
+    return true
+  }
+
+  function activateLeaf() {
+    if (!applySearchSeed()) {
+      const epoch = Math.max(SettingsNav.pendingInstallEpoch, Packages.searchSeedEpoch)
+      if (!(appliedSeedEpoch > 0 && appliedSeedEpoch === epoch))
+        restoreUi()
+    }
+    syncSearchField()
+    Packages.refreshHelpers()
+    refreshInstalled()
+    if (Packages.aurHelper.length)
+      search()
+    else
+      status = "Install yay to use the AUR from Settings."
+    forceActiveFocus()
+    Qt.callLater(() => {
+      if (root.helperOk)
+        searchInput.forceActiveFocus()
+    })
   }
 
   function proposeBatch() {
@@ -249,11 +295,26 @@ ColumnLayout {
     Layout.fillWidth: true
     text: helperOk
         ? ("AUR via " + helper + " — Install or Installed. / search · Space toggle · Enter confirm.")
-        : "Install yay or paru to use the AUR from Settings."
+        : "Install yay to use the AUR from Settings."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 12
     wrapMode: Text.WordWrap
+  }
+
+  SettingsFormRow {
+    visible: !root.helperOk
+    label: "Install yay…"
+    hint: "Software → Repos · then reopen AUR"
+    showSeparator: false
+    interactive: true
+    onActivated: SettingsNav.goInstallSearch("yay")
+    Text {
+      text: "Install…"
+      color: Theme.accent
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.fontSize
+    }
   }
 
   SettingsSegmented {
@@ -628,21 +689,25 @@ ColumnLayout {
     }
   }
 
+  Connections {
+    target: Packages
+    function onSearchSeedEpochChanged() {
+      if (root.active)
+        root.ingestSeed()
+    }
+  }
+
+  Connections {
+    target: SettingsNav
+    function onPendingInstallEpochChanged() {
+      if (root.active)
+        root.ingestSeed()
+    }
+  }
+
   onActiveChanged: {
     if (active) {
-      restoreUi()
-      syncSearchField()
-      Packages.refreshHelpers()
-      refreshInstalled()
-      if (Packages.aurHelper.length)
-        search()
-      else
-        status = "Install yay or paru to use the AUR from Settings."
-      forceActiveFocus()
-      Qt.callLater(() => {
-        if (root.helperOk)
-          searchInput.forceActiveFocus()
-      })
+      activateLeaf()
     } else {
       persistUi()
       abortInstallLoads()

@@ -4,6 +4,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../shared"
 import "../kit"
+import ".." // root module — SettingsNav singleton
 
 // Packages → Flathub: Install | Installed with sticky action bar, rich rows, live ops.
 ColumnLayout {
@@ -106,6 +107,49 @@ ColumnLayout {
     syncingQuery = true
     searchInput.text = activeQuery
     syncingQuery = false
+  }
+
+  property int appliedSeedEpoch: 0
+
+  function applySearchSeed() {
+    let q = ""
+    if (SettingsNav.hasPendingInstall(leafKey))
+      q = SettingsNav.takePendingInstall(leafKey)
+    else if (Packages.hasSearchSeedFor(leafKey))
+      q = Packages.takeSearchSeed()
+    if (!q.length)
+      return false
+    installQuery = q
+    mode = "install"
+    appliedSeedEpoch = Math.max(SettingsNav.pendingInstallEpoch, Packages.searchSeedEpoch)
+    return true
+  }
+
+  function ingestSeed() {
+    if (!applySearchSeed())
+      return false
+    syncSearchField()
+    if (Packages.flatpakAvailable)
+      search()
+    return true
+  }
+
+  function activateLeaf() {
+    if (!applySearchSeed()) {
+      const epoch = Math.max(SettingsNav.pendingInstallEpoch, Packages.searchSeedEpoch)
+      if (!(appliedSeedEpoch > 0 && appliedSeedEpoch === epoch))
+        restoreUi()
+    }
+    syncSearchField()
+    Packages.refreshHelpers()
+    if (Packages.flatpakAvailable) {
+      refreshMeta()
+      search()
+      forceActiveFocus()
+      Qt.callLater(() => searchInput.forceActiveFocus())
+    } else {
+      status = "Install flatpak to use Flathub from Settings."
+    }
   }
 
   function refreshMeta() {
@@ -307,6 +351,21 @@ ColumnLayout {
     font.family: Theme.fontFamily
     font.pixelSize: 12
     wrapMode: Text.WordWrap
+  }
+
+  SettingsFormRow {
+    visible: !root.flatpakOk
+    label: "Install flatpak…"
+    hint: "Software → Repos · then reopen Flathub"
+    showSeparator: false
+    interactive: true
+    onActivated: SettingsNav.goInstallSearch("flatpak")
+    Text {
+      text: "Install…"
+      color: Theme.accent
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.fontSize
+    }
   }
 
   SettingsSegmented {
@@ -702,19 +761,25 @@ ColumnLayout {
     }
   }
 
+  Connections {
+    target: Packages
+    function onSearchSeedEpochChanged() {
+      if (root.active)
+        root.ingestSeed()
+    }
+  }
+
+  Connections {
+    target: SettingsNav
+    function onPendingInstallEpochChanged() {
+      if (root.active)
+        root.ingestSeed()
+    }
+  }
+
   onActiveChanged: {
     if (active) {
-      restoreUi()
-      syncSearchField()
-      Packages.refreshHelpers()
-      if (Packages.flatpakAvailable) {
-        refreshMeta()
-        search()
-        forceActiveFocus()
-        Qt.callLater(() => searchInput.forceActiveFocus())
-      } else {
-        status = "Install flatpak to use Flathub from Settings."
-      }
+      activateLeaf()
     } else {
       persistUi()
       abortInstallLoads()

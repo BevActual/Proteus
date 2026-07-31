@@ -59,8 +59,22 @@ Token export lives under `env/chrome/` (this serial door 5/5).
    lists, soft selection, large titles (System Settings posture).
 5. **Legibility floor.** Prefs (opacity, accent, font) must not produce
    unreadable UI. Transparency may clear the plate; text contrast stays.
-6. **Host posture reuses Settings.** Do not invent a second control center for
+6. **Dual-path chrome.** Settings stays mouse-legible for ordinary jobs;
+   frequent actions also have a chord and/or Spotlight / Actions / in-app `/`
+   jump / hub ↑↓ Enter / Control Center path. Not a TUI-only control menu; not
+   depth-hiding “simplicity.”
+7. **Host posture reuses Settings.** Do not invent a second control center for
    host / hypervisor chrome.
+8. **Escapes stay quiet and Fact-backed.** Ordinary jobs stay in chrome; power
+   and edge cases open the real Linux tool or conf (Wireshark, blueman,
+   `qpwgraph`, Mission Center, `proteus-monitors.conf`, …). Escapes are
+   muted footers / FormRows — never hero tiles. Missing package → one
+   Install… into Software (Repos / AUR / Flathub) with a seeded search — one
+   package per escape, not a terminal alternate. Non-package helpers
+   (proteus-logind, desktop conf) stay “Run setup…” and must not look like
+   Software Install…. Prefer wrapping engines
+   (`nmcli`, `pactl`, helpers) into Facts over re-skinning upstream GUIs; do not
+   use escapes to paper over a broken happy path.
 
 ---
 

@@ -97,15 +97,18 @@ Singleton {
     sessionLocked = false
   }
 
-  function openSettings(pageId) {
+  function openSettings(pageId, query) {
     if (sessionLocked)
       return
     launcherOpen = false
     controlCenterOpen = false
     const page = String(pageId || "").trim()
-    const envPrefix = page.length
-      ? ("PROTEUS_SETTINGS_PAGE=" + shellQuote(page) + " ")
-      : ""
+    const q = String(query || "").trim()
+    let envPrefix = ""
+    if (page.length)
+      envPrefix += "PROTEUS_SETTINGS_PAGE=" + shellQuote(page) + " "
+    if (q.length)
+      envPrefix += "PROTEUS_SETTINGS_QUERY=" + shellQuote(q) + " "
     Quickshell.execDetached({
       command: [
         "bash",

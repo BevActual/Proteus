@@ -83,7 +83,12 @@ Singleton {
         Config.copyToClipboard(root.receiveEndpoint)
       break
     case "settings":
-      ShellState.openSettings("network-localsend")
+      if (!root.available) {
+        Packages.seedPackageSearch("localsend-bin", "packages-aur")
+        ShellState.openSettings("packages-aur", "localsend-bin")
+      } else {
+        ShellState.openSettings("network-localsend")
+      }
       break
     case "refresh":
       root.refresh()
@@ -222,7 +227,7 @@ Singleton {
           + "if w and usable(w):\n"
           + "  path=w\n"
           + "elif w and not usable(w):\n"
-          + "  o['hint']='Broken localsend binary — reinstall: yay -S localsend-bin'\n"
+          + "  o['hint']='Broken localsend — Install… → Software → AUR · localsend-bin'\n"
           + "if not path:\n"
           + "  for c in ('/usr/bin/localsend','/opt/localsend/localsend','/usr/lib/localsend/localsend'):\n"
           + "    if usable(c):\n"
@@ -237,7 +242,7 @@ Singleton {
           + "  o['available']=True; o['flatpak']=True; o['path']='flatpak:org.localsend.localsend_app'\n"
           + "else:\n"
           + "  if not o['hint'].startswith('Broken'):\n"
-          + "    o['hint']='Install: yay -S localsend-bin (native; keep terminal open)'\n"
+          + "    o['hint']='Software → AUR · localsend-bin'\n"
           + "  print(json.dumps(o)); raise SystemExit\n"
           + "running=False\n"
           + "try:\n"

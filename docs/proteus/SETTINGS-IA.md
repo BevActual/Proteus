@@ -60,17 +60,19 @@ Examples:
 | Volume / mute / default sink | `pactl` |
 | Input volume / mute / default source | `pactl` |
 | Audio matrix (node routing) | `pw-link` via `shell/scripts/audio-matrix.py` (Omnibus-style grid) |
-| App mixer (Wave Link–style) | Channels (default Apps/…) + mic/line inputs × mixes; Speakers/mix listen; rename; peaks; drag-reorder (stable grip / `mixDragging`); `~/.config/proteus/audio-mix.json`; resident `proteus-audio-mix serve` (dump+peaks); mutations `audio-mix.py`; **CC Sound plate** — master on plate; per-source levels in Sources ▾ |
+| App mixer (Wave Link–style) | Channels (default Apps/…) + mic/line inputs × mixes; Speakers/mix listen; rename; peaks; drag-reorder; × confirm; graph escape (`qpwgraph`, Install… → Repos); `~/.config/proteus/audio-mix.json`; resident `proteus-audio-mix serve`; mutations `audio-mix.py`; **CC Sound plate** |
 | Input level meter | streaming `audio-peak.py` on default source (Settings Input leaf) |
 | Per-app volume / mute | `pactl list/set-sink-input-*` |
 | Sound latency / buffer | `settings.json` `audioLatency` → `pw-metadata -n settings 0 clock.force-quantum` (256 / 512 / 1024) |
 | Network (open editor) | NetworkManager UI / `nmtui` |
-| Wi‑Fi connect / disconnect | `nmcli device wifi` (saved/open; password via NM) |
+| Wi‑Fi connect / disconnect / password | `nmcli device wifi` (secured SSIDs prompt in Settings; password never in settings.json) |
 | Hostname | `hostnamectl` (polkit-gated set) |
-| Bluetooth (status + open) | `bluetoothctl` · blueman / blueberry |
-| VPN profiles (list + open NM) | `nmcli connection` (vpn / wireguard) |
+| Bluetooth (power · scan · pair/connect) | `bluetoothctl` · blueman escape for advanced |
+| VPN profiles (list · up/down · WG import) | `nmcli connection` up/down · `import type wireguard` |
 | LocalSend (status + open / start / stop) | `localsend` · port 53317 |
-| Tailscale (status + up/down + copy IP) | `tailscale status --json` · `wl-copy` |
+| Tailscale (status · peers · exit-node · login-server) | `tailscale status --json` · `set --exit-node` · `up --login-server` · `wl-copy` |
+| Network diagnostics (iface rates · ss · firewall · route · DNS · ping) | `/proc/net/dev` · `ss -tun/-tln` · firewalld/ufw/`nft` · `/proc/net/route` · `resolv.conf` · `ping` |
+| Packet capture escape | Wireshark Open / Install… → Repos · `wireshark-qt` (Flatpak still Opens if present) |
 | Package updates / search / remove / orphans | `pacman -Qu` / `-Ss` / `-Qqe` / `-Qdt` · apply `pkexec proteus-pkg` (multi install/remove; selective upgrades) |
 | AUR search / install / remove / update | `yay`/`paru` `-Ssa` · remove via `-Qqm` foreign pkgs · multi-select |
 | Flatpak / Flathub search / list / install / remove / update | `flatpak --user` · Flathub remote · Install\|Installed (mode-safe; empty honesty) · multi-select + live Cancel |
@@ -79,7 +81,7 @@ Examples:
 | Timezone / network time | `timedatectl set-timezone` / `set-ntp` (polkit-gated; errors surfaced in-pane) |
 | Locale | `localectl list-locales` / `set-locale LANG=…` (polkit-gated; stderr in-pane) + `/etc/locale.conf` escape |
 | Location | Explicit place search → precise lat/lon + place timezone in `settings.json` (**never IP-inferred**); Open-Meteo geocoding; optional Match time zone to place |
-| Weather | `api.open-meteo.com` current + 5-day daily forecast for the stored location — no API key; only those coordinates are sent |
+| Weather | `api.open-meteo.com` current + 5-day daily forecast for the stored location — no API key; only those coordinates are sent; mute via `weatherEnabled` (Privacy) |
 | Battery charge / health / estimate | UPower display device (`Quickshell.Services.UPower`) |
 | Power mode (Performance / Balanced / Eco) | `powerprofilesctl` → `power-profiles-daemon` (`power-saver` labeled Eco); only profiles the driver advertises |
 | Idle / lid policy | `pkexec proteus-logind` → `/etc/systemd/logind.conf.d/99-proteus.conf` (+ **reload** logind — never restart, which drops the seat); effective merge with main conf; escape hatch still opens `logind.conf` |
@@ -103,15 +105,15 @@ Left-nav + content pane (macOS System Settings style).
 | **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Launcher (Spotlight Apps/Files/Clipboard/Actions · tags/recents) — leaf files + FormRow kit | json + hyprctl + `proteus-general.conf` · `launcherRecents` / `launcherFileRecents` / `launcherTagCatalog` / `launcherAppTags` | `shipped` |
 | **Displays** (`displays`) | Layout canvas + per-monitor scale/mode/orientation; 10s Revert; Refresh/hotplug honesty; conf escape | hyprctl + `proteus-monitors.conf` | `shipped` |
 | **Sound** (`sound`) | Category → Output / Input / Applications / Mixer / Latency — leaf files + FormRow kit | pactl + `proteus-audio-mix` / `audio-peak.py` + `pw-metadata` + `pw-link` | `shipped` |
-| **Network** (`network`) | Category → This machine / Devices / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN — leaf files + FormRow kit | hostnamectl / nmcli / bluetoothctl / localsend / tailscale | `shipped` |
+| **Network** (`network`) | Category → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN — password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG import | hostnamectl / nmcli / bluetoothctl / localsend / tailscale / `NetworkDiagnostics` | `shipped` |
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse; later touchpad / tablet | keybinds + input hyprctl | `shipped` |
 | **Power** (`power`) | Power mode segmented (PPD); battery (UPower); idle / lid FormRows via `proteus-logind` drop-in + conf escape | `powerprofilesctl` / UPower / `proteus-logind` | `shipped` |
-| **Users** (`users`) | Session Lock/Logout/Reboot/Shutdown; current + other local users (read-only + Refresh); greetd status + conf escape | `Config.session` · id/getent · greetd/`/etc/greetd/config.toml` | `shipped` |
+| **Users** (`users`) | Session Lock/Logout + confirm Reboot/Shutdown; current user (GECOS/home) + other local users read-only; Online accounts jump; greetd status + conf escape | `Config.session` · id/getent · greetd/`/etc/greetd/config.toml` | `shipped` |
 | **Online accounts** (`accounts`) | Connector catalog + Google PKCE seats (`proteus-accounts` vault); Microsoft/Nextcloud/… listed | `proteus-accounts` + `Accounts.qml` (mail/contacts apps Out) | `partial` |
 | **Date & time** (`datetime`) | Live clock, searchable timezone + locale pickers, NTP, **Location** (place + units + 5-day forecast + Match TZ) | `timedatectl` / `localectl set-locale` / Open-Meteo | `shipped` |
-| **Privacy** (`privacy`) | Permission categories listed; grants not enforced yet | EnvGate / adaptive apps later | `partial` |
+| **Privacy** (`privacy`) | What leaves + weather mute + session (DND / Lock / clear clipboard / LocalSend); permission categories listed, grants not enforced | Config · Weather · Notifications · EnvGate later | `partial` |
 | **Software** (`packages`) | Hub → Updates; Repos / AUR / Flathub (Install\|Installed mode-safe, per-mode search, op narrative); AppImages; Orphans — helper honesty when yay/paru/flatpak missing | `pacman` + `proteus-pkg` · yay/paru · flatpak + Flathub · local AppImages | `shipped` |
-| **About** (`system`) | OS/kernel/hostname · QS/Hypr · load strip · Mission Center escape; hardware caps; soft Hyprland profile (console≡media; soft≠hard); Copy + Copied | `SystemInfo` · `SystemLoad` · `MissionCenter` · probe · `HyprProfile` | `shipped` |
+| **About** (`system`) | OS/kernel/hostname · QS/Hypr · load/mem/storage · battery when present · Mission Center (Install… → Flathub · `io.missioncenter.MissionCenter`) · Check for updates → Software; hardware caps; soft Hyprland profile; Copy + Copied | `SystemInfo` · `SystemLoad` · `MissionCenter` · `Power` · probe · `HyprProfile` | `shipped` |
 
 VM / container **setup** is **not** a Settings category — a separate host app later.
 About may still show host-relevant hardware facts. Soft profile select does
@@ -238,7 +240,7 @@ in `SoundPane.qml`
 | Output | Volume/mute FormRows + live hints; test tone; sink list with `deviceHint` |
 | Input | Level/mute FormRows; peak meter FormRow; source list with `deviceHint` |
 | Applications | Per-app volume + mute; empty Playing now honesty |
-| Mixer | Wave Link–style grid: channels/inputs × mixes; Speakers vs mix listen; Level; rename; row peaks; drag-reorder rows; add channel/input/mix. Quick per-source adjust also in Control Center Sources ▾ |
+| Mixer | Wave Link–style grid: channels/inputs × mixes; Speakers vs mix listen; Level; rename (dbl-click); instant expand/listen; slideVol while dragging; row peaks; drag-reorder; add channel/input/mix; × confirm; graph editor escape (`qpwgraph`, Install… → Repos). Quick per-source adjust also in Control Center Sources ▾ |
 | Latency & buffer | Profile segmented + quantum frames; PipeWire clock summary when known |
 
 | Pane | Live apply | On-disk / helper |
@@ -252,23 +254,25 @@ FormRow/Group — not a single mega-inline `SoundPane` body.
 
 Network: click sidebar → heading **Network** + sub-settings list, then leaf pages
 via `kit/StickyPaneLoader` (`NetworkMachineLeaf`, `NetworkDevicesLeaf`,
-`NetworkWifiLeaf`, `NetworkBluetoothLeaf`, `NetworkLocalSendLeaf`,
-`NetworkTailscaleLeaf`, `NetworkVpnLeaf`). Hub state lives in `NetworkPane.qml`
-(`property Item host` on leaves; LocalSend uses shared `LocalSend` singleton).
+`NetworkDiagnosticsLeaf`, `NetworkWifiLeaf`, `NetworkBluetoothLeaf`,
+`NetworkLocalSendLeaf`, `NetworkTailscaleLeaf`, `NetworkVpnLeaf`). Hub state
+lives in `NetworkPane.qml` (`property Item host` on leaves; LocalSend /
+Diagnostics use shared singletons).
 
 | Sub-setting | Role |
 |-------------|------|
 | This machine | Hostname draft + Apply (`hostnamectl`); Refresh all |
-| Devices | nmcli interfaces with type · state · connection hints |
-| Wi‑Fi | Scan/connect/disconnect FormRows; signal/security hints; Rescan |
-| Bluetooth | Adapter Powered/Off; blueman escape (pairing Out) |
-| LocalSend | Install honesty; Start/Stop / Open / copy address; CC menu + Spotlight |
-| Tailscale | Status / IP copy / peers / up·down·login; `tailscale status` escape |
-| VPN | NM VPN/WireGuard profile list; single NetworkManager escape |
+| Devices | nmcli interfaces with type · state · IPv4 · connection hints |
+| Diagnostics | Iface rx/tx + calm rate bars; active connections / listening (`ss`); firewall one-liner; route/DNS; ping; Wireshark Open / Install… → Repos seeded |
+| Wi‑Fi | Scan/connect/disconnect; secured SSIDs → in-pane password; Rescan |
+| Bluetooth | Power · Scan · pair/connect/disconnect/forget; Install… → Repos seeded `blueman` when missing; blueman escape |
+| LocalSend | Install… → AUR seeded `localsend-bin`; Start/Stop / Open / copy address; CC menu + Spotlight |
+| Tailscale | Status / IP / peers / exit-node / login-server; Install… → Repos seeded `tailscale`; up·down·login |
+| VPN | Profile Connect/Disconnect; WireGuard import; NetworkManager escape for OpenVPN |
 
 | Pane | Live apply | On-disk / helper |
 |------|------------|------------------|
-| Network | `hostnamectl` set · `nmcli` wifi · `tailscale` up/down · clipboard IP | Escape: blueman / NetworkManager / `nmtui` — password Wi‑Fi, pairing, Headscale, WireGuard wizard Out |
+| Network | `hostnamectl` · `nmcli` wifi/VPN/WG · `bluetoothctl` · `tailscale` up/down/set/login-server · clipboard IP | Escape: blueman / NetworkManager / Wireshark — Headscale admin · OpenVPN wizard · in-pane capture Out |
 
 **Module rule:** Network leaf helpers stay in `panes/Network*Leaf.qml` + `kit/`
 FormRow/Group — not a single mega-inline `NetworkPane` body.
@@ -307,29 +311,34 @@ locale set + 5-day forecast + Match TZ shipped; manual time / RTC writers Out.
 **Power** mode (PPD) + logind writer shipped; charge-threshold / TLP stay Out.
 
 **Online accounts** seats are `partial` — catalog + Google PKCE when configured;
-mail/contacts/Drive **apps** stay Out. **Privacy** remains `partial` — permission
-enforcement Out. **Users** session/greeter status shipped (add-remove + writing
+mail/contacts/Drive **apps** stay Out. **Privacy** ships transparency + weather
+mute + session controls; **permission grant model** still Out until adaptive
+apps need it. **Users** session/greeter status shipped (add-remove + writing
 greeter prefs stay Out).
 
 Depth order for what’s left:
 
 1. **Users depth** — write greeter/autologin prefs; add-remove stays Out of Settings  
 2. **Online accounts depth** — Microsoft / Nextcloud connect; consumers stay Out  
-3. **Privacy** — grant model when adaptive apps need it  
-4. **Network depth** — Tailscale login-server (Headscale); peer/exit-node UI; in-pane pairing; WireGuard / password Wi‑Fi wizard (hub + leaves shipped)  
+3. **Privacy grant model** — when adaptive apps need it (transparency/mute/session shipped)  
+4. **Network polish** — largely shipped (IPv4 on Devices · Diagnostics ss/firewall); Headscale admin / OpenVPN wizard stay Out  
 5. **Peripherals** — touchpad / tablet  
 6. **Software depth** — dependency graphs later; Snap stays Out (hub + six leaves + smoke matrix shipped)  
 7. **Settings Notifications pane** — optional later; shell Control Center is the SoT today  
 
 *(Displays layout + Revert follow-ups shipped — removed from growth depth.)*
 *(Network hub + FormRow polish shipped — depth wizards stay on the list.)*
+*(Network Diagnostics · Wireshark escape shipped — in-pane capture Out.)*
+*(Network depth: password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG import shipped — Headscale admin / OpenVPN wizard Out.)*
 *(Control Center notifications + QS depth shipped — Settings Notifications pane stays Out.)*
 *(Users session + greetd status shipped — writing greeter prefs / useradd stay Out.)*
+*(Users polish: Reboot/Shutdown confirm · GECOS/home · Online accounts jump shipped.)*
 *(Power mode PPD + logind writer shipped — charge thresholds / TLP stay Out.)*
 *(Software hub + six leaves + reliability/guest smoke shipped — dep graphs / Snap stay Out.)*
 *(Appearance hub + Date & time locale/forecast shipped — manual time/RTC Out.)*
 *(About OS/kernel/hostname · load strip · Mission Center escape · Copy+Copied ·
 soft profile shipped — hard posture switch Out; no in-Settings live dashboard.)*
+*(Privacy transparency · weather mute · session shipped — grant model still Out.)*
 
 Virt / container setup stays a **separate app**, not a Settings growth item.
 
@@ -344,5 +353,10 @@ Canonical chrome language (tokens + patterns): [CHROME.md](./CHROME.md)
 - Accent = selection/action only  
 - Legibility floor: prefs must not produce unreadable UI  
 - Settings visual language: modern System Settings (grouped lists, soft selection, large titles)  
+- **Dual-path:** mouse-legible Settings for ordinary jobs; keyboard path for frequent actions (`Super+,` · Spotlight Settings search / Actions · in-app `/` jump · hub ↑↓ Enter · CC). No TUI-only control center; no sanding off Facts/escapes  
+- **Escapes:** quiet Fact-backed hatches (tool or conf); honest missing install; wrap engines into chrome — don’t re-skin full GUIs; don’t use escapes to hide a broken path ([CHROME.md](./CHROME.md) §1.8)  
 - `Super+,` opens Settings (global shortcut + Hyprland bind)  
 - Host posture reuses this app; does not invent a second control center  
+
+Growth for this lock (not a second Omarchy menu): more Actions / chords as traffic warrants;
+keep leaf chrome FormRow-legible.

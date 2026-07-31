@@ -25,14 +25,22 @@ Singleton {
   property string pkgPendingPkg: ""
   property var pkgPendingPkgs: []
 
-  // Seed Software → Search / AUR / Flatpak from the hub search field.
+  // Seed Software → Repos / AUR / Flathub Install search (escape Install… CTAs).
   property string searchSeed: ""
   property string searchSeedTarget: "packages-search" // packages-search | packages-aur | packages-flatpak
+  property int searchSeedEpoch: 0
 
   function seedPackageSearch(query, target) {
-    searchSeed = String(query || "").trim()
+    const q = String(query || "").trim()
     const t = String(target || "packages-search")
     searchSeedTarget = (t === "packages-aur" || t === "packages-flatpak") ? t : "packages-search"
+    searchSeed = q
+    if (q.length)
+      searchSeedEpoch++
+  }
+
+  function hasSearchSeedFor(leafKey) {
+    return searchSeed.length > 0 && searchSeedTarget === String(leafKey || "")
   }
 
   function takeSearchSeed() {

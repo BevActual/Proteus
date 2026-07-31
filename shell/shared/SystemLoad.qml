@@ -4,8 +4,8 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// Read-only load snapshot for Settings → About (CPU · mem · uptime).
-// Poll only while `watching` (About pane active).
+// Read-only load snapshot for Settings → About
+// (CPU · mem · swap · root storage · uptime). Poll only while `watching`.
 Singleton {
   id: root
 
@@ -13,6 +13,10 @@ Singleton {
   property real cpuPercent: -1
   property real memUsedGiB: -1
   property real memTotalGiB: -1
+  property real swapUsedGiB: -1
+  property real swapTotalGiB: -1
+  property real diskUsedGiB: -1
+  property real diskTotalGiB: -1
   property string uptimeLabel: "—"
   property string cpuModel: ""
   property bool ready: false
@@ -29,6 +33,22 @@ Singleton {
     if (root.uptimeLabel.length && root.uptimeLabel !== "—")
       parts.push("Up " + root.uptimeLabel)
     return parts.length ? parts.join(" · ") : "—"
+  }
+
+  readonly property string memoryDetailLabel: {
+    if (root.memUsedGiB < 0 || root.memTotalGiB <= 0)
+      return "—"
+    let s = root.memUsedGiB.toFixed(1) + " / " + root.memTotalGiB.toFixed(1) + " GiB used"
+    if (root.swapTotalGiB > 0.01)
+      s += " · swap " + root.swapUsedGiB.toFixed(1) + " / " + root.swapTotalGiB.toFixed(1) + " GiB"
+    return s
+  }
+
+  readonly property string storageLabel: {
+    if (root.diskUsedGiB < 0 || root.diskTotalGiB <= 0)
+      return "—"
+    const pct = Math.round((root.diskUsedGiB / root.diskTotalGiB) * 100)
+    return root.diskUsedGiB.toFixed(1) + " / " + root.diskTotalGiB.toFixed(1) + " GiB on / (" + pct + "%)"
   }
 
   function refresh() {
@@ -58,7 +78,7 @@ Singleton {
     command: [
       "python3",
       "-c",
-      "import json\n"
+      "import json, os\n"
           + "cpu_model = ''\n"
           + "try:\n"
           + "    with open('/proc/cpuinfo', encoding='utf-8', errors='replace') as f:\n"
@@ -77,7 +97,7 @@ Singleton {
           + "        idle = nums[3] + (nums[4] if len(nums) > 4 else 0)\n"
           + "except Exception:\n"
           + "    pass\n"
-          + "mem_total = mem_avail = 0\n"
+          + "mem_total = mem_avail = swap_total = swap_free = 0\n"
           + "try:\n"
           + "    with open('/proc/meminfo', encoding='utf-8') as f:\n"
           + "        for line in f:\n"
@@ -85,6 +105,10 @@ Singleton {
           + "                mem_total = int(line.split()[1])\n"
           + "            elif line.startswith('MemAvailable:'):\n"
           + "                mem_avail = int(line.split()[1])\n"
+          + "            elif line.startswith('SwapTotal:'):\n"
+          + "                swap_total = int(line.split()[1])\n"
+          + "            elif line.startswith('SwapFree:'):\n"
+          + "                swap_free = int(line.split()[1])\n"
           + "except Exception:\n"
           + "    pass\n"
           + "uptime_s = 0.0\n"
@@ -93,10 +117,20 @@ Singleton {
           + "        uptime_s = float(f.read().split()[0])\n"
           + "except Exception:\n"
           + "    pass\n"
+          + "disk_total = disk_used = 0\n"
+          + "try:\n"
+          + "    st = os.statvfs('/')\n"
+          + "    disk_total = st.f_blocks * st.f_frsize\n"
+          + "    disk_free = st.f_bavail * st.f_frsize\n"
+          + "    disk_used = max(0, disk_total - disk_free)\n"
+          + "except Exception:\n"
+          + "    pass\n"
           + "print(json.dumps({\n"
           + "    'cpu_model': cpu_model,\n"
           + "    'idle': idle, 'total': total,\n"
           + "    'mem_total_kb': mem_total, 'mem_avail_kb': mem_avail,\n"
+          + "    'swap_total_kb': swap_total, 'swap_free_kb': swap_free,\n"
+          + "    'disk_total_b': disk_total, 'disk_used_b': disk_used,\n"
           + "    'uptime_s': uptime_s,\n"
           + "}))\n"
     ]
@@ -104,7 +138,10 @@ Singleton {
       onStreamFinished: {
         try {
           const res = JSON.parse(text.trim() || "{}")
-          root.cpuModel = String(res.cpu_model || "")
+          const model = String(res.cpu_model || "")
+          if (model.length)
+            root.cpuModel = model
+
           const idle = Number(res.idle)
           const total = Number(res.total)
           if (root._prevIdle >= 0 && root._prevTotal >= 0 && total > root._prevTotal) {
@@ -121,6 +158,23 @@ Singleton {
           if (mt > 0) {
             root.memTotalGiB = mt / (1024 * 1024)
             root.memUsedGiB = Math.max(0, (mt - ma) / (1024 * 1024))
+          }
+
+          const st = Number(res.swap_total_kb) || 0
+          const sf = Number(res.swap_free_kb) || 0
+          if (st > 0) {
+            root.swapTotalGiB = st / (1024 * 1024)
+            root.swapUsedGiB = Math.max(0, (st - sf) / (1024 * 1024))
+          } else {
+            root.swapTotalGiB = 0
+            root.swapUsedGiB = 0
+          }
+
+          const dt = Number(res.disk_total_b) || 0
+          const du = Number(res.disk_used_b) || 0
+          if (dt > 0) {
+            root.diskTotalGiB = dt / (1024 * 1024 * 1024)
+            root.diskUsedGiB = du / (1024 * 1024 * 1024)
           }
 
           const up = Number(res.uptime_s) || 0

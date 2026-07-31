@@ -2,12 +2,19 @@ pragma Singleton
 
 import Quickshell
 import QtQuick
+import "shared"
 
 // Settings navigation — go in (leaf), back out (category), jump (sidebar).
 Singleton {
   id: root
 
   property string page: "style"
+
+  // Install… seed travels with navigation (same singleton as page) so sticky
+  // Software loaders always see it — do not rely on Packages alone.
+  property string pendingInstallQuery: ""
+  property string pendingInstallLeaf: ""
+  property int pendingInstallEpoch: 0
 
   // Categories that drill in: page ids are "<id>" for the list and "<id>-*" for
   // each leaf. Registering a hub here is all that back / breadcrumb / sidebar
@@ -89,13 +96,55 @@ Singleton {
     go(id)
   }
 
+  function hasPendingInstall(leafKey) {
+    return pendingInstallQuery.length > 0
+        && pendingInstallLeaf === String(leafKey || "")
+  }
+
+  function takePendingInstall(leafKey) {
+    if (!hasPendingInstall(leafKey))
+      return ""
+    const q = pendingInstallQuery
+    pendingInstallQuery = ""
+    pendingInstallLeaf = ""
+    return q
+  }
+
+  // Escape Install… → Software leaf with a seeded Install search (same window).
+  function goInstallSearch(query, leafId) {
+    const leaf = String(leafId || "packages-search").trim() || "packages-search"
+    const q = String(query || "").trim()
+    pendingInstallLeaf = leaf
+    pendingInstallQuery = q
+    pendingInstallEpoch++
+    // Navigate first — seed is on this singleton; Packages mirror is best-effort.
+    go(leaf)
+    try {
+      Packages.seedPackageSearch(q, leaf)
+    } catch (e) {
+    }
+  }
+
   function close() {
     Qt.quit()
   }
 
   function applyDeepLinkFromEnv() {
     const raw = Quickshell.env("PROTEUS_SETTINGS_PAGE")
+    const q = String(Quickshell.env("PROTEUS_SETTINGS_QUERY") || "").trim()
     const id = String(raw || "").trim()
+    if (q.length) {
+      const leaf = id.length ? id : "packages-search"
+      pendingInstallLeaf = (leaf === "packages-aur" || leaf === "packages-flatpak")
+          ? leaf
+          : "packages-search"
+      pendingInstallQuery = q
+      pendingInstallEpoch++
+      try {
+        Packages.seedPackageSearch(q, pendingInstallLeaf)
+      } catch (e) {
+      }
+    }
     if (!id.length)
       return
     go(id)

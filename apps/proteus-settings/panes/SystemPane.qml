@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../shared"
 import "../kit"
+import ".." // root module — SettingsNav singleton
 
 // About: product identity · machine facts · load strip · Mission Center · soft profile.
 // Session actions live under Users only (SETTINGS-IA §2) — not linked from About.
@@ -12,6 +13,7 @@ ColumnLayout {
   spacing: Theme.spaceMd
 
   property bool active: false
+  signal requestGo(string id)
 
   readonly property string hardwareSummary: {
     if (Hardware.ready) {
@@ -154,9 +156,24 @@ ColumnLayout {
     }
 
     SettingsFormRow {
-      visible: SystemLoad.cpuModel.length > 0
       label: "Processor"
-      hint: SystemLoad.cpuModel
+      hint: SystemLoad.cpuModel.length
+          ? SystemLoad.cpuModel
+          : (SystemLoad.ready ? "—" : "Sampling…")
+      showSeparator: true
+    }
+
+    SettingsFormRow {
+      visible: Power.hasBattery
+      label: "Battery"
+      hint: {
+        if (Power.percent < 0)
+          return Power.stateLabel
+        let s = Power.percent + "% · " + Power.stateLabel
+        if (Power.timeRemaining.length)
+          s += " · " + Power.timeRemaining
+        return s
+      }
       showSeparator: true
     }
 
@@ -257,19 +274,45 @@ ColumnLayout {
     }
 
     SettingsFormRow {
+      label: "Memory"
+      hint: SystemLoad.ready ? SystemLoad.memoryDetailLabel : "Sampling…"
+      showSeparator: true
+    }
+
+    SettingsFormRow {
+      label: "Storage"
+      hint: SystemLoad.ready ? SystemLoad.storageLabel : "Sampling…"
+      showSeparator: true
+    }
+
+    SettingsFormRow {
       label: "Activity Monitor"
       hint: MissionCenter.hint
-      showSeparator: false
+      showSeparator: true
       interactive: true
       onActivated: {
         if (MissionCenter.available)
           MissionCenter.open()
         else
-          MissionCenter.openSoftware()
+          SettingsNav.goInstallSearch("io.missioncenter.MissionCenter", "packages-flatpak")
       }
       Text {
         text: MissionCenter.available ? "Open" : "Install…"
         color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+      }
+    }
+
+    SettingsFormRow {
+      label: "Check for updates…"
+      hint: "Software → Updates"
+      showSeparator: false
+      interactive: true
+      onActivated: root.requestGo("packages-updates")
+      Text {
+        text: "›"
+        color: Theme.textMute
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSize
       }
@@ -318,13 +361,14 @@ ColumnLayout {
 
     SettingsFormRow {
       visible: HyprProfile.helperMissing
-      label: "Install desktop conf…"
-      hint: HyprProfile.helperHint
+      label: "Set up desktop conf…"
+      hint: (HyprProfile.helperHint.length ? HyprProfile.helperHint + " · " : "")
+          + "Terminal helper · not a Software package"
       showSeparator: false
       interactive: true
       onActivated: HyprProfile.openInstallHelper()
       Text {
-        text: "Install"
+        text: "Run setup…"
         color: Theme.accent
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSize

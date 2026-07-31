@@ -4,6 +4,8 @@ import QtQuick.Layouts
 import "../shared"
 
 // Row inside a SettingsGroup — label left, trailing control right.
+// MouseArea is the content parent so clicks on label / hint / trailing Text
+// fire activated(); real controls in the trail still get the event first.
 Item {
   id: root
   Layout.fillWidth: true
@@ -29,47 +31,45 @@ Item {
 
   MouseArea {
     id: ma
-    z: 0
     anchors.fill: parent
     enabled: root.interactive
     hoverEnabled: root.interactive
     cursorShape: root.interactive ? Qt.PointingHandCursor : Qt.ArrowCursor
     onClicked: root.activated()
-  }
-
-  RowLayout {
-    z: 1
-    anchors.fill: parent
-    anchors.leftMargin: Theme.spaceMd
-    anchors.rightMargin: Theme.spaceMd
-    spacing: Theme.spaceMd
-
-    ColumnLayout {
-      Layout.fillWidth: true
-      spacing: 1
-      Text {
-        Layout.fillWidth: true
-        text: root.label
-        color: root.labelColor
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
-        elide: Text.ElideRight
-      }
-      Text {
-        visible: root.hint.length > 0
-        Layout.fillWidth: true
-        text: root.hint
-        color: Theme.textMute
-        font.family: Theme.fontFamily
-        font.pixelSize: 11
-        elide: Text.ElideRight
-      }
-    }
 
     RowLayout {
-      id: trail
-      spacing: Theme.spaceSm
-      Layout.alignment: Qt.AlignVCenter
+      anchors.fill: parent
+      anchors.leftMargin: Theme.spaceMd
+      anchors.rightMargin: Theme.spaceMd
+      spacing: Theme.spaceMd
+
+      ColumnLayout {
+        Layout.fillWidth: true
+        spacing: 1
+        Text {
+          Layout.fillWidth: true
+          text: root.label
+          color: root.labelColor
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSize
+          elide: Text.ElideRight
+        }
+        Text {
+          visible: root.hint.length > 0
+          Layout.fillWidth: true
+          text: root.hint
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: 11
+          elide: Text.ElideRight
+        }
+      }
+
+      RowLayout {
+        id: trail
+        spacing: Theme.spaceSm
+        Layout.alignment: Qt.AlignVCenter
+      }
     }
   }
 

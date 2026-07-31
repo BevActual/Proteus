@@ -4,6 +4,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../shared"
 import "../kit"
+import ".." // root module — SettingsNav singleton
 
 // Software hub — Omarchy-style: pick a source leaf to Install / Remove via searchable lists.
 ColumnLayout {
@@ -39,7 +40,7 @@ ColumnLayout {
       {
         key: "packages-aur",
         label: "AUR",
-        hint: Packages.aurHelper.length ? ("Install / Installed · " + Packages.aurHelper) : "Needs yay/paru"
+        hint: Packages.aurHelper.length ? ("Install / Installed · " + Packages.aurHelper) : "Needs yay"
       },
       {
         key: "packages-flatpak",
@@ -94,19 +95,31 @@ ColumnLayout {
     onLoaded: item.active = Qt.binding(() => root.page === "packages-updates")
   }
   StickyPaneLoader {
+    id: searchLoader
     want: root.page === "packages-search"
     source: "PackagesSearchPane.qml"
-    onLoaded: item.active = Qt.binding(() => root.page === "packages-search")
+    onLoaded: {
+      item.active = Qt.binding(() => root.page === "packages-search")
+      Qt.callLater(root.pushPendingSeed)
+    }
   }
   StickyPaneLoader {
+    id: aurLoader
     want: root.page === "packages-aur"
     source: "PackagesAurPane.qml"
-    onLoaded: item.active = Qt.binding(() => root.page === "packages-aur")
+    onLoaded: {
+      item.active = Qt.binding(() => root.page === "packages-aur")
+      Qt.callLater(root.pushPendingSeed)
+    }
   }
   StickyPaneLoader {
+    id: flatpakLoader
     want: root.page === "packages-flatpak"
     source: "PackagesFlatpakPane.qml"
-    onLoaded: item.active = Qt.binding(() => root.page === "packages-flatpak")
+    onLoaded: {
+      item.active = Qt.binding(() => root.page === "packages-flatpak")
+      Qt.callLater(root.pushPendingSeed)
+    }
   }
   StickyPaneLoader {
     want: root.page === "packages-appimages"
@@ -123,6 +136,36 @@ ColumnLayout {
     if (page === "packages" || page.startsWith("packages-")) {
       Packages.refreshHelpers()
       warmCount()
+    }
+    if (SettingsNav.hasPendingInstall(page) || Packages.hasSearchSeedFor(page))
+      Qt.callLater(root.pushPendingSeed)
+  }
+
+  function pushPendingSeed() {
+    if (!(SettingsNav.hasPendingInstall(page) || Packages.hasSearchSeedFor(page)))
+      return
+    let item = null
+    if (page === "packages-search")
+      item = searchLoader.item
+    else if (page === "packages-aur")
+      item = aurLoader.item
+    else if (page === "packages-flatpak")
+      item = flatpakLoader.item
+    if (item && item.ingestSeed)
+      item.ingestSeed()
+  }
+
+  Connections {
+    target: Packages
+    function onSearchSeedEpochChanged() {
+      Qt.callLater(root.pushPendingSeed)
+    }
+  }
+
+  Connections {
+    target: SettingsNav
+    function onPendingInstallEpochChanged() {
+      Qt.callLater(root.pushPendingSeed)
     }
   }
 

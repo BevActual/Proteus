@@ -57,6 +57,8 @@ Singleton {
       : "—"
 
   readonly property string summary: {
+    if (!Config.weatherEnabled)
+      return "Weather fetch off — Privacy"
     if (!root.hasLocation)
       return "No location set"
     if (root.error.length)
@@ -148,8 +150,39 @@ Singleton {
     return "•"
   }
 
+  // Drop in-memory conditions without clearing the stored place (Privacy mute).
+  function clearConditions() {
+    root.loading = false
+    root.error = ""
+    root.fetchedAt = ""
+    root.temperature = 0
+    root.apparent = 0
+    root.humidity = 0
+    root.windSpeed = 0
+    root.isDay = true
+    root.code = -1
+    root.description = ""
+    root.high = 0
+    root.low = 0
+    root.sunrise = ""
+    root.sunset = ""
+    root.forecast = []
+  }
+
+  function setEnabled(on) {
+    const next = !!on
+    if (next === Config.weatherEnabled)
+      return
+    Config.weatherEnabled = next
+    Config.flushSettings()
+    if (!next)
+      root.clearConditions()
+    else if (root.hasLocation)
+      root.refresh()
+  }
+
   function refresh() {
-    if (!hasLocation || fetchProc.running)
+    if (!Config.weatherEnabled || !hasLocation || fetchProc.running)
       return
     root.loading = true
     root.error = ""
@@ -214,9 +247,7 @@ Singleton {
     Config.locationLongitude = 0
     Config.locationTimezone = ""
     Config.flushSettings()
-    root.code = -1
-    root.error = ""
-    root.forecast = []
+    root.clearConditions()
   }
 
   function setUnits(id) {
@@ -332,12 +363,12 @@ Singleton {
   }
 
   onHasLocationChanged: {
-    if (hasLocation)
+    if (hasLocation && Config.weatherEnabled)
       refresh()
   }
 
   Component.onCompleted: {
-    if (hasLocation)
+    if (hasLocation && Config.weatherEnabled)
       refresh()
   }
 
@@ -345,7 +376,7 @@ Singleton {
   Timer {
     interval: 15 * 60 * 1000
     repeat: true
-    running: root.hasLocation
+    running: root.hasLocation && Config.weatherEnabled
     onTriggered: root.refresh()
   }
 }

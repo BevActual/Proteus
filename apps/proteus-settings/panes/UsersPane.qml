@@ -13,12 +13,17 @@ ColumnLayout {
   spacing: Theme.spaceMd
 
   property bool active: false
+  signal requestGo(string id)
+
   property string currentName: ""
+  property string currentFullName: ""
+  property string currentHome: ""
   property string currentUid: ""
   property string currentGroups: ""
   property var otherUsers: []
   property string loadError: ""
   property string sessionBusy: ""
+  property string pendingPower: ""
   property bool usersBusy: false
   property bool usersLoaded: false
   property bool greeterBusy: false
@@ -110,14 +115,38 @@ ColumnLayout {
   function runSession(action) {
     if (!action || root.sessionBusy.length)
       return
+    if (action === "reboot" || action === "shutdown") {
+      root.pendingPower = action
+      return
+    }
+    root._runSessionNow(action)
+  }
+
+  function _runSessionNow(action) {
+    if (!action || root.sessionBusy.length)
+      return
+    root.pendingPower = ""
     root.sessionBusy = action
     Config.session(action)
     sessionBusyClear.restart()
   }
 
+  function cancelPower() {
+    root.pendingPower = ""
+  }
+
+  function confirmPower() {
+    const a = root.pendingPower
+    if (!a.length)
+      return
+    root._runSessionNow(a)
+  }
+
   onActiveChanged: {
     if (active)
       refresh()
+    else
+      root.pendingPower = ""
   }
 
   Component.onCompleted: refresh()
@@ -141,6 +170,8 @@ ColumnLayout {
         hint: {
           if (root.sessionBusy === modelData.action)
             return "Working…"
+          if (root.pendingPower === modelData.action)
+            return "Confirm below"
           return modelData.hint
         }
         showSeparator: index < root.sessionActions.length - 1
@@ -148,9 +179,15 @@ ColumnLayout {
         labelColor: modelData.destructive ? Theme.danger : Theme.text
         onActivated: root.runSession(modelData.action)
         Text {
-          text: root.sessionBusy === modelData.action ? "…" : modelData.trailing
-          color: {
+          text: {
             if (root.sessionBusy === modelData.action)
+              return "…"
+            if (root.pendingPower === modelData.action)
+              return "…"
+            return modelData.trailing
+          }
+          color: {
+            if (root.sessionBusy === modelData.action || root.pendingPower === modelData.action)
               return Theme.textMute
             return modelData.destructive ? Theme.danger : Theme.accent
           }
@@ -161,6 +198,17 @@ ColumnLayout {
     }
   }
 
+  PackagesConfirm {
+    open: root.pendingPower.length > 0
+    title: root.pendingPower === "shutdown" ? "Shut down this machine?" : "Reboot this machine?"
+    detail: root.pendingPower === "shutdown"
+        ? "Ends all sessions and powers off."
+        : "Ends all sessions and restarts."
+    footnote: "Confirm here first — then systemctl runs."
+    onCancelled: root.cancelPower()
+    onConfirmed: root.confirmPower()
+  }
+
   SettingsGroup {
     title: "Current user"
 
@@ -169,6 +217,26 @@ ColumnLayout {
       hint: root.currentUserHint
       showSeparator: true
       labelColor: root.loadError.length ? Theme.danger : Theme.text
+    }
+
+    SettingsFormRow {
+      label: "Full name"
+      hint: {
+        if (root.usersBusy || !root.usersLoaded)
+          return "…"
+        return root.currentFullName.length ? root.currentFullName : "—"
+      }
+      showSeparator: true
+    }
+
+    SettingsFormRow {
+      label: "Home"
+      hint: {
+        if (root.usersBusy || !root.usersLoaded)
+          return "…"
+        return root.currentHome.length ? root.currentHome : "—"
+      }
+      showSeparator: true
     }
 
     SettingsFormRow {
@@ -241,6 +309,20 @@ ColumnLayout {
     title: "Accounts"
 
     SettingsFormRow {
+      label: "Online accounts"
+      hint: "Provider seats · Google PKCE when configured"
+      showSeparator: true
+      interactive: true
+      onActivated: root.requestGo("accounts")
+      Text {
+        text: "›"
+        color: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+      }
+    }
+
+    SettingsFormRow {
       label: "Add or remove users"
       hint: "Not in Settings — use useradd / userdel or your distro tools"
       showSeparator: true
@@ -281,7 +363,7 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Fact: Config.session · id/getent · greetd unit + /etc/greetd/config.toml (autologin = initial_session). No useradd / greeter theme from Settings."
+    text: "Fact: Config.session · id/getent (GECOS/home) · greetd unit + config.toml. Reboot/shutdown confirm in-pane. No useradd / greeter write from Settings."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11
@@ -357,12 +439,13 @@ ColumnLayout {
           + "for g in os.getgroups():\n"
           + "  try: gnames.append(grp.getgrgid(g).gr_name)\n"
           + "  except KeyError: pass\n"
+          + "gecos=(me.pw_gecos or '').split(',',1)[0].strip()\n"
           + "nologin=('/usr/bin/nologin','/sbin/nologin','/bin/false','/usr/sbin/nologin'); others=[]\n"
           + "for p in pwd.getpwall():\n"
           + "  if p.pw_uid<1000 or p.pw_uid==uid or p.pw_name=='nobody': continue\n"
           + "  if p.pw_shell in nologin: continue\n"
           + "  others.append({'name':p.pw_name,'uid':str(p.pw_uid)})\n"
-          + "others.sort(key=lambda x:x['name']); print(json.dumps({'name':me.pw_name,'uid':str(uid),'groups':', '.join(gnames),'others':others}))"
+          + "others.sort(key=lambda x:x['name']); print(json.dumps({'name':me.pw_name,'full_name':gecos,'home':me.pw_dir,'uid':str(uid),'groups':', '.join(gnames),'others':others}))"
     ]
     running: false
     stdout: StdioCollector {
@@ -373,6 +456,8 @@ ColumnLayout {
         if (!raw.length) {
           root.loadError = "Could not read local users"
           root.currentName = ""
+          root.currentFullName = ""
+          root.currentHome = ""
           root.currentUid = ""
           root.currentGroups = ""
           root.otherUsers = []
@@ -381,6 +466,8 @@ ColumnLayout {
         try {
           const obj = JSON.parse(raw)
           root.currentName = obj.name || ""
+          root.currentFullName = obj.full_name || ""
+          root.currentHome = obj.home || ""
           root.currentUid = obj.uid || ""
           root.currentGroups = obj.groups || ""
           root.otherUsers = obj.others || []

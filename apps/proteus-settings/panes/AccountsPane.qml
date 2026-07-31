@@ -142,7 +142,7 @@ ColumnLayout {
     Layout.maximumWidth: 520
     text: Accounts.googleClientConfigured
       ? "Fact: Google Connect uses system-browser PKCE; tokens stay in the proteus-accounts vault (not settings.json)."
-      : "Fact: Google Connect is ready when a client id is configured; other providers are listed for honesty until their connect ships."
+      : "Fact: Create a Google Cloud OAuth client (Desktop app), then put the client id in ~/.config/proteus/oauth-google-client-id (one line). Redirect uses http://127.0.0.1:<port>/callback (loopback)."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11

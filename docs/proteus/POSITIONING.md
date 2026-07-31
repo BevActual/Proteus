@@ -56,6 +56,18 @@ undeniable ([POSTURES.md](./POSTURES.md)).
 > Settings is the bridge: every elegant control maps to an inspectable,
 > overrideable system fact.
 
+**Dual-path chrome (lock):** GUI first for ordinary jobs; keyboard first-class
+for people who drive the machine. Every Settings leaf stays mouse-legible
+(System Settings calm). Frequent actions also have a chord and/or Spotlight
+path (`Super+,`, `Super+Space` Actions, Settings `/` jump, hub ↑↓ Enter,
+Control Center)—not Omarchy’s menu-only face, and not GNOME’s “hide the Linux.”
+**Escapes** stay quiet and Fact-backed (tool or conf); wrap engines into chrome
+rather than re-skinning upstream GUIs.
+
+Field note: Omarchy owns keyboard agency + opinionated Arch; GNOME/Cosmic own
+average-person calm with trade-offs on depth. Proteus sits in the middle—
+nicety for normals, agency for keyboard people, Facts + escapes for Linux.
+
 - **Defaults** feel calm and predictable (dock, launcher, Style, Keyboard).
 - **Power** stays Linux-native (real conf files, CLI, packages, virt).
 - **One spine** across postures; chrome, engines, and primary panes change with

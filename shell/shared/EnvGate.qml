@@ -240,7 +240,7 @@ Singleton {
       id: "network",
       label: "Network",
       hubId: "network",
-      keywords: "wifi ethernet bluetooth vpn tailscale localsend"
+      keywords: "wifi ethernet bluetooth vpn tailscale localsend diagnostics wireshark"
     },
     {
       id: "network-machine",
@@ -253,6 +253,12 @@ Singleton {
       label: "Devices",
       hubId: "network",
       keywords: "nmcli interfaces"
+    },
+    {
+      id: "network-diagnostics",
+      label: "Diagnostics",
+      hubId: "network",
+      keywords: "traffic ping dns route wireshark capture"
     },
     {
       id: "network-wifi",

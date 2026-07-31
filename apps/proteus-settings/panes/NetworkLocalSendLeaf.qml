@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../shared"
 import "../kit"
+import ".." // root module — SettingsNav singleton
 
 // Leaf UI for NetworkPane — LocalSend (LAN AirDrop-style share).
 ColumnLayout {
@@ -20,7 +21,7 @@ ColumnLayout {
       label: "Status"
       hint: LocalSend.available
           ? LocalSend.hint
-          : "Install native: yay -S localsend-bin (keep the terminal open until done)"
+          : "Native package localsend-bin (AUR)"
       showSeparator: true
       Text {
         text: LocalSend.statusLabel
@@ -59,16 +60,21 @@ ColumnLayout {
     }
 
     SettingsFormRow {
-      label: LocalSend.available ? "Open LocalSend" : "LocalSend not installed"
+      label: LocalSend.available ? "Open LocalSend" : "Install LocalSend…"
       hint: LocalSend.available
           ? "Send or receive files on the local network"
-          : "yay -S localsend-bin · sudo password when asked"
+          : "Software → AUR · localsend-bin"
       showSeparator: true
-      interactive: LocalSend.available
-      onActivated: LocalSend.open()
+      interactive: true
+      onActivated: {
+        if (LocalSend.available)
+          LocalSend.open()
+        else
+          SettingsNav.goInstallSearch("localsend-bin", "packages-aur")
+      }
       Text {
-        text: LocalSend.available ? "›" : ""
-        color: Theme.textMute
+        text: LocalSend.available ? "›" : "Install…"
+        color: LocalSend.available ? Theme.textMute : Theme.accent
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSize
       }

@@ -4,6 +4,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../shared"
 import "../kit"
+import ".." // root module — SettingsNav singleton
 
 // Packages → Repos: Install | Installed with sticky action bar, rich rows, live ops.
 ColumnLayout {
@@ -174,6 +175,45 @@ ColumnLayout {
     syncingQuery = true
     searchInput.text = activeQuery
     syncingQuery = false
+  }
+
+  property int appliedSeedEpoch: 0
+
+  function applySearchSeed() {
+    let q = ""
+    if (SettingsNav.hasPendingInstall(leafKey))
+      q = SettingsNav.takePendingInstall(leafKey)
+    else if (Packages.hasSearchSeedFor(leafKey))
+      q = Packages.takeSearchSeed()
+    if (!q.length)
+      return false
+    // Query before mode so activeQuery binding never flashes empty Install.
+    installQuery = q
+    mode = "install"
+    appliedSeedEpoch = Math.max(SettingsNav.pendingInstallEpoch, Packages.searchSeedEpoch)
+    return true
+  }
+
+  function ingestSeed() {
+    if (!applySearchSeed())
+      return false
+    syncSearchField()
+    search()
+    return true
+  }
+
+  function activateLeaf() {
+    if (!applySearchSeed()) {
+      // ingestSeed may have already applied this epoch (PackagesPane push).
+      const epoch = Math.max(SettingsNav.pendingInstallEpoch, Packages.searchSeedEpoch)
+      if (!(appliedSeedEpoch > 0 && appliedSeedEpoch === epoch))
+        restoreUi()
+    }
+    syncSearchField()
+    refreshInstalled()
+    search()
+    forceActiveFocus()
+    Qt.callLater(() => searchInput.forceActiveFocus())
   }
 
   function proposeBatch() {
@@ -594,14 +634,25 @@ ColumnLayout {
     }
   }
 
+  Connections {
+    target: Packages
+    function onSearchSeedEpochChanged() {
+      if (root.active)
+        root.ingestSeed()
+    }
+  }
+
+  Connections {
+    target: SettingsNav
+    function onPendingInstallEpochChanged() {
+      if (root.active)
+        root.ingestSeed()
+    }
+  }
+
   onActiveChanged: {
     if (active) {
-      restoreUi()
-      syncSearchField()
-      refreshInstalled()
-      search()
-      forceActiveFocus()
-      Qt.callLater(() => searchInput.forceActiveFocus())
+      activateLeaf()
     } else {
       persistUi()
       abortInstallLoads()

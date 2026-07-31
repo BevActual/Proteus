@@ -31,6 +31,8 @@ Singleton {
   property alias locationLongitude: adapter.locationLongitude
   property alias locationTimezone: adapter.locationTimezone
   property alias weatherUnits: adapter.weatherUnits
+  property alias weatherEnabled: adapter.weatherEnabled
+  property alias tailscaleLoginServer: adapter.tailscaleLoginServer
   property alias accentId: adapter.accentId
   property alias accentCustom: adapter.accentCustom
   property alias chromeMode: adapter.chromeMode
@@ -412,6 +414,17 @@ Singleton {
     })
   }
 
+  function tailscaleUpWithLoginServer(url) {
+    const u = String(url || "").trim()
+    if (!u.length) {
+      root.tailscaleUp()
+      return
+    }
+    Quickshell.execDetached({
+      command: ["tailscale", "up", "--login-server=" + u]
+    })
+  }
+
   function tailscaleDown() {
     Quickshell.execDetached({
       command: ["tailscale", "down"]
@@ -446,12 +459,53 @@ Singleton {
     })
   }
 
+  function wifiConnectPassword(ssid, password) {
+    const name = String(ssid || "").trim()
+    if (!name.length)
+      return
+    const pass = String(password || "")
+    if (!pass.length) {
+      root.wifiConnect(name)
+      return
+    }
+    Quickshell.execDetached({
+      command: ["nmcli", "device", "wifi", "connect", name, "password", pass]
+    })
+  }
+
   function wifiDisconnect(device) {
     const dev = String(device || "").trim()
     if (!dev.length)
       return
     Quickshell.execDetached({
       command: ["nmcli", "device", "disconnect", dev]
+    })
+  }
+
+  function vpnUp(name) {
+    const n = String(name || "").trim()
+    if (!n.length)
+      return
+    Quickshell.execDetached({
+      command: ["nmcli", "connection", "up", n]
+    })
+  }
+
+  function vpnDown(name) {
+    const n = String(name || "").trim()
+    if (!n.length)
+      return
+    Quickshell.execDetached({
+      command: ["nmcli", "connection", "down", n]
+    })
+  }
+
+  function vpnImportWireGuard(path) {
+    const p = String(path || "").trim()
+    if (!p.length)
+      return
+    Quickshell.execDetached({
+      command: ["nmcli", "connection", "import", "type", "wireguard", "file", p]
     })
   }
 
@@ -1107,6 +1161,9 @@ Singleton {
       property string locationTimezone: ""
       // metric | imperial
       property string weatherUnits: "metric"
+      // When false, Open-Meteo forecast fetch is muted (location + place search stay).
+      property bool weatherEnabled: true
+      property string tailscaleLoginServer: ""
       property string accentId: "blue"
       property string accentCustom: "#3d8bfd"
       property string chromeMode: "dark"

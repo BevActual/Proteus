@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../shared"
 import "../kit"
+import ".." // root module — SettingsNav singleton
 
 // Peripherals → Keyboard leaf. Reference hybrid feature (SETTINGS-IA § 5):
 // friendly catalog → keybinds.json → generated proteus-keybinds.conf.

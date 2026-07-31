@@ -347,6 +347,8 @@ Singleton {
 
   function _stopMixServe() {
     root.mixServeStopping = true
+    if (root.mixVolumeDragging)
+      root.mixVolumeDragging = false
     if (root.mixServeRunning)
       root._mixCtlWrite("quit")
     mixServeProc.running = false
@@ -390,13 +392,27 @@ Singleton {
   property var mixUnassigned: []
   property var mixAssignOptions: []
   property string mixError: ""
+  // Refcounted — overlapping mutations must not clear busy early.
+  property int mixBusyDepth: 0
   property bool mixBusy: false
+  function _mixBusyEnter() {
+    mixBusyDepth++
+    mixBusy = true
+  }
+  function _mixBusyLeave() {
+    mixBusyDepth = Math.max(0, mixBusyDepth - 1)
+    mixBusy = mixBusyDepth > 0
+  }
   // Mixer UI mid-drag — pause polling so dumps don't fight live reorder.
   property bool mixDragging: false
-  onMixDraggingChanged: {
+  // Volume slider held — pause dumps so Slider.value isn't reset mid-drag.
+  property bool mixVolumeDragging: false
+  onMixDraggingChanged: root._mixPauseSync()
+  onMixVolumeDraggingChanged: root._mixPauseSync()
+  function _mixPauseSync() {
     if (!root.mixServeRunning)
       return
-    root._mixCtlWrite(root.mixDragging ? "pause" : "resume")
+    root._mixCtlWrite((root.mixDragging || root.mixVolumeDragging) ? "pause" : "resume")
   }
   property bool mixReady: false
   property string mixDumpFp: ""
@@ -516,7 +532,7 @@ Singleton {
     const name = String(label || "").trim()
     if (!name || root.mixBusy)
       return
-    root.mixBusy = true
+    root._mixBusyEnter()
     root.mixError = ""
     root.mixDumpFp = ""
     mixAddChannelProc.command = [
@@ -533,7 +549,7 @@ Singleton {
     const ch = String(channelId || "").trim()
     if (!ch || root.mixBusy)
       return
-    root.mixBusy = true
+    root._mixBusyEnter()
     root.mixError = ""
     root.mixDumpFp = ""
     mixRemoveChannelProc.command = [
@@ -555,7 +571,7 @@ Singleton {
     const name = String(label || "").trim()
     if (!name || root.mixBusy)
       return
-    root.mixBusy = true
+    root._mixBusyEnter()
     root.mixError = ""
     root.mixDumpFp = ""
     const args = [
@@ -575,7 +591,7 @@ Singleton {
     const id = String(mixId || "").trim()
     if (!id || root.mixBusy)
       return
-    root.mixBusy = true
+    root._mixBusyEnter()
     root.mixError = ""
     root.mixDumpFp = ""
     mixRemoveMixProc.command = [
@@ -593,7 +609,7 @@ Singleton {
     const name = String(label || "").trim()
     if (!ch || !name || root.mixBusy)
       return
-    root.mixBusy = true
+    root._mixBusyEnter()
     root.mixError = ""
     root.mixDumpFp = ""
     mixRenameChannelProc.command = [
@@ -612,7 +628,7 @@ Singleton {
     const name = String(label || "").trim()
     if (!id || !name || root.mixBusy)
       return
-    root.mixBusy = true
+    root._mixBusyEnter()
     root.mixError = ""
     root.mixDumpFp = ""
     mixRenameMixProc.command = [
@@ -631,7 +647,7 @@ Singleton {
     const name = String(label || "").trim()
     if (!id || !name || root.mixBusy)
       return
-    root.mixBusy = true
+    root._mixBusyEnter()
     root.mixError = ""
     root.mixDumpFp = ""
     mixRenameInputProc.command = [
@@ -697,7 +713,9 @@ Singleton {
     const id = String(mixId || "").trim()
     if (!id || root.mixBusy)
       return
-    root.mixBusy = true
+    // Optimistic — CC Listen chip should flip before Python returns.
+    root._optimisticListen(id)
+    root._mixBusyEnter()
     root.mixError = ""
     root.mixDumpFp = ""
     mixListenProc.command = [
@@ -710,11 +728,54 @@ Singleton {
     mixListenProc.running = true
   }
 
+  function _optimisticListen(mixId) {
+    const id = String(mixId || "").trim() || "system"
+    root.mixListening = id === "system" || id === "none" || id === "off" ? "system" : id
+    const mixes = (root.mixMixes || []).slice()
+    for (let i = 0; i < mixes.length; i++) {
+      if (!mixes[i] || !mixes[i].id)
+        continue
+      const copy = Object.assign({}, mixes[i])
+      copy.hear = root.mixListening !== "system" && String(copy.id) === root.mixListening
+      mixes[i] = copy
+    }
+    root.mixMixes = mixes
+  }
+
+  function _optimisticChannelMute(channelId, muted) {
+    const id = String(channelId || "").trim()
+    if (!id.length)
+      return
+    function patch(list) {
+      const src = list || []
+      let changed = false
+      const next = []
+      for (let i = 0; i < src.length; i++) {
+        const row = src[i]
+        if (row && String(row.id) === id) {
+          const copy = Object.assign({}, row)
+          copy.muted = !!muted
+          next.push(copy)
+          changed = true
+        } else {
+          next.push(row)
+        }
+      }
+      return changed ? next : null
+    }
+    const ch = patch(root.mixChannels)
+    if (ch)
+      root.mixChannels = ch
+    const inn = patch(root.mixInputs)
+    if (inn)
+      root.mixInputs = inn
+  }
+
   function addMixInput(sourceName, label) {
     const src = String(sourceName || "").trim()
     if (!src || root.mixBusy)
       return
-    root.mixBusy = true
+    root._mixBusyEnter()
     root.mixError = ""
     root.mixDumpFp = ""
     const args = [
@@ -734,7 +795,7 @@ Singleton {
     const id = String(inputId || "").trim()
     if (!id || root.mixBusy)
       return
-    root.mixBusy = true
+    root._mixBusyEnter()
     root.mixError = ""
     root.mixDumpFp = ""
     mixRemoveInputProc.command = [
@@ -748,12 +809,102 @@ Singleton {
   }
 
   function refreshMix() {
+    // Drop fingerprint so the next dump always applies (create/delete must repaint).
+    root.mixDumpFp = ""
     if (root.mixServeRunning) {
+      // Volume-drag pause can leave serve paused; structural refresh must still dump.
+      if (root.mixVolumeDragging)
+        root.mixVolumeDragging = false
+      root._mixCtlWrite("resume")
       root._mixCtlWrite("dump")
-      return
     }
+    // Always run Python dump too — ctl FIFO can miss (reopen race / shared path with
+    // shell serve). Fingerprint gate drops duplicates when both arrive.
     mixDumpProc.running = false
     mixDumpProc.running = true
+  }
+
+  function _optimisticAddChannel(d) {
+    const id = String(d && d.id || "").trim()
+    if (!id.length)
+      return
+    const cur = (root.mixChannels || []).slice()
+    for (let i = 0; i < cur.length; i++) {
+      if (cur[i] && cur[i].id === id)
+        return
+    }
+    cur.push({
+      id: id,
+      label: String(d.label || id),
+      present: true,
+      volume: 100,
+      muted: false,
+      cells: ({}),
+      apps: []
+    })
+    root.mixChannels = cur
+  }
+
+  function _optimisticRemoveChannel(d) {
+    const id = String(d && d.id || "").trim()
+    if (!id.length)
+      return
+    root.mixChannels = (root.mixChannels || []).filter(c => c && c.id !== id)
+  }
+
+  function _optimisticAddMix(d) {
+    const id = String(d && d.id || "").trim()
+    if (!id.length)
+      return
+    const cur = (root.mixMixes || []).slice()
+    for (let i = 0; i < cur.length; i++) {
+      if (cur[i] && cur[i].id === id)
+        return
+    }
+    cur.push({
+      id: id,
+      label: String(d.label || id),
+      hear: !!d.hear,
+      present: true,
+      sink: String(d.sink || ("proteus_bus_" + id))
+    })
+    root.mixMixes = cur
+  }
+
+  function _optimisticRemoveMix(d) {
+    const id = String(d && d.id || "").trim()
+    if (!id.length)
+      return
+    root.mixMixes = (root.mixMixes || []).filter(m => m && m.id !== id)
+  }
+
+  function _optimisticAddInput(d) {
+    const id = String(d && d.id || "").trim()
+    if (!id.length)
+      return
+    const cur = (root.mixInputs || []).slice()
+    for (let i = 0; i < cur.length; i++) {
+      if (cur[i] && cur[i].id === id)
+        return
+    }
+    cur.push({
+      id: id,
+      label: String(d.label || id),
+      kind: "input",
+      present: true,
+      volume: 100,
+      muted: false,
+      source: String(d.source || ""),
+      cells: ({})
+    })
+    root.mixInputs = cur
+  }
+
+  function _optimisticRemoveInput(d) {
+    const id = String(d && d.id || "").trim()
+    if (!id.length)
+      return
+    root.mixInputs = (root.mixInputs || []).filter(c => c && c.id !== id)
   }
 
   function _applyMixDump(d) {
@@ -792,7 +943,8 @@ Singleton {
     for (let i = 0; i < keys.length; i++) {
       const k = keys[i]
       const raw = Number(d[k])
-      const v = isNaN(raw) ? 0 : Math.max(0, Math.min(100, Math.round(raw / 5) * 5))
+      // 2% steps — smoother than 5% without flooding property churn
+      const v = isNaN(raw) ? 0 : Math.max(0, Math.min(100, Math.round(raw / 2) * 2))
       next[k] = v
       if ((prev[k] || 0) !== v)
         changed = true
@@ -805,7 +957,7 @@ Singleton {
   }
 
   function ensureMixChannels() {
-    root.mixBusy = true
+    root._mixBusyEnter()
     root.mixError = ""
     mixEnsureProc.running = false
     mixEnsureProc.running = true
@@ -817,7 +969,7 @@ Singleton {
     const sink = String(sinkName || "").trim()
     if (!key || !sink || root.mixBusy)
       return
-    root.mixBusy = true
+    root._mixBusyEnter()
     root.mixError = ""
     root.mixDumpFp = ""
     const args = [
@@ -842,7 +994,7 @@ Singleton {
     const key = String(appKey || "").trim()
     if (!key || root.mixBusy)
       return
-    root.mixBusy = true
+    root._mixBusyEnter()
     root.mixError = ""
     root.mixDumpFp = ""
     mixUnassignProc.command = [
@@ -860,7 +1012,7 @@ Singleton {
     const mix = String(mixId || "").trim()
     if (!ch || !mix || root.mixBusy)
       return
-    root.mixBusy = true
+    root._mixBusyEnter()
     root.mixError = ""
     mixRouteProc.command = [
       "python3",
@@ -892,19 +1044,19 @@ Singleton {
 
   function setMixChannelMute(channelId, muted) {
     const ch = String(channelId || "").trim()
-    if (!ch || root.mixBusy)
+    if (!ch)
       return
-    root.mixBusy = true
-    root.mixDumpFp = ""
-    mixMuteProc.command = [
-      "python3",
-      Config.scriptsDir + "/audio-mix.py",
-      "mute",
-      ch,
-      muted ? "1" : "0"
-    ]
-    mixMuteProc.running = false
-    mixMuteProc.running = true
+    // Live toggle (CC Sources / Mixer) — don't take the global busy lock.
+    root._optimisticChannelMute(ch, muted)
+    Quickshell.execDetached({
+      command: [
+        "python3",
+        Config.scriptsDir + "/audio-mix.py",
+        "mute",
+        ch,
+        muted ? "1" : "0"
+      ]
+    })
   }
 
   function setMixCellVolume(channelId, mixId, pct) {
@@ -929,7 +1081,7 @@ Singleton {
     const mix = String(mixId || "").trim()
     if (!ch || !mix || root.mixBusy)
       return
-    root.mixBusy = true
+    root._mixBusyEnter()
     root.mixDumpFp = ""
     mixCellMuteProc.command = [
       "python3",
@@ -1368,17 +1520,76 @@ Singleton {
   }
 
   function openGraphEditor() {
-    Quickshell.execDetached({
-      command: [
-        "bash",
-        "-lc",
-        "if command -v qpwgraph >/dev/null; then exec qpwgraph; "
-            + "elif command -v helvum >/dev/null; then exec helvum; "
-            + "elif command -v pavucontrol >/dev/null; then exec pavucontrol; "
-            + "else exec proteus-terminal -e bash -lc "
-            + "'echo Install qpwgraph or helvum for a graph editor; read -r _'; fi"
-      ]
-    })
+    root.refreshGraphEditor()
+    if (!root.graphEditorAvailable) {
+      root.openGraphSoftware()
+      return
+    }
+    if (root.graphEditorName === "qpwgraph") {
+      Quickshell.execDetached({
+        command: ["bash", "-lc", "exec qpwgraph"]
+      })
+      return
+    }
+    // helvum still Opens if already present; Install… only offers qpwgraph.
+    if (root.graphEditorName === "helvum") {
+      Quickshell.execDetached({
+        command: ["bash", "-lc", "exec helvum"]
+      })
+      return
+    }
+    root.openGraphSoftware()
+  }
+
+  property bool graphEditorAvailable: false
+  property string graphEditorName: ""
+  property string graphEditorHint: "Checking…"
+
+  function refreshGraphEditor() {
+    graphEditorProbe.running = false
+    graphEditorProbe.running = true
+  }
+
+  function openGraphSoftware() {
+    const q = "qpwgraph"
+    Packages.seedPackageSearch(q, "packages-search")
+    ShellState.openSettings("packages-search", q)
+  }
+
+  Process {
+    id: graphEditorProbe
+    command: [
+      "python3",
+      "-c",
+      "import json, shutil\n"
+          + "name = ''\n"
+          + "if shutil.which('qpwgraph'):\n"
+          + "    name = 'qpwgraph'\n"
+          + "elif shutil.which('helvum'):\n"
+          + "    name = 'helvum'\n"
+          + "ok = bool(name)\n"
+          + "hint = (name + ' · PipeWire graph' if ok else 'Software → Repos · qpwgraph')\n"
+          + "print(json.dumps({'available': ok, 'name': name, 'hint': hint}))\n"
+    ]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const res = JSON.parse(String(text || "").trim() || "{}")
+          root.graphEditorAvailable = !!res.available
+          root.graphEditorName = String(res.name || "")
+          root.graphEditorHint = String(res.hint || "")
+        } catch (e) {
+          root.graphEditorAvailable = false
+          root.graphEditorName = ""
+          root.graphEditorHint = "Software → Repos · qpwgraph"
+        }
+      }
+    }
+  }
+
+  Component.onCompleted: {
+    // Other Audio init may already exist — refreshGraphEditor is cheap.
+    root.refreshGraphEditor()
   }
 
   Process {
@@ -1388,7 +1599,7 @@ Singleton {
       id: mixEnsureOut
     }
     onExited: () => {
-      root.mixBusy = false
+      root._mixBusyLeave()
       try {
         const d = JSON.parse(String(mixEnsureOut.text || "").trim() || "{}")
         if (d && d.ok === false)
@@ -1410,7 +1621,7 @@ Singleton {
       id: mixMoveOut
     }
     onExited: () => {
-      root.mixBusy = false
+      root._mixBusyLeave()
       root.mixDumpFp = ""
       try {
         const d = JSON.parse(String(mixMoveOut.text || "").trim() || "{}")
@@ -1431,7 +1642,7 @@ Singleton {
       id: mixUnassignOut
     }
     onExited: () => {
-      root.mixBusy = false
+      root._mixBusyLeave()
       root.mixDumpFp = ""
       try {
         const d = JSON.parse(String(mixUnassignOut.text || "").trim() || "{}")
@@ -1452,14 +1663,16 @@ Singleton {
       id: mixAddChannelOut
     }
     onExited: () => {
-      root.mixBusy = false
+      root._mixBusyLeave()
       root.mixDumpFp = ""
       try {
         const d = JSON.parse(String(mixAddChannelOut.text || "").trim() || "{}")
         if (d && d.ok === false)
           root.mixError = d.error || "Could not add channel"
-        else
+        else {
           root.mixError = ""
+          root._optimisticAddChannel(d)
+        }
       } catch (e) {
       }
       root.refreshMix()
@@ -1473,14 +1686,16 @@ Singleton {
       id: mixRemoveChannelOut
     }
     onExited: () => {
-      root.mixBusy = false
+      root._mixBusyLeave()
       root.mixDumpFp = ""
       try {
         const d = JSON.parse(String(mixRemoveChannelOut.text || "").trim() || "{}")
         if (d && d.ok === false)
           root.mixError = d.error || "Could not remove channel"
-        else
+        else {
           root.mixError = ""
+          root._optimisticRemoveChannel(d)
+        }
       } catch (e) {
       }
       root.refreshMix()
@@ -1494,7 +1709,7 @@ Singleton {
       id: mixRenameChannelOut
     }
     onExited: () => {
-      root.mixBusy = false
+      root._mixBusyLeave()
       root.mixDumpFp = ""
       try {
         const d = JSON.parse(String(mixRenameChannelOut.text || "").trim() || "{}")
@@ -1515,14 +1730,16 @@ Singleton {
       id: mixAddMixOut
     }
     onExited: () => {
-      root.mixBusy = false
+      root._mixBusyLeave()
       root.mixDumpFp = ""
       try {
         const d = JSON.parse(String(mixAddMixOut.text || "").trim() || "{}")
         if (d && d.ok === false)
           root.mixError = d.error || "Could not add mix"
-        else
+        else {
           root.mixError = ""
+          root._optimisticAddMix(d)
+        }
       } catch (e) {
       }
       root.refreshMix()
@@ -1536,14 +1753,16 @@ Singleton {
       id: mixRemoveMixOut
     }
     onExited: () => {
-      root.mixBusy = false
+      root._mixBusyLeave()
       root.mixDumpFp = ""
       try {
         const d = JSON.parse(String(mixRemoveMixOut.text || "").trim() || "{}")
         if (d && d.ok === false)
           root.mixError = d.error || "Could not remove mix"
-        else
+        else {
           root.mixError = ""
+          root._optimisticRemoveMix(d)
+        }
       } catch (e) {
       }
       root.refreshMix()
@@ -1557,7 +1776,7 @@ Singleton {
       id: mixRenameMixOut
     }
     onExited: () => {
-      root.mixBusy = false
+      root._mixBusyLeave()
       root.mixDumpFp = ""
       try {
         const d = JSON.parse(String(mixRenameMixOut.text || "").trim() || "{}")
@@ -1578,17 +1797,22 @@ Singleton {
       id: mixListenOut
     }
     onExited: () => {
-      root.mixBusy = false
+      root._mixBusyLeave()
       root.mixDumpFp = ""
       try {
         const d = JSON.parse(String(mixListenOut.text || "").trim() || "{}")
-        if (d && d.ok === false)
+        if (d && d.ok === false) {
           root.mixError = d.error || "Could not switch listen"
-        else
+          root.refreshMix()
+        } else {
           root.mixError = ""
+          if (d && d.id)
+            root._optimisticListen(d.id)
+          root.refreshMix()
+        }
       } catch (e) {
+        root.refreshMix()
       }
-      root.refreshMix()
     }
   }
 
@@ -1599,14 +1823,16 @@ Singleton {
       id: mixAddInputOut
     }
     onExited: () => {
-      root.mixBusy = false
+      root._mixBusyLeave()
       root.mixDumpFp = ""
       try {
         const d = JSON.parse(String(mixAddInputOut.text || "").trim() || "{}")
         if (d && d.ok === false)
           root.mixError = d.error || "Could not add input"
-        else
+        else {
           root.mixError = ""
+          root._optimisticAddInput(d)
+        }
       } catch (e) {
       }
       root.refreshMix()
@@ -1620,14 +1846,16 @@ Singleton {
       id: mixRemoveInputOut
     }
     onExited: () => {
-      root.mixBusy = false
+      root._mixBusyLeave()
       root.mixDumpFp = ""
       try {
         const d = JSON.parse(String(mixRemoveInputOut.text || "").trim() || "{}")
         if (d && d.ok === false)
           root.mixError = d.error || "Could not remove input"
-        else
+        else {
           root.mixError = ""
+          root._optimisticRemoveInput(d)
+        }
       } catch (e) {
       }
       root.refreshMix()
@@ -1641,7 +1869,7 @@ Singleton {
       id: mixRenameInputOut
     }
     onExited: () => {
-      root.mixBusy = false
+      root._mixBusyLeave()
       root.mixDumpFp = ""
       try {
         const d = JSON.parse(String(mixRenameInputOut.text || "").trim() || "{}")
@@ -1740,7 +1968,7 @@ Singleton {
       id: mixRouteOut
     }
     onExited: () => {
-      root.mixBusy = false
+      root._mixBusyLeave()
       root.mixDumpFp = ""
       try {
         const d = JSON.parse(String(mixRouteOut.text || "").trim() || "{}")
@@ -1761,7 +1989,7 @@ Singleton {
       id: mixMuteOut
     }
     onExited: () => {
-      root.mixBusy = false
+      root._mixBusyLeave()
       root.mixDumpFp = ""
       try {
         const d = JSON.parse(String(mixMuteOut.text || "").trim() || "{}")
@@ -1782,7 +2010,7 @@ Singleton {
       id: mixCellMuteOut
     }
     onExited: () => {
-      root.mixBusy = false
+      root._mixBusyLeave()
       root.mixDumpFp = ""
       try {
         const d = JSON.parse(String(mixCellMuteOut.text || "").trim() || "{}")

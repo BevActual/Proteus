@@ -19,6 +19,8 @@ ColumnLayout {
       bits.push(dev.type)
     if (dev.state)
       bits.push(dev.state)
+    if (dev.ipv4 && String(dev.ipv4).length)
+      bits.push(dev.ipv4)
     if (dev.connection && String(dev.connection).length)
       bits.push(dev.connection)
     return bits.join(" · ")
@@ -27,6 +29,8 @@ ColumnLayout {
   function deviceTrailing(dev) {
     if (!host || !dev)
       return ""
+    if (dev.ipv4 && String(dev.ipv4).length && host.isUp(dev))
+      return dev.ipv4
     if (host.isUp(dev))
       return "Connected"
     const s = String(dev.state || "").toLowerCase()
@@ -74,7 +78,7 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Fact: nmcli -t -f DEVICE,TYPE,STATE,CONNECTION dev status."
+    text: "Fact: nmcli device status + IP4.ADDRESS."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11

@@ -292,13 +292,13 @@ ColumnLayout {
 
     SettingsFormRow {
       visible: Power.helperMissing
-      label: "Install proteus-logind…"
-      hint: "Needs sudo once — polkit helper for idle/lid writes"
+      label: "Set up proteus-logind…"
+      hint: "Terminal + sudo once · not a Software package"
       showSeparator: true
       interactive: true
       onActivated: Power.openInstallHelper()
       Text {
-        text: "Install"
+        text: "Run setup…"
         color: Theme.accent
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSize

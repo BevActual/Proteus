@@ -21,6 +21,8 @@ Singleton {
     return [
       Quickshell.shellDir + "/../services/proteus-accounts/bin/proteus-accounts",
       Quickshell.shellDir + "/../services/proteus-accounts/target/release/proteus-accounts",
+      Quickshell.env("HOME") + "/.local/libexec/proteus-accounts",
+      Quickshell.env("HOME") + "/.local/bin/proteus-accounts",
       "/usr/local/libexec/proteus-accounts",
       "/usr/local/bin/proteus-accounts"
     ]

@@ -4,6 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "../shared"
 import "../kit"
+import ".." // root module — SettingsNav singleton
 
 // Sound → Mixer — Wave Link–style grid; channels are folders of system apps.
 ColumnLayout {
@@ -38,31 +39,56 @@ ColumnLayout {
   property string renameKind: ""
   property string renameId: ""
   property string renameDraft: ""
-  property string pendingClick: ""
+  property string pendingRemoveKind: ""
+  property string pendingRemoveId: ""
+  property string pendingRemoveLabel: ""
 
-  Timer {
-    id: clickDelay
-    interval: 250
-    onTriggered: {
-      const a = root.pendingClick
-      root.pendingClick = ""
-      if (!a.length)
-        return
-      if (a.startsWith("expand:"))
-        root.toggleExpanded(a.slice(7))
-      else if (a.startsWith("listen:"))
-        root.listenMix(a.slice(7))
-    }
+  readonly property bool removeConfirmOpen: root.pendingRemoveId.length > 0
+
+  function requestRemoveChannel(channelId, label) {
+    if (!channelId || Audio.mixBusy)
+      return
+    if (String(channelId) === "proteus_mix_system")
+      return
+    root.pendingRemoveKind = "channel"
+    root.pendingRemoveId = String(channelId)
+    root.pendingRemoveLabel = String(label || channelId)
   }
 
-  function scheduleClick(action) {
-    root.pendingClick = action
-    clickDelay.restart()
+  function requestRemoveInput(inputId, label) {
+    if (!inputId || Audio.mixBusy)
+      return
+    root.pendingRemoveKind = "input"
+    root.pendingRemoveId = String(inputId)
+    root.pendingRemoveLabel = String(label || inputId)
   }
 
-  function cancelPendingClick() {
-    clickDelay.stop()
-    root.pendingClick = ""
+  function requestRemoveMix(mixId, label) {
+    if (!mixId || Audio.mixBusy)
+      return
+    root.pendingRemoveKind = "mix"
+    root.pendingRemoveId = String(mixId)
+    root.pendingRemoveLabel = String(label || mixId)
+  }
+
+  function cancelRemove() {
+    root.pendingRemoveKind = ""
+    root.pendingRemoveId = ""
+    root.pendingRemoveLabel = ""
+  }
+
+  function confirmRemove() {
+    const kind = root.pendingRemoveKind
+    const id = root.pendingRemoveId
+    root.cancelRemove()
+    if (!id.length)
+      return
+    if (kind === "mix")
+      root.removeMix(id)
+    else if (kind === "input")
+      root.removeInput(id)
+    else if (kind === "channel")
+      root.removeChannel(id)
   }
 
   function isRenaming(kind, id) {
@@ -70,7 +96,6 @@ ColumnLayout {
   }
 
   function beginRename(kind, id, label) {
-    root.cancelPendingClick()
     root.renameKind = kind
     root.renameId = String(id || "")
     root.renameDraft = String(label || "")
@@ -127,16 +152,32 @@ ColumnLayout {
   readonly property int mixColW: 128
   readonly property int rowH: 44
   readonly property int headerH: 32
-  readonly property int gutter: 6
+  // Room between cells so drop lines read clearly while dragging.
+  readonly property int gutter: 10
   readonly property int folderRowH: 32
   readonly property int ctrlBtn: 22
   readonly property int iconSz: 22
   readonly property int routeIcon: iconSz
   readonly property int listenChipW: 118
+  readonly property int dropLine: 4
+  readonly property int dropCap: 8
   property string dragKind: ""
   property string dragId: ""
   property string dragOverId: ""
+  // true = drop line before overId; false = after (needed for rightward/downward moves).
+  property bool dragPlaceBefore: true
   property var dragSnapshot: []
+  readonly property bool isDragging: root.dragId.length > 0
+
+  function isDragSource(kind, id) {
+    return root.dragKind === kind && root.dragId === String(id || "")
+  }
+
+  function isDragHot(kind, id) {
+    return root.dragKind === kind
+        && root.dragOverId === String(id || "")
+        && root.dragId !== String(id || "")
+  }
 
   function canDragRow(ch) {
     if (!ch || !ch.id)
@@ -155,7 +196,9 @@ ColumnLayout {
     return out
   }
 
-  function _moveIdBefore(list, fromId, overId) {
+  // placeBefore: insert immediately before overId; false → immediately after.
+  // Always-before breaks rightward/downward drags (first over second never moves).
+  function _moveIdTo(list, fromId, overId, placeBefore) {
     const src = list || []
     const from = src.findIndex(x => x && x.id === fromId)
     const to = src.findIndex(x => x && x.id === overId)
@@ -163,46 +206,56 @@ ColumnLayout {
       return src
     const next = src.slice()
     const [item] = next.splice(from, 1)
-    const insertAt = next.findIndex(x => x && x.id === overId)
+    let insertAt = next.findIndex(x => x && x.id === overId)
     if (insertAt < 0)
       return src
+    if (!placeBefore)
+      insertAt += 1
     next.splice(insertAt, 0, item)
     return next
   }
 
   function beginDrag(kind, id) {
-    root.cancelPendingClick()
     root.dragKind = kind
     root.dragId = id
     root.dragOverId = id
+    root.dragPlaceBefore = true
     Audio.mixDragging = true
     mixFlick.interactive = false
     if (kind === "mix")
       root.dragSnapshot = (Audio.mixMixes || []).slice()
     else if (kind === "channel")
       root.dragSnapshot = (Audio.mixChannels || []).filter(c => c && c.id !== "proteus_mix_system")
-    else if (kind === "input")
-      root.dragSnapshot = (Audio.mixInputs || []).slice()
-    else
+    else if (kind === "input") {
+      const inn = Audio.mixInputs || []
+      // Prefer live inputs; fall back to mixRows if dump lag left mixInputs empty.
+      if (inn.length)
+        root.dragSnapshot = inn.slice()
+      else
+        root.dragSnapshot = (root.mixRows || []).filter(c => root.isInput(c))
+    } else
       root.dragSnapshot = []
   }
 
-  function setDragOver(kind, id) {
+  function setDragOver(kind, id, placeBefore) {
     if (!root.dragId.length || root.dragKind !== kind || !id || id === root.dragId)
       return
     if (kind === "channel" && id === "proteus_mix_system")
       return
-    if (root.dragOverId === id)
+    const before = placeBefore !== false
+    if (root.dragOverId === id && root.dragPlaceBefore === before)
       return
     root.dragOverId = id
+    root.dragPlaceBefore = before
     // Snapshot tracks intended order; UI model stays stable so the pressed grip isn't destroyed.
-    root.dragSnapshot = root._moveIdBefore(root.dragSnapshot, root.dragId, id)
+    root.dragSnapshot = root._moveIdTo(root.dragSnapshot, root.dragId, id, before)
   }
 
   function cancelDrag() {
     root.dragKind = ""
     root.dragId = ""
     root.dragOverId = ""
+    root.dragPlaceBefore = true
     root.dragSnapshot = []
     Audio.mixDragging = false
     mixFlick.interactive = true
@@ -215,6 +268,7 @@ ColumnLayout {
     root.dragKind = ""
     root.dragId = ""
     root.dragOverId = ""
+    root.dragPlaceBefore = true
     root.dragSnapshot = []
     Audio.mixDragging = false
     mixFlick.interactive = true
@@ -264,40 +318,17 @@ ColumnLayout {
     const mixes = root.mixColumns || []
     let cx = root.channelIdentityW + root.gutter + root.masterStripW + root.gutter
     for (let i = 0; i < mixes.length; i++) {
-      if (xInListenRow >= cx - root.gutter / 2 && xInListenRow < cx + root.mixColW + root.gutter / 2) {
-        root.setDragOver("mix", mixes[i].id)
+      const left = cx - root.gutter / 2
+      const right = cx + root.mixColW + root.gutter / 2
+      if (xInListenRow >= left && xInListenRow < right) {
+        const mid = cx + root.mixColW / 2
+        root.setDragOver("mix", mixes[i].id, xInListenRow < mid)
         return
       }
       cx += root.mixColW + root.gutter
     }
   }
 
-  function dragOverRowAt(globalX, globalY) {
-    if (!channelRepeater || !root.dragKind.length)
-      return
-    for (let i = 0; i < channelRepeater.count; i++) {
-      const item = channelRepeater.itemAt(i)
-      if (!item)
-        continue
-      const p = item.mapFromGlobal(globalX, globalY)
-      if (p.y < 0 || p.y > root.rowH + root.gutter || p.x < -8 || p.x > root.channelIdentityW + 24)
-        continue
-      const rows = root.mixRows || []
-      const ch = rows[i]
-      if (!ch || !ch.id)
-        return
-      if (root.dragKind === "input") {
-        if (root.isInput(ch))
-          root.setDragOver("input", ch.id)
-        return
-      }
-      if (root.dragKind === "channel") {
-        if (!root.isInput(ch) && ch.id !== "proteus_mix_system")
-          root.setDragOver("channel", ch.id)
-        return
-      }
-    }
-  }
   readonly property int labelPrimary: 13
   readonly property int labelSecondary: 11
   readonly property int labelHeader: 12
@@ -337,9 +368,12 @@ ColumnLayout {
   }
 
   readonly property bool mixChannelsReady: {
-    const rows = root.mixRows || []
-    for (let i = 0; i < rows.length; i++) {
-      if (rows[i].present === false)
+    // Catalog placeholders have no `present` — don't treat them as live sinks.
+    const channels = Audio.mixChannels || []
+    if (!channels.length)
+      return false
+    for (let i = 0; i < channels.length; i++) {
+      if (channels[i].present === false)
         return false
     }
     return true
@@ -470,7 +504,49 @@ ColumnLayout {
   }
 
   function isInput(ch) {
-    return !!(ch && ch.kind === "input")
+    if (!ch)
+      return false
+    if (ch.kind === "input")
+      return true
+    // Fallback — optimistic rows / older dumps may omit kind.
+    return String(ch.id || "").startsWith("proteus_in_")
+  }
+
+  function dragOverRowAt(globalX, globalY) {
+    if (!channelRepeater || !root.dragKind.length)
+      return
+    for (let i = 0; i < channelRepeater.count; i++) {
+      const item = channelRepeater.itemAt(i)
+      if (!item)
+        continue
+      // Prefer the controls strip (exposed by the delegate) so expanded folders
+      // don't steal hit-tests from rows below.
+      const host = item.controlsHost || item
+      const local = host.mapFromGlobal(globalX, globalY)
+      const rowH = host === item ? root.rowH : Math.max(1, host.height)
+      if (local.y < -root.gutter / 2 || local.y > rowH + root.gutter / 2)
+        continue
+      if (local.x < -8 || local.x > root.gridW)
+        continue
+      const rows = root.mixRows || []
+      const ch = rows[i]
+      if (!ch || !ch.id)
+        continue
+      const placeBefore = local.y < rowH / 2
+      if (root.dragKind === "input") {
+        // Skip channels (and self) — keep scanning for another input row.
+        if (!root.isInput(ch) || ch.id === root.dragId)
+          continue
+        root.setDragOver("input", ch.id, placeBefore)
+        return
+      }
+      if (root.dragKind === "channel") {
+        if (root.isInput(ch) || ch.id === "proteus_mix_system" || ch.id === root.dragId)
+          continue
+        root.setDragOver("channel", ch.id, placeBefore)
+        return
+      }
+    }
   }
 
   function channelLetter(ch) {
@@ -609,6 +685,7 @@ ColumnLayout {
 
   Component.onCompleted: {
     Audio.refreshMix()
+    Audio.refreshGraphEditor()
     root.maybeAutoSetup()
     root.syncMixPeaks()
   }
@@ -633,15 +710,35 @@ ColumnLayout {
       if (root.peaksWanted)
         Audio.refreshMixPeakDevices(root.peakDeviceList)
     }
+    function onMixMixesChanged() {
+      if (root.peaksWanted)
+        Audio.refreshMixPeakDevices(root.peakDeviceList)
+    }
   }
 
   Text {
     Layout.fillWidth: true
-    text: "Channels → mixes. Speakers / mix headers choose what you hear."
+    text: "Channels → mixes. Speakers / mix headers choose what you hear. Double-click a name to rename."
     color: Theme.textDim
     font.family: Theme.fontFamily
     font.pixelSize: 12
     wrapMode: Text.WordWrap
+  }
+
+  PackagesConfirm {
+    open: root.removeConfirmOpen
+    title: "Remove “" + root.pendingRemoveLabel + "”?"
+    detail: {
+      if (root.pendingRemoveKind === "mix")
+        return "This mix and its routes go away."
+      if (root.pendingRemoveKind === "input")
+        return "This capture strip is removed."
+      return "Apps on it return to Speakers."
+    }
+    footnote: ""
+    confirmLabel: "Remove"
+    onCancelled: root.cancelRemove()
+    onConfirmed: root.confirmRemove()
   }
 
   MouseArea {
@@ -857,29 +954,62 @@ ColumnLayout {
           Layout.fillWidth: false
           radius: Theme.radiusSm
           clip: false
-          readonly property bool dragHot: root.dragKind === "mix" && root.dragOverId === modelData.id
-              && root.dragId !== modelData.id
-          readonly property bool dragSource: root.dragKind === "mix" && root.dragId === modelData.id
-          opacity: dragSource ? 0.45 : 1
+          readonly property bool dragHot: root.isDragHot("mix", modelData.id)
+          readonly property bool dragSource: root.isDragSource("mix", modelData.id)
+          opacity: dragSource ? 0.55 : (root.dragKind === "mix" && !dragHot && !dragSource ? 0.72 : 1)
+          scale: dragSource ? 0.97 : 1
+          Behavior on opacity {
+            NumberAnimation {
+              duration: 90
+            }
+          }
           color: dragHot
               ? Theme.accentSoft
-              : (modelData.hear
+              : (dragSource
                   ? Theme.accentSoft
-                  : (headerMa.containsMouse ? Theme.bgHover : "transparent"))
-          border.width: dragHot ? 2 : (modelData.hear ? 1 : 0)
+                  : (modelData.hear
+                      ? Theme.accentSoft
+                      : (headerMa.containsMouse ? Theme.bgHover : "transparent")))
+          border.width: dragHot || dragSource ? 2 : (modelData.hear ? 1 : 0)
           border.color: Theme.accent
 
-          // Insertion mark — lands before this mix
-          Rectangle {
+          // Vertical drop line — before (left) or after (right) this mix column
+          Item {
             visible: mixHeaderChip.dragHot
             anchors.verticalCenter: parent.verticalCenter
-            anchors.left: parent.left
-            anchors.leftMargin: -4
-            width: 3
-            height: parent.height + 4
-            radius: 1.5
-            color: Theme.accent
-            z: 3
+            x: root.dragPlaceBefore
+                ? (-Math.ceil(root.gutter / 2) - 1)
+                : (parent.width - root.dropLine + Math.ceil(root.gutter / 2) + 1)
+            width: root.dropLine
+            height: parent.height + root.gutter
+            z: 5
+
+            Rectangle {
+              anchors.horizontalCenter: parent.horizontalCenter
+              anchors.top: parent.top
+              anchors.bottom: parent.bottom
+              width: root.dropLine
+              radius: root.dropLine / 2
+              color: Theme.accent
+            }
+            Rectangle {
+              anchors.horizontalCenter: parent.horizontalCenter
+              anchors.top: parent.top
+              anchors.topMargin: -2
+              width: root.dropCap
+              height: root.dropCap
+              radius: root.dropCap / 2
+              color: Theme.accent
+            }
+            Rectangle {
+              anchors.horizontalCenter: parent.horizontalCenter
+              anchors.bottom: parent.bottom
+              anchors.bottomMargin: -2
+              width: root.dropCap
+              height: root.dropCap
+              radius: root.dropCap / 2
+              color: Theme.accent
+            }
           }
 
           MouseArea {
@@ -891,12 +1021,11 @@ ColumnLayout {
             enabled: !Audio.mixBusy && !root.isRenaming("mix", modelData.id) && !root.dragId.length
             onClicked: {
               if (modelData.hear)
-                root.scheduleClick("listen:system")
+                root.listenMix("system")
               else
-                root.scheduleClick("listen:" + modelData.id)
+                root.listenMix(modelData.id)
             }
             onDoubleClicked: {
-              root.cancelPendingClick()
               root.beginRename("mix", modelData.id, modelData.label)
             }
           }
@@ -909,7 +1038,7 @@ ColumnLayout {
             z: 1
 
             Item {
-              Layout.preferredWidth: 12
+              Layout.preferredWidth: 20
               Layout.preferredHeight: root.headerH
               Text {
                 anchors.centerIn: parent
@@ -986,7 +1115,7 @@ ColumnLayout {
               Layout.preferredHeight: root.ctrlBtn
               cursorShape: Qt.PointingHandCursor
               enabled: !Audio.mixBusy
-              onClicked: root.removeMix(modelData.id)
+              onClicked: root.requestRemoveMix(modelData.id, modelData.label)
               Text {
                 anchors.centerIn: parent
                 text: "×"
@@ -1153,13 +1282,95 @@ ColumnLayout {
         readonly property bool isInput: root.isInput(modelData)
         readonly property bool expanded: root.isExpanded(modelData.id)
         readonly property bool picking: !chBlock.isInput && root.pickerChannelId === modelData.id
+        // Exposed for drag hit-testing (skip expanded folder body).
+        readonly property alias controlsHost: mixControlsHost
 
         // Mix controls row
-        RowLayout {
+        Item {
+          id: mixControlsHost
           Layout.fillWidth: false
           Layout.alignment: Qt.AlignLeft
-          spacing: root.gutter
-          height: root.rowH
+          Layout.preferredWidth: root.channelIdentityW + root.gutter + root.masterStripW
+              + root.mixColumns.length * (root.gutter + root.mixColW)
+          Layout.preferredHeight: root.rowH
+          readonly property bool rowDragHot: {
+            const kind = chBlock.isInput ? "input" : "channel"
+            return root.isDragHot(kind, chBlock.modelData.id)
+          }
+          readonly property bool rowDragSource: {
+            const kind = chBlock.isInput ? "input" : "channel"
+            return root.isDragSource(kind, chBlock.modelData.id)
+          }
+          opacity: {
+            if (mixControlsHost.rowDragSource)
+              return 0.55
+            if (root.isDragging && (root.dragKind === "channel" || root.dragKind === "input")
+                && !mixControlsHost.rowDragHot && !mixControlsHost.rowDragSource)
+              return 0.72
+            return 1
+          }
+          Behavior on opacity {
+            NumberAnimation {
+              duration: 90
+            }
+          }
+
+          // Soft target plate behind the whole row while dropping here
+          Rectangle {
+            anchors.fill: parent
+            anchors.margins: -3
+            radius: Theme.radiusMd
+            visible: mixControlsHost.rowDragHot || mixControlsHost.rowDragSource
+            color: Theme.accentSoft
+            border.width: mixControlsHost.rowDragSource ? 2 : 0
+            border.color: Theme.accent
+            opacity: mixControlsHost.rowDragHot ? 1 : 0.55
+            z: 0
+          }
+
+          // Full-width drop line — before (above) or after (below) this row
+          Item {
+            visible: mixControlsHost.rowDragHot
+            anchors.left: parent.left
+            anchors.right: parent.right
+            y: root.dragPlaceBefore
+                ? (-Math.ceil(root.gutter / 2) - 1)
+                : (parent.height - root.dropLine + Math.ceil(root.gutter / 2) + 1)
+            height: root.dropLine
+            z: 6
+
+            Rectangle {
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              height: root.dropLine
+              radius: root.dropLine / 2
+              color: Theme.accent
+            }
+            Rectangle {
+              anchors.verticalCenter: parent.verticalCenter
+              anchors.left: parent.left
+              anchors.leftMargin: -2
+              width: root.dropCap
+              height: root.dropCap
+              radius: root.dropCap / 2
+              color: Theme.accent
+            }
+            Rectangle {
+              anchors.verticalCenter: parent.verticalCenter
+              anchors.right: parent.right
+              anchors.rightMargin: -2
+              width: root.dropCap
+              height: root.dropCap
+              radius: root.dropCap / 2
+              color: Theme.accent
+            }
+          }
+
+          RowLayout {
+            anchors.fill: parent
+            spacing: root.gutter
+            z: 1
 
           // Channel identity — click toggles folder; × removes without opening
           Rectangle {
@@ -1168,36 +1379,14 @@ ColumnLayout {
             Layout.preferredHeight: root.rowH
             radius: Theme.radiusSm
             clip: false
-            readonly property bool dragHot: {
-              const kind = chBlock.isInput ? "input" : "channel"
-              return root.dragKind === kind
-                  && root.dragOverId === chBlock.modelData.id
-                  && root.dragId !== chBlock.modelData.id
-            }
-            readonly property bool dragSource: {
-              const kind = chBlock.isInput ? "input" : "channel"
-              return root.dragKind === kind && root.dragId === chBlock.modelData.id
-            }
-            opacity: dragSource ? 0.45 : 1
-            color: dragHot ? Theme.accentSoft : Theme.bgElevated
-            border.width: dragHot ? 2 : 1
-            border.color: (chBlock.expanded || dragHot) ? Theme.accent : Theme.border
+            readonly property bool dragHot: mixControlsHost.rowDragHot
+            readonly property bool dragSource: mixControlsHost.rowDragSource
+            color: Theme.bgElevated
+            border.width: dragSource || chBlock.expanded ? 2 : 1
+            border.color: (dragSource || chBlock.expanded) ? Theme.accent : Theme.border
             readonly property real peak: Audio.mixPeakFor(chBlock.modelData.id)
             readonly property string rowKind: chBlock.isInput ? "input" : "channel"
             readonly property bool draggable: root.canDragRow(chBlock.modelData)
-
-            // Insertion mark — lands above this channel/input
-            Rectangle {
-              visible: identityCell.dragHot
-              anchors.horizontalCenter: parent.horizontalCenter
-              anchors.top: parent.top
-              anchors.topMargin: -4
-              width: parent.width + 4
-              height: 3
-              radius: 1.5
-              color: Theme.accent
-              z: 3
-            }
 
             MouseArea {
               anchors.fill: parent
@@ -1205,9 +1394,8 @@ ColumnLayout {
               cursorShape: Qt.PointingHandCursor
               enabled: !root.isRenaming(chBlock.isInput ? "input" : "channel", chBlock.modelData.id)
                   && !root.dragId.length
-              onClicked: root.scheduleClick("expand:" + chBlock.modelData.id)
+              onClicked: root.toggleExpanded(chBlock.modelData.id)
               onDoubleClicked: {
-                root.cancelPendingClick()
                 root.beginRename(
                     chBlock.isInput ? "input" : "channel",
                     chBlock.modelData.id,
@@ -1222,9 +1410,9 @@ ColumnLayout {
               spacing: 4
               z: 1
 
-              // Always reserve grip width so Apps aligns with draggable rows
+              // Grip hit target wider than glyph for easier drag start
               Item {
-                Layout.preferredWidth: 12
+                Layout.preferredWidth: 20
                 Layout.preferredHeight: root.rowH - 8
                 Text {
                   anchors.centerIn: parent
@@ -1330,14 +1518,14 @@ ColumnLayout {
                 Layout.preferredWidth: root.ctrlBtn
                 Layout.preferredHeight: root.ctrlBtn
                 z: 2
+                visible: chBlock.isInput || String(chBlock.modelData.id) !== "proteus_mix_system"
                 cursorShape: Qt.PointingHandCursor
                 enabled: !Audio.mixBusy
                 onClicked: {
-                  root.cancelPendingClick()
                   if (chBlock.isInput)
-                    root.removeInput(chBlock.modelData.id)
+                    root.requestRemoveInput(chBlock.modelData.id, chBlock.modelData.label)
                   else
-                    root.removeChannel(chBlock.modelData.id)
+                    root.requestRemoveChannel(chBlock.modelData.id, chBlock.modelData.label)
                 }
                 Text {
                   anchors.centerIn: parent
@@ -1397,14 +1585,29 @@ ColumnLayout {
               }
 
               Slider {
+                id: masterSlider
+                property int slideVol: -1
                 Layout.fillWidth: true
                 from: 0
                 to: 100
                 stepSize: 1
                 wheelEnabled: false
-                value: chBlock.modelData.volume !== undefined ? chBlock.modelData.volume : 100
-                enabled: !Audio.mixBusy && !!chBlock.modelData.present && !chBlock.modelData.muted
-                onMoved: Audio.setMixChannelVolume(chBlock.modelData.id, Math.round(value))
+                value: {
+                  if (masterSlider.slideVol >= 0)
+                    return masterSlider.slideVol
+                  return chBlock.modelData.volume !== undefined ? chBlock.modelData.volume : 100
+                }
+                // Volume stays live during route/mute mutations (busy only gates writes that conflict).
+                enabled: !!chBlock.modelData.present && !chBlock.modelData.muted
+                onMoved: {
+                  masterSlider.slideVol = Math.round(value)
+                  Audio.setMixChannelVolume(chBlock.modelData.id, masterSlider.slideVol)
+                }
+                onPressedChanged: {
+                  Audio.mixVolumeDragging = pressed
+                  if (!pressed)
+                    masterSlider.slideVol = -1
+                }
               }
             }
           }
@@ -1421,9 +1624,46 @@ ColumnLayout {
               radius: Theme.radiusSm
               readonly property var cell: root.cellFor(chBlock.modelData, modelData.id)
               readonly property bool active: !!cell.on
-              color: active ? Theme.bgElevated : (emptyMa.containsMouse ? Theme.bgHover : "transparent")
-              border.width: 1
-              border.color: active ? Theme.border : Theme.separator
+              readonly property bool colDragHot: root.isDragHot("mix", modelData.id)
+              readonly property bool colDragSource: root.isDragSource("mix", modelData.id)
+              opacity: {
+                if (mixCell.colDragSource)
+                  return 0.55
+                if (root.dragKind === "mix" && !mixCell.colDragHot && !mixCell.colDragSource)
+                  return 0.72
+                return 1
+              }
+              color: {
+                if (mixCell.colDragHot)
+                  return Theme.accentSoft
+                if (mixCell.active)
+                  return Theme.bgElevated
+                return emptyMa.containsMouse ? Theme.bgHover : "transparent"
+              }
+              border.width: mixCell.colDragHot || mixCell.colDragSource ? 2 : 1
+              border.color: (mixCell.colDragHot || mixCell.colDragSource)
+                  ? Theme.accent
+                  : (mixCell.active ? Theme.border : Theme.separator)
+
+              // Column drop line continues through the cell grid
+              Item {
+                visible: mixCell.colDragHot
+                anchors.verticalCenter: parent.verticalCenter
+                x: root.dragPlaceBefore
+                    ? (-Math.ceil(root.gutter / 2) - 1)
+                    : (parent.width - root.dropLine + Math.ceil(root.gutter / 2) + 1)
+                width: root.dropLine
+                height: parent.height + root.gutter
+                z: 5
+                Rectangle {
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  anchors.top: parent.top
+                  anchors.bottom: parent.bottom
+                  width: root.dropLine
+                  radius: root.dropLine / 2
+                  color: Theme.accent
+                }
+              }
 
               MouseArea {
                 id: emptyMa
@@ -1431,7 +1671,7 @@ ColumnLayout {
                 visible: !mixCell.active
                 hoverEnabled: true
                 cursorShape: Audio.mixBusy ? Qt.BusyCursor : Qt.PointingHandCursor
-                enabled: !Audio.mixBusy
+                enabled: !Audio.mixBusy && !root.isDragging
                 onClicked: {
                   if (!root.mixChannelsReady)
                     Audio.ensureMixChannels()
@@ -1466,14 +1706,28 @@ ColumnLayout {
                 }
 
                 Slider {
+                  id: cellSlider
+                  property int slideVol: -1
                   Layout.fillWidth: true
                   from: 0
                   to: 100
                   stepSize: 1
                   wheelEnabled: false
-                  value: mixCell.cell.volume !== undefined ? mixCell.cell.volume : 100
-                  enabled: !Audio.mixBusy && !mixCell.cell.muted
-                  onMoved: Audio.setMixCellVolume(chBlock.modelData.id, modelData.id, Math.round(value))
+                  value: {
+                    if (cellSlider.slideVol >= 0)
+                      return cellSlider.slideVol
+                    return mixCell.cell.volume !== undefined ? mixCell.cell.volume : 100
+                  }
+                  enabled: !mixCell.cell.muted
+                  onMoved: {
+                    cellSlider.slideVol = Math.round(value)
+                    Audio.setMixCellVolume(chBlock.modelData.id, modelData.id, cellSlider.slideVol)
+                  }
+                  onPressedChanged: {
+                    Audio.mixVolumeDragging = pressed
+                    if (!pressed)
+                      cellSlider.slideVol = -1
+                  }
                 }
 
                 MouseArea {
@@ -1492,7 +1746,8 @@ ColumnLayout {
               }
             }
           }
-        }
+          }  // RowLayout mix controls
+        }  // mixControlsHost
 
         // Folder contents
         Rectangle {
@@ -1521,6 +1776,17 @@ ColumnLayout {
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             interactive: contentHeight > height + 2
+            // Keep wheel on the folder when it can scroll (don't pan the grid).
+            WheelHandler {
+              enabled: parent.interactive
+              onWheel: event => {
+                const f = parent
+                const next = Math.max(0, Math.min(f.contentHeight - f.height,
+                    f.contentY - event.angleDelta.y))
+                f.contentY = next
+                event.accepted = true
+              }
+            }
             ColumnLayout {
               id: folderCol
               width: parent.width
@@ -1696,6 +1962,15 @@ ColumnLayout {
               clip: true
               boundsBehavior: Flickable.StopAtBounds
               interactive: contentHeight > height + 2
+              WheelHandler {
+                enabled: parent.interactive
+                onWheel: event => {
+                  const f = parent
+                  f.contentY = Math.max(0, Math.min(f.contentHeight - f.height,
+                      f.contentY - event.angleDelta.y))
+                  event.accepted = true
+                }
+              }
 
               ColumnLayout {
                 id: pickerCol
@@ -1980,6 +2255,15 @@ ColumnLayout {
           clip: true
           boundsBehavior: Flickable.StopAtBounds
           interactive: contentHeight > height + 2
+          WheelHandler {
+            enabled: parent.interactive
+            onWheel: event => {
+              const f = parent
+              f.contentY = Math.max(0, Math.min(f.contentHeight - f.height,
+                  f.contentY - event.angleDelta.y))
+              event.accepted = true
+            }
+          }
 
           ColumnLayout {
             id: addInputList
@@ -2047,6 +2331,36 @@ ColumnLayout {
     color: Theme.danger
     font.family: Theme.fontFamily
     font.pixelSize: 12
+    wrapMode: Text.WordWrap
+  }
+
+  // Quiet escape — full PipeWire graph when the Mixer model isn’t enough.
+  SettingsFormRow {
+    label: "Graph editor"
+    hint: Audio.graphEditorHint
+    showSeparator: false
+    interactive: true
+    onActivated: {
+      if (Audio.graphEditorAvailable)
+        Audio.openGraphEditor()
+      else
+        SettingsNav.goInstallSearch("qpwgraph")
+    }
+    Text {
+      text: Audio.graphEditorAvailable ? "Open" : "Install…"
+      color: Theme.accent
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.fontSize
+    }
+  }
+
+  Text {
+    Layout.fillWidth: true
+    Layout.maximumWidth: 520
+    text: "Fact: ~/.config/proteus/audio-mix.json · pactl null sinks / loopbacks. Full patchbay: qpwgraph (Install… → Software)."
+    color: Theme.textMute
+    font.family: Theme.fontFamily
+    font.pixelSize: 11
     wrapMode: Text.WordWrap
   }
 }

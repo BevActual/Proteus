@@ -45,8 +45,11 @@ facts: [`vm/guest/`](../../vm/guest/).
 | **Widgets** | Applet catalog + lock/desktop CRUD | Own FileView |
 | **Theme** | Chrome tokens from Config accent/font/mode | System facts |
 | **SystemInfo** | Read-only OS/kernel/hostname/QS/Hypr/tip + About copy summary | Privileged writes; hostname edit |
-| **SystemLoad** | About-active CPU/mem/uptime snapshot from `/proc` | Process lists; charts; always-on poll |
+| **SystemLoad** | About-active CPU/mem/swap/root storage/uptime from `/proc` + `statvfs` | Process lists; charts; always-on poll |
+| **Weather** | Open-Meteo for stored place; respects `Config.weatherEnabled` mute | IP geolocation; fetch when muted |
+| **NetworkDiagnostics** | Diagnostics-active iface rates + calm bars · `ss` · firewall one-liner · route/DNS · ping; Wireshark escape | In-Settings packet decode; always-on promiscuous capture |
 | **MissionCenter** | Detect/open Mission Center (Activity Monitor escape) | Embedding a live dashboard in Settings |
+| **Audio** (graph escape) | Detect/open `qpwgraph` (or already-installed `helvum`); Install… → Repos · `qpwgraph` only | Embedding a full PipeWire patchbay in Settings |
 | **Accounts** | Online accounts catalog + seat status via `proteus-accounts` | OAuth secrets in `settings.json`; inventing mail/contacts apps |
 
 **Why flat `shell/shared/`:** Quickshell directory imports + `property alias`

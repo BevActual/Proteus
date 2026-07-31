@@ -312,6 +312,13 @@ ColumnLayout {
     }
 
     SettingsFormRow {
+      visible: !root.pickingPlace && !Config.weatherEnabled
+      label: "Weather fetch"
+      hint: "Off — Open-Meteo muted under Privacy"
+      showSeparator: Config.locationName.length > 0
+    }
+
+    SettingsFormRow {
       visible: !root.pickingPlace && Config.locationName.length > 0
       label: "Units"
       hint: Weather.imperial ? "Fahrenheit and miles per hour" : "Celsius and kilometres per hour"
@@ -338,11 +345,13 @@ ColumnLayout {
       label: "Conditions"
       hint: Weather.conditionsDetail
       showSeparator: true
-      interactive: true
+      interactive: Config.weatherEnabled
       onActivated: Weather.refresh()
       Text {
-        text: Weather.loading ? "…" : "Refresh"
-        color: Theme.accent
+        text: !Config.weatherEnabled
+            ? "Muted"
+            : (Weather.loading ? "…" : "Refresh")
+        color: Config.weatherEnabled ? Theme.accent : Theme.textMute
         font.family: Theme.fontFamily
         font.pixelSize: 12
       }

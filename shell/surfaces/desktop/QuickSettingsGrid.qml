@@ -12,6 +12,7 @@ ColumnLayout {
 
   property int volume: 50
   property bool muted: false
+  property bool volumeSliding: false
   property string netSummary: "Checking…"
   property string batteryText: "—"
 
@@ -28,7 +29,11 @@ ColumnLayout {
   }
 
   function refreshAudio() {
+    if (root.volumeSliding)
+      return
     Audio.getVolume(v => {
+      if (root.volumeSliding)
+        return
       root.volume = Math.max(0, Math.min(150, Math.round(v)))
     })
     Audio.getMute(m => {
@@ -89,7 +94,7 @@ ColumnLayout {
   readonly property string mixSourcesChipLabel: {
     const list = root.mixSourceOptions || []
     if (!list.length)
-      return "Sources"
+      return "Add mic…"
     let onCount = 0
     for (let i = 0; i < list.length; i++) {
       if (list[i].on)
@@ -166,6 +171,8 @@ ColumnLayout {
         Audio.unsubscribeMixPeaks()
         root.mixPeaksSubscribed = false
       }
+      if (Audio.mixVolumeDragging)
+        Audio.mixVolumeDragging = false
       Audio.stopMixServe()
       root.mixServeActive = false
     } else if (want && root.mixServeActive) {
@@ -301,9 +308,17 @@ ColumnLayout {
             id: listenChip
             anchors.fill: parent
             radius: Theme.radiusSm
-            color: listenPopup.visible || listenMa.containsMouse ? Theme.bgHover : Theme.bgElevated
+            color: {
+              if (listenPopup.visible || listenMa.containsMouse)
+                return Theme.bgHover
+              if (listenCombo.currentValue !== "system")
+                return Theme.accentSoft
+              return Theme.bgElevated
+            }
             border.width: 1
-            border.color: listenPopup.visible ? Theme.accent : Theme.chromeBorder
+            border.color: listenPopup.visible || listenCombo.currentValue !== "system"
+                ? Theme.accent
+                : Theme.chromeBorder
 
             RowLayout {
               anchors.fill: parent
@@ -371,6 +386,20 @@ ColumnLayout {
               model: root.mixListenOptions
               spacing: 1
               boundsBehavior: Flickable.StopAtBounds
+              header: Item {
+                width: listenList.width
+                height: 22
+                Text {
+                  anchors.left: parent.left
+                  anchors.leftMargin: Theme.spaceSm
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Listen"
+                  color: Theme.textMute
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 10
+                  font.weight: Font.Medium
+                }
+              }
 
               delegate: Rectangle {
                 required property var modelData
@@ -541,6 +570,30 @@ ColumnLayout {
                 }
               }
 
+              footer: Item {
+                width: sourcesList.width
+                height: 28
+                Text {
+                  anchors.left: parent.left
+                  anchors.leftMargin: 2
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Mixer ›"
+                  color: Theme.accent
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 12
+                  font.weight: Font.Medium
+                  MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -4
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                      sourcesPopup.close()
+                      ShellState.openSettings("sound-matrix")
+                    }
+                  }
+                }
+              }
+
               delegate: Rectangle {
                 id: sourceDelegate
                 required property var modelData
@@ -597,15 +650,23 @@ ColumnLayout {
                       }
                     }
 
-                    Text {
-                      text: sourceDelegate.sourceOn ? "On" : "Off"
-                      color: sourceDelegate.sourceOn ? Theme.accent : Theme.textMute
-                      font.family: Theme.fontFamily
-                      font.pixelSize: 11
-                      font.weight: Font.Medium
+                    Rectangle {
+                      Layout.preferredWidth: 36
+                      Layout.preferredHeight: 22
+                      radius: Theme.radiusSm
+                      color: sourceDelegate.sourceOn ? Theme.accent : Theme.bgHover
+                      border.width: sourceDelegate.sourceOn ? 0 : 1
+                      border.color: Theme.separator
+                      Text {
+                        anchors.centerIn: parent
+                        text: sourceDelegate.sourceOn ? "On" : "Off"
+                        color: sourceDelegate.sourceOn ? "#ffffff" : Theme.textMute
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 11
+                        font.weight: Font.Medium
+                      }
                       MouseArea {
                         anchors.fill: parent
-                        anchors.margins: -6
                         cursorShape: Qt.PointingHandCursor
                         onClicked: root.toggleMixSource(modelData.id)
                       }
@@ -644,6 +705,7 @@ ColumnLayout {
                         Audio.setMixChannelVolume(modelData.id, sourceDelegate.slideVol)
                       }
                       onPressedChanged: {
+                        Audio.mixVolumeDragging = pressed
                         if (!pressed)
                           sourceDelegate.slideVol = -1
                       }
@@ -718,6 +780,11 @@ ColumnLayout {
               root.muted = false
               Audio.setMute(false)
             }
+          }
+          onPressedChanged: {
+            root.volumeSliding = pressed
+            if (!pressed)
+              root.refreshAudio()
           }
         }
 

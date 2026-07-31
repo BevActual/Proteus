@@ -90,9 +90,46 @@ Item {
       keywords: "localsend airdrop share files nearby lan send",
       destructive: false
     },
-
-
-
+    {
+      id: "settings-wifi",
+      name: "Wi‑Fi settings",
+      subtitle: "Action · Settings → Network → Wi‑Fi",
+      icon: "network-wireless",
+      keywords: "wifi wi-fi wireless network ssid settings",
+      destructive: false
+    },
+    {
+      id: "settings-displays",
+      name: "Displays settings",
+      subtitle: "Action · Settings → Displays",
+      icon: "preferences-desktop-display",
+      keywords: "displays monitors resolution scale settings",
+      destructive: false
+    },
+    {
+      id: "settings-mixer",
+      name: "Sound Mixer",
+      subtitle: "Action · Settings → Sound → Mixer",
+      icon: "audio-volume-high",
+      keywords: "sound mixer matrix audio volume settings",
+      destructive: false
+    },
+    {
+      id: "settings-privacy",
+      name: "Privacy settings",
+      subtitle: "Action · Settings → Privacy",
+      icon: "preferences-system-privacy",
+      keywords: "privacy weather mute clipboard localsend settings",
+      destructive: false
+    },
+    {
+      id: "settings-updates",
+      name: "Software updates",
+      subtitle: "Action · Settings → Software → Updates",
+      icon: "system-software-update",
+      keywords: "updates packages pacman software settings",
+      destructive: false
+    },
     {
       id: "clear-notifications",
       name: "Clear notifications",
@@ -874,7 +911,17 @@ Item {
         LocalSend.open()
       else
         ShellState.openSettings("network-localsend")
-    } else if (id === "clear-notifications")
+    } else if (id === "settings-wifi")
+      ShellState.openSettings("network-wifi")
+    else if (id === "settings-displays")
+      ShellState.openSettings("displays")
+    else if (id === "settings-mixer")
+      ShellState.openSettings("sound-matrix")
+    else if (id === "settings-privacy")
+      ShellState.openSettings("privacy")
+    else if (id === "settings-updates")
+      ShellState.openSettings("packages-updates")
+    else if (id === "clear-notifications")
       Notifications.clearAll()
   }
 

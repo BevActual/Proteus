@@ -49,6 +49,7 @@ REQUIRED=(
   SystemInfo.qml
   SystemLoad.qml
   MissionCenter.qml
+  NetworkDiagnostics.qml
   Accounts.qml
   Hud.qml
   Brightness.qml

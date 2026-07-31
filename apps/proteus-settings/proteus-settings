@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Launch the Proteus Settings application (one-stop control center).
-# Optional: proteus-settings --page=network   or   PROTEUS_SETTINGS_PAGE=network
+# Optional: --page=network · --query=qpwgraph
+#   or PROTEUS_SETTINGS_PAGE / PROTEUS_SETTINGS_QUERY
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export QS_ICON_THEME="${QS_ICON_THEME:-Papirus-Dark}"
@@ -12,6 +13,13 @@ for arg in "$@"; do
       ;;
     --page)
       echo "proteus-settings: --page requires --page=<id>" >&2
+      exit 2
+      ;;
+    --query=*)
+      export PROTEUS_SETTINGS_QUERY="${arg#--query=}"
+      ;;
+    --query)
+      echo "proteus-settings: --query requires --query=<text>" >&2
       exit 2
       ;;
   esac

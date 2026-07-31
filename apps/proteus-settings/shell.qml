@@ -1,4 +1,5 @@
 import Quickshell
+import Quickshell.Io
 import QtQuick
 import "shared"
 
@@ -25,6 +26,35 @@ ShellRoot {
           item.anchors.fill = settingsLoader
         }
       }
+    }
+  }
+
+  // Smoke/dogfood probe: drive nav + Install… seed from the CLI.
+  //   qs -p <config> ipc call nav state
+  //   qs -p <config> ipc call nav installSearch qpwgraph packages-search
+  IpcHandler {
+    target: "nav"
+
+    function page(): string {
+      return SettingsNav.page
+    }
+
+    function go(id: string): void {
+      SettingsNav.go(id)
+    }
+
+    function installSearch(query: string, leaf: string): void {
+      SettingsNav.goInstallSearch(query, leaf)
+    }
+
+    function state(): string {
+      return JSON.stringify({
+        page: SettingsNav.page,
+        pendingQuery: SettingsNav.pendingInstallQuery,
+        pendingLeaf: SettingsNav.pendingInstallLeaf,
+        seed: Packages.searchSeed,
+        seedTarget: Packages.searchSeedTarget
+      })
     }
   }
 }

@@ -66,7 +66,7 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "Channels & routing"
-      hint: "Group apps into System, Voice, Music, Browser, Game"
+      hint: "Group apps into Apps, Voice, Music, Browser, Game"
       showSeparator: false
       interactive: true
       onActivated: {

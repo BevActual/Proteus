@@ -8,6 +8,8 @@ Rectangle {
   property string title: ""
   property string detail: ""
   property string footnote: "Authentication required (polkit). Confirmed here first."
+  property string cancelLabel: "Cancel"
+  property string confirmLabel: "Continue"
   property bool open: false
 
   signal cancelled
@@ -16,7 +18,7 @@ Rectangle {
   visible: open
   Layout.fillWidth: true
   Layout.maximumWidth: 520
-  Layout.preferredHeight: open ? col.implicitHeight + 24 : 0
+  Layout.preferredHeight: open ? col.implicitHeight + Theme.spaceMd * 2 : 0
   radius: Theme.radiusMd
   color: Theme.bgElevated
   border.width: 1
@@ -29,7 +31,7 @@ Rectangle {
     anchors.right: parent.right
     anchors.top: parent.top
     anchors.margins: Theme.spaceMd
-    spacing: 10
+    spacing: Theme.spaceSm
 
     Text {
       Layout.fillWidth: true
@@ -37,7 +39,8 @@ Rectangle {
       color: Theme.text
       font.family: Theme.fontFamily
       font.pixelSize: Theme.fontSize
-      font.bold: true
+      font.weight: Font.DemiBold
+      wrapMode: Text.WordWrap
     }
 
     Text {
@@ -62,24 +65,27 @@ Rectangle {
 
     RowLayout {
       Layout.fillWidth: true
+      Layout.topMargin: 2
       spacing: Theme.spaceSm
 
       Rectangle {
         Layout.fillWidth: true
-        Layout.preferredHeight: 36
-        radius: Theme.radius
-        color: Theme.bgPanel
+        Layout.preferredHeight: 34
+        radius: Theme.radiusSm
+        color: cancelMa.containsMouse ? Theme.bgHover : Theme.bgPanel
         border.width: 1
         border.color: Theme.border
         Text {
           anchors.centerIn: parent
-          text: "Cancel"
+          text: root.cancelLabel
           color: Theme.text
           font.family: Theme.fontFamily
           font.pixelSize: 12
         }
         MouseArea {
+          id: cancelMa
           anchors.fill: parent
+          hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
           onClicked: root.cancelled()
         }
@@ -87,21 +93,23 @@ Rectangle {
 
       Rectangle {
         Layout.fillWidth: true
-        Layout.preferredHeight: 36
-        radius: Theme.radius
-        color: Theme.accentSoft
+        Layout.preferredHeight: 34
+        radius: Theme.radiusSm
+        color: confirmMa.containsMouse ? Theme.accent : Theme.accentSoft
         border.width: 1
         border.color: Theme.accent
         Text {
           anchors.centerIn: parent
-          text: "Continue"
-          color: Theme.text
+          text: root.confirmLabel
+          color: confirmMa.containsMouse ? "#ffffff" : Theme.accent
           font.family: Theme.fontFamily
           font.pixelSize: 12
-          font.bold: true
+          font.weight: Font.DemiBold
         }
         MouseArea {
+          id: confirmMa
           anchors.fill: parent
+          hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
           onClicked: root.confirmed()
         }

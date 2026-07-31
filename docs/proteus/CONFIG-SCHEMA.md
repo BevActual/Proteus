@@ -26,7 +26,8 @@ One schema for all postures; panes enable/disable by capability.
 | Lock/desktop applets | `lockWidgets[]`, `desktopWidgets[]`, `desktopWidgetsSnapToGrid`, `lockShowClock` | Widgets |
 | Wallpaper | `wallpaperKind`, `wallpaperId`, `wallpaperMode`, `wallpaperColor`, `wallpaperCustomPath`, `wallpaperFolder`, `wallpaperShuffle`, `wallpaperAlbum*`, `wallpaperSlideshow*`, `wallpaperDaily*`, `wallpaperVideo*`, `wallpaperReactive*` | Background |
 | Audio prefs | `audioLatency` | Audio |
-| Location / weather | `location*`, `weatherUnits` | Weather / DateTime |
+| Location / weather | `location*`, `weatherUnits`, `weatherEnabled` | Weather / DateTime / Privacy |
+| Tailscale | `tailscaleLoginServer` | Network Tailscale leaf |
 | Font | `fontFamily`, `fontSize`, `fontSizeSm`, `userFonts` (`Family=/path;…`) | Theme / Style pane |
 | Launcher | `launcherRecents`, `launcherFileRecents`, `launcherTagCatalog`, `launcherAppTags` | Spotlight / Launcher |
 | Dock pins | `dockPins` (comma desktop ids; `""` defaults; `-` empty) | DockApps |

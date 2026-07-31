@@ -135,6 +135,10 @@ Item {
       label: "Devices"
     },
     {
+      key: "network-diagnostics",
+      label: "Diagnostics"
+    },
+    {
       key: "network-wifi",
       label: "Wi‑Fi"
     },
@@ -174,8 +178,111 @@ Item {
     return "Settings"
   }
 
+  // In-app `/` jump — type to go to a category or leaf without leaving the window.
+  property bool jumpOpen: false
+  property string jumpQuery: ""
+  property int jumpIndex: 0
+
+  readonly property var jumpCatalog: {
+    const out = []
+    const seen = {}
+    const panesList = root.panes || []
+    for (let i = 0; i < panesList.length; i++) {
+      const p = panesList[i]
+      const id = String(p.id || "")
+      if (!id.length || seen[id])
+        continue
+      seen[id] = true
+      out.push({
+        id: id,
+        label: String(p.label || id),
+        kind: "category",
+        keywords: String(p.keywords || "")
+      })
+    }
+    const kids = root.allChildren || []
+    for (let j = 0; j < kids.length; j++) {
+      const c = kids[j]
+      const key = String(c.key || "")
+      if (!key.length || seen[key])
+        continue
+      seen[key] = true
+      out.push({
+        id: key,
+        label: String(c.label || key),
+        kind: "leaf",
+        keywords: ""
+      })
+    }
+    return out
+  }
+
+  readonly property var jumpHits: {
+    const q = String(root.jumpQuery || "").trim().toLowerCase()
+    const catalog = root.jumpCatalog
+    if (!q.length)
+      return catalog.slice(0, 12)
+    const hits = []
+    for (let i = 0; i < catalog.length; i++) {
+      const row = catalog[i]
+      const hay = (row.label + " " + row.id + " " + (row.keywords || "")).toLowerCase()
+      if (hay.indexOf(q) >= 0)
+        hits.push(row)
+    }
+    return hits
+  }
+
+  function openJump() {
+    jumpQuery = ""
+    jumpIndex = 0
+    jumpOpen = true
+    Qt.callLater(() => {
+      if (jumpField)
+        jumpField.forceActiveFocus()
+    })
+  }
+
+  function closeJump() {
+    jumpOpen = false
+    jumpQuery = ""
+    jumpIndex = 0
+    root.forceActiveFocus()
+  }
+
+  function moveJump(delta) {
+    const n = jumpHits.length
+    if (n <= 0) {
+      jumpIndex = 0
+      return
+    }
+    jumpIndex = (jumpIndex + delta + n) % n
+  }
+
+  function activateJump() {
+    const hits = jumpHits
+    if (jumpIndex < 0 || jumpIndex >= hits.length)
+      return
+    const row = hits[jumpIndex]
+    if (!row || !row.id)
+      return
+    SettingsNav.go(row.id)
+    closeJump()
+  }
+
   // Key capture for Keyboard leaf is owned by KeyboardPane (avoids loading
   // Keybinds on every Settings cold start).
+
+  focus: true
+
+  Keys.onPressed: event => {
+    if (root.jumpOpen)
+      return
+    if (event.key === Qt.Key_Slash
+        && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))) {
+      root.openJump()
+      event.accepted = true
+    }
+  }
 
   Rectangle {
     anchors.fill: parent
@@ -434,7 +541,10 @@ Item {
             StickyPaneLoader {
               want: root.page === "users"
               source: "panes/UsersPane.qml"
-              onLoaded: item.active = Qt.binding(() => root.page === "users")
+              onLoaded: {
+                item.active = Qt.binding(() => root.page === "users")
+                item.requestGo.connect(id => SettingsNav.go(id))
+              }
             }
             StickyPaneLoader {
               want: root.page === "accounts"
@@ -449,12 +559,18 @@ Item {
             StickyPaneLoader {
               want: root.page === "privacy"
               source: "panes/PrivacyPane.qml"
-              onLoaded: item.active = Qt.binding(() => root.page === "privacy")
+              onLoaded: {
+                item.active = Qt.binding(() => root.page === "privacy")
+                item.requestGo.connect(id => SettingsNav.go(id))
+              }
             }
             StickyPaneLoader {
               want: root.page === "system"
               source: "panes/SystemPane.qml"
-              onLoaded: item.active = Qt.binding(() => root.page === "system")
+              onLoaded: {
+                item.active = Qt.binding(() => root.page === "system")
+                item.requestGo.connect(id => SettingsNav.go(id))
+              }
             }
           }
         }
@@ -469,6 +585,7 @@ Item {
 
   Component.onCompleted: {
     root.ensureSettingsPageValid()
+    root.forceActiveFocus()
   }
 
   Connections {
@@ -482,8 +599,164 @@ Item {
   }
 
   Keys.onEscapePressed: {
+    if (root.jumpOpen) {
+      root.closeJump()
+      return
+    }
     if (SettingsNav.back())
       return
     SettingsNav.close()
+  }
+
+  // `/` jump overlay — dim + typeahead over the window.
+  Rectangle {
+    anchors.fill: parent
+    visible: root.jumpOpen
+    z: 100
+    color: Qt.rgba(0, 0, 0, 0.35)
+
+    MouseArea {
+      anchors.fill: parent
+      onClicked: root.closeJump()
+    }
+
+    Rectangle {
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.top: parent.top
+      anchors.topMargin: 72
+      width: Math.min(420, parent.width - 48)
+      radius: Theme.radiusLg
+      color: Theme.bgElevated
+      border.width: 1
+      border.color: Theme.separator
+      implicitHeight: jumpCol.implicitHeight + Theme.spaceMd * 2
+
+      MouseArea {
+        anchors.fill: parent
+        // swallow clicks so backdrop doesn't close while interacting
+      }
+
+      ColumnLayout {
+        id: jumpCol
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: Theme.spaceMd
+        spacing: Theme.spaceSm
+
+        Text {
+          text: "Go to…"
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: 12
+        }
+
+        TextField {
+          id: jumpField
+          Layout.fillWidth: true
+          placeholderText: "Category or page"
+          text: root.jumpQuery
+          color: Theme.text
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSize
+          selectByMouse: true
+          onTextChanged: {
+            root.jumpQuery = text
+            root.jumpIndex = 0
+          }
+          Keys.onPressed: event => {
+            if (event.key === Qt.Key_Escape) {
+              root.closeJump()
+              event.accepted = true
+            } else if (event.key === Qt.Key_Down) {
+              root.moveJump(1)
+              event.accepted = true
+            } else if (event.key === Qt.Key_Up) {
+              root.moveJump(-1)
+              event.accepted = true
+            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+              root.activateJump()
+              event.accepted = true
+            }
+          }
+          background: Rectangle {
+            radius: Theme.radiusMd
+            color: Theme.bg
+            border.width: 1
+            border.color: jumpField.activeFocus ? Theme.accent : Theme.separator
+          }
+        }
+
+        Repeater {
+          model: root.jumpHits
+
+          Rectangle {
+            required property var modelData
+            required property int index
+            readonly property bool selected: index === root.jumpIndex
+            Layout.fillWidth: true
+            Layout.preferredHeight: 34
+            radius: Theme.radiusMd
+            color: selected ? Theme.accentSoft : (jumpRowMa.containsMouse ? Theme.bgHover : "transparent")
+
+            RowLayout {
+              anchors.fill: parent
+              anchors.leftMargin: Theme.spaceMd
+              anchors.rightMargin: Theme.spaceMd
+              spacing: Theme.spaceSm
+
+              Text {
+                Layout.fillWidth: true
+                text: modelData.label
+                color: selected ? Theme.accent : Theme.text
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSize
+                font.bold: selected
+                elide: Text.ElideRight
+              }
+
+              Text {
+                text: modelData.kind === "category" ? "Category" : "Page"
+                color: Theme.textMute
+                font.family: Theme.fontFamily
+                font.pixelSize: 11
+              }
+            }
+
+            MouseArea {
+              id: jumpRowMa
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                root.jumpIndex = index
+                root.activateJump()
+              }
+              onContainsMouseChanged: {
+                if (containsMouse)
+                  root.jumpIndex = index
+              }
+            }
+          }
+        }
+
+        Text {
+          visible: root.jumpHits.length === 0
+          Layout.fillWidth: true
+          text: "No matches"
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: 12
+        }
+
+        Text {
+          Layout.fillWidth: true
+          text: "↑↓ · Enter · Esc"
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: 11
+        }
+      }
+    }
   }
 }
