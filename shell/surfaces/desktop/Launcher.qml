@@ -67,6 +67,33 @@ Item {
       destructive: false
     },
     {
+      id: "keep-awake-cycle",
+      name: "Keep Awake",
+      subtitle: "Action · cycle duration (or toggle off at end)",
+      icon: "preferences-system-power-management",
+      keywords: "keep awake caffeine amphetamine inhibit idle sleep prevent",
+      destructive: false
+    },
+    {
+      id: "keep-awake-toggle",
+      name: "Toggle Keep Awake",
+      subtitle: "Action · until turned off / off",
+      icon: "preferences-system-power-management",
+      keywords: "keep awake toggle indefinite caffeine",
+      destructive: false
+    },
+    {
+      id: "localsend-open",
+      name: "Open LocalSend",
+      subtitle: "Action · share files on the LAN",
+      icon: "folder-publicshare",
+      keywords: "localsend airdrop share files nearby lan send",
+      destructive: false
+    },
+
+
+
+    {
       id: "clear-notifications",
       name: "Clear notifications",
       subtitle: "Action · dismiss all",
@@ -838,7 +865,16 @@ Item {
       ShellState.openControlCenter()
     else if (id === "dnd-toggle")
       Notifications.toggleDnd()
-    else if (id === "clear-notifications")
+    else if (id === "keep-awake-cycle")
+      KeepAwake.cycle()
+    else if (id === "keep-awake-toggle")
+      KeepAwake.toggle()
+    else if (id === "localsend-open") {
+      if (LocalSend.available)
+        LocalSend.open()
+      else
+        ShellState.openSettings("network-localsend")
+    } else if (id === "clear-notifications")
       Notifications.clearAll()
   }
 

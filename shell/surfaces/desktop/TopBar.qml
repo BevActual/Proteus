@@ -169,6 +169,16 @@ Item {
 
         Text {
           anchors.verticalCenter: parent.verticalCenter
+          visible: KeepAwake.active
+          text: KeepAwake.mode === "indefinite" ? "Awake" : ("Awake " + KeepAwake.remainingLabel)
+          color: Theme.accent
+          font.family: Theme.fontFamily
+          font.pixelSize: 10
+          font.weight: Font.DemiBold
+        }
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
           visible: root.batteryHint.length > 0
           text: root.batteryHint
           color: Theme.textDim

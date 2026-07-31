@@ -43,6 +43,7 @@ REQUIRED=(
   ShellState.qml
   LockLayoutZones.qml
   Notifications.qml
+  KeepAwake.qml
   Hud.qml
   Brightness.qml
   Packages.qml
