@@ -240,7 +240,7 @@ Singleton {
       id: "network",
       label: "Network",
       hubId: "network",
-      keywords: "wifi ethernet bluetooth vpn tailscale"
+      keywords: "wifi ethernet bluetooth vpn tailscale localsend"
     },
     {
       id: "network-machine",
@@ -265,6 +265,12 @@ Singleton {
       label: "Bluetooth",
       hubId: "network",
       keywords: "bt adapter"
+    },
+    {
+      id: "network-localsend",
+      label: "LocalSend",
+      hubId: "network",
+      keywords: "localsend airdrop share files lan nearby"
     },
     {
       id: "network-tailscale",

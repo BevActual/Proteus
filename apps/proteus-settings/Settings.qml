@@ -143,6 +143,10 @@ Item {
       label: "Bluetooth"
     },
     {
+      key: "network-localsend",
+      label: "LocalSend"
+    },
+    {
       key: "network-tailscale",
       label: "Tailscale"
     },

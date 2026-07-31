@@ -7,7 +7,7 @@ import "../kit"
 
 // Network category hub → leaf loaders (Sound/Desktop pattern).
 // Page ids: network · network-machine · network-devices · network-wifi ·
-// network-bluetooth · network-tailscale · network-vpn.
+// network-bluetooth · network-localsend · network-tailscale · network-vpn.
 // Pairing / password Wi‑Fi wizard / Headscale admin stay Out (SETTINGS-IA §2).
 ColumnLayout {
   id: root
@@ -85,6 +85,10 @@ ColumnLayout {
     {
       key: "network-bluetooth",
       label: "Bluetooth"
+    },
+    {
+      key: "network-localsend",
+      label: "LocalSend"
     },
     {
       key: "network-tailscale",
@@ -210,6 +214,15 @@ ColumnLayout {
     want: root.page === "network-bluetooth"
     source: "NetworkBluetoothLeaf.qml"
     onLoaded: item.host = root
+  }
+
+  StickyPaneLoader {
+    want: root.page === "network-localsend"
+    source: "NetworkLocalSendLeaf.qml"
+    onLoaded: {
+      item.host = root
+      LocalSend.refresh()
+    }
   }
 
   StickyPaneLoader {
