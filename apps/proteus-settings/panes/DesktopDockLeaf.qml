@@ -49,7 +49,7 @@ ColumnLayout {
       label: "Show dock"
       hint: Config.dockEnabled ? "Floating shelf at the bottom" : "Hidden"
       showSeparator: true
-      Switch {
+      ThemeSwitch {
         checked: Config.dockEnabled
         onToggled: Config.dockEnabled = checked
       }
@@ -59,7 +59,7 @@ ColumnLayout {
       label: "Automatically hide"
       hint: Config.dockEnabled ? "Reveal at the bottom edge" : "Requires Show dock"
       showSeparator: true
-      Switch {
+      ThemeSwitch {
         checked: Config.dockAutoHide
         enabled: Config.dockEnabled
         onToggled: Config.dockAutoHide = checked
@@ -86,7 +86,7 @@ ColumnLayout {
       label: "Icon size"
       hint: Config.dockEnabled ? (Config.dockIconSize + " px") : "Requires Show dock"
       showSeparator: false
-      Slider {
+      ThemeSlider {
         Layout.preferredWidth: 160
         enabled: Config.dockEnabled
         from: 36
@@ -105,7 +105,7 @@ ColumnLayout {
       label: "Automatically hide"
       hint: "Reveal at the top edge"
       showSeparator: true
-      Switch {
+      ThemeSwitch {
         checked: Config.barAutoHide
         onToggled: Config.barAutoHide = checked
       }
@@ -129,7 +129,7 @@ ColumnLayout {
       label: "Height"
       hint: Config.barHeight + " px"
       showSeparator: false
-      Slider {
+      ThemeSlider {
         Layout.preferredWidth: 160
         from: 28
         to: 48

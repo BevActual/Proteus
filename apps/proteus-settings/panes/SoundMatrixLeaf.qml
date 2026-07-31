@@ -1584,7 +1584,7 @@ ColumnLayout {
                 }
               }
 
-              Slider {
+              ThemeSlider {
                 id: masterSlider
                 property int slideVol: -1
                 Layout.fillWidth: true
@@ -1705,7 +1705,7 @@ ColumnLayout {
                   }
                 }
 
-                Slider {
+                ThemeSlider {
                   id: cellSlider
                   property int slideVol: -1
                   Layout.fillWidth: true

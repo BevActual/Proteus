@@ -18,7 +18,7 @@ ColumnLayout {
       label: "Border size"
       hint: Config.borderSize + " px"
       showSeparator: true
-      Slider {
+      ThemeSlider {
         Layout.preferredWidth: 160
         from: 0
         to: 8
@@ -32,7 +32,7 @@ ColumnLayout {
       label: "Window rounding"
       hint: Config.rounding + " px"
       showSeparator: false
-      Slider {
+      ThemeSlider {
         Layout.preferredWidth: 160
         from: 0
         to: 24

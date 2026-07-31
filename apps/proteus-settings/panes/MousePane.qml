@@ -23,7 +23,7 @@ ColumnLayout {
       label: "Sensitivity"
       hint: root.sensitivityLabel
       showSeparator: true
-      Slider {
+      ThemeSlider {
         Layout.preferredWidth: 150
         from: -1.0
         to: 1.0
@@ -37,7 +37,7 @@ ColumnLayout {
       label: "Flat acceleration"
       hint: Config.mouseAccelFlat ? "Constant pointer speed" : "Off — adaptive (default)"
       showSeparator: false
-      Switch {
+      ThemeSwitch {
         checked: Config.mouseAccelFlat
         onToggled: Config.mouseAccelFlat = checked
       }

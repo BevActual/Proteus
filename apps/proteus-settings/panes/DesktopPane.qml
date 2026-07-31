@@ -35,7 +35,7 @@ ColumnLayout {
     },
     {
       key: "desktop-launcher",
-      label: "Launcher"
+      label: "Beacon"
     }
   ]
 

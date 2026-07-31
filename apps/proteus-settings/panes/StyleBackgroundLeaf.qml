@@ -478,7 +478,7 @@ ColumnLayout {
           hint: Config.wallpaperDailyRefreshHours + " hour"
               + (Config.wallpaperDailyRefreshHours === 1 ? "" : "s")
           showSeparator: true
-          Slider {
+          ThemeSlider {
             Layout.preferredWidth: 120
             from: 1
             to: 24
@@ -776,7 +776,7 @@ ColumnLayout {
               ? (Background.activeAlbumLabel + " · " + Config.wallpaperSlideshowSecs + "s")
               : "Off"
           showSeparator: Config.wallpaperSlideshow
-          Switch {
+          ThemeSwitch {
             checked: Config.wallpaperSlideshow
             onToggled: Config.setWallpaperSlideshow(checked)
           }
@@ -791,7 +791,7 @@ ColumnLayout {
           visible: Config.wallpaperSlideshow
           label: "Interval"
           showSeparator: true
-          Slider {
+          ThemeSlider {
             Layout.preferredWidth: 120
             from: 5
             to: 300
@@ -804,7 +804,7 @@ ColumnLayout {
           visible: Config.wallpaperSlideshow
           label: "Shuffle"
           showSeparator: Config.wallpaperSlideshow && Background.wallpaperFolderEntries.length < 2
-          Switch {
+          ThemeSwitch {
             checked: Config.wallpaperShuffle
             onToggled: Config.setWallpaperShuffle(checked)
           }

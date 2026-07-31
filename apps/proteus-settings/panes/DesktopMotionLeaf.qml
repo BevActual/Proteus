@@ -18,7 +18,7 @@ ColumnLayout {
       label: "Window animations"
       hint: Config.animationsEnabled ? "On — Hypr window animations" : "Off — instant moves"
       showSeparator: false
-      Switch {
+      ThemeSwitch {
         checked: Config.animationsEnabled
         onToggled: Config.animationsEnabled = checked
       }

@@ -18,7 +18,7 @@ ColumnLayout {
       label: "Window gaps (inside)"
       hint: Config.gapsIn + " px · between tiled windows"
       showSeparator: true
-      Slider {
+      ThemeSlider {
         Layout.preferredWidth: 160
         from: 0
         to: 32
@@ -32,7 +32,7 @@ ColumnLayout {
       label: "Outer gaps"
       hint: Config.gapsOut + " px · to screen edges"
       showSeparator: false
-      Slider {
+      ThemeSlider {
         Layout.preferredWidth: 160
         from: 0
         to: 48

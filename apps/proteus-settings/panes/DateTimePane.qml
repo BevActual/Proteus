@@ -186,7 +186,7 @@ ColumnLayout {
       label: "Set automatically"
       hint: DateTime.canNtp ? DateTime.ntpStatus : "No time sync service available"
       showSeparator: true
-      Switch {
+      ThemeSwitch {
         checked: DateTime.ntp
         enabled: DateTime.canNtp && !DateTime.busy
         onToggled: DateTime.setNtp(checked)

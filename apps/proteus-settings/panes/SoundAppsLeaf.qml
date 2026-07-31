@@ -122,7 +122,7 @@ ColumnLayout {
           }
         }
 
-        Slider {
+        ThemeSlider {
           Layout.preferredWidth: 120
           from: 0
           to: 100
@@ -141,7 +141,7 @@ ColumnLayout {
           }
         }
 
-        Switch {
+        ThemeSwitch {
           visible: !!modelData.playing
           checked: !!modelData.muted
           onToggled: {

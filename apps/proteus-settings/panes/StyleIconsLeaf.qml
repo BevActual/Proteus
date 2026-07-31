@@ -154,7 +154,7 @@ ColumnLayout {
           }
           Text {
             Layout.fillWidth: true
-            text: "Dock · Spotlight · brand marks"
+            text: "Dock · Beacon · brand marks"
             color: Theme.textMute
             font.family: Theme.fontFamily
             font.pixelSize: 11
@@ -173,7 +173,7 @@ ColumnLayout {
       Layout.leftMargin: Theme.spaceMd
       Layout.rightMargin: Theme.spaceMd
       Layout.topMargin: Theme.spaceSm
-      text: "Style above restyles every dock and Spotlight icon. Switch replaces one app’s artwork; Keep/Remove apps from the dock or Spotlight."
+      text: "Style above restyles every dock and Beacon icon. Switch replaces one app’s artwork; Keep/Remove apps from the dock or Beacon."
       color: Theme.textMute
       font.family: Theme.fontFamily
       font.pixelSize: Theme.fontSizeSm

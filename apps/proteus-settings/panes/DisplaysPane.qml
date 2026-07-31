@@ -1035,7 +1035,7 @@ ColumnLayout {
           ? ((root.monitors[0] && root.monitors[0].allModes ? root.monitors[0].allModes.length : "?") + " reported by the display")
           : "Recommended only — hides odd virtual modes"
       showSeparator: false
-      Switch {
+      ThemeSwitch {
         checked: root.showAllModes
         onToggled: {
           root.showAllModes = checked

@@ -33,7 +33,7 @@ ColumnLayout {
           : (host.inputMuted ? (host.inputVolume + "% · muted")
               : (host.inputVolume + "% · live"))
       showSeparator: true
-      Slider {
+      ThemeSlider {
         Layout.preferredWidth: 160
         from: 0
         to: 100
@@ -53,7 +53,7 @@ ColumnLayout {
       label: "Mute input"
       hint: host && host.inputMuted ? "Muted" : "Live"
       showSeparator: true
-      Switch {
+      ThemeSwitch {
         checked: host ? host.inputMuted : false
         onToggled: {
           if (!host)

@@ -81,7 +81,7 @@ ColumnLayout {
       label: "UI size"
       hint: Config.fontSize + "px"
       showSeparator: false
-      Slider {
+      ThemeSlider {
         Layout.preferredWidth: 140
         from: 11
         to: 18

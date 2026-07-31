@@ -88,7 +88,7 @@ Rectangle {
         font.pixelSize: 12
         Layout.fillWidth: true
       }
-      Switch {
+      ThemeSwitch {
         checked: root.clockWidget ? root.clockWidget.showDate !== false : true
         onToggled: {
           if (root.clockWidget)
@@ -133,7 +133,7 @@ Rectangle {
         font.pixelSize: 12
         Layout.fillWidth: true
       }
-      Switch {
+      ThemeSwitch {
         checked: root.clockWidget ? root.clockWidget.clockDepth !== false : true
         onToggled: {
           if (root.clockWidget)

@@ -59,7 +59,7 @@ ColumnLayout {
             : (Math.round(Config.chromeOpacity * 100) + "% solid"
                 + (Config.chromeBlur ? " · glass" : ""))
         showSeparator: true
-        Slider {
+        ThemeSlider {
           Layout.preferredWidth: 160
           from: 0
           to: 1
@@ -76,7 +76,7 @@ ColumnLayout {
             ? "Frosted bar, dock, launcher"
             : "Off — plate only"
         showSeparator: false
-        Switch {
+        ThemeSwitch {
           checked: Config.chromeBlur
           onToggled: Config.setChromeBlur(checked)
         }

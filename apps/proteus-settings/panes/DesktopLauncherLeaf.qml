@@ -5,7 +5,7 @@ import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Leaf UI for DesktopPane — Launcher (Spotlight tags + recents).
+// Leaf UI for DesktopPane — Beacon (system search: tags + recents).
 ColumnLayout {
   id: root
   width: parent ? parent.width : implicitWidth
@@ -39,7 +39,7 @@ ColumnLayout {
   }
 
   SettingsGroup {
-    title: "Spotlight"
+    title: "Beacon"
 
     Text {
       Layout.fillWidth: true
@@ -47,7 +47,7 @@ ColumnLayout {
       Layout.rightMargin: Theme.spaceMd
       Layout.topMargin: Theme.spaceSm
       Layout.bottomMargin: Theme.spaceSm
-      text: "Modes: Ctrl+1 Apps · Ctrl+2 Files · Ctrl+3 Clipboard · Ctrl+4 Actions (allowlisted). Tag an app with Ctrl+T or # · filter with #tag. Math and unit conversions work in the search field."
+      text: "One search for apps, Settings, and actions. Modes: Tab cycles · Ctrl+1 Apps · Ctrl+2 Files · Ctrl+3 Clipboard · Ctrl+4 Actions (allowlisted). Tag an app with Ctrl+T or # · filter with #tag. Math and unit conversions work in the search field."
       color: Theme.textMute
       font.family: Theme.fontFamily
       font.pixelSize: Theme.fontSizeSm
@@ -103,7 +103,7 @@ ColumnLayout {
       Layout.leftMargin: Theme.spaceMd
       Layout.rightMargin: Theme.spaceMd
       Layout.topMargin: Theme.spaceSm
-      text: "Optional labels to group apps in Spotlight Apps mode."
+      text: "Optional labels to group apps in Beacon Apps mode."
       color: Theme.textMute
       font.family: Theme.fontFamily
       font.pixelSize: Theme.fontSizeSm
@@ -177,7 +177,7 @@ ColumnLayout {
       Layout.leftMargin: Theme.spaceMd
       Layout.rightMargin: Theme.spaceMd
       Layout.bottomMargin: Theme.spaceMd
-      text: "No tags yet — add one above, or create while tagging an app in Spotlight."
+      text: "No tags yet — add one above, or create while tagging an app in Beacon."
       color: Theme.textMute
       font.family: Theme.fontFamily
       font.pixelSize: Theme.fontSizeSm

@@ -21,7 +21,7 @@ ColumnLayout {
           : (host.muted ? (host.volume + "% · muted")
               : (host.volume + "% · audible"))
       showSeparator: true
-      Slider {
+      ThemeSlider {
         Layout.preferredWidth: 160
         from: 0
         to: 100
@@ -41,7 +41,7 @@ ColumnLayout {
       label: "Mute output"
       hint: host && host.muted ? "Silenced" : "Audible"
       showSeparator: true
-      Switch {
+      ThemeSwitch {
         checked: host ? host.muted : false
         onToggled: {
           if (!host)

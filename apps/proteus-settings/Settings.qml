@@ -60,7 +60,7 @@ Item {
     },
     {
       key: "desktop-launcher",
-      label: "Launcher"
+      label: "Beacon"
     }
   ]
 
@@ -177,6 +177,15 @@ Item {
     }
     return "Settings"
   }
+
+  // Maximized / tiled windows: cap + center the pane column instead of pinning
+  // a narrow card against the sidebar with a void to the right. The Mixer grid
+  // is a full-bleed surface and keeps the whole width.
+  readonly property int paneMaxW: 760
+  readonly property bool paneFullBleed: page === "sound-matrix"
+  readonly property real paneCenterPad: paneFullBleed
+      ? 0
+      : Math.max(0, (scroll.availableWidth - paneMaxW) / 2)
 
   // In-app `/` jump — type to go to a category or leaf without leaving the window.
   property bool jumpOpen: false
@@ -397,7 +406,8 @@ Item {
 
         RowLayout {
           Layout.fillWidth: true
-          Layout.leftMargin: Theme.spaceLg
+          // Back/title track the centered pane column; ✕ stays at the corner.
+          Layout.leftMargin: Theme.spaceLg + root.paneCenterPad
           Layout.rightMargin: Theme.spaceLg
           Layout.topMargin: Theme.spaceLg
           spacing: Theme.spaceMd
@@ -463,7 +473,10 @@ Item {
 
           // Sticky loaders: cold start only builds the active category (source: defers QML compile).
           ColumnLayout {
-            width: scroll.availableWidth
+            width: root.paneFullBleed
+                ? scroll.availableWidth
+                : Math.min(scroll.availableWidth, root.paneMaxW)
+            x: Math.round(root.paneCenterPad)
             // Mixer leaf scrolls itself — pin content to the viewport so the shell doesn’t.
             height: root.page === "sound-matrix" ? scroll.availableHeight : undefined
             spacing: 0

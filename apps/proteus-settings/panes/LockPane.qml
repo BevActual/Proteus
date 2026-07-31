@@ -301,7 +301,7 @@ ColumnLayout {
       SettingsFormRow {
         label: "Slideshow"
         hint: Config.lockWallpaperSlideshow ? (Config.lockWallpaperSlideshowSecs + "s") : "Off"
-        Switch {
+        ThemeSwitch {
           checked: Config.lockWallpaperSlideshow
           onToggled: {
             Config.setLockWallpaperSlideshow(checked)
@@ -313,7 +313,7 @@ ColumnLayout {
         visible: Config.lockWallpaperSlideshow
         label: "Interval"
         hint: Config.lockWallpaperSlideshowSecs + " seconds"
-        Slider {
+        ThemeSlider {
           from: 5
           to: 300
           stepSize: 5
@@ -325,7 +325,7 @@ ColumnLayout {
         visible: Config.lockWallpaperSlideshow
         label: "Shuffle"
         showSeparator: false
-        Switch {
+        ThemeSwitch {
           checked: Config.lockWallpaperShuffle
           onToggled: Config.setLockWallpaperShuffle(checked)
         }
@@ -498,7 +498,7 @@ ColumnLayout {
       label: "Dim"
       hint: Math.round(Background.lockDimClamped * 100) + "%"
       showSeparator: false
-      Slider {
+      ThemeSlider {
         from: 0
         to: 0.75
         stepSize: 0.05
@@ -530,7 +530,7 @@ ColumnLayout {
       label: "Lock on session start"
       hint: "Show lock screen after login / cold boot"
       showSeparator: false
-      Switch {
+      ThemeSwitch {
         checked: Config.lockOnSessionStart
         onToggled: Config.setLockOnSessionStart(checked)
       }
