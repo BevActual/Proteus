@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # power-logind-smoke — host static checks for proteus-logind + Settings Power wiring
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 fail=0
 ok() { echo "power-logind-smoke: OK $*"; }
 die() { echo "power-logind-smoke: FAIL $*" >&2; fail=1; }

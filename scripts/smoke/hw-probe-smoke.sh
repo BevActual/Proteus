@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Smoke: wave A probe emits valid JSON with required keys.
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PROBE="${ROOT}/services/proteus-hw-probe/proteus-hw-probe"
 
 out="$("${PROBE}" --compact)"

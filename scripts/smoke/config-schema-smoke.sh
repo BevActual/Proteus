@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # config-schema-smoke — Config FileView keys ↔ settings.minimal.json fixture
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONFIG_QML="${ROOT}/shell/shared/Config.qml"
 FIXTURE="${ROOT}/tests/fixtures/settings.minimal.json"
 SCHEMA_DOC="${ROOT}/docs/proteus/CONFIG-SCHEMA.md"

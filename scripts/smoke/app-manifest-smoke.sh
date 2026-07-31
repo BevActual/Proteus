@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # app-manifest-smoke — env/apps catalog + schema gate
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 APPS="${ROOT}/env/apps"
 fail=0
 

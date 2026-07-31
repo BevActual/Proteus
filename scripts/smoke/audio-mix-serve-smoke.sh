@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # audio-mix-serve-smoke — host checks for proteus-audio-mix + Audio.qml wiring
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 fail=0
 ok() { echo "audio-mix-serve-smoke: OK $*"; }
 die() { echo "audio-mix-serve-smoke: FAIL $*" >&2; fail=1; }

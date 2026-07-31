@@ -90,6 +90,35 @@ if kill -0 "$TP" 2>/dev/null; then
   fi
 fi
 
+# Beacon universal search — unlock first (fresh installs lock on session
+# start), seed "reboot", assert the Apps surface answers with an action row.
+if kill -0 "$SP" 2>/dev/null; then
+  qs -p /mnt/proteus/shell ipc call lock unlock >/dev/null 2>&1
+  qs -p /mnt/proteus/shell ipc call chrome beacon reboot >/dev/null 2>&1
+  sleep 1.0
+  beacon_state="$(qs -p /mnt/proteus/shell ipc call chrome beaconState 2>/dev/null || echo '')"
+  echo "BEACON_STATE=${beacon_state}"
+  if [[ "${beacon_state}" == *'"action"'* ]]; then
+    echo BEACON_OK
+  else
+    echo BEACON_FAIL
+  fi
+fi
+
+# Calendar popover — toggle open via IPC, assert chrome state reflects it,
+# then toggle it back closed.
+if kill -0 "$SP" 2>/dev/null; then
+  qs -p /mnt/proteus/shell ipc call chrome calendar >/dev/null 2>&1
+  sleep 0.5
+  cal_state="$(qs -p /mnt/proteus/shell ipc call chrome state 2>/dev/null || echo '')"
+  qs -p /mnt/proteus/shell ipc call chrome calendar >/dev/null 2>&1
+  if [[ "${cal_state}" == *'"calendar":true'* ]]; then
+    echo CALENDAR_OK
+  else
+    echo "CALENDAR_FAIL state=${cal_state}"
+  fi
+fi
+
 # Fatal patterns from prior load-order / alias bugs
 if rg -q 'Invalid alias reference|TypeError|Unable to find id' /tmp/proteus-shell.log /tmp/proteus-settings.log 2>/dev/null; then
   echo LOG_ERRORS
@@ -109,6 +138,8 @@ echo "${out}" | grep -q SHELL_OK || { echo "qs-guest-smoke: FAIL shell did not s
 echo "${out}" | grep -q SETTINGS_OK || { echo "qs-guest-smoke: FAIL Settings did not stay up" >&2; exit 1; }
 echo "${out}" | grep -q POLKIT_AGENT_OK || { echo "qs-guest-smoke: FAIL hyprpolkitagent not running (pkexec auth prompts will fail)" >&2; exit 1; }
 echo "${out}" | grep -q NAV_OK || { echo "qs-guest-smoke: FAIL Install… deep link (nav installSearch) did not land on packages-search" >&2; exit 1; }
+echo "${out}" | grep -q BEACON_OK || { echo "qs-guest-smoke: FAIL Beacon universal search (chrome beacon reboot) returned no action row" >&2; exit 1; }
+echo "${out}" | grep -q CALENDAR_OK || { echo "qs-guest-smoke: FAIL calendar popover (chrome calendar) did not open" >&2; exit 1; }
 if echo "${out}" | grep -q LOG_ERRORS; then
   echo "qs-guest-smoke: FAIL TypeError / Invalid alias in logs" >&2
   exit 1

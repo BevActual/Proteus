@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # accounts-smoke — static checks for proteus-accounts + Settings Online accounts
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 fail=0
 ok() { echo "accounts-smoke: OK $*"; }
 die() { echo "accounts-smoke: FAIL $*" >&2; fail=1; }
@@ -22,7 +22,7 @@ grep -q 'google\|Microsoft\|Nextcloud' "${ROOT}/apps/proteus-settings/panes/Acco
   || die "AccountsPane catalog labels"
 grep -q 'settings.json' "${ROOT}/apps/proteus-settings/panes/AccountsPane.qml" \
   || die "AccountsPane vault honesty"
-grep -q 'Accounts.qml' "${ROOT}/scripts/layout-smoke.sh" || die "layout-smoke requires Accounts.qml"
+grep -q 'Accounts.qml' "${ROOT}/scripts/smoke/layout-smoke.sh" || die "layout-smoke requires Accounts.qml"
 
 BIN=""
 if [[ -x "${PKG}/bin/proteus-accounts" ]]; then

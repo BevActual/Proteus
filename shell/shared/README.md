@@ -23,4 +23,4 @@ Do not put them in domain subdirs (`chrome/`, `config/`, …) or behind
 **Ownership:** Config owns FileView only — no `property alias` to Background.
 Background reads/writes `Config.*` fields. Details: [FACTS.md](../../docs/proteus/FACTS.md).
 
-Gate: `./scripts/layout-smoke.sh` · full suite: `./scripts/smoke-all.sh`
+Gate: `./scripts/smoke/layout-smoke.sh` · full suite: `./scripts/smoke-all.sh`

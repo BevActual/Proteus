@@ -11,5 +11,5 @@ User-scoped online-account seats for Proteus Settings.
 ```bash
 cargo build --release
 ./target/release/proteus-accounts smoke
-./scripts/accounts-smoke.sh
+./scripts/smoke/accounts-smoke.sh
 ```

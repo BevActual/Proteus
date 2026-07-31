@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Host static checks for Software reliability (Install|Installed mode + op narrative).
-# Complements scripts/software-guest-smoke.sh (guest CLI dogfood).
+# Complements scripts/smoke/software-guest-smoke.sh (guest CLI dogfood).
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 fail=0
 ok() { echo "OK  $*"; }
 bad() { echo "FAIL $*"; fail=1; }

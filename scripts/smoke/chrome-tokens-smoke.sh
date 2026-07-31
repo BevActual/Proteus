@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # chrome-tokens-smoke — env/chrome JSON + CSS gate
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CHROME="${ROOT}/env/chrome"
 fail=0
 
@@ -46,5 +46,18 @@ assert "#f2f2f7" in css and "#1c1c1e" in css
 print("validate ok")
 PY
 ok "json+css validate"
+
+# One control language: stock Controls Slider/Switch are banned outside the
+# shared Theme* wrappers (CHROME §9 — per-control inventing is a defect).
+stock="$(grep -rnE '^\s*(Slider|Switch) \{' "${ROOT}/shell" "${ROOT}/apps" \
+  --include='*.qml' \
+  | grep -v 'shared/ThemeSlider.qml\|shared/ThemeSwitch.qml' || true)"
+if [[ -n "${stock}" ]]; then
+  echo "${stock}" >&2
+  die "stock Slider/Switch found — use ThemeSlider / ThemeSwitch (shell/shared)"
+else
+  ok "no stock Slider/Switch outside Theme wrappers"
+fi
+
 [[ $fail -eq 0 ]] || { echo "chrome-tokens-smoke: FAILED" >&2; exit 1; }
 echo "chrome-tokens-smoke: OK"

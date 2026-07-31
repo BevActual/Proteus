@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # session-smoke — host gate for proteus-session contract (#1167)
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SESSION="${ROOT}/vm/guest/proteus-session"
 DESKTOP="${ROOT}/vm/guest/proteus.desktop"
 

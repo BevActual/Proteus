@@ -2,7 +2,7 @@
 # layout-smoke — flat shared spine + Settings kit structure gate
 # Fail closed if domain packages / qmldir return or required files go missing.
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SHARED="${ROOT}/shell/shared"
 SETTINGS="${ROOT}/apps/proteus-settings"
 fail=0

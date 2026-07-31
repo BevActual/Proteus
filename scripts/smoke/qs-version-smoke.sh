@@ -3,12 +3,12 @@
 #
 # Upgrade path (honest):
 #   1. On guest: pacman -Syu quickshell   # or full -Syu
-#   2. PROTEUS_GUEST=1 ./scripts/smoke-all.sh   # or ./scripts/qs-guest-smoke.sh
+#   2. PROTEUS_GUEST=1 ./scripts/smoke-all.sh   # or ./scripts/smoke/qs-guest-smoke.sh
 #   3. Confirm "quickshell version:" line + SHELL_OK / SETTINGS_OK
 # Do NOT add quickshell to pacman IgnorePkg on rolling Arch (COMPOSITOR Out).
 # ISO pin is Later.
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 echo "qs-version-smoke: pin policy = record + smoke (not IgnorePkg); ISO pin Later"
 
@@ -20,7 +20,7 @@ else
 fi
 
 # Contract: guest smoke must keep recording version
-GUEST_SMOKE="${ROOT}/scripts/qs-guest-smoke.sh"
+GUEST_SMOKE="${ROOT}/scripts/smoke/qs-guest-smoke.sh"
 [[ -f "${GUEST_SMOKE}" ]] || { echo "qs-version-smoke: FAIL missing qs-guest-smoke.sh" >&2; exit 1; }
 grep -qE 'quickshell --version|quickshell -v' "${GUEST_SMOKE}" \
   || { echo "qs-version-smoke: FAIL qs-guest-smoke must record quickshell version" >&2; exit 1; }

@@ -6,7 +6,7 @@ capabilities JSON.
 ```bash
 ./proteus-hw-probe
 ./proteus-hw-probe --compact
-../../scripts/hw-probe-smoke.sh
+../../scripts/smoke/hw-probe-smoke.sh
 ```
 
 Spec: [../../docs/proteus/HARDWARE.md](../../docs/proteus/HARDWARE.md).

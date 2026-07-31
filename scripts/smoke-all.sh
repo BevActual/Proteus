@@ -6,7 +6,7 @@ cd "$ROOT"
 
 run() {
   echo "── $1 ──"
-  "${ROOT}/scripts/$1"
+  "${ROOT}/scripts/smoke/$1"
 }
 
 run layout-smoke.sh
