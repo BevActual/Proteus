@@ -17,6 +17,7 @@ need() {
   fi
 }
 
+# --- Repos / AUR / Flathub: mode-safe loads + abort ---
 for pane in PackagesSearchPane PackagesAurPane PackagesFlatpakPane; do
   f="$ROOT/apps/proteus-settings/panes/${pane}.qml"
   need "$f" 'searchGen' "${pane} searchGen"
@@ -24,14 +25,46 @@ for pane in PackagesSearchPane PackagesAurPane PackagesFlatpakPane; do
   need "$f" 'installQuery' "${pane} installQuery"
   need "$f" 'installedQuery' "${pane} installedQuery"
   need "$f" 'mode !== "install"' "${pane} install-mode guard"
+  need "$f" 'Packages.saveLeafUi' "${pane} saveLeafUi"
+  need "$f" 'Packages.loadLeafUi' "${pane} loadLeafUi"
 done
 
+# --- Shared Packages singleton: op narrative + leaf UI memory + helpers ---
 need "$ROOT/shell/shared/Packages.qml" 'packageOpCommand' "Packages.packageOpCommand"
 need "$ROOT/shell/shared/Packages.qml" 'packageOpLastError' "Packages.packageOpLastError"
 need "$ROOT/shell/shared/Packages.qml" 'function formatOpCommand' "Packages.formatOpCommand"
+need "$ROOT/shell/shared/Packages.qml" 'function saveLeafUi' "Packages.saveLeafUi"
+need "$ROOT/shell/shared/Packages.qml" 'function loadLeafUi' "Packages.loadLeafUi"
+need "$ROOT/shell/shared/Packages.qml" 'function refreshHelpers' "Packages.refreshHelpers"
 need "$ROOT/apps/proteus-settings/kit/PackagesOpProgress.qml" 'packageOpCommand' "OpProgress shows command"
 need "$ROOT/apps/proteus-settings/kit/PackagesOpProgress.qml" 'packageOpLastError' "OpProgress shows last error"
 need "$ROOT/apps/proteus-settings/kit/PackagesOpProgress.qml" 'showIdleStatus: true' "OpProgress keeps idle result"
+
+# --- Hub: helper honesty ---
+need "$ROOT/apps/proteus-settings/panes/PackagesPane.qml" 'Packages.refreshHelpers' "Hub refreshHelpers"
+need "$ROOT/apps/proteus-settings/panes/PackagesPane.qml" 'Needs yay/paru' "Hub AUR helper honesty"
+need "$ROOT/apps/proteus-settings/panes/PackagesPane.qml" 'Needs flatpak' "Hub Flatpak helper honesty"
+
+# --- Updates: list + Apply narrative ---
+UPD="$ROOT/apps/proteus-settings/panes/PackagesUpdatesPane.qml"
+need "$UPD" 'PackagesOpProgress' "Updates OpProgress"
+need "$UPD" 'onCancelled' "Updates Cancel"
+need "$UPD" 'pacman -Qu' "Updates -Qu fact"
+need "$UPD" 'packageOpBusy' "Updates applying bind"
+
+# --- Orphans: empty honesty + remove narrative ---
+ORPH="$ROOT/apps/proteus-settings/panes/PackagesOrphansPane.qml"
+need "$ORPH" 'PackagesOpProgress' "Orphans OpProgress"
+need "$ORPH" 'No orphan packages' "Orphans empty honesty"
+need "$ORPH" 'onCancelled' "Orphans Cancel"
+need "$ORPH" '"-Qdt"' "Orphans -Qdt probe"
+
+# --- AppImages: user library + no polkit ---
+APP="$ROOT/apps/proteus-settings/panes/PackagesAppImagesPane.qml"
+need "$APP" 'PackagesOpProgress' "AppImages OpProgress"
+need "$APP" 'proteus/appimages' "AppImages library path"
+need "$APP" 'No authentication' "AppImages user-only honesty"
+need "$APP" 'onCancelled' "AppImages Cancel"
 
 [[ "$fail" -eq 0 ]] || { echo "software-reliability-smoke: FAILED" >&2; exit 1; }
 echo "software-reliability-smoke: OK"
