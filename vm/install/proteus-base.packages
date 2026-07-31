@@ -11,6 +11,8 @@ xdg-desktop-portal-gtk
 xdg-utils
 seatd
 polkit
+# GUI auth prompts for pkexec (proteus-pkg / proteus-logind / timedatectl …)
+hyprpolkitagent
 greetd
 greetd-tuigreet
 hypridle

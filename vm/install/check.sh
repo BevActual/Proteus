@@ -83,6 +83,8 @@ if [[ -f "${HYPR_SEED}" ]]; then
     && ok "hypr seed proteus-bg exec-once" || bad "hypr seed missing proteus-bg exec-once"
   grep -q 'cliphist store' "${HYPR_SEED}" \
     && ok "hypr seed cliphist exec-once" || bad "hypr seed missing cliphist"
+  grep -q 'hyprpolkitagent' "${HYPR_SEED}" \
+    && ok "hypr seed polkit agent exec-once" || bad "hypr seed missing hyprpolkitagent"
   if grep -qiE '^[[:space:]]*exec-once[[:space:]]*=.*(ghostty|kitty|alacritty|foot|proteus-terminal|wezterm)' "${HYPR_SEED}"; then
     bad "hypr seed must not exec-once a terminal"
   else

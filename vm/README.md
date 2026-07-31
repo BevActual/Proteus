@@ -90,7 +90,7 @@ On the `hyprland-base` snapshot (and current disk after setup), the guest has a 
 - **Shell:** `quickshell` (autostarts `quickshell -p /mnt/proteus/shell`)
 - **Terminal:** `ghostty`
 - **GPU:** `mesa`, `vulkan-virtio` (virtio-vga)
-- **Session:** `seatd` (enabled), `polkit`, PipeWire (`pipewire`, `pipewire-pulse`, `wireplumber`)
+- **Session:** `seatd` (enabled), `polkit` + `hyprpolkitagent` (GUI auth for `pkexec` helpers), PipeWire (`pipewire`, `pipewire-pulse`, `wireplumber`)
 - **Qt:** `qt6-base`, `qt6-declarative`, `qt6-wayland`, `qt6-svg`
 
 Guest config lives under `~/.config/hypr/hyprland.conf` (andrew). A convenience symlink is at `~/.config/quickshell/proteus` → `/mnt/proteus/shell`.

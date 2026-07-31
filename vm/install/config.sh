@@ -68,6 +68,16 @@ if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
     echo "exec-once = hypridle"
   } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
 fi
+# Polkit auth agent — pkexec (proteus-pkg / proteus-logind / timedatectl) needs a GUI prompt
+if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
+  && ! grep -q 'hyprpolkitagent' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
+  proteus_log "appending hyprpolkitagent exec-once"
+  {
+    echo ""
+    echo "# Polkit auth agent — GUI prompts for pkexec (proteus-pkg / proteus-logind)"
+    echo "exec-once = /usr/lib/hyprpolkitagent/hyprpolkitagent"
+  } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
+fi
 # Interim cliphist watchers
 if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
   && ! grep -q 'cliphist store' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
