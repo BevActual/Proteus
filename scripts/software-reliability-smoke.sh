@@ -44,6 +44,8 @@ need "$ROOT/apps/proteus-settings/kit/PackagesOpProgress.qml" 'showIdleStatus: t
 need "$ROOT/apps/proteus-settings/panes/PackagesPane.qml" 'Packages.refreshHelpers' "Hub refreshHelpers"
 need "$ROOT/apps/proteus-settings/panes/PackagesPane.qml" 'Needs yay/paru' "Hub AUR helper honesty"
 need "$ROOT/apps/proteus-settings/panes/PackagesPane.qml" 'Needs flatpak' "Hub Flatpak helper honesty"
+need "$ROOT/apps/proteus-settings/panes/PackagesPane.qml" 'User library' "Hub AppImages honesty"
+need "$ROOT/apps/proteus-settings/panes/PackagesPane.qml" 'Unused dependencies' "Hub Orphans honesty"
 
 # --- Updates: list + Apply narrative ---
 UPD="$ROOT/apps/proteus-settings/panes/PackagesUpdatesPane.qml"
@@ -51,6 +53,8 @@ need "$UPD" 'PackagesOpProgress' "Updates OpProgress"
 need "$UPD" 'onCancelled' "Updates Cancel"
 need "$UPD" 'pacman -Qu' "Updates -Qu fact"
 need "$UPD" 'packageOpBusy' "Updates applying bind"
+need "$UPD" 'onExited' "Updates -Qu exit honesty"
+need "$UPD" 'System is up to date' "Updates empty honesty"
 
 # --- Orphans: empty honesty + remove narrative ---
 ORPH="$ROOT/apps/proteus-settings/panes/PackagesOrphansPane.qml"
@@ -58,6 +62,7 @@ need "$ORPH" 'PackagesOpProgress' "Orphans OpProgress"
 need "$ORPH" 'No orphan packages' "Orphans empty honesty"
 need "$ORPH" 'onCancelled' "Orphans Cancel"
 need "$ORPH" '"-Qdt"' "Orphans -Qdt probe"
+need "$ORPH" 'command + Cancel' "Orphans Cancel fact"
 
 # --- AppImages: user library + no polkit ---
 APP="$ROOT/apps/proteus-settings/panes/PackagesAppImagesPane.qml"

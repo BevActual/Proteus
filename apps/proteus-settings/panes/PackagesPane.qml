@@ -50,11 +50,13 @@ ColumnLayout {
       },
       {
         key: "packages-appimages",
-        label: "AppImages"
+        label: "AppImages",
+        hint: "User library · no polkit"
       },
       {
         key: "packages-orphans",
-        label: "Orphans"
+        label: "Orphans",
+        hint: "Unused dependencies"
       }
     ]
   }

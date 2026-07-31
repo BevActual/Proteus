@@ -236,18 +236,18 @@ ColumnLayout {
   }
 
   PackagesActionBar {
-    visible: !root.confirming
+    visible: !root.confirming && root.upgrades.length > 0
     selectedCount: root.selectedCount
     totalCount: root.upgrades.length
     applying: root.applying
     danger: false
-    idleLabel: root.upgrades.length === 0 ? "Full upgrade…" : "Select packages to upgrade"
+    idleLabel: "Select packages to upgrade"
     activePrefix: root.allSelected ? "Upgrade all" : "Upgrade"
     onSelectAllClicked: root.setAllSelected(!root.allSelected)
     onActionClicked: root.proposeUpgrade()
   }
 
-  // Allow full upgrade when list empty (ActionBar needs selectedCount>0 otherwise)
+  // Empty list: full -Syu still available (ActionBar needs selectedCount > 0).
   Rectangle {
     Layout.fillWidth: true
     Layout.maximumWidth: 520
@@ -256,7 +256,7 @@ ColumnLayout {
     color: Theme.accentSoft
     border.width: 1
     border.color: Theme.accent
-    visible: !root.confirming && root.upgrades.length === 0
+    visible: !root.confirming && root.upgrades.length === 0 && !root.busy
     opacity: root.applying ? 0.5 : 1
     Text {
       anchors.centerIn: parent
@@ -276,7 +276,7 @@ ColumnLayout {
 
   Text {
     Layout.fillWidth: true
-    text: "Fact: pacman -Qu · Apply: pkexec proteus-pkg sync|upgrade|upgrade-packages (live progress + Cancel)"
+    text: "Fact: pacman -Qu · Apply: pkexec proteus-pkg sync|upgrade|upgrade-packages (live $ command + Cancel)"
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11
@@ -328,6 +328,16 @@ ColumnLayout {
         if (text.trim().length && root.upgrades.length === 0) {
           root.busy = false
           root.status = text.trim().split("\n")[0]
+        }
+      }
+    }
+    onExited: (exitCode, exitStatus) => {
+      // pacman -Qu exits 1 when the system is up to date (empty stdout).
+      if (root.busy && root.upgrades.length === 0) {
+        root.busy = false
+        if (!root.status.length || root.status.indexOf("Checking") === 0) {
+          root.status = "System is up to date (local DB)."
+          Packages.notePackageUpgrades(0)
         }
       }
     }

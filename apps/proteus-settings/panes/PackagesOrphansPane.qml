@@ -69,42 +69,59 @@ ColumnLayout {
     visible: root.orphans.length === 0 && !root.confirming && !root.applying
   }
 
-  Repeater {
-    model: root.orphans
+  Flickable {
+    id: orphanFlick
+    Layout.fillWidth: true
+    Layout.maximumWidth: 520
+    Layout.preferredHeight: Math.min(360, Math.max(0, orphanCol.implicitHeight))
+    contentWidth: width
+    contentHeight: orphanCol.implicitHeight
+    clip: true
+    boundsBehavior: Flickable.StopAtBounds
+    visible: !root.confirming && root.orphans.length > 0
+    interactive: contentHeight > height
 
-    Rectangle {
-      required property var modelData
-      Layout.fillWidth: true
-      Layout.maximumWidth: 520
-      Layout.preferredHeight: rowCol.implicitHeight + 20
-      radius: Theme.radiusMd
-      color: Theme.bgPanel
-      border.width: 1
-      border.color: Theme.border
-      visible: !root.confirming
+    ColumnLayout {
+      id: orphanCol
+      width: orphanFlick.width
+      spacing: 8
 
-      ColumnLayout {
-        id: rowCol
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.margins: Theme.spaceMd
-        spacing: 2
+      Repeater {
+        model: root.orphans
 
-        Text {
-          text: modelData.name
-          color: Theme.text
-          font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSize
-          font.bold: true
-        }
-        Text {
+        Rectangle {
+          required property var modelData
           Layout.fillWidth: true
-          text: modelData.version
-          color: Theme.textDim
-          font.family: Theme.fontFamily
-          font.pixelSize: 11
-          wrapMode: Text.WrapAnywhere
+          Layout.preferredHeight: rowCol.implicitHeight + 20
+          radius: Theme.radiusMd
+          color: Theme.bgPanel
+          border.width: 1
+          border.color: Theme.border
+
+          ColumnLayout {
+            id: rowCol
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: Theme.spaceMd
+            spacing: 2
+
+            Text {
+              text: modelData.name
+              color: Theme.text
+              font.family: Theme.fontFamily
+              font.pixelSize: Theme.fontSize
+              font.bold: true
+            }
+            Text {
+              Layout.fillWidth: true
+              text: modelData.version
+              color: Theme.textDim
+              font.family: Theme.fontFamily
+              font.pixelSize: 11
+              wrapMode: Text.WrapAnywhere
+            }
+          }
         }
       }
     }
@@ -168,7 +185,7 @@ ColumnLayout {
 
   Text {
     Layout.fillWidth: true
-    text: "Fact: pacman -Qdt · Apply: pkexec proteus-pkg orphans"
+    text: "Fact: pacman -Qdt · Apply: pkexec proteus-pkg orphans (live $ command + Cancel)"
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11

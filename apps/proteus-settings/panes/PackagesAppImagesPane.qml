@@ -16,10 +16,17 @@ ColumnLayout {
   property string pendingId: ""
   property string pendingDetail: ""
   property bool pendingRemove: false
+  property string status: ""
 
   readonly property bool confirming: pendingRemove
   readonly property bool applying: Packages.packageOpBusy
   readonly property var images: Packages.appImages
+  readonly property string emptyHint: {
+    const s = String(Packages.appImageStatus || "").trim()
+    if (s.length)
+      return s
+    return "No AppImages yet — Add AppImage… to install into your user library."
+  }
 
   function clearPending() {
     pendingId = ""
@@ -125,12 +132,13 @@ ColumnLayout {
 
   Text {
     Layout.fillWidth: true
-    text: Packages.appImageStatus
+    text: root.status.length ? root.status : root.emptyHint
     color: Theme.textDim
     font.family: Theme.fontFamily
     font.pixelSize: 12
     wrapMode: Text.WordWrap
-    visible: root.images.length === 0 && !root.confirming && !root.applying
+    visible: (root.images.length === 0 || root.status.length > 0)
+        && !root.confirming && !root.applying
   }
 
   Repeater {
@@ -193,6 +201,7 @@ ColumnLayout {
             }
             MouseArea {
               anchors.fill: parent
+              enabled: !root.applying
               cursorShape: Qt.PointingHandCursor
               onClicked: Packages.openAppImage(modelData.id)
             }
@@ -205,6 +214,7 @@ ColumnLayout {
             color: Theme.bgElevated
             border.width: 1
             border.color: Theme.border
+            opacity: root.applying ? 0.6 : 1
             Text {
               id: remLab
               anchors.centerIn: parent
@@ -231,7 +241,7 @@ ColumnLayout {
 
   Text {
     Layout.fillWidth: true
-    text: "Fact: ~/.local/share/proteus/appimages · desktop: proteus-appimage-*.desktop"
+    text: "Fact: ~/.local/share/proteus/appimages · desktop: proteus-appimage-*.desktop · add/remove live $ command + Cancel (no polkit)"
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11
@@ -243,15 +253,18 @@ ColumnLayout {
     function onPackageOpFinished(ok, message) {
       if (!root.active)
         return
+      root.status = message || ""
       if (ok)
         Packages.refreshAppImages()
     }
   }
 
   onActiveChanged: {
-    if (active)
+    if (active) {
+      root.status = ""
       Packages.refreshAppImages()
-    else
+    } else {
       clearPending()
+    }
   }
 }
