@@ -1,5 +1,4 @@
 import Quickshell
-import Quickshell.Services.UPower
 import QtQuick
 import QtQuick.Window
 import "../../shared"
@@ -13,15 +12,9 @@ Item {
   readonly property int controlH: Math.max(20, Theme.barHeight - 10)
   readonly property int sidePad: 14
 
-  readonly property string batteryHint: {
-    const d = UPower.displayDevice
-    if (!d)
-      return ""
-    const p = Number(d.percentage)
-    if (isNaN(p))
-      return ""
-    return Math.round(Math.max(0, Math.min(1, p)) * 100) + "%"
-  }
+  // Only a real battery earns a percent in the bar — a VM / desktop UPower
+  // display device reports 0% and would read as a dying laptop.
+  readonly property string batteryHint: Power.hasBattery ? (Power.percent + "%") : ""
 
   // Glass plate
   Rectangle {
@@ -65,7 +58,7 @@ Item {
     anchors.leftMargin: root.sidePad
     anchors.rightMargin: root.sidePad
 
-    // Left: mark · app name · workspaces (Mac puts app identity on the left)
+    // Left: app name · workspaces (Beacon lives in the dock + Super shortcut)
     Row {
       id: leftRow
       anchors.left: parent.left
@@ -73,38 +66,10 @@ Item {
       spacing: 10
       z: 2
 
-      Rectangle {
-        width: root.controlH
-        height: root.controlH
-        radius: width / 2
-        color: launchMa.containsMouse || ShellState.launcherOpen
-            ? Theme.chromeAccentSoft
-            : "transparent"
-
-        Text {
-          anchors.centerIn: parent
-          text: "P"
-          color: ShellState.launcherOpen || launchMa.containsMouse ? Theme.accent : Theme.text
-          font.family: Theme.fontFamily
-          font.pixelSize: 12
-          font.weight: Font.DemiBold
-          style: root.barTextStyle
-          styleColor: root.barTextStyleColor
-        }
-
-        MouseArea {
-          id: launchMa
-          anchors.fill: parent
-          hoverEnabled: true
-          cursorShape: Qt.PointingHandCursor
-          onClicked: ShellState.toggleLauncher()
-        }
-      }
-
       Text {
         anchors.verticalCenter: parent.verticalCenter
         width: Math.min(implicitWidth, Math.max(80, root.width * 0.28))
-        text: ActiveWindow.text
+        text: ActiveWindow.barText
         color: Theme.text
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSize
@@ -118,6 +83,56 @@ Item {
 
       Workspaces {
         anchors.verticalCenter: parent.verticalCenter
+      }
+    }
+
+    // Center: date · time · weather — click opens the calendar / today popover
+    Rectangle {
+      id: centerCluster
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.verticalCenter: parent.verticalCenter
+      height: root.controlH
+      width: centerRow.implicitWidth + 18
+      radius: height / 2
+      z: 3
+      color: centerMa.containsMouse || ShellState.calendarOpen
+          ? (Theme.light ? Qt.rgba(0, 0, 0, 0.06) : Qt.rgba(1, 1, 1, 0.1))
+          : "transparent"
+
+      Row {
+        id: centerRow
+        anchors.centerIn: parent
+        spacing: 8
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          text: Time.text
+          color: Theme.text
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSizeSm
+          font.weight: Font.Medium
+          style: root.barTextStyle
+          styleColor: root.barTextStyleColor
+        }
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          visible: Weather.ready
+          text: "·  " + Weather.temperatureText
+          color: Theme.textDim
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSizeSm
+          style: root.barTextStyle
+          styleColor: root.barTextStyleColor
+        }
+      }
+
+      MouseArea {
+        id: centerMa
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: ShellState.toggleCalendar()
       }
     }
 
@@ -188,15 +203,70 @@ Item {
           styleColor: root.barTextStyleColor
         }
 
-        Text {
+        // Control Center glyph — three mini sliders with staggered knobs.
+        // Same language as ThemeSlider (dim track · bright round knob) and the
+        // CC panel itself; accent only while open (accent = state, not decor).
+        Item {
+          id: ccGlyph
           anchors.verticalCenter: parent.verticalCenter
-          text: Time.text
-          color: Theme.text
-          font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSizeSm
-          font.weight: Font.Medium
-          style: root.barTextStyle
-          styleColor: root.barTextStyleColor
+          width: 16
+          height: 13
+
+          readonly property color glyphColor: ShellState.controlCenterOpen
+              ? Theme.accent
+              : (Theme.light ? Qt.rgba(0.11, 0.11, 0.12, 0.88) : Qt.rgba(0.96, 0.96, 0.97, 0.92))
+
+          Behavior on opacity {
+            NumberAnimation {
+              duration: 120
+            }
+          }
+
+          Repeater {
+            // knobX as a fraction of the track — staggered like live sliders;
+            // `ko` is where each knob settles while the CC is open
+            model: [
+              { cy: 2, k: 0.68, ko: 0.3 },
+              { cy: 6.5, k: 0.25, ko: 0.75 },
+              { cy: 11, k: 0.52, ko: 0.4 }
+            ]
+
+            Item {
+              required property var modelData
+              anchors.left: ccGlyph.left
+              anchors.right: ccGlyph.right
+              y: modelData.cy - 3
+              height: 6
+
+              // Track
+              Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                width: parent.width
+                height: 1.6
+                radius: 0.8
+                color: ccGlyph.glyphColor
+                opacity: 0.45
+              }
+
+              // Knob — slides to a new position while the CC is open
+              Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                x: (ccGlyph.width - width)
+                    * (ShellState.controlCenterOpen ? modelData.ko : modelData.k)
+                width: 5.5
+                height: 5.5
+                radius: width / 2
+                color: ccGlyph.glyphColor
+
+                Behavior on x {
+                  NumberAnimation {
+                    duration: 160
+                    easing.type: Easing.OutCubic
+                  }
+                }
+              }
+            }
+          }
         }
       }
 

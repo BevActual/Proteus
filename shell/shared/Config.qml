@@ -92,7 +92,7 @@ Singleton {
   property alias fontSizeSm: adapter.fontSizeSm
   // User-added fonts: "Family Name=/abs/path.ttf;…"
   property alias userFonts: adapter.userFonts
-  // Comma-separated .desktop ids, most recent first (Spotlight / launcher)
+  // Comma-separated .desktop ids, most recent first (Beacon)
   property alias launcherRecents: adapter.launcherRecents
   property alias launcherFileRecents: adapter.launcherFileRecents
   // User-defined tag names, comma-separated (normalized slugs)
@@ -1232,7 +1232,7 @@ Singleton {
       property string launcherFileRecents: ""
       property string launcherTagCatalog: ""
       property string launcherAppTags: ""
-      // Dock pins between Spotlight and Settings ("" = built-in defaults)
+      // Dock pins between Beacon and Settings ("" = built-in defaults)
       property string dockPins: ""
       // default | dark | clear | tinted — squircle plate (macOS Icon & widget style)
       property string iconPlateMode: "default"

@@ -2,7 +2,7 @@
 doc: chrome
 role: reference
 audience: UI, contributors, coding agents
-last_updated: "2026-07-30"
+last_updated: "2026-07-31"
 doc_status: active
 scope: Proteus chrome language — principles, tokens, Settings patterns (company reference)
 related:
@@ -60,7 +60,7 @@ Token export lives under `env/chrome/` (this serial door 5/5).
 5. **Legibility floor.** Prefs (opacity, accent, font) must not produce
    unreadable UI. Transparency may clear the plate; text contrast stays.
 6. **Dual-path chrome.** Settings stays mouse-legible for ordinary jobs;
-   frequent actions also have a chord and/or Spotlight / Actions / in-app `/`
+   frequent actions also have a chord and/or Beacon / Actions / in-app `/`
    jump / hub ↑↓ Enter / Control Center path. Not a TUI-only control menu; not
    depth-hiding “simplicity.”
 7. **Host posture reuses Settings.** Do not invent a second control center for
@@ -118,7 +118,7 @@ From `Theme.qml` (`Config.chromeMode` → `light`).
 Alpha tracks `Config.chromeOpacity` (`chromeAlpha` / `glassAlpha` / `menuBarAlpha`).
 Blur flag: `Config.chromeBlur`. Liquid Glass v1: menu bar is wallpaper-first
 (clearer curve); dock is continuous frost (richer floor + curve edge glow, never
-a straight specular strip); Spotlight Apps empty home is Recents hierarchy or
+a straight specular strip); Beacon Apps empty home is Recents hierarchy or
 honest empty; Files empty home is Recents + Places (or honest empty), search
 groups Folders then Files. Status HUD (volume/brightness) uses the same elevated plate as
 notification toasts — top-right chip; suppressed while Control Center is open.
@@ -134,7 +134,7 @@ notification toasts — top-right chip; suppressed while Control Center is open.
 | `scrimFill` | `bg` × (0.28 light / 0.45 dark) × max(alpha, 0.4) | Dim overlays |
 | `glassAlpha` | linear opacity; richer frost floor when blur on | Dock frost amount |
 | `menuBarAlpha` | clearer curve than dock (wallpaper-first) | Menu bar frost |
-| `menuBarFill` / `dockPlateFill` / `menuPlateFill` | frosted plate × bar/dock alpha | Menu bar · Dock · menus |
+| `menuBarFill` / `dockPlateFill` / `menuPlateFill` | frosted plate × bar/dock alpha | Menu bar · Dock · menus · Control Center panel |
 | `elevatedFill` / `hudFill` | elevated sheet (= toast / Status HUD) | Toasts · Status HUD chip |
 | `dockEdgeGlow` | soft curve-following rim (not a straight strip) | Dock continuous glass edge |
 | `chromeHairline` | black/white @ ~8–12% (hidden when clear) | Hairlines on glass chrome |
@@ -197,12 +197,20 @@ shell surfaces that rhyme):
 | **SettingsHubList** | › rows into sub-settings |
 | **SettingsSegmented** | Exclusive segment pick |
 | **SettingsCombo** | Trailing popup picker (Theme chip + elevated menu; not Fusion ComboBox) |
+| **ThemeSlider / ThemeSwitch** | Shared accent controls (`shell/shared/`) — drop-in Controls Slider/Switch: accent fill/track, white knob/thumb, hairline groove. Stock Controls Slider/Switch are banned outside these wrappers (`chrome-tokens-smoke` gate) |
 | **Fact line** | Mute one-liner naming the on-disk / CLI fact |
 
 Shell chrome (TopBar, Dock, Control Center, lock Customize, desktop Customize)
 should reuse the same space/radius/text/accent rules even when not importing
 those QML types. Desktop Customize bar / empty hint / applet size− use
-`elevatedFill` · `chromeBorder` · `textMute` · `danger` — not hardcoded rgba.
+`elevatedFill` · `chromeBorder` · `textMute` · `danger` — not hardcoded rgba
+(dock − badge and drag Remove label are `danger` on the tooltip plate).
+Interactive plates share one hover language: rows/menus use `bgHover`, chrome
+tiles use `chromeHover` — hover is brightness, never accent. Status facts stay
+honest: battery % appears only with a real battery (`Power.hasBattery`), never
+a VM/desktop 0%. Settings runs as a floating 820×560 sheet (hypr windowrule);
+wide/tiled windows cap + center the pane column instead of pinning it to the
+sidebar with a void.
 
 ---
 

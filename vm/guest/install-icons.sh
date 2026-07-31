@@ -4,7 +4,7 @@
 #
 #   proteus.svg           — brand helix mark
 #   proteus-settings.svg  — gear
-#   proteus-launcher.svg  — telescope (Spotlight)
+#   proteus-launcher.svg  — telescope (Beacon)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

@@ -85,7 +85,7 @@ Compositor engines: [COMPOSITOR.md](./COMPOSITOR.md).
 
 | Posture | Job | Chrome / engines | Status |
 |---------|-----|------------------|--------|
-| **desktop** | Create / windowed work (desk + laptop) | Full shell (bar, dock, launcher); Hyprland tiling backend | `partial` — primary spine |
+| **desktop** | Create / windowed work (desk + laptop) | Full shell (bar, dock, Beacon); Hyprland tiling backend | `partial` — primary spine |
 | **console** | Lean-back consume + play (TV, film, games) | Sparse, remote/gamepad-friendly shell; **game-scoped compositor** (Gamescope-class or equivalent) — not desktop Hyprland with a skin | `planned` (code stub: `couch`; hypr stub: `media.conf`) |
 | **host** | Operate the box (VMs, containers, services, updates) | Default lean/headless; **UI on demand** (local or remote) — not a DE clone; little/no creative chrome | `planned` (hypr stub: `host.conf`) |
 

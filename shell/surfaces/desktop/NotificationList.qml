@@ -1,3 +1,4 @@
+import Quickshell
 import QtQuick
 import QtQuick.Layouts
 import "../../shared"
@@ -9,6 +10,55 @@ ColumnLayout {
 
   readonly property int count: Notifications.count
   readonly property bool empty: count === 0
+
+  // Ticks the relative "2m ago" labels while the list is on screen.
+  property int nowTick: 0
+
+  Timer {
+    interval: 30000
+    running: root.visible && !root.empty
+    repeat: true
+    onTriggered: root.nowTick++
+  }
+
+  function timeLabel(n) {
+    const _t = root.nowTick
+    const at = Notifications.receivedAt(n)
+    if (!at)
+      return ""
+    const s = Math.max(0, Math.round((Date.now() - at) / 1000))
+    if (s < 60)
+      return "now"
+    const m = Math.floor(s / 60)
+    if (m < 60)
+      return m + "m"
+    const h = Math.floor(m / 60)
+    if (h < 24)
+      return h + "h"
+    return Math.floor(h / 24) + "d"
+  }
+
+  function appIconSource(n) {
+    if (!n)
+      return ""
+    const raw = String(n.appIcon || "")
+    if (raw.length) {
+      if (raw.indexOf("file:") === 0)
+        return raw
+      if (raw.indexOf("/") === 0)
+        return "file://" + raw
+      const p = Quickshell.iconPath(raw, true)
+      if (p && p.length)
+        return p
+    }
+    const de = DesktopEntries.heuristicLookup(String(n.appName || ""))
+    if (de && de.icon) {
+      const p2 = Quickshell.iconPath(String(de.icon), true)
+      if (p2 && p2.length)
+        return p2
+    }
+    return ""
+  }
 
   readonly property string emptyTitle: Config.notificationsDnd ? "Do Not Disturb is on" : "No notifications"
   readonly property string emptyHint: Config.notificationsDnd
@@ -138,6 +188,37 @@ ColumnLayout {
           border.color: Theme.chromeBorder
 
           readonly property var actions: root.actionList(modelData)
+          readonly property string iconSrc: root.appIconSource(modelData)
+
+          // Slide-out before the server-side dismiss removes the card.
+          function dismissAnimated() {
+            if (leaveAnim.running)
+              return
+            leaveAnim.start()
+          }
+
+          SequentialAnimation {
+            id: leaveAnim
+            ParallelAnimation {
+              NumberAnimation {
+                target: row
+                property: "opacity"
+                to: 0
+                duration: 140
+                easing.type: Easing.InCubic
+              }
+              NumberAnimation {
+                target: row
+                property: "x"
+                to: 48
+                duration: 140
+                easing.type: Easing.InCubic
+              }
+            }
+            ScriptAction {
+              script: Notifications.dismiss(row.modelData)
+            }
+          }
 
           ColumnLayout {
             id: bodyCol
@@ -149,6 +230,41 @@ ColumnLayout {
 
             RowLayout {
               Layout.fillWidth: true
+              spacing: Theme.spaceXs
+
+              // App icon chip (desktop-entry lookup fallback; letter as last resort)
+              Rectangle {
+                Layout.preferredWidth: 18
+                Layout.preferredHeight: 18
+                radius: 5
+                color: Theme.bgHover
+                border.width: 1
+                border.color: Theme.chromeBorder
+
+                Image {
+                  id: appIcon
+                  anchors.fill: parent
+                  anchors.margins: 2
+                  source: row.iconSrc
+                  fillMode: Image.PreserveAspectFit
+                  asynchronous: true
+                  visible: row.iconSrc.length > 0 && status === Image.Ready
+                }
+
+                Text {
+                  anchors.centerIn: parent
+                  visible: !appIcon.visible
+                  text: {
+                    const n = String(row.modelData.appName || "A")
+                    return n.length ? n.charAt(0).toUpperCase() : "A"
+                  }
+                  color: Theme.textDim
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 10
+                  font.weight: Font.DemiBold
+                }
+              }
+
               Text {
                 text: modelData.appName && String(modelData.appName).length ? modelData.appName : "App"
                 color: Theme.textDim
@@ -156,6 +272,13 @@ ColumnLayout {
                 font.pixelSize: 11
                 Layout.fillWidth: true
                 elide: Text.ElideRight
+              }
+              Text {
+                text: root.timeLabel(row.modelData)
+                visible: text.length > 0
+                color: Theme.textMute
+                font.family: Theme.fontFamily
+                font.pixelSize: 11
               }
               Text {
                 text: "Dismiss"
@@ -166,7 +289,7 @@ ColumnLayout {
                   anchors.fill: parent
                   anchors.margins: -8
                   cursorShape: Qt.PointingHandCursor
-                  onClicked: Notifications.dismiss(modelData)
+                  onClicked: row.dismissAnimated()
                 }
               }
             }

@@ -20,6 +20,17 @@ Singleton {
   readonly property bool toastsSuppressed: dnd || ShellState.controlCenterOpen
   readonly property bool showToast: !!toastNotification && !toastsSuppressed
 
+  // Receipt clock (ms epoch by notification id) — the freedesktop payload has
+  // no timestamp, so the Control Center's "2m ago" labels come from here.
+  property var receivedTimes: ({})
+
+  function receivedAt(notification) {
+    if (!notification)
+      return 0
+    const t = receivedTimes[notification.id]
+    return t ? t : 0
+  }
+
   NotificationServer {
     id: server
     keepOnReload: true
@@ -30,6 +41,7 @@ Singleton {
 
     onNotification: notification => {
       notification.tracked = true
+      root.receivedTimes[notification.id] = Date.now()
       // Unread badge only when CC is closed (open clears / stays at 0).
       if (!ShellState.controlCenterOpen)
         root.unreadCount += 1
@@ -66,6 +78,7 @@ Singleton {
       return
     if (root.toastNotification === notification)
       root.clearToast()
+    delete root.receivedTimes[notification.id]
     notification.dismiss()
   }
 
@@ -79,6 +92,7 @@ Singleton {
       if (copy[i])
         copy[i].dismiss()
     }
+    root.receivedTimes = {}
     root.unreadCount = 0
     root.clearToast()
   }

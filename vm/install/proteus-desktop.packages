@@ -19,7 +19,7 @@ imv
 mpv
 evince
 
-# Small utilities (interim Calculator until a Proteus calc app; Spotlight still does quick math)
+# Small utilities (interim Calculator until a Proteus calc app; Beacon still does quick math)
 gnome-calculator
 mousepad
 file-roller

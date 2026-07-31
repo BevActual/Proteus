@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Spotlight">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Beacon">
   <!-- Search + sparkle — transparent; dock SquircleIcon supplies the plate -->
   <defs>
     <linearGradient id="metal" x1="15%" y1="5%" x2="85%" y2="95%">

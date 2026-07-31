@@ -8,7 +8,7 @@ Singleton {
   // Fixed chrome pins (not removable)
   readonly property var launcherPin: {
     "id": "launcher",
-    "label": "Spotlight",
+    "label": "Beacon",
     "icon": "proteus-launcher",
     "special": "launcher"
   }
@@ -161,7 +161,7 @@ Singleton {
     return out
   }
 
-  // macOS-like: pinned apps + running unpinned (transient) between Spotlight and Settings
+  // macOS-like: pinned apps + running unpinned (transient) between Beacon and Settings
   readonly property var dockItems: {
     const _caps = Hardware.capabilityList
     const _pins = Config.dockPins
@@ -188,7 +188,9 @@ Singleton {
     for (let i = 0; i < ids.length; i++)
       pushEntry(entryFromDesktopId(ids[i]))
 
-    // Running apps not already pinned (after pinned, before Settings)
+    // Running apps not already pinned (after pinned, before Settings) —
+    // divided from the pins by a hairline (macOS: temporary vs kept).
+    const pinnedCount = out.length
     const tops = Hyprland.toplevels.values
     for (let i = 0; i < tops.length; i++) {
       const cls = classOf(tops[i])
@@ -205,6 +207,13 @@ Singleton {
         continue
       e.transient = true
       pushEntry(e)
+    }
+    if (out.length > pinnedCount) {
+      out.splice(pinnedCount, 0, {
+        id: "separator",
+        label: "",
+        separator: true
+      })
     }
 
     pushEntry(settingsPin)
@@ -279,8 +288,12 @@ Singleton {
     return !!(entry && entry.transient)
   }
 
+  function isSeparator(entry) {
+    return !!(entry && entry.separator)
+  }
+
   function canUnpin(entry) {
-    if (!entry)
+    if (!entry || entry.separator)
       return false
     if (entry.special === "launcher" || entry.special === "settings")
       return false
@@ -290,7 +303,7 @@ Singleton {
   }
 
   function canKeepInDock(entry) {
-    if (!entry || entry.special === "launcher" || entry.special === "settings")
+    if (!entry || entry.separator || entry.special === "launcher" || entry.special === "settings")
       return false
     const id = normalizeDesktopId(entry.desktopId || entry.id)
     if (!id.length)
@@ -333,9 +346,9 @@ Singleton {
     return unpinDesktopId(entry.desktopId || entry.id)
   }
 
-  // Middle pins only (Spotlight + Settings stay fixed). toPinIndex is 0..pins.length.
+  // Middle pins only (Beacon + Settings stay fixed). toPinIndex is 0..pins.length.
   function canReorder(entry) {
-    if (!entry || entry.special === "launcher" || entry.special === "settings")
+    if (!entry || entry.separator || entry.special === "launcher" || entry.special === "settings")
       return false
     if (isTransient(entry))
       return false
@@ -446,6 +459,57 @@ Singleton {
     return false
   }
 
+  // All toplevels of an entry's app class (for Quit / window cycling).
+  function windowsFor(entry) {
+    if (!entry || !entry.match)
+      return []
+    const needle = entry.match.toLowerCase()
+    const wins = []
+    const tops = Hyprland.toplevels.values
+    for (let i = 0; i < tops.length; i++) {
+      if (classOf(tops[i]).toLowerCase().indexOf(needle) !== -1)
+        wins.push(tops[i])
+    }
+    return wins
+  }
+
+  function windowAddress(toplevel) {
+    let addr = (toplevel && toplevel.address) ? String(toplevel.address) : ""
+    if (addr.length && addr.indexOf("0x") !== 0)
+      addr = "0x" + addr
+    return addr
+  }
+
+  function focusToplevel(toplevel) {
+    const addr = windowAddress(toplevel)
+    if (addr.length) {
+      Hyprland.dispatch("focuswindow address:" + addr)
+      return true
+    }
+    if (toplevel && toplevel.workspace) {
+      toplevel.workspace.activate()
+      return true
+    }
+    return false
+  }
+
+  // Quit = close every window of the app (Hyprland closewindow; apps with
+  // unsaved state get their own prompt). Not exposed for the Beacon pin.
+  function canQuit(entry) {
+    if (!entry || entry.separator || entry.special === "launcher")
+      return false
+    return windowsFor(entry).length > 0
+  }
+
+  function quitEntry(entry) {
+    const wins = windowsFor(entry)
+    for (let i = 0; i < wins.length; i++) {
+      const addr = windowAddress(wins[i])
+      if (addr.length)
+        Hyprland.dispatch("closewindow address:" + addr)
+    }
+  }
+
   function isActive(entry) {
     if (!entry || !entry.match)
       return false
@@ -456,7 +520,7 @@ Singleton {
   }
 
   function focusOrLaunch(entry) {
-    if (!entry)
+    if (!entry || entry.separator)
       return
     if (entry.special === "launcher") {
       ShellState.toggleLauncher()
@@ -467,41 +531,99 @@ Singleton {
       return
     }
 
-    const needle = (entry.match || "").toLowerCase()
-    if (needle.length) {
-      const tops = Hyprland.toplevels.values
-      for (let i = 0; i < tops.length; i++) {
-        const t = tops[i]
-        if (classOf(t).toLowerCase().indexOf(needle) !== -1) {
-          let addr = t.address || ""
-          if (addr.length) {
-            if (addr.indexOf("0x") !== 0)
-              addr = "0x" + addr
-            Hyprland.dispatch("focuswindow address:" + addr)
-            return
+    const wins = windowsFor(entry)
+    if (wins.length) {
+      // Already frontmost with several windows → cycle to the next (macOS-ish).
+      if (wins.length > 1 && isActive(entry)) {
+        const activeAddr = windowAddress(Hyprland.activeToplevel)
+        let at = -1
+        for (let i = 0; i < wins.length; i++) {
+          if (windowAddress(wins[i]) === activeAddr) {
+            at = i
+            break
           }
-          if (t.workspace)
-            t.workspace.activate()
-          return
         }
+        if (focusToplevel(wins[(at + 1) % wins.length]))
+          return
       }
+      if (focusToplevel(wins[0]))
+        return
     }
 
     const desk = entry.desktopId ? DesktopEntries.heuristicLookup(entry.desktopId) : null
     if (entry.id === "terminal" || entry.match === "ghostty" || entry.desktopId === "com.mitchellh.ghostty") {
+      markLaunching(entry)
       Quickshell.execDetached({
         command: terminalCommand([])
       })
       return
     }
     if (desk) {
+      markLaunching(entry)
       desk.execute()
       return
     }
     if (entry.command && entry.command.length) {
+      markLaunching(entry)
       Quickshell.execDetached({
         command: entry.command
       })
+    }
+  }
+
+  // —— Launch feedback (dock bounce) ——
+  // Marked on spawn; cleared when a window appears or after a timeout.
+  property var launchingMap: ({})
+  property int launchingRev: 0
+
+  function isLaunching(entry) {
+    const _r = launchingRev
+    if (!entry)
+      return false
+    const id = normalizeDesktopId(entry.desktopId || entry.id)
+    return !!(id.length && launchingMap[id])
+  }
+
+  function markLaunching(entry) {
+    const id = normalizeDesktopId(entry.desktopId || entry.id)
+    if (!id.length)
+      return
+    launchingMap[id] = {
+      t: Date.now(),
+      match: String(entry.match || "")
+    }
+    launchingRev++
+    launchPoll.restart()
+  }
+
+  Timer {
+    id: launchPoll
+    interval: 350
+    repeat: true
+    onTriggered: {
+      const now = Date.now()
+      const ids = Object.keys(launchingMap)
+      if (!ids.length) {
+        stop()
+        return
+      }
+      let changed = false
+      for (let i = 0; i < ids.length; i++) {
+        const rec = launchingMap[ids[i]]
+        const probe = {
+          id: ids[i],
+          desktopId: ids[i],
+          match: rec.match
+        }
+        if ((rec.match.length && isRunning(probe)) || now - rec.t > 8000) {
+          delete launchingMap[ids[i]]
+          changed = true
+        }
+      }
+      if (changed)
+        launchingRev++
+      if (!Object.keys(launchingMap).length)
+        stop()
     }
   }
 

@@ -78,6 +78,17 @@ if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
     echo "exec-once = /usr/lib/hyprpolkitagent/hyprpolkitagent"
   } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
 fi
+# Settings floats as its designed sheet (not tiled full-screen)
+if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
+  && ! grep -q 'Proteus Settings' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
+  proteus_log "appending Proteus Settings float windowrules"
+  {
+    echo ""
+    echo "# Settings opens as its designed floating sheet (820×560), not a tiled void"
+    echo 'windowrule = match:class ^(org\.quickshell)$, match:title ^(Proteus Settings)$, float on'
+    echo 'windowrule = match:class ^(org\.quickshell)$, match:title ^(Proteus Settings)$, center on'
+  } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
+fi
 # Interim cliphist watchers
 if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
   && ! grep -q 'cliphist store' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then

@@ -4,11 +4,24 @@ import QtQuick
 import "../../shared"
 
 // Compact workspace strip — quiet Mac-adjacent pills in the menu bar.
+// Dynamic width (grows with the highest live workspace), occupied dots,
+// scroll-wheel cycling, and a "+" pill that jumps to the next workspace.
 Item {
   id: root
 
   readonly property int cell: Math.max(18, Theme.barHeight - 14)
-  readonly property int count: 6
+  readonly property int maxCount: 10
+
+  readonly property int highestId: {
+    const list = Hyprland.workspaces.values
+    let hi = 0
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].id > hi)
+        hi = list[i].id
+    }
+    return hi
+  }
+
   readonly property int focusedId: {
     const list = Hyprland.workspaces.values
     for (let i = 0; i < list.length; i++) {
@@ -18,14 +31,35 @@ Item {
     return 1
   }
 
+  // At least 4 pills; extend to the highest live workspace (capped).
+  readonly property int count: Math.min(maxCount, Math.max(4, highestId, focusedId))
+  readonly property bool showPlus: count < maxCount
+
   implicitHeight: cell
-  implicitWidth: count * cell + 2
+  implicitWidth: count * cell + (showPlus ? cell : 0) + 2
+
+  function go(id) {
+    const target = Math.max(1, Math.min(root.maxCount, Math.round(id)))
+    Hyprland.dispatch("workspace " + target)
+  }
 
   Rectangle {
     anchors.fill: parent
     radius: height / 2
     color: Theme.light ? Qt.rgba(0, 0, 0, 0.05) : Qt.rgba(1, 1, 1, 0.08)
     visible: !Theme.chromeClear
+  }
+
+  // Wheel over the strip cycles workspaces (up = previous, down = next).
+  WheelHandler {
+    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+    onWheel: event => {
+      const d = event.angleDelta.y
+      if (d > 0)
+        root.go(root.focusedId - 1)
+      else if (d < 0)
+        root.go(root.focusedId + 1)
+    }
   }
 
   Rectangle {
@@ -46,7 +80,9 @@ Item {
   }
 
   Row {
-    anchors.centerIn: parent
+    anchors.left: parent.left
+    anchors.leftMargin: 1
+    anchors.verticalCenter: parent.verticalCenter
     spacing: 0
 
     Repeater {
@@ -71,7 +107,9 @@ Item {
         height: root.cell
 
         Text {
-          anchors.centerIn: parent
+          anchors.horizontalCenter: parent.horizontalCenter
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.verticalCenterOffset: cell.occupied && !cell.focused ? -1 : 0
           text: cell.wsId
           color: cell.focused
               ? Theme.accent
@@ -80,6 +118,19 @@ Item {
           font.pixelSize: Math.max(10, Theme.fontSizeSm - 1)
           font.weight: cell.focused ? Font.DemiBold : Font.Normal
           opacity: cell.focused ? 1 : (cell.occupied ? 0.85 : 0.4)
+        }
+
+        // Occupied (has windows) — tiny dot under the number
+        Rectangle {
+          visible: cell.occupied && !cell.focused
+          anchors.horizontalCenter: parent.horizontalCenter
+          anchors.bottom: parent.bottom
+          anchors.bottomMargin: 3
+          width: 3
+          height: 3
+          radius: 1.5
+          color: Theme.textDim
+          opacity: 0.8
         }
 
         Rectangle {
@@ -101,9 +152,43 @@ Item {
             if (cell.ws)
               cell.ws.activate()
             else
-              Hyprland.dispatch("workspace " + cell.wsId)
+              root.go(cell.wsId)
           }
         }
+      }
+    }
+
+    // "+" — jump to the next (empty) workspace; Hyprland reaps it when unused.
+    Item {
+      visible: root.showPlus
+      width: root.cell
+      height: root.cell
+
+      Text {
+        anchors.centerIn: parent
+        text: "+"
+        color: plusMa.containsMouse ? Theme.text : Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSizeSm
+        opacity: plusMa.containsMouse ? 1 : 0.5
+      }
+
+      Rectangle {
+        anchors.fill: parent
+        anchors.margins: 1
+        radius: height / 2
+        color: plusMa.containsMouse
+            ? (Theme.light ? Qt.rgba(0, 0, 0, 0.06) : Qt.rgba(1, 1, 1, 0.08))
+            : "transparent"
+        z: -1
+      }
+
+      MouseArea {
+        id: plusMa
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.go(root.count + 1)
       }
     }
   }

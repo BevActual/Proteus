@@ -130,7 +130,7 @@ with a clear reason (“needs libvirt”, “needs display”).
 | Surface | Gate |
 |---------|------|
 | Settings sidebar | `EnvGate.availableSettingsPanes()` — Sound needs audio caps; Network needs wifi/ethernet/bt; … |
-| Launcher | Hide gated apps unless searching; search shows them dimmed with reason (`Launcher.qml` → `EnvGate.appAvailable`) |
+| Beacon | Hide gated apps unless searching; search shows them dimmed with reason (`Beacon.qml` → `EnvGate.appAvailable`) |
 | Dock | `DockApps.visiblePinned` via optional `requires` / `requiresAny` on pins |
 | App manifests | `env/apps/catalog.json` preferred over `appRules` / category heuristics |
 
@@ -179,7 +179,7 @@ adaptive app can honor the contract.
 |------|--------|
 | Environment tuple (docs) | `planned` / locked in prose |
 | App capability manifest | `partial` — `env/apps/` schema + catalog; EnvGate load |
-| Launcher filtering by contract | `partial` — manifest match + heuristic fallback |
+| Beacon filtering by contract | `partial` — manifest match + heuristic fallback |
 | DesktopEntries launcher | `shipped` (desktop) |
 
 ---

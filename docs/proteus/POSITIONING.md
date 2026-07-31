@@ -58,7 +58,7 @@ undeniable ([POSTURES.md](./POSTURES.md)).
 
 **Dual-path chrome (lock):** GUI first for ordinary jobs; keyboard first-class
 for people who drive the machine. Every Settings leaf stays mouse-legible
-(System Settings calm). Frequent actions also have a chord and/or Spotlight
+(System Settings calm). Frequent actions also have a chord and/or Beacon
 path (`Super+,`, `Super+Space` Actions, Settings `/` jump, hub ↑↓ Enter,
 Control Center)—not Omarchy’s menu-only face, and not GNOME’s “hide the Linux.”
 **Escapes** stay quiet and Fact-backed (tool or conf); wrap engines into chrome

@@ -23,7 +23,7 @@ Scope {
   GlobalShortcut {
     appid: "proteus"
     name: "launcher"
-    description: "Toggle Proteus app launcher"
+    description: "Toggle Beacon (system search)"
     onPressed: ShellState.toggleLauncher()
   }
 
@@ -87,6 +87,60 @@ Scope {
     target: "lock"
     function lock(): void {
       ShellState.lockSession()
+    }
+
+    // Dogfood/recovery escape (same-user IPC only — no privilege boundary):
+    // re-acquire + release the ext-session-lock cleanly, e.g. after a shell
+    // restart tripped Hyprland's crashed-lockscreen guard.
+    function unlock(): void {
+      ShellState.unlockSession()
+    }
+  }
+
+  // Smoke/dogfood probe: drive chrome surfaces from the CLI.
+  //   qs -p <config> ipc call chrome controlCenter
+  //   qs -p <config> ipc call chrome state
+  IpcHandler {
+    target: "chrome"
+
+    function controlCenter(): void {
+      ShellState.toggleControlCenter()
+    }
+
+    function calendar(): void {
+      ShellState.toggleCalendar()
+    }
+
+    function customizeDesktop(): void {
+      if (ShellState.desktopCustomizeMode)
+        ShellState.exitDesktopCustomize()
+      else
+        ShellState.enterDesktopCustomize()
+    }
+
+    function launcher(): void {
+      ShellState.toggleLauncher()
+    }
+
+    // Beacon probes — seed a query, then read the result summary:
+    //   qs -p <config> ipc call chrome beacon reboot
+    //   qs -p <config> ipc call chrome beaconState
+    function beacon(query: string): void {
+      ShellState.seedBeaconQuery(query)
+    }
+
+    function beaconState(): string {
+      return ShellState.beaconProbe
+    }
+
+    function state(): string {
+      return JSON.stringify({
+        controlCenter: ShellState.controlCenterOpen,
+        calendar: ShellState.calendarOpen,
+        launcher: ShellState.launcherOpen,
+        customize: ShellState.desktopCustomizeMode,
+        locked: ShellState.sessionLocked
+      })
     }
   }
 
@@ -199,18 +253,31 @@ Scope {
       margins.top: topClearance
       margins.bottom: bottomClearance
 
+      // Raised + keyboard grab while customizing or editing a Note in place;
+      // plain click-through Bottom surface otherwise.
+      function applyLayerState() {
+        if (deskWidgetsWin.WlrLayershell == null)
+          return
+        const raised = ShellState.desktopCustomizeMode || ShellState.desktopNoteEditing
+        deskWidgetsWin.WlrLayershell.layer = raised ? WlrLayer.Overlay : WlrLayer.Bottom
+        deskWidgetsWin.WlrLayershell.keyboardFocus = raised
+            ? WlrKeyboardFocus.Exclusive
+            : WlrKeyboardFocus.None
+      }
+
       Component.onCompleted: {
-        if (deskWidgetsWin.WlrLayershell != null) {
+        if (deskWidgetsWin.WlrLayershell != null)
           deskWidgetsWin.WlrLayershell.namespace = "proteus-desktop-widgets"
-          deskWidgetsWin.WlrLayershell.layer = ShellState.desktopCustomizeMode ? WlrLayer.Overlay : WlrLayer.Bottom
-        }
+        applyLayerState()
       }
 
       Connections {
         target: ShellState
         function onDesktopCustomizeModeChanged() {
-          if (deskWidgetsWin.WlrLayershell != null)
-            deskWidgetsWin.WlrLayershell.layer = ShellState.desktopCustomizeMode ? WlrLayer.Overlay : WlrLayer.Bottom
+          deskWidgetsWin.applyLayerState()
+        }
+        function onDesktopNoteEditingChanged() {
+          deskWidgetsWin.applyLayerState()
         }
       }
 
@@ -364,7 +431,7 @@ Scope {
       color: "transparent"
 
       // focusable:true is only OnDemand — Exclusive is required so keystrokes
-      // leave the focused client (editor/terminal) while Spotlight is open.
+      // leave the focused client (editor/terminal) while Beacon is open.
       WlrLayershell.namespace: "proteus-launcher"
       WlrLayershell.layer: WlrLayer.Overlay
       WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
@@ -378,7 +445,7 @@ Scope {
 
       Rectangle {
         anchors.fill: parent
-        // Lighter than Control Center scrim — Spotlight floats on the desktop
+        // Lighter than Control Center scrim — Beacon floats on the desktop
         color: Theme.light ? Qt.rgba(0, 0, 0, 0.14) : Qt.rgba(0, 0, 0, 0.32)
         MouseArea {
           anchors.fill: parent
@@ -386,7 +453,7 @@ Scope {
         }
       }
 
-      Launcher {
+      Beacon {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         anchors.topMargin: Math.max(56, parent.height * 0.11)
@@ -412,8 +479,10 @@ Scope {
 
       readonly property bool showToast: Notifications.showToast
 
+      // stillVisible keeps the window mapped while close animations play
+      // (ControlCenter / CalendarPanel own their open/close motion).
       visible: !ShellState.sessionLocked && isFocused
-          && (ShellState.controlCenterOpen || showToast)
+          && (ccView.stillVisible || calView.stillVisible || showToast)
       exclusionMode: ExclusionMode.Ignore
       color: "transparent"
 
@@ -432,8 +501,13 @@ Scope {
       }
 
       ControlCenter {
+        id: ccView
         anchors.fill: parent
-        visible: ShellState.controlCenterOpen
+      }
+
+      CalendarPanel {
+        id: calView
+        anchors.fill: parent
       }
 
       NotificationToast {
@@ -442,12 +516,19 @@ Scope {
         visible: ccWin.showToast
       }
 
-      // Toast-only: click-through except the card. Full input while Control Center is open.
-      mask: ShellState.controlCenterOpen ? null : (showToast ? toastMask : null)
+      // Full input while CC / calendar is open; toast-only shows click-through
+      // except the card; during exit animations the surface is click-through.
+      mask: ShellState.controlCenterOpen || ShellState.calendarOpen
+          ? null
+          : (showToast ? toastMask : emptyMask)
 
       Region {
         id: toastMask
         item: toastLayer.cardItem
+      }
+
+      Region {
+        id: emptyMask
       }
     }
   }

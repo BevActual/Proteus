@@ -93,7 +93,7 @@ services/
 - Dock — floating glass shelf + Mag; pins, running dots
 - Terminal: `Super+Return` → `proteus-terminal` (Ghostty + VM GL workaround)
 - Session: `proteus-session` → `start-hyprland`/Hyprland; no terminal `exec-once`; stray system apps hidden (`hide-system-apps.sh`)
-- **Settings** (`Super+,`) — Appearance (incl. Icons), Desktop (incl. Launcher), Displays, Sound, Network, Software (pacman / AUR / Flatpak / AppImages / Orphans), …; cold-start via sticky pane loaders
+- **Settings** (`Super+,`) — Appearance (incl. Icons), Desktop (incl. Beacon), Displays, Sound, Network, Software (pacman / AUR / Flatpak / AppImages / Orphans), …; cold-start via sticky pane loaders
 - Keybinds file: `~/.config/hypr/proteus-keybinds.conf`
 
 Full honest inventory: [docs/proteus/CURRENT.md](docs/proteus/CURRENT.md).

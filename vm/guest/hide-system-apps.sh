@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hide Arch/desktop-kit apps from Spotlight when Proteus Settings already owns
+# Hide Arch/desktop-kit apps from Beacon when Proteus Settings already owns
 # the feature. Packages stay installed as escape hatches (Settings still opens
 # nm-connection-editor / blueman / …).
 #
@@ -53,7 +53,7 @@ hide org.quickshell.Quickshell "Quickshell" quickshell
 hide quickshell "Quickshell" quickshell
 
 # Keep gnome-calculator visible — dedicated Calculator for dogfood
-# (Spotlight expression calc remains as a quick path). Drop prior NoDisplay stubs.
+# (Beacon expression calc remains as a quick path). Drop prior NoDisplay stubs.
 rm -f "${DEST}/org.gnome.Calculator.desktop" "${DEST}/gnome-calculator.desktop"
 
 # Disable blueman tray autostart if present

@@ -46,7 +46,7 @@ Adaptive app behavior (one identity, environment-shaped): [APPLICATIONS.md](./AP
 
 | What you’re building | Stack | Why |
 |----------------------|-------|-----|
-| Shell chrome (bar, dock, launcher, overlays) | **QML / Quickshell** | Wayland layer-shell; Hyprland integrations |
+| Shell chrome (bar, dock, Beacon, overlays) | **QML / Quickshell** | Wayland layer-shell; Hyprland integrations |
 | System control center (`proteus-settings`) | **QML / Quickshell** *(today)* | Same tokens/spine; may revisit Tauri if FloatingWindow lifecycle hurts |
 | **Hardware / env probes** (read-only discovery → JSON) | **Python** *(blessed)* | Fast to iterate; `proteus-hw-probe` Wave A. **Rust rewrite candidate** when schema stabilizes or we need a single static binary on guests |
 | System helpers that **mutate** state (apply config, pacman wrappers, privileged ops) | **Rust** small CLIs (+ bash when tiny) | Thin, smokeable; keeps QML dumb (Meridian habit). Examples: `services/proteus-pkg`, `services/proteus-logind` + polkit, `services/proteus-accounts` (user-scoped OAuth vault) |

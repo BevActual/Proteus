@@ -12,6 +12,11 @@ Singleton {
   property bool desktopCustomizeMode: false
   // Top-bar Control Center (notifications + quick settings)
   property bool controlCenterOpen: false
+  // Menu-bar center cluster → calendar / today popover
+  property bool calendarOpen: false
+  // A desktop Note widget is being edited in place (widget layer raised +
+  // keyboard grab — see DesktopShell deskWidgetsWin)
+  property bool desktopNoteEditing: false
 
   // Hardware probe mirrors (session start — see Hardware.qml)
   readonly property bool hwReady: Hardware.ready
@@ -33,12 +38,15 @@ Singleton {
     launcherOpen = false
     desktopCustomizeMode = false
     controlCenterOpen = false
+    calendarOpen = false
+    desktopNoteEditing = false
   }
 
   function toggleLauncher() {
     if (sessionLocked || desktopCustomizeMode)
       return
     controlCenterOpen = false
+    calendarOpen = false
     launcherOpen = !launcherOpen
   }
 
@@ -46,6 +54,7 @@ Singleton {
     if (sessionLocked || desktopCustomizeMode)
       return
     controlCenterOpen = false
+    calendarOpen = false
     launcherOpen = true
   }
 
@@ -53,10 +62,24 @@ Singleton {
     launcherOpen = false
   }
 
+  // Beacon dogfood probe — open with a seeded query (chrome IPC / smokes).
+  // Beacon mirrors a result summary into beaconProbe for assertions.
+  signal beaconQuerySeeded(string query)
+  property string beaconProbe: "{}"
+
+  function seedBeaconQuery(q) {
+    if (sessionLocked || desktopCustomizeMode)
+      return
+    controlCenterOpen = false
+    launcherOpen = true
+    beaconQuerySeeded(String(q || ""))
+  }
+
   function toggleControlCenter() {
     if (sessionLocked || desktopCustomizeMode)
       return
     launcherOpen = false
+    calendarOpen = false
     controlCenterOpen = !controlCenterOpen
   }
 
@@ -64,6 +87,7 @@ Singleton {
     if (sessionLocked || desktopCustomizeMode)
       return
     launcherOpen = false
+    calendarOpen = false
     controlCenterOpen = true
   }
 
@@ -71,11 +95,24 @@ Singleton {
     controlCenterOpen = false
   }
 
+  function toggleCalendar() {
+    if (sessionLocked || desktopCustomizeMode)
+      return
+    launcherOpen = false
+    controlCenterOpen = false
+    calendarOpen = !calendarOpen
+  }
+
+  function closeCalendar() {
+    calendarOpen = false
+  }
+
   function enterDesktopCustomize() {
     if (sessionLocked)
       return
     launcherOpen = false
     controlCenterOpen = false
+    desktopNoteEditing = false
     if (!desktopCustomizeMode)
       Config.beginLiveConfigEdits()
     desktopCustomizeMode = true
@@ -102,6 +139,7 @@ Singleton {
       return
     launcherOpen = false
     controlCenterOpen = false
+    calendarOpen = false
     const page = String(pageId || "").trim()
     const q = String(query || "").trim()
     let envPrefix = ""

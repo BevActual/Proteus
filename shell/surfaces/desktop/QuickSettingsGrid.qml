@@ -14,13 +14,55 @@ ColumnLayout {
   property bool muted: false
   property bool volumeSliding: false
   property string netSummary: "Checking…"
-  property string batteryText: "—"
+  property string batteryText: ""
+
+  // Radios (Wi‑Fi via nmcli, Bluetooth via bluetoothctl) — honest skip when
+  // the device doesn't exist (typical VM: wired only, no BT adapter).
+  property bool wifiSupported: false
+  property bool wifiEnabled: true
+  property bool btAvailable: false
+  property bool btPowered: false
+
+  // Display brightness (Brightness singleton; hidden without a backlight).
+  property int brightnessPct: -1
+  property bool brightnessSliding: false
 
   signal volumeChangedByUser(int pct)
   signal muteToggled()
   signal networkClicked()
   signal dndToggled()
-  signal settingsClicked()
+
+  function toggleWifi() {
+    const next = !root.wifiEnabled
+    root.wifiEnabled = next
+    Quickshell.execDetached({
+      command: ["nmcli", "radio", "wifi", next ? "on" : "off"]
+    })
+  }
+
+  function toggleBluetooth() {
+    if (!root.btAvailable)
+      return
+    const next = !root.btPowered
+    root.btPowered = next
+    Quickshell.execDetached({
+      command: ["bluetoothctl", "power", next ? "on" : "off"]
+    })
+  }
+
+  function refreshRadios() {
+    radioProc.running = false
+    radioProc.running = true
+  }
+
+  function refreshBrightness() {
+    if (!Brightness.available || root.brightnessSliding)
+      return
+    Brightness.getBrightness(p => {
+      if (!root.brightnessSliding && p >= 0)
+        root.brightnessPct = Math.round(p)
+    })
+  }
 
   readonly property string volumeHint: {
     if (root.muted)
@@ -218,8 +260,43 @@ ColumnLayout {
     onTriggered: {
       root.refreshAudio()
       root.refreshNetwork()
+      root.refreshRadios()
+      root.refreshBrightness()
       if (Power.profilesAvailable || !Power.profileBusy)
         Power.refreshProfiles()
+    }
+  }
+
+  // Wi‑Fi radio + Bluetooth adapter state in one cheap probe per tick.
+  Process {
+    id: radioProc
+    command: [
+      "bash",
+      "-lc",
+      "echo WIFI=$(nmcli -t radio wifi 2>/dev/null || echo none); "
+          + "if command -v bluetoothctl >/dev/null 2>&1; then "
+          + "  bt=$(timeout 2 bluetoothctl show 2>/dev/null); "
+          + "  if echo \"$bt\" | grep -q '^Controller '; then "
+          + "    echo BT=yes; "
+          + "    echo \"$bt\" | grep -q 'Powered: yes' && echo BTPOW=yes || echo BTPOW=no; "
+          + "  else echo BT=no; fi; "
+          + "else echo BT=no; fi"
+    ]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const lines = String(text).trim().split("\n")
+        for (let i = 0; i < lines.length; i++) {
+          const l = lines[i].trim()
+          if (l.indexOf("WIFI=") === 0)
+            root.wifiEnabled = l === "WIFI=enabled"
+          else if (l === "BT=yes")
+            root.btAvailable = true
+          else if (l === "BT=no")
+            root.btAvailable = false
+          else if (l.indexOf("BTPOW=") === 0)
+            root.btPowered = l === "BTPOW=yes"
+        }
+      }
     }
   }
 
@@ -230,6 +307,7 @@ ColumnLayout {
       onStreamFinished: {
         const lines = String(text).trim().split("\n").filter(l => l.length)
         let best = "No connection"
+        let sawWifi = false
         for (let i = 0; i < lines.length; i++) {
           const p = lines[i].split(":")
           if (p.length < 3)
@@ -237,6 +315,8 @@ ColumnLayout {
           const type = p[1]
           const state = p[2]
           const conn = p.length > 3 ? p.slice(3).join(":") : ""
+          if (type === "wifi")
+            sawWifi = true
           if (state.indexOf("connected") >= 0 && state.indexOf("disconnected") < 0) {
             if (type === "wifi") {
               best = conn.length ? conn : "Wi‑Fi"
@@ -248,6 +328,7 @@ ColumnLayout {
               best = conn.length ? conn : type
           }
         }
+        root.wifiSupported = sawWifi
         root.netSummary = best
       }
     }
@@ -371,6 +452,32 @@ ColumnLayout {
             // Parent = listenCombo (includes chip) so chip press doesn't auto-dismiss.
             closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
             modal: false
+
+            enter: Transition {
+              NumberAnimation {
+                property: "opacity"
+                from: 0
+                to: 1
+                duration: 120
+                easing.type: Easing.OutCubic
+              }
+              NumberAnimation {
+                property: "scale"
+                from: 0.96
+                to: 1
+                duration: 120
+                easing.type: Easing.OutCubic
+              }
+            }
+            exit: Transition {
+              NumberAnimation {
+                property: "opacity"
+                from: 1
+                to: 0
+                duration: 90
+                easing.type: Easing.InCubic
+              }
+            }
 
             background: Rectangle {
               radius: Theme.radiusMd
@@ -528,6 +635,32 @@ ColumnLayout {
             // Parent = soundPlate so chip press doesn't auto-dismiss; click outside plate does.
             closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
             modal: false
+
+            enter: Transition {
+              NumberAnimation {
+                property: "opacity"
+                from: 0
+                to: 1
+                duration: 120
+                easing.type: Easing.OutCubic
+              }
+              NumberAnimation {
+                property: "scale"
+                from: 0.96
+                to: 1
+                duration: 120
+                easing.type: Easing.OutCubic
+              }
+            }
+            exit: Transition {
+              NumberAnimation {
+                property: "opacity"
+                from: 1
+                to: 0
+                duration: 90
+                easing.type: Easing.InCubic
+              }
+            }
 
             background: Rectangle {
               radius: Theme.radiusMd
@@ -693,7 +826,7 @@ ColumnLayout {
                     Layout.fillWidth: true
                     spacing: Theme.spaceSm
 
-                    Slider {
+                    ThemeSlider {
                       Layout.fillWidth: true
                       from: 0
                       to: 100
@@ -766,7 +899,7 @@ ColumnLayout {
           }
         }
 
-        Slider {
+        ThemeSlider {
           id: volSlider
           Layout.fillWidth: true
           from: 0
@@ -800,6 +933,72 @@ ColumnLayout {
     }
   }
 
+  // Display plate — brightness slider (only with a real backlight; VM hides it).
+  Rectangle {
+    visible: Brightness.available && root.brightnessPct >= 0
+    Layout.fillWidth: true
+    implicitHeight: brightCol.implicitHeight + Theme.spaceSm * 2
+    radius: Theme.radiusLg
+    color: Theme.elevatedFill
+    border.width: 1
+    border.color: Theme.chromeBorder
+
+    ColumnLayout {
+      id: brightCol
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      anchors.margins: Theme.spaceSm
+      spacing: Theme.spaceSm
+
+      Text {
+        text: "Display"
+        color: Theme.text
+        font.family: Theme.fontFamily
+        font.pixelSize: 13
+        font.weight: Font.Medium
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: Theme.spaceSm
+
+        Text {
+          text: "Brightness"
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: 12
+          Layout.preferredWidth: 52
+        }
+
+        ThemeSlider {
+          Layout.fillWidth: true
+          from: 5
+          to: 100
+          value: Math.max(5, root.brightnessPct)
+          onMoved: {
+            root.brightnessPct = Math.round(value)
+            Brightness.setBrightness(root.brightnessPct)
+          }
+          onPressedChanged: {
+            root.brightnessSliding = pressed
+            if (!pressed)
+              root.refreshBrightness()
+          }
+        }
+
+        Text {
+          text: root.brightnessPct + "%"
+          color: Theme.textDim
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSizeSm
+          Layout.preferredWidth: 44
+          horizontalAlignment: Text.AlignRight
+        }
+      }
+    }
+  }
+
   // Tile grid
   GridLayout {
     Layout.fillWidth: true
@@ -808,19 +1007,35 @@ ColumnLayout {
     columnSpacing: Theme.spaceSm
 
     Repeater {
-      model: [
-        {
+      model: {
+        const connected = root.netSummary !== "No connection" && root.netSummary !== "Checking…"
+        const tiles = []
+        tiles.push({
           id: "net",
-          title: "Network",
-          subtitle: root.netSummary === "No connection"
-              ? "Open NetworkManager"
-              : (root.netSummary + " · editor"),
-          accent: root.netSummary !== "No connection" && root.netSummary !== "Checking…",
+          glyph: "⇅",
+          title: root.wifiSupported ? "Wi‑Fi" : "Network",
+          subtitle: root.wifiSupported && !root.wifiEnabled
+              ? "Wi‑Fi off"
+              : (root.netSummary === "No connection" ? "Not connected" : root.netSummary),
+          accent: connected && (!root.wifiSupported || root.wifiEnabled),
           interactive: true,
-          trailing: "›"
-        },
-        {
+          trailing: "›",
+          span: root.btAvailable ? 1 : 2
+        })
+        if (root.btAvailable) {
+          tiles.push({
+            id: "bt",
+            glyph: "ᛒ",
+            title: "Bluetooth",
+            subtitle: root.btPowered ? "On" : "Off",
+            accent: root.btPowered,
+            interactive: true,
+            trailing: root.btPowered ? "On" : "Off"
+          })
+        }
+        tiles.push({
           id: "localsend",
+          glyph: "➤",
           title: "LocalSend",
           subtitle: !LocalSend.available
               ? "Not installed · tap for options"
@@ -832,61 +1047,106 @@ ColumnLayout {
           accent: LocalSend.available && LocalSend.running,
           interactive: true,
           trailing: LocalSend.available ? (LocalSend.shortLabel + " ›") : "›"
-        },
-        {
+        })
+        tiles.push({
           id: "power",
+          glyph: "⏻",
           title: "Power",
           subtitle: !Power.profilesAvailable
-              ? root.batteryText
-              : (root.batteryText === "—"
-                  ? Power.activeProfileLabel
-                  : (root.batteryText + " · " + Power.activeProfileLabel)),
+              ? (root.batteryText.length ? root.batteryText : "Profiles unavailable")
+              : (root.batteryText.length
+                  ? (root.batteryText + " · " + Power.activeProfileLabel)
+                  : Power.activeProfileLabel),
           accent: Power.profilesAvailable && Power.activeProfile === "performance",
           interactive: Power.profilesAvailable && Power.profileOptions.length > 0,
           trailing: Power.profilesAvailable ? "›" : ""
-        },
-        {
+        })
+        tiles.push({
           id: "dnd",
+          glyph: "☾",
           title: "Do Not Disturb",
-          subtitle: Config.notificationsDnd ? "On · toasts off" : "Off · toasts on",
+          // State lives on the accent disc — no trailing text (room for title).
+          subtitle: Config.notificationsDnd ? "Toasts off" : "Toasts on",
           accent: Config.notificationsDnd,
           interactive: true,
-          trailing: Config.notificationsDnd ? "On" : "Off"
-        },
-        {
+          trailing: ""
+        })
+        tiles.push({
           id: "awake",
+          glyph: "✦",
           title: "Keep Awake",
-          subtitle: KeepAwake.active
-              ? KeepAwake.label
-              : "Prevent idle lock & sleep",
+          subtitle: KeepAwake.active ? KeepAwake.label : "Off",
           accent: KeepAwake.active,
           interactive: true,
-          trailing: KeepAwake.active ? KeepAwake.shortLabel : "›"
-        },
-        {
-          id: "settings",
-          title: "Settings",
-          subtitle: "Sound · Network · more",
-          accent: false,
-          interactive: true,
           trailing: "›"
-        }
-      ]
+        })
+        return tiles
+      }
 
       Rectangle {
         id: tile
         required property var modelData
         Layout.fillWidth: true
-        Layout.preferredHeight: 72
+        Layout.columnSpan: modelData.span || 1
+        Layout.preferredHeight: 64
         radius: Theme.radiusLg
-        color: modelData.accent ? Theme.chromeAccentSoft : Theme.elevatedFill
+        // Same hover language as rows/menus — tiles brighten, accent stays selection.
+        color: {
+          if (tileMa.containsMouse && modelData.interactive)
+            return modelData.accent ? Theme.chromeAccentSoft : Theme.chromeHover
+          return modelData.accent ? Theme.chromeAccentSoft : Theme.elevatedFill
+        }
         border.width: 1
-        border.color: modelData.accent ? Theme.accent : Theme.chromeBorder
+        border.color: modelData.accent
+            ? Theme.accent
+            : (tileMa.containsMouse && modelData.interactive ? Theme.border : Theme.chromeBorder)
+
+        Behavior on color {
+          ColorAnimation {
+            duration: 120
+            easing.type: Easing.OutCubic
+          }
+        }
+
+        // Press feedback — tiles feel physical (dock press language)
+        scale: tileMa.pressed && modelData.interactive ? 0.97 : 1
+        Behavior on scale {
+          NumberAnimation {
+            duration: 100
+            easing.type: Easing.OutCubic
+          }
+        }
 
         RowLayout {
           anchors.fill: parent
-          anchors.margins: Theme.spaceMd
+          anchors.leftMargin: Theme.spaceSm
+          anchors.rightMargin: Theme.spaceMd
           spacing: Theme.spaceSm
+
+          // Icon disc — accent-filled when the control is active (macOS CC).
+          Rectangle {
+            Layout.preferredWidth: 30
+            Layout.preferredHeight: 30
+            radius: 15
+            color: modelData.accent ? Theme.accent : Theme.bgElevated
+            border.width: modelData.accent ? 0 : 1
+            border.color: Theme.chromeBorder
+
+            Behavior on color {
+              ColorAnimation {
+                duration: 140
+                easing.type: Easing.OutCubic
+              }
+            }
+
+            Text {
+              anchors.centerIn: parent
+              text: modelData.glyph || ""
+              color: modelData.accent ? "#ffffff" : Theme.textDim
+              font.family: Theme.fontFamily
+              font.pixelSize: 14
+            }
+          }
 
           ColumnLayout {
             Layout.fillWidth: true
@@ -920,12 +1180,25 @@ ColumnLayout {
         }
 
         MouseArea {
+          id: tileMa
           anchors.fill: parent
           enabled: modelData.interactive
+          hoverEnabled: true
           cursorShape: modelData.interactive ? Qt.PointingHandCursor : Qt.ArrowCursor
           onClicked: {
-            if (modelData.id === "net")
-              root.networkClicked()
+            if (modelData.id === "net") {
+              // With a Wi‑Fi device the tile owns a quick menu (radio toggle);
+              // wired-only hosts jump straight to Settings → Network.
+              if (!root.wifiSupported) {
+                root.networkClicked()
+                return
+              }
+              if (wifiPopup.visible)
+                wifiPopup.close()
+              else
+                wifiPopup.open()
+            } else if (modelData.id === "bt")
+              root.toggleBluetooth()
             else if (modelData.id === "localsend") {
               if (localSendPopup.visible)
                 localSendPopup.close()
@@ -947,8 +1220,128 @@ ColumnLayout {
                 awakePopup.close()
               else
                 awakePopup.open()
-            } else if (modelData.id === "settings")
-              root.settingsClicked()
+            }
+          }
+        }
+
+        // Wi‑Fi quick menu — radio toggle + Settings escape.
+        Popup {
+          id: wifiPopup
+          visible: false
+          enabled: modelData.id === "net"
+          y: tile.height + 4
+          x: 0
+          width: Math.max(200, tile.width)
+          padding: 4
+          closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
+          modal: false
+
+          enter: Transition {
+            NumberAnimation {
+              property: "opacity"
+              from: 0
+              to: 1
+              duration: 120
+              easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+              property: "scale"
+              from: 0.96
+              to: 1
+              duration: 120
+              easing.type: Easing.OutCubic
+            }
+          }
+          exit: Transition {
+            NumberAnimation {
+              property: "opacity"
+              from: 1
+              to: 0
+              duration: 90
+              easing.type: Easing.InCubic
+            }
+          }
+
+          background: Rectangle {
+            radius: Theme.radiusMd
+            color: Theme.bgElevated
+            border.width: 1
+            border.color: Theme.border
+          }
+
+          contentItem: Column {
+            spacing: 1
+
+            Rectangle {
+              width: wifiPopup.width - 8
+              height: 36
+              radius: Theme.radiusSm
+              color: wifiToggleMa.containsMouse ? Theme.bgHover : "transparent"
+
+              RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: Theme.spaceSm
+                anchors.rightMargin: Theme.spaceSm
+                spacing: Theme.spaceSm
+
+                Text {
+                  Layout.fillWidth: true
+                  text: "Wi‑Fi"
+                  color: Theme.text
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 12
+                  verticalAlignment: Text.AlignVCenter
+                }
+
+                ThemeSwitch {
+                  checked: root.wifiEnabled
+                  onToggled: {
+                    root.toggleWifi()
+                    // Re-establish the binding the interactive toggle broke.
+                    checked = Qt.binding(() => root.wifiEnabled)
+                  }
+                }
+              }
+
+              MouseArea {
+                id: wifiToggleMa
+                anchors.fill: parent
+                hoverEnabled: true
+                propagateComposedEvents: true
+                cursorShape: Qt.PointingHandCursor
+                z: -1
+                onClicked: root.toggleWifi()
+              }
+            }
+
+            Rectangle {
+              width: wifiPopup.width - 8
+              height: 32
+              radius: Theme.radiusSm
+              color: wifiSettingsMa.containsMouse ? Theme.bgHover : "transparent"
+
+              Text {
+                anchors.left: parent.left
+                anchors.leftMargin: Theme.spaceSm
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Network Settings ›"
+                color: Theme.accent
+                font.family: Theme.fontFamily
+                font.pixelSize: 12
+                font.weight: Font.Medium
+              }
+
+              MouseArea {
+                id: wifiSettingsMa
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  wifiPopup.close()
+                  root.networkClicked()
+                }
+              }
+            }
           }
         }
 
@@ -963,6 +1356,32 @@ ColumnLayout {
           padding: 4
           closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
           modal: false
+
+          enter: Transition {
+            NumberAnimation {
+              property: "opacity"
+              from: 0
+              to: 1
+              duration: 120
+              easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+              property: "scale"
+              from: 0.96
+              to: 1
+              duration: 120
+              easing.type: Easing.OutCubic
+            }
+          }
+          exit: Transition {
+            NumberAnimation {
+              property: "opacity"
+              from: 1
+              to: 0
+              duration: 90
+              easing.type: Easing.InCubic
+            }
+          }
 
           background: Rectangle {
             radius: Theme.radiusMd
@@ -1045,6 +1464,32 @@ ColumnLayout {
           closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
           modal: false
 
+          enter: Transition {
+            NumberAnimation {
+              property: "opacity"
+              from: 0
+              to: 1
+              duration: 120
+              easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+              property: "scale"
+              from: 0.96
+              to: 1
+              duration: 120
+              easing.type: Easing.OutCubic
+            }
+          }
+          exit: Transition {
+            NumberAnimation {
+              property: "opacity"
+              from: 1
+              to: 0
+              duration: 90
+              easing.type: Easing.InCubic
+            }
+          }
+
           background: Rectangle {
             radius: Theme.radiusMd
             color: Theme.bgElevated
@@ -1122,6 +1567,32 @@ ColumnLayout {
           padding: 4
           closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
           modal: false
+
+          enter: Transition {
+            NumberAnimation {
+              property: "opacity"
+              from: 0
+              to: 1
+              duration: 120
+              easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+              property: "scale"
+              from: 0.96
+              to: 1
+              duration: 120
+              easing.type: Easing.OutCubic
+            }
+          }
+          exit: Transition {
+            NumberAnimation {
+              property: "opacity"
+              from: 1
+              to: 0
+              duration: 90
+              easing.type: Easing.InCubic
+            }
+          }
 
           background: Rectangle {
             radius: Theme.radiusMd

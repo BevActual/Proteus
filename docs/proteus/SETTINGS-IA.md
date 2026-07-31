@@ -102,7 +102,7 @@ Left-nav + content pane (macOS System Settings style).
 | Category | Holds | Backend | Status |
 |----------|-------|---------|--------|
 | **Appearance** (`style`) | Category → Accent, Background, Lock screen, Icons (style compare + dock pins), Font (searchable + Add) | `settings.json`, Theme, `proteus-bg`; shared Kind/color/font/icon kit | `shipped` |
-| **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Launcher (Spotlight Apps/Files/Clipboard/Actions · tags/recents) — leaf files + FormRow kit | json + hyprctl + `proteus-general.conf` · `launcherRecents` / `launcherFileRecents` / `launcherTagCatalog` / `launcherAppTags` | `shipped` |
+| **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Beacon (system search: Apps/Files/Clipboard/Actions · tags/recents) — leaf files + FormRow kit | json + hyprctl + `proteus-general.conf` · `launcherRecents` / `launcherFileRecents` / `launcherTagCatalog` / `launcherAppTags` | `shipped` |
 | **Displays** (`displays`) | Layout canvas + per-monitor scale/mode/orientation; 10s Revert; Refresh/hotplug honesty; conf escape | hyprctl + `proteus-monitors.conf` | `shipped` |
 | **Sound** (`sound`) | Category → Output / Input / Applications / Mixer / Latency — leaf files + FormRow kit | pactl + `proteus-audio-mix` / `audio-peak.py` + `pw-metadata` + `pw-link` | `shipped` |
 | **Network** (`network`) | Category → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN — password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG import | hostnamectl / nmcli / bluetoothctl / localsend / tailscale / `NetworkDiagnostics` | `shipped` |
@@ -151,11 +151,11 @@ the sub-settings list:
 | Lock screen | Same Kind/color kit as Background + dim; Match desktop; **widgets only via lock Customize** (long-press) — not in Settings |
 | Icons | **Default / Dark / Clear / Tinted** side-by-side squircle compare (`kit/SettingsIconStylePicker`); Tinted tint graph; custom art Switch/Reset; dock Keep/Remove via glass right-click menu + long-press edit (−) / drag-off (running apps appear on dock) |
 | Desktop widgets | **Not in Settings** — unlocked desktop long-press or `Super+Shift+W` → Customize (Theme elevated bar · empty-hint honesty · size/− chrome); free place + optional Snap to Grid; separate `desktopWidgets[]`; store Out |
-| Notifications / DND | **Shell Control Center** (top-bar status cluster) — list depth · toast/`showToast` · DND · QS volume/tiles; Status HUD for media-key volume/brightness (suppressed while CC open); deep Sound/Network/Power stay in Settings panes; **no Settings Notifications category** |
+| Notifications / DND | **Shell Control Center** (top-bar status cluster) — list depth · toast/`showToast` · DND · QS volume/tiles; Network tile → **Settings → Network** (nm-connection-editor stays a Settings escape); Status HUD for media-key volume/brightness (suppressed while CC open); deep Sound/Network/Power stay in Settings panes; **no Settings Notifications category** |
 | Mix (inputs) | **Shell Control Center** unified **Sound** plate — master volume on plate; Listen ▾ + Sources ▾ (name · On/Off · peak · volume); Mixer › → Settings |
-| Keep Awake | **Shell Control Center** duration menu (+ menu-bar **Awake** when on; Spotlight Actions) — temporary `systemd-inhibit idle:sleep` so hypridle/logind skip idle lock & sleep; **not** a Settings Power control |
+| Keep Awake | **Shell Control Center** duration menu (+ menu-bar **Awake** when on; Beacon Actions) — temporary `systemd-inhibit idle:sleep` so hypridle/logind skip idle lock & sleep; **not** a Settings Power control |
 | Power mode | **Settings → Power** segmented + Control Center **Power** tile menu — `powerprofilesctl` (Performance / Balanced / Eco) |
-| LocalSend | **Settings → Network → LocalSend** + Control Center tile **menu** (start/stop · open · copy `ip:53317` · settings) + Spotlight — install honesty when missing |
+| LocalSend | **Settings → Network → LocalSend** + Control Center tile **menu** (start/stop · open · copy `ip:53317` · settings) + Beacon — install honesty when missing |
 | Font | Searchable system/user list (`kit/SettingsFontPicker`); **Add font…** user-scoped install (`~/.local/share/fonts/proteus` · `userFonts`); size slider; live Aa preview |
 
 Open a row → leaf controls; **‹ Appearance** / Esc returns to the list. Desktop
@@ -197,11 +197,11 @@ pages via `kit/StickyPaneLoader` (`DesktopGapsLeaf`, `DesktopChromeLeaf`,
 | Borders & rounding | Border size + window rounding FormRows; live hypr |
 | Motion | Window animations switch |
 | Dock & menu bar | Show/hide/monitor/size FormRows; Advanced → `proteus-general.conf` |
-| Launcher | Spotlight help (Ctrl+1–4 Apps/Files/Clipboard/Actions); empty Apps = Recents section or honest empty; empty Files = Recents + Places (or honest empty); Files search = Folders then Files · depth ≤5 · 40-cap; Clear recent apps / recent files; app tag catalog FormRows |
+| Beacon | Beacon help (universal Apps search incl. Settings + Actions; Tab / Ctrl+1–4 Apps/Files/Clipboard/Actions); empty Apps = Recents section or honest empty; empty Files = Recents + Places (or honest empty); Files search = Folders then Files · depth ≤5 · 40-cap; Clear recent apps / recent files; app tag catalog FormRows |
 
 | Pane | Live apply | On-disk fragment | Guest seed |
 |------|------------|------------------|----------|
-| Desktop | `hyprctl keyword` (gaps, border, rounding, animations) + dock/menu sizes + Launcher tags/recents in `settings.json` | `proteus-general.conf` + `settings.json` (`launcherRecents`, `launcherFileRecents`, `launcherTagCatalog`, `launcherAppTags`) | `vm/guest/install-desktop-conf.sh` |
+| Desktop | `hyprctl keyword` (gaps, border, rounding, animations) + dock/menu sizes + Beacon tags/recents in `settings.json` | `proteus-general.conf` + `settings.json` (`launcherRecents`, `launcherFileRecents`, `launcherTagCatalog`, `launcherAppTags`) | `vm/guest/install-desktop-conf.sh` |
 | Displays | Scale + mode + orientation + layout via `hyprctl keyword monitor`; Revert snapshot; Refresh/hotplug rebind | Live `monitor =` lines in `proteus-monitors.conf` | same |
 
 Templates: `env/hypr/proteus-general.conf`, `env/hypr/proteus-monitors.conf`. Nested
@@ -266,7 +266,7 @@ Diagnostics use shared singletons).
 | Diagnostics | Iface rx/tx + calm rate bars; active connections / listening (`ss`); firewall one-liner; route/DNS; ping; Wireshark Open / Install… → Repos seeded |
 | Wi‑Fi | Scan/connect/disconnect; secured SSIDs → in-pane password; Rescan |
 | Bluetooth | Power · Scan · pair/connect/disconnect/forget; Install… → Repos seeded `blueman` when missing; blueman escape |
-| LocalSend | Install… → AUR seeded `localsend-bin`; Start/Stop / Open / copy address; CC menu + Spotlight |
+| LocalSend | Install… → AUR seeded `localsend-bin`; Start/Stop / Open / copy address; CC menu + Beacon |
 | Tailscale | Status / IP / peers / exit-node / login-server; Install… → Repos seeded `tailscale`; up·down·login |
 | VPN | Profile Connect/Disconnect; WireGuard import; NetworkManager escape for OpenVPN |
 
@@ -295,8 +295,8 @@ pages via `kit/StickyPaneLoader` (`PackagesUpdatesPane`, `PackagesSearchPane`,
 | AppImages | User library `~/.local/share/proteus/appimages`; no polkit; empty honesty |
 | Orphans | `pacman -Qdt` list; remove via `proteus-pkg orphans`; empty honesty |
 
-**Smoke matrix:** host `./scripts/software-reliability-smoke.sh` (all six leaves +
-hub); guest `./scripts/software-guest-smoke.sh` in `smoke-all` (SKIP unless SSH /
+**Smoke matrix:** host `./scripts/smoke/software-reliability-smoke.sh` (all six leaves +
+hub); guest `./scripts/smoke/software-guest-smoke.sh` in `smoke-all` (SKIP unless SSH /
 `PROTEUS_GUEST=1`). **Out:** Snap; dependency graphs.
 
 **Module rule:** Software leaf helpers stay in `panes/Packages*Pane.qml` + `kit/`
@@ -353,7 +353,7 @@ Canonical chrome language (tokens + patterns): [CHROME.md](./CHROME.md)
 - Accent = selection/action only  
 - Legibility floor: prefs must not produce unreadable UI  
 - Settings visual language: modern System Settings (grouped lists, soft selection, large titles)  
-- **Dual-path:** mouse-legible Settings for ordinary jobs; keyboard path for frequent actions (`Super+,` · Spotlight Settings search / Actions · in-app `/` jump · hub ↑↓ Enter · CC). No TUI-only control center; no sanding off Facts/escapes  
+- **Dual-path:** mouse-legible Settings for ordinary jobs; keyboard path for frequent actions (`Super+,` · Beacon Settings search / Actions · in-app `/` jump · hub ↑↓ Enter · CC). No TUI-only control center; no sanding off Facts/escapes  
 - **Escapes:** quiet Fact-backed hatches (tool or conf); honest missing install; wrap engines into chrome — don’t re-skin full GUIs; don’t use escapes to hide a broken path ([CHROME.md](./CHROME.md) §1.8)  
 - `Super+,` opens Settings (global shortcut + Hyprland bind)  
 - Host posture reuses this app; does not invent a second control center  

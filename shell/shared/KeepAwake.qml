@@ -109,7 +109,7 @@ Singleton {
       root.start(id)
   }
 
-  // Spotlight / legacy: toggle indefinite on/off (does not cycle durations).
+  // Beacon / legacy: toggle indefinite on/off (does not cycle durations).
   function toggle() {
     if (root.active)
       root.stop()
@@ -117,7 +117,7 @@ Singleton {
       root.start("indefinite")
   }
 
-  // Spotlight: open next duration without landing on Off until the end of the list.
+  // Beacon: open next duration without landing on Off until the end of the list.
   // Prefer Control Center menu; this stays for Actions.
   function cycle() {
     if (!root.active) {

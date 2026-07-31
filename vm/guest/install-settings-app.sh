@@ -6,7 +6,7 @@ APP="${ROOT}/apps/proteus-settings"
 
 # Brand marks into icon theme (proteus / proteus-settings)
 bash "${ROOT}/vm/guest/install-icons.sh"
-# Hide pavucontrol / blueman / nm-editor from Spotlight (Calculator stays)
+# Hide pavucontrol / blueman / nm-editor from Beacon (Calculator stays)
 bash "${ROOT}/vm/guest/hide-system-apps.sh"
 
 install -d /usr/local/bin

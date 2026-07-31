@@ -62,9 +62,33 @@ Item {
   readonly property real dragThreshold: 7
   readonly property real removeThreshold: shelfHeight * 0.75
 
-  readonly property real rowWidth: count > 0
-      ? count * iconSize + Math.max(0, count - 1) * spacing
-      : 0
+  // Separator (pins ‖ transients) is narrower than an icon — layout is a
+  // prefix-sum over per-item widths, not index * (iconSize + spacing).
+  readonly property int sepW: Math.max(9, Math.round(spacing * 1.5))
+
+  function widthAt(index) {
+    const e = items[index]
+    return e && e.separator ? sepW : iconSize
+  }
+
+  readonly property var cellLefts: {
+    const out = []
+    let x = padX
+    for (let i = 0; i < items.length; i++) {
+      out.push(x)
+      x += (items[i] && items[i].separator ? sepW : iconSize) + spacing
+    }
+    return out
+  }
+
+  readonly property real rowWidth: {
+    let w = 0
+    for (let i = 0; i < items.length; i++)
+      w += items[i] && items[i].separator ? sepW : iconSize
+    if (items.length > 1)
+      w += (items.length - 1) * spacing
+    return w
+  }
 
   readonly property int shelfHeight: iconSize + padTop + padBottom
   readonly property int magHeadroom: (maxIconSize - iconSize) + tipH + tipGap + 12
@@ -74,10 +98,14 @@ Item {
   implicitHeight: Math.round(shelfHeight + magHeadroom)
 
   function centerAt(index) {
-    return padX + index * (iconSize + spacing) + iconSize * 0.5
+    if (index < 0 || index >= cellLefts.length)
+      return 0
+    return cellLefts[index] + widthAt(index) * 0.5
   }
 
   function scaleAt(index) {
+    if (items[index] && items[index].separator)
+      return restScale
     if (editMode || dragging || menuOpen)
       return restScale
     if (!hovered || mouseX < 0)
@@ -98,8 +126,8 @@ Item {
 
   function indexAt(x) {
     for (let i = 0; i < count; i++) {
-      const left = padX + i * (iconSize + spacing)
-      if (x >= left && x < left + iconSize)
+      const left = cellLefts[i]
+      if (x >= left && x < left + widthAt(i))
         return i
     }
     return -1
@@ -135,7 +163,7 @@ Item {
     const entry = items[index]
     const keep = DockApps.canKeepInDock(entry)
     const remove = DockApps.canUnpin(entry)
-    if (!keep && !remove)
+    if (!keep && !remove && !DockApps.canQuit(entry))
       return
     root.menuIndex = index
     root.menuOpen = true
@@ -350,7 +378,8 @@ Item {
           return
         }
       }
-      root.tipIndex = root.editMode ? -1 : root.indexAt(mouse.x)
+      const hi = root.editMode ? -1 : root.indexAt(mouse.x)
+      root.tipIndex = (hi >= 0 && root.items[hi] && root.items[hi].separator) ? -1 : hi
     }
     onClicked: mouse => {
       if (root.suppressClick) {
@@ -381,7 +410,8 @@ Item {
     }
     onPressed: mouse => {
       root.setMouse(mouse.x)
-      root.pressIndex = root.indexAt(mouse.x)
+      const pi = root.indexAt(mouse.x)
+      root.pressIndex = (pi >= 0 && root.items[pi] && root.items[pi].separator) ? -1 : pi
       root.pressX = mouse.x
       root.pressY = mouse.y
       holdTimer.stop()
@@ -406,27 +436,40 @@ Item {
     }
   }
 
-  // Drag feedback label (macOS Remove / Keep)
-  Text {
+  // Drag feedback chip (macOS Remove / Keep) — tooltip plate for wallpaper legibility
+  Rectangle {
     z: 60
-    visible: root.dragging
+    visible: root.dragging && dragTipLabel.text.length > 0
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.bottom: plate.top
     anchors.bottomMargin: 8
-    text: {
-      if (root.dragIndex < 0 || root.dragIndex >= root.items.length)
+    width: dragTipLabel.implicitWidth + 16
+    height: root.tipH
+    radius: 6
+    color: Theme.light
+        ? Qt.rgba(0.15, 0.15, 0.16, 0.92)
+        : Qt.rgba(0.18, 0.18, 0.2, 0.94)
+    border.width: 1
+    border.color: Qt.rgba(1, 1, 1, 0.08)
+
+    Text {
+      id: dragTipLabel
+      anchors.centerIn: parent
+      text: {
+        if (root.dragIndex < 0 || root.dragIndex >= root.items.length)
+          return ""
+        const e = root.items[root.dragIndex]
+        if (root.dragRemoving && DockApps.canUnpin(e))
+          return "Remove"
+        if (DockApps.canKeepInDock(e) && root.dragLift > 4)
+          return "Keep in Dock"
         return ""
-      const e = root.items[root.dragIndex]
-      if (root.dragRemoving && DockApps.canUnpin(e))
-        return "Remove"
-      if (DockApps.canKeepInDock(e) && root.dragLift > 4)
-        return "Keep in Dock"
-      return ""
+      }
+      color: root.dragRemoving ? Theme.danger : "#f5f5f7"
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.fontSizeSm
+      font.weight: Font.Medium
     }
-    color: root.dragRemoving ? Qt.rgba(1, 0.35, 0.35, 0.95) : Qt.rgba(0.85, 0.95, 0.85, 0.95)
-    font.family: Theme.fontFamily
-    font.pixelSize: Theme.fontSizeSm
-    font.weight: Font.Medium
   }
 
   // Edit-mode Done chip (iOS)
@@ -472,15 +515,23 @@ Item {
       const e = root.menuEntry()
       return !!(e && DockApps.canUnpin(e))
     }
+    readonly property bool showQuit: {
+      const e = root.menuEntry()
+      return !!(e && DockApps.canQuit(e))
+    }
+    readonly property int sepCount: ((showKeep || showRemove) && showQuit ? 1 : 0)
+        + (showKeep && showRemove ? 1 : 0)
     width: Math.max(
           showKeep ? keepMeasure.implicitWidth : 0,
           showRemove ? removeMeasure.implicitWidth : 0,
+          showQuit ? quitMeasure.implicitWidth : 0,
           120
         ) + padX * 2
     height: padY * 2
         + (showKeep ? rowH : 0)
         + (showRemove ? rowH : 0)
-        + (showKeep && showRemove ? 1 : 0)
+        + (showQuit ? rowH : 0)
+        + sepCount
 
     Text {
       id: keepMeasure
@@ -493,6 +544,13 @@ Item {
       id: removeMeasure
       visible: false
       text: "Remove from Dock"
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.fontSizeSm
+    }
+    Text {
+      id: quitMeasure
+      visible: false
+      text: "Quit"
       font.family: Theme.fontFamily
       font.pixelSize: Theme.fontSizeSm
     }
@@ -583,6 +641,53 @@ Item {
           }
         }
       }
+
+      Item {
+        width: parent.width
+        height: 1
+        visible: (ctxMenu.showKeep || ctxMenu.showRemove) && ctxMenu.showQuit
+        Rectangle {
+          anchors.horizontalCenter: parent.horizontalCenter
+          width: parent.width - 16
+          height: 1
+          color: Theme.separator
+        }
+      }
+
+      // Quit — close every window of the app (apps prompt for unsaved work).
+      Item {
+        width: parent.width
+        height: ctxMenu.rowH
+        visible: ctxMenu.showQuit
+
+        Rectangle {
+          anchors.fill: parent
+          anchors.leftMargin: 4
+          anchors.rightMargin: 4
+          radius: Theme.radiusSm
+          color: Theme.chromeAccentSoft
+          opacity: quitMa.containsMouse ? 1 : 0
+        }
+        Text {
+          anchors.centerIn: parent
+          text: quitMeasure.text
+          color: Theme.text
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSizeSm
+        }
+        MouseArea {
+          id: quitMa
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: {
+            const e = root.menuEntry()
+            if (e)
+              DockApps.quitEntry(e)
+            root.closePinMenu()
+          }
+        }
+      }
     }
   }
 
@@ -594,19 +699,22 @@ Item {
       required property var modelData
       required property int index
 
+      readonly property bool isSep: !!modelData.separator
       readonly property real s: root.scaleAt(index)
       property real displayS: s
       property real displayPress: 1
+      property real bounceY: 0
       readonly property real rise: root.maxIconSize * (displayS - root.restScale)
-      readonly property bool tipOn: root.tipIndex === index && !root.menuOpen && !root.editMode && !root.dragging
+      readonly property bool tipOn: !isSep && root.tipIndex === index && !root.menuOpen && !root.editMode && !root.dragging
       readonly property bool brandIcon: modelData.special === "launcher"
           || modelData.special === "settings"
           || modelData.icon === "proteus-launcher"
           || modelData.icon === "proteus-settings"
+      readonly property bool launching: DockApps.isLaunching(modelData)
       readonly property bool isDragging: root.dragging && root.dragIndex === index
       readonly property bool showMinus: root.editMode && !isDragging && DockApps.canUnpin(modelData)
       readonly property bool showKeepBadge: root.editMode && !isDragging && DockApps.canKeepInDock(modelData)
-      readonly property real restX: root.padX + index * (root.iconSize + root.spacing)
+      readonly property real restX: index < root.cellLefts.length ? root.cellLefts[index] : 0
 
       onSChanged: displayS = s
       Connections {
@@ -637,12 +745,52 @@ Item {
 
       x: isDragging ? root.dragX : restX
       opacity: isDragging && root.dragRemoving ? 0.45 : 1
-      width: root.iconSize
+      width: isSep ? root.sepW : root.iconSize
       height: root.iconSize + root.magHeadroom
       anchors.bottom: parent.bottom
       anchors.bottomMargin: root.padBottom
       z: isDragging ? 40 : (tipOn ? 20 : Math.round(10 + index + (displayS - root.restScale) * 40))
       clip: false
+
+      // Launch feedback — macOS bounce until the first window appears.
+      SequentialAnimation {
+        running: cell.launching && !cell.isDragging && !root.editMode
+        loops: Animation.Infinite
+        onRunningChanged: {
+          if (!running)
+            cell.bounceY = 0
+        }
+
+        NumberAnimation {
+          target: cell
+          property: "bounceY"
+          from: 0
+          to: Math.round(root.iconSize * 0.5)
+          duration: 300
+          easing.type: Easing.OutQuad
+        }
+        NumberAnimation {
+          target: cell
+          property: "bounceY"
+          to: 0
+          duration: 340
+          easing.type: Easing.InQuad
+        }
+        PauseAnimation {
+          duration: 320
+        }
+      }
+
+      // Hairline between pinned and transient (running-only) apps.
+      Rectangle {
+        visible: cell.isSep
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: Math.round(root.iconSize * 0.16)
+        width: 1
+        height: Math.round(root.iconSize * 0.62)
+        color: Theme.light ? Qt.rgba(0, 0, 0, 0.22) : Qt.rgba(1, 1, 1, 0.18)
+      }
 
       // Fixed badge geometry (rest icon size; outside mag Scale)
       readonly property real badgeSize: Math.round(root.iconSize * 0.38)
@@ -651,7 +799,7 @@ Item {
       readonly property real iconTop: height - iconVisual
 
       transform: Translate {
-        y: isDragging ? -Math.min(root.dragLift, root.maxIconSize) : 0
+        y: isDragging ? -Math.min(root.dragLift, root.maxIconSize) : -cell.bounceY
       }
 
       Rectangle {
@@ -681,6 +829,7 @@ Item {
 
       Item {
         id: glyph
+        visible: !cell.isSep
         width: root.maxIconSize
         height: root.maxIconSize
         anchors.horizontalCenter: parent.horizontalCenter
@@ -718,7 +867,7 @@ Item {
         z: 60
         x: cell.iconLeft - width * 0.28
         y: cell.iconTop - height * 0.28
-        color: Qt.rgba(0.72, 0.18, 0.18, 0.98)
+        color: Theme.danger
         border.width: 2
         border.color: Qt.rgba(1, 1, 1, 0.95)
         Text {
@@ -766,6 +915,7 @@ Item {
 
       // Running = soft disc; active/focused = short accent pill (readable at rest size)
       Rectangle {
+        visible: !cell.isSep
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: -4

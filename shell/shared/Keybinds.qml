@@ -23,7 +23,7 @@ Singleton {
     {
       id: "launcher",
       category: "Apps",
-      label: "App Launcher",
+      label: "Beacon (system search)",
       mods: "SUPER",
       key: "SPACE",
       dispatcher: "global",
@@ -32,7 +32,7 @@ Singleton {
     {
       id: "launcher-alt",
       category: "Apps",
-      label: "App Launcher (alternate)",
+      label: "Beacon (alternate)",
       mods: "SUPER",
       key: "D",
       dispatcher: "global",

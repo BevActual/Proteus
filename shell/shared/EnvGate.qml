@@ -120,7 +120,7 @@ Singleton {
     }
   ]
 
-  // Spotlight / launcher Settings hits — hubs + common leaves (gate via hubId).
+  // Beacon Settings hits — hubs + common leaves (gate via hubId).
   readonly property var settingsSearchIndex: [
     {
       id: "style",
@@ -190,9 +190,9 @@ Singleton {
     },
     {
       id: "desktop-launcher",
-      label: "Launcher",
+      label: "Beacon",
       hubId: "desktop",
-      keywords: "spotlight tags groups apps"
+      keywords: "beacon spotlight launcher search tags groups apps"
     },
     {
       id: "displays",
