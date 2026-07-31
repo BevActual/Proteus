@@ -100,9 +100,11 @@ ColumnLayout {
       label: "Hyprland profile"
       hint: HyprProfile.busy
           ? "Applying…"
-          : (HyprProfile.activeProfileLabel !== "—"
-              ? ("Using " + HyprProfile.activeProfileLabel)
-              : "Soft profile reload")
+          : (HyprProfile.activeDetail.length
+              ? HyprProfile.activeDetail
+              : (HyprProfile.activeProfileLabel !== "—"
+                  ? ("Using " + HyprProfile.activeProfileLabel)
+                  : HyprProfile.softHonesty))
       showSeparator: true
       SettingsCombo {
         preferredWidth: 168
@@ -119,13 +121,41 @@ ColumnLayout {
     }
 
     SettingsFormRow {
-      visible: HyprProfile.helperMissing || HyprProfile.error.length > 0
-      label: HyprProfile.helperMissing ? "Helper" : "Error"
-      hint: HyprProfile.error.length
-          ? HyprProfile.error
-          : "set-hypr-profile.sh not found"
+      label: "Kind"
+      hint: HyprProfile.softHonesty
+      showSeparator: HyprProfile.statusNote.length > 0
+          || HyprProfile.error.length > 0
+          || HyprProfile.helperMissing
+    }
+
+    SettingsFormRow {
+      visible: HyprProfile.statusNote.length > 0 && !HyprProfile.error.length
+      label: "Status"
+      hint: HyprProfile.statusNote
+      showSeparator: HyprProfile.error.length > 0 || HyprProfile.helperMissing
+    }
+
+    SettingsFormRow {
+      visible: HyprProfile.error.length > 0
+      label: "Error"
+      hint: HyprProfile.error
       labelColor: Theme.danger
       showSeparator: true
+    }
+
+    SettingsFormRow {
+      visible: HyprProfile.helperMissing
+      label: "Install desktop conf…"
+      hint: HyprProfile.helperHint
+      showSeparator: true
+      interactive: true
+      onActivated: HyprProfile.openInstallHelper()
+      Text {
+        text: "Install"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+      }
     }
 
     SettingsFormRow {
@@ -220,8 +250,8 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Fact: hw-probe.json from services/proteus-hw-probe · Hyprland profile via "
-        + "set-hypr-profile.sh (soft reload) · session actions under Users."
+    text: "Fact: hw-probe.json · soft Hyprland profile via set-hypr-profile.sh "
+        + "(console≡media.conf; not a hard posture switch) · session under Users."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11

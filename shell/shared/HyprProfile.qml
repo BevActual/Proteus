@@ -13,8 +13,10 @@ Singleton {
   property string activeProfile: ""
   property bool busy: false
   property string error: ""
+  property string statusNote: ""
   property bool helperMissing: false
   property string helperPath: ""
+  property bool lastReloadOk: false
 
   readonly property string pointerPath: Quickshell.env("HOME") + "/.config/hypr/proteus-profile.conf"
   readonly property string profilesDir: Quickshell.env("HOME") + "/.config/hypr/profiles"
@@ -38,6 +40,24 @@ Singleton {
   readonly property string activeProfileLabel: root.profileLabel(root.activeProfile)
 
   readonly property string softHonesty: "Soft Hyprland profile reload — not a hard posture switch."
+
+  readonly property string consoleAliasNote: "Console uses profiles/media.conf on disk (legacy alias)."
+
+  readonly property string activeDetail: {
+    if (!root.activeProfile.length)
+      return ""
+    if (root.activeProfile === "console")
+      return root.consoleAliasNote
+    if (root.activeProfile === "home")
+      return "Home is parked — stub profile only."
+    return ""
+  }
+
+  readonly property string helperHint: {
+    if (root.helperPath.length)
+      return root.helperPath
+    return "Needs set-hypr-profile.sh (PROTEUS_ROOT or /mnt/proteus)"
+  }
 
   function profileLabel(uiId) {
     const u = String(uiId || "")
@@ -90,14 +110,31 @@ Singleton {
   function applyPointerText(raw) {
     const id = root.parsePointerText(raw)
     root.activeProfile = id
-    if (id.length && !root.busy)
-      root.error = ""
+    if (id.length && !root.busy) {
+      if (root.statusNote.indexOf("pointer") >= 0)
+        root.statusNote = ""
+      if (root.error.indexOf("pointer") >= 0)
+        root.error = ""
+    }
   }
 
   function refresh() {
     pointerFile.reload()
     probeHelperProc.running = false
     probeHelperProc.running = true
+  }
+
+  function openInstallHelper() {
+    Quickshell.execDetached({
+      command: [
+        "bash",
+        "-lc",
+        "exec proteus-terminal -e bash -lc "
+            + JSON.stringify(
+              "sudo bash /mnt/proteus/vm/guest/install-desktop-conf.sh"
+                  + "; echo; read -r -p \"Press Enter to close…\" _")
+      ]
+    })
   }
 
   function set(uiId) {
@@ -119,12 +156,15 @@ Singleton {
       return
     if (!root.helperPath.length) {
       root.helperMissing = true
-      root.error = "set-hypr-profile.sh not found (install desktop conf / PROTEUS_ROOT)"
+      root.error = "set-hypr-profile.sh not found — install desktop conf or set PROTEUS_ROOT"
+      root.statusNote = ""
       return
     }
 
     root.busy = true
     root.error = ""
+    root.statusNote = ""
+    root.lastReloadOk = false
     const arg = root.scriptArgFromUiId(id)
     setProc.command = ["bash", root.helperPath, arg]
     setProc.running = false
@@ -141,7 +181,10 @@ Singleton {
     onLoadFailed: {
       if (!root.busy) {
         root.activeProfile = ""
-        root.error = "No active profile pointer yet"
+        // Soft status — pointer seeds from install-desktop-conf / set-hypr-profile.
+        root.statusNote = "No active profile pointer yet — pick a profile to create one"
+        if (root.error.indexOf("pointer") >= 0)
+          root.error = ""
       }
     }
   }
@@ -188,14 +231,25 @@ Singleton {
     }
     onExited: (exitCode) => {
       root.busy = false
+      const out = setOut.text.trim()
+      const err = setErr.text.trim()
       if (exitCode === 0) {
         root.error = ""
+        root.lastReloadOk = out.indexOf("hyprctl reload OK") >= 0
+        if (root.lastReloadOk)
+          root.statusNote = "Pointer updated · hyprctl reload OK (soft)"
+        else if (out.indexOf("pointer updated") >= 0 || out.indexOf("Active profile") >= 0)
+          root.statusNote = "Pointer updated on disk — reload when Hyprland is running"
+        else
+          root.statusNote = "Profile applied (soft)"
         root.refresh()
         return
       }
-      const e = setErr.text.trim().split("\n")[0]
-          || setOut.text.trim().split("\n").filter(l => l.length).slice(-1)[0]
+      const e = err.split("\n")[0]
+          || out.split("\n").filter(l => l.length).slice(-1)[0]
           || ""
+      root.statusNote = ""
+      root.lastReloadOk = false
       root.error = e.length ? e : "Could not change Hyprland posture profile"
       root.refresh()
     }
