@@ -209,5 +209,5 @@ compositor chrome for that unit.
 | Console / host hard switches | `planned` — engine + shell session flip |
 | QS respawn / crash policy | `partial` — `proteus-qs` flock/backoff/`--restart`; optional `proteus-qs.service` user unit (hypr exec-once still default) |
 | Capability resolver | `planned` |
-| Pin QS version in guest docs/ISO | `partial` — version **recorded** in smoke; IgnorePkg/ISO pin Out |
+| Pin QS version in guest docs/ISO | `shipped` — version **recorded** in smoke; IgnorePkg/ISO pin Out |
 | Greeter/lock in QS | `partial` — lock screen shipped (PAM); greetd/tuigreet still login |

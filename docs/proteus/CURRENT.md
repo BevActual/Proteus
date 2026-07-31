@@ -51,7 +51,7 @@ the thesis ahead of code where marked `planned`.
 | Quickshell shell | `shipped` | Chrome runtime; `/mnt/proteus/shell` via 9p |
 | Nested Hyprland (host) | `shipped` | `scripts/run-nested.sh` — shell-only quick test |
 | Hyprland posture profiles | `partial` — desktop + media(console alias)/host/home stubs + soft `set-hypr-profile.sh` + Settings About picker (`HyprProfile.qml`); hard switches `planned` — [POSTURES.md](./POSTURES.md) · [COMPOSITOR.md](./COMPOSITOR.md) |
-| QS version pin / respawn policy | `partial` — `proteus-qs` flock + `--restart` + orphan reap + backoff; optional systemd `--user` unit; version recorded in `qs-guest-smoke` / `qs-version-smoke`; after QS upgrade re-run guest smoke; IgnorePkg/ISO pin Out |
+| QS version pin / respawn policy | `shipped` — `proteus-qs` flock + `--restart` + orphan reap + backoff; optional systemd `--user` unit; version **recorded** in `qs-guest-smoke` / `qs-version-smoke` (not IgnorePkg); after QS upgrade re-run guest smoke; IgnorePkg/ISO pin Out |
 
 ---
 
@@ -66,7 +66,7 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 | Status HUD (volume · brightness) | `shipped` — top-right elevated glass chip (`Hud` / `StatusHud`, toast plate language); XF86 + IPC; suppressed while Control Center open; brightness honest-skip without `/sys/class/backlight` |
 | App launcher (`Super+Space` / `Super+D`) | `partial` — Apps / Files / Clipboard / Actions (Ctrl+1–4; active mode pill labels); empty Apps = calm **Recents** hierarchy (or honest empty); empty Files = **Recents** + **Places** (or honest empty); Files search = Folders then Files (depth ≤5 · 40-cap · capped hint); `launcherFileRecents` on open; fuzzy + tags + Settings; EnvGate unavailable honesty (badge · reasons); calc/convert + near-miss hint; cliphist missing-vs-empty; allowlisted Actions (lock/logout/settings/CC/DND/Keep Awake/LocalSend/power) |
 | Dock (pins, magnify, running dots) | `shipped` — continuous frosted glass shelf (`glassAlpha` frost floor + curve-following edge glow; no straight specular); smooth magnify; running disc vs active accent pill; long-press edit (−/+ · Done); press-drag reorder / drag-off remove; glass Keep/Remove (`ChromeMenuPlate`) |
-| Session start (`proteus-session`) | `partial` — prefers `start-hyprland` (known paths; fail-closed to Hyprland); hypr seed `exec-once` = qs/bg/cliphist only (install strips terminal autostart); `hide-system-apps` via apps + post-install (Settings-covered tools + Quickshell; Calculator stays); host `session-smoke` + `install-smoke` |
+| Session start (`proteus-session`) | `shipped` — prefers `start-hyprland` (known paths; fail-closed to Hyprland); hypr seed `exec-once` = qs/bg/cliphist only (install strips terminal autostart); `hide-system-apps` via apps + post-install (Settings-covered tools + Quickshell; Calculator stays); host `session-smoke` + `install-smoke` |
 | Desktop widgets (free place; Customize) | `shipped` — long-press empty desktop or `Super+Shift+W`; free-place + optional Snap to Grid (center graph · no overlap); Customize bar / empty hint / size−chrome on Theme tokens (`DesktopCustomizeBar` · `DesktopWidgetSurface` · `DesktopAppletHost`); catalog via `Widgets.qml`; separate from lock; **not** in Settings; widget store Out |
 | Lock screen (`Super+L`, PAM + `WlSessionLock`) | `shipped` — Customize mode, zone layout, applets; cold boot auto-lock; attempt cooldown after 3 misses |
 | Global shortcuts (launcher, settings, lock) | `shipped` |
