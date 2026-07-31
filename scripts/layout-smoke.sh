@@ -63,6 +63,7 @@ KIT_REQUIRED=(
   PackagesConfirm.qml
   PackagesOpProgress.qml
   PackagesPickerRow.qml
+  SettingsCombo.qml
   SettingsFormRow.qml
   SettingsGroup.qml
   SettingsHubList.qml
