@@ -157,10 +157,15 @@ Item {
     visible: root.customizeMode && Widgets.desktopWidgetsEnabledList.length === 0
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.verticalCenter: parent.verticalCenter
-    text: root.snapToGrid ? "Tap Add Widget, then drag on the grid" : "Tap Add Widget, then drag anywhere"
-    color: Qt.rgba(1, 1, 1, 0.55)
+    width: Math.min(360, parent.width - Theme.spaceXl * 2)
+    horizontalAlignment: Text.AlignHCenter
+    wrapMode: Text.WordWrap
+    text: root.snapToGrid
+      ? "No widgets yet — Add Widget, then place on the grid."
+      : "No widgets yet — Add Widget, then place anywhere."
+    color: Theme.textMute
     font.family: Theme.fontFamily
-    font.pixelSize: 14
+    font.pixelSize: Theme.fontSizeSm
   }
 
   DesktopCustomizeBar {
