@@ -69,6 +69,7 @@ Examples:
 | Hostname | `hostnamectl` (polkit-gated set) |
 | Bluetooth (status + open) | `bluetoothctl` · blueman / blueberry |
 | VPN profiles (list + open NM) | `nmcli connection` (vpn / wireguard) |
+| LocalSend (status + open / start / stop) | `localsend` · port 53317 |
 | Tailscale (status + up/down + copy IP) | `tailscale status --json` · `wl-copy` |
 | Package updates / search / remove / orphans | `pacman -Qu` / `-Ss` / `-Qqe` / `-Qdt` · apply `pkexec proteus-pkg` (multi install/remove; selective upgrades) |
 | AUR search / install / remove / update | `yay`/`paru` `-Ssa` · remove via `-Qqm` foreign pkgs · multi-select |
@@ -102,7 +103,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Launcher (Spotlight Apps/Files/Clipboard/Actions · tags/recents) — leaf files + FormRow kit | json + hyprctl + `proteus-general.conf` · `launcherRecents` / `launcherFileRecents` / `launcherTagCatalog` / `launcherAppTags` | `shipped` |
 | **Displays** (`displays`) | Layout canvas + per-monitor scale/mode/orientation; 10s Revert; Refresh/hotplug honesty; conf escape | hyprctl + `proteus-monitors.conf` | `shipped` |
 | **Sound** (`sound`) | Category → Output / Input / Applications / Mixer / Latency — leaf files + FormRow kit | pactl + `proteus-audio-mix` / `audio-peak.py` + `pw-metadata` + `pw-link` | `shipped` |
-| **Network** (`network`) | Category → This machine / Devices / Wi‑Fi / Bluetooth / Tailscale / VPN — leaf files + FormRow kit | hostnamectl / nmcli / bluetoothctl / tailscale | `shipped` |
+| **Network** (`network`) | Category → This machine / Devices / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN — leaf files + FormRow kit | hostnamectl / nmcli / bluetoothctl / localsend / tailscale | `shipped` |
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse; later touchpad / tablet | keybinds + input hyprctl | `shipped` |
 | **Power** (`power`) | Power mode segmented (PPD); battery (UPower); idle / lid FormRows via `proteus-logind` drop-in + conf escape | `powerprofilesctl` / UPower / `proteus-logind` | `shipped` |
 | **Users** (`users`) | Session Lock/Logout/Reboot/Shutdown; current + other local users (read-only + Refresh); greetd status + conf escape | `Config.session` · id/getent · greetd/`/etc/greetd/config.toml` | `shipped` |
@@ -151,6 +152,7 @@ the sub-settings list:
 | Mix (inputs) | **Shell Control Center** unified **Sound** plate — master volume on plate; Listen ▾ + Sources ▾ (name · On/Off · peak · volume); Mixer › → Settings |
 | Keep Awake | **Shell Control Center** duration menu (+ menu-bar **Awake** when on; Spotlight Actions) — temporary `systemd-inhibit idle:sleep` so hypridle/logind skip idle lock & sleep; **not** a Settings Power control |
 | Power mode | **Settings → Power** segmented + Control Center **Power** tile menu — `powerprofilesctl` (Performance / Balanced / Eco) |
+| LocalSend | **Settings → Network → LocalSend** + Control Center tile **menu** (start/stop · open · copy `ip:53317` · settings) + Spotlight — install honesty when missing |
 | Font | Searchable system/user list (`kit/SettingsFontPicker`); **Add font…** user-scoped install (`~/.local/share/fonts/proteus` · `userFonts`); size slider; live Aa preview |
 
 Open a row → leaf controls; **‹ Appearance** / Esc returns to the list. Desktop
@@ -249,9 +251,9 @@ FormRow/Group — not a single mega-inline `SoundPane` body.
 
 Network: click sidebar → heading **Network** + sub-settings list, then leaf pages
 via `kit/StickyPaneLoader` (`NetworkMachineLeaf`, `NetworkDevicesLeaf`,
-`NetworkWifiLeaf`, `NetworkBluetoothLeaf`, `NetworkTailscaleLeaf`,
-`NetworkVpnLeaf`). Hub state lives in `NetworkPane.qml`
-(`property Item host` on leaves).
+`NetworkWifiLeaf`, `NetworkBluetoothLeaf`, `NetworkLocalSendLeaf`,
+`NetworkTailscaleLeaf`, `NetworkVpnLeaf`). Hub state lives in `NetworkPane.qml`
+(`property Item host` on leaves; LocalSend uses shared `LocalSend` singleton).
 
 | Sub-setting | Role |
 |-------------|------|
@@ -259,6 +261,7 @@ via `kit/StickyPaneLoader` (`NetworkMachineLeaf`, `NetworkDevicesLeaf`,
 | Devices | nmcli interfaces with type · state · connection hints |
 | Wi‑Fi | Scan/connect/disconnect FormRows; signal/security hints; Rescan |
 | Bluetooth | Adapter Powered/Off; blueman escape (pairing Out) |
+| LocalSend | Install honesty; Start/Stop / Open / copy address; CC menu + Spotlight |
 | Tailscale | Status / IP copy / peers / up·down·login; `tailscale status` escape |
 | VPN | NM VPN/WireGuard profile list; single NetworkManager escape |
 

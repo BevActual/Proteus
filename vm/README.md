@@ -145,6 +145,9 @@ bash /mnt/proteus/vm/guest/install-settings-app.sh
 #   sudo bash /mnt/proteus/vm/guest/install-proteus-pkg.sh
 #   sudo bash /mnt/proteus/vm/guest/install-proteus-logind.sh
 #   sudo bash /mnt/proteus/vm/guest/install-proteus-audio-mix.sh
+# LocalSend (AUR localsend-bin) — keep the terminal open until Done:
+#   bash /mnt/proteus/vm/guest/install-localsend-native.sh
+#   bash /mnt/proteus/vm/guest/repair-localsend-native.sh   # empty .so / interrupted yay
 ```
 
 ### Notes / blockers
