@@ -110,7 +110,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Online accounts** (`accounts`) | Mail / contacts / cloud provider seats (coming soon; no OAuth) | TBD (not inventing mail/contacts apps here) | `partial` |
 | **Date & time** (`datetime`) | Live clock, searchable timezone picker, network time toggle, locale, **Location** (shared system place + units) | `timedatectl` / `localectl` / Open-Meteo | `partial` |
 | **Privacy** (`privacy`) | Permission categories listed; grants not enforced yet | EnvGate / adaptive apps later | `partial` |
-| **Software** (`packages`) | Hub → Updates; Repos / AUR / Flathub (Install\|Installed mode-safe, per-mode search, op narrative); AppImages; Orphans | `pacman` + `proteus-pkg` · yay/paru · flatpak + Flathub · local AppImages | `partial` |
+| **Software** (`packages`) | Hub → Updates; Repos / AUR / Flathub (Install\|Installed mode-safe, per-mode search, op narrative); AppImages; Orphans — helper honesty when yay/paru/flatpak missing | `pacman` + `proteus-pkg` · yay/paru · flatpak + Flathub · local AppImages | `shipped` |
 | **About** (`system`) | Hardware caps; session actions → Users | probe | `partial` |
 
 VM / container **setup** is **not** a Settings category — a separate host app later.
@@ -272,6 +272,31 @@ via `kit/StickyPaneLoader` (`NetworkMachineLeaf`, `NetworkDevicesLeaf`,
 **Module rule:** Network leaf helpers stay in `panes/Network*Leaf.qml` + `kit/`
 FormRow/Group — not a single mega-inline `NetworkPane` body.
 
+### Software
+
+Software: click sidebar → heading **Software** + sub-settings list, then leaf
+pages via `kit/StickyPaneLoader` (`PackagesUpdatesPane`, `PackagesSearchPane`,
+`PackagesAurPane`, `PackagesFlatpakPane`, `PackagesAppImagesPane`,
+`PackagesOrphansPane`). Hub: `PackagesPane.qml`. Shared mutators / browse:
+`shell/shared/Packages.qml` + `pkexec proteus-pkg`. Kit: `PackagesPickerRow`,
+`PackagesActionBar`, `PackagesOpProgress`, `PackagesConfirm`.
+
+| Sub-setting | Role |
+|-------------|------|
+| Updates | `pacman -Qu` list; Sync DB / selective or full upgrade; empty = up to date + Full upgrade… |
+| Repos | Install\|Installed mode-safe search; popular browse; leafUi memory |
+| AUR | Same pattern via `yay` **or** `paru`; hub “Needs yay/paru” when missing |
+| Flathub | Same pattern via `flatpak`; hub Needs flatpak / Add Flathub remote |
+| AppImages | User library `~/.local/share/proteus/appimages`; no polkit; empty honesty |
+| Orphans | `pacman -Qdt` list; remove via `proteus-pkg orphans`; empty honesty |
+
+**Smoke matrix:** host `./scripts/software-reliability-smoke.sh` (all six leaves +
+hub); guest `./scripts/software-guest-smoke.sh` in `smoke-all` (SKIP unless SSH /
+`PROTEUS_GUEST=1`). **Out:** Snap; dependency graphs.
+
+**Module rule:** Software leaf helpers stay in `panes/Packages*Pane.qml` + `kit/`
+— not a single mega-inline hub body.
+
 ---
 
 ## 7. Growth
@@ -292,7 +317,7 @@ Depth order for what’s left:
 4. **Date & time** — locale set; weather forecast view  
 5. **Network depth** — Tailscale login-server (Headscale); peer/exit-node UI; in-pane pairing; WireGuard / password Wi‑Fi wizard (hub + leaves shipped)  
 6. **Peripherals** — touchpad / tablet  
-7. **Software** — dep graphs later; Omarchy-style Install/Remove pickers + mode-safe loads + op narrative shipped (`partial`; Snap Out)  
+7. **Software depth** — dependency graphs later; Snap stays Out (hub + six leaves + smoke matrix shipped)  
 8. **Settings Notifications pane** — optional later; shell Control Center is the SoT today  
 
 *(Displays layout + Revert follow-ups shipped — removed from growth depth.)*
@@ -300,6 +325,7 @@ Depth order for what’s left:
 *(Control Center notifications + QS depth shipped — Settings Notifications pane stays Out.)*
 *(Users session + greetd status shipped — writing greeter prefs / useradd stay Out.)*
 *(Power mode PPD + logind writer shipped — charge thresholds / TLP stay Out.)*
+*(Software hub + six leaves + reliability/guest smoke shipped — dep graphs / Snap stay Out.)*
 
 Virt / container setup stays a **separate app**, not a Settings growth item.
 

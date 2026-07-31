@@ -75,7 +75,7 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 | Chrome design lock (`CHROME.md`) | `shipped` — principles + token tables + Settings patterns; sibling export `env/chrome/` `shipped` |
 | Theme tokens | `shipped` — space/radius scale + accent/font from Config; company lock [CHROME.md](./CHROME.md) |
 | Shared package layout (flat + helpers) | `shipped` — Config/Background ownership split; Settings `kit/`; guest dogfood OK |
-| Smoke suite (`scripts/*-smoke.sh`) | `shipped` — layout · config-schema · app-manifest · chrome-tokens · software-reliability · power-logind · audio-mix-serve · hw-probe · install · session · qs-version; optional qs-guest via `smoke-all` / `PROTEUS_GUEST=1` |
+| Smoke suite (`scripts/*-smoke.sh`) | `shipped` — layout · config-schema · app-manifest · chrome-tokens · software-reliability · power-logind · audio-mix-serve · hw-probe · install · session · qs-version; optional `qs-guest` + `software-guest` via `smoke-all` / `PROTEUS_GUEST=1` |
 
 ---
 
@@ -89,7 +89,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Desktop → Gaps / Borders / Motion / Dock & menu bar / Launcher | `shipped` — Appearance-style hub + `Desktop*Leaf` StickyPaneLoaders; Gaps/Borders/Motion `SettingsFormRow` + live hints; Dock disable honesty + Advanced conf escape; Launcher Spotlight blurb (Ctrl+1–4 modes), Clear recent apps + recent files, tag FormRows; live hypr + `proteus-general.conf` / `settings.json` |
 | Displays (scale / mode / orientation, Identify; layout canvas) | `shipped` — drag layout + full-snapshot Revert; Refresh/re-entry clears Revert; post-Apply topology drift + Hyprland monitor events cancel Revert; list merge by connector name; clearer Apply/Revert status + conf escape |
 | Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) | `shipped` |
-| Software → Updates / Repos / AUR / Flathub / AppImages / Orphans (Install\|Installed mode-safe loads; sticky action bar; rich rows; live op command + Cancel + last error; empty Installed honesty; popular browse; leaf UI memory) | `partial` — optional guest: `yay`/`paru`, `flatpak` + Flathub; AppImages need no helper; dep graphs / Snap Out; `./scripts/software-reliability-smoke.sh` + optional `./scripts/software-guest-smoke.sh` |
+| Software → Updates / Repos / AUR / Flathub / AppImages / Orphans (`packages`) | `shipped` — hub + `Packages*Pane` StickyPaneLoaders; Install\|Installed mode-safe loads + leafUi; sticky action bar; live `$` op + Cancel + last error; empty Installed / orphans / AppImages honesty; hub Needs yay/paru · flatpak; AppImages user-only (no polkit); `software-reliability-smoke` (all six leaves) + `software-guest-smoke` in `smoke-all` (yay **or** paru); dep graphs / Snap Out |
 | Sound → Output / Input / Applications / Mixer / Latency (`sound`) | `shipped` — Desktop-style hub + `Sound*Leaf` StickyPaneLoaders; **Mixer** Wave Link–style grid (channels/inputs × mixes; Speakers/mix listen; rename; peaks); resident `proteus-audio-mix serve` for dump+peaks (Python `audio-mix.py` mutations + fallback); Output/Input/Apps/Latency FormRows; pactl + `pw-metadata` |
 | Network → This machine / Devices / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN (`network`) | `shipped` — Desktop-style hub + `Network*Leaf` StickyPaneLoaders; hostname Apply; device/Wi‑Fi FormRow honesty; LocalSend (`LocalSend.qml` · `NetworkLocalSendLeaf` · :53317 · CC tile menu · install honesty); BT/TS/VPN status + escape hatches; password Wi‑Fi / pairing / Headscale stay system tools |
 | Power (PPD mode + battery + idle/lid) | `shipped` — Performance/Balanced/Eco via `powerprofilesctl`; battery via UPower; `pkexec proteus-logind` drop-in + reload (not restart); CC Power tile; charge thresholds / TLP Out |
@@ -168,10 +168,10 @@ Focus set + hard switches: [POSTURES.md](./POSTURES.md). Selection today:
 | `./scripts/install-smoke.sh` | Overlay installer tree check |
 | `./scripts/session-smoke.sh` | Host gate for `proteus-session` contract + `proteus.desktop` |
 | `./scripts/qs-version-smoke.sh` | Record QS version policy (no IgnorePkg); checks `qs-guest-smoke` upgrade path |
-| `./scripts/software-reliability-smoke.sh` | Host static checks for Software mode-safe loads + op narrative |
+| `./scripts/software-reliability-smoke.sh` | Host static checks — all six Software leaves + hub helper honesty + op narrative / leafUi |
 | `./scripts/power-logind-smoke.sh` | Host static checks for `proteus-logind` + Power.qml wiring |
 | `./scripts/audio-mix-serve-smoke.sh` | Host checks for `proteus-audio-mix` dump/serve + Audio.qml wiring |
-| `./scripts/software-guest-smoke.sh` | Guest Software dogfood (browse/inventory + Flatpak install/remove; pacman mutator if passwordless sudo) |
+| `./scripts/software-guest-smoke.sh` | Guest Software dogfood (browse/inventory + Flatpak install/remove; yay\|paru; pacman mutator if passwordless sudo); in `smoke-all` (SKIP unless SSH / `PROTEUS_GUEST=1`) |
 | `./scripts/qs-guest-smoke.sh` | Guest cold-start `SHELL_OK` / `SETTINGS_OK` + record `quickshell` version |
 
 SSH default: `ssh -p 2222 andrew@127.0.0.1`
