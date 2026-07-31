@@ -60,7 +60,7 @@ Examples:
 | Volume / mute / default sink | `pactl` |
 | Input volume / mute / default source | `pactl` |
 | Audio matrix (node routing) | `pw-link` via `shell/scripts/audio-matrix.py` (Omnibus-style grid) |
-| App mixer (Wave Link–style) | Channels (default Apps/…) + mic/line inputs × mixes; Speakers/mix listen; rename; peaks; `~/.config/proteus/audio-mix.json`; resident `proteus-audio-mix serve` (dump+peaks); mutations `audio-mix.py`; **CC Sound plate** — master on plate; per-source levels in Sources ▾ |
+| App mixer (Wave Link–style) | Channels (default Apps/…) + mic/line inputs × mixes; Speakers/mix listen; rename; peaks; drag-reorder (stable grip / `mixDragging`); `~/.config/proteus/audio-mix.json`; resident `proteus-audio-mix serve` (dump+peaks); mutations `audio-mix.py`; **CC Sound plate** — master on plate; per-source levels in Sources ▾ |
 | Input level meter | streaming `audio-peak.py` on default source (Settings Input leaf) |
 | Per-app volume / mute | `pactl list/set-sink-input-*` |
 | Sound latency / buffer | `settings.json` `audioLatency` → `pw-metadata -n settings 0 clock.force-quantum` (256 / 512 / 1024) |
@@ -149,7 +149,7 @@ the sub-settings list:
 | Lock screen | Same Kind/color kit as Background + dim; Match desktop; **widgets only via lock Customize** (long-press) — not in Settings |
 | Icons | **Default / Dark / Clear / Tinted** side-by-side squircle compare (`kit/SettingsIconStylePicker`); Tinted tint graph; custom art Switch/Reset; dock Keep/Remove via glass right-click menu + long-press edit (−) / drag-off (running apps appear on dock) |
 | Desktop widgets | **Not in Settings** — unlocked desktop long-press or `Super+Shift+W` → Customize; free place + optional Snap to Grid; separate `desktopWidgets[]` |
-| Notifications / DND | **Shell Control Center** (top-bar status cluster) — list depth · toast/`showToast` · DND · QS volume/tiles; Status HUD for media-key volume/brightness (suppressed while CC open); deep Sound/Network stay in Settings panes; **no Settings Notifications category** |
+| Notifications / DND | **Shell Control Center** (top-bar status cluster) — list depth · toast/`showToast` · DND · QS volume/tiles; Status HUD for media-key volume/brightness (suppressed while CC open); deep Sound/Network/Power stay in Settings panes; **no Settings Notifications category** |
 | Mix (inputs) | **Shell Control Center** unified **Sound** plate — master volume on plate; Listen ▾ + Sources ▾ (name · On/Off · peak · volume); Mixer › → Settings |
 | Keep Awake | **Shell Control Center** duration menu (+ menu-bar **Awake** when on; Spotlight Actions) — temporary `systemd-inhibit idle:sleep` so hypridle/logind skip idle lock & sleep; **not** a Settings Power control |
 | Power mode | **Settings → Power** segmented + Control Center **Power** tile menu — `powerprofilesctl` (Performance / Balanced / Eco) |
@@ -238,7 +238,7 @@ in `SoundPane.qml`
 | Output | Volume/mute FormRows + live hints; test tone; sink list with `deviceHint` |
 | Input | Level/mute FormRows; peak meter FormRow; source list with `deviceHint` |
 | Applications | Per-app volume + mute; empty Playing now honesty |
-| Mixer | Wave Link–style grid: channels/inputs × mixes; Speakers vs mix listen; Level; rename; row peaks; add channel/input/mix. Quick per-source adjust also in Control Center Sources ▾ |
+| Mixer | Wave Link–style grid: channels/inputs × mixes; Speakers vs mix listen; Level; rename; row peaks; drag-reorder rows; add channel/input/mix. Quick per-source adjust also in Control Center Sources ▾ |
 | Latency & buffer | Profile segmented + quantum frames; PipeWire clock summary when known |
 
 | Pane | Live apply | On-disk / helper |
