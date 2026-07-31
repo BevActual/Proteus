@@ -62,7 +62,7 @@ need "$ORPH" 'PackagesOpProgress' "Orphans OpProgress"
 need "$ORPH" 'No orphan packages' "Orphans empty honesty"
 need "$ORPH" 'onCancelled' "Orphans Cancel"
 need "$ORPH" '"-Qdt"' "Orphans -Qdt probe"
-need "$ORPH" 'command + Cancel' "Orphans Cancel fact"
+need "$ORPH" 'command \+ Cancel' "Orphans Cancel fact"
 
 # --- AppImages: user library + no polkit ---
 APP="$ROOT/apps/proteus-settings/panes/PackagesAppImagesPane.qml"
