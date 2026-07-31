@@ -5,10 +5,10 @@ import "../../shared"
 Rectangle {
   id: root
   height: 48
-  radius: 24
-  color: Qt.rgba(28 / 255, 28 / 255, 30 / 255, 0.88)
+  radius: Theme.radiusPill
+  color: Theme.elevatedFill
   border.width: 1
-  border.color: Qt.rgba(1, 1, 1, 0.12)
+  border.color: Theme.chromeBorder
 
   signal addWidget()
   signal done()
@@ -18,30 +18,30 @@ Rectangle {
 
   RowLayout {
     anchors.fill: parent
-    anchors.leftMargin: 10
-    anchors.rightMargin: 10
-    spacing: 8
+    anchors.leftMargin: Theme.spaceSm + 2
+    anchors.rightMargin: Theme.spaceSm + 2
+    spacing: Theme.spaceSm
 
     Text {
       text: "Customize"
-      color: Qt.rgba(1, 1, 1, 0.55)
+      color: Theme.textMute
       font.family: Theme.fontFamily
-      font.pixelSize: 12
-      Layout.leftMargin: 6
+      font.pixelSize: Theme.fontSizeSm
+      Layout.leftMargin: Theme.spaceXs + 2
     }
 
     Rectangle {
       Layout.preferredHeight: 32
       Layout.preferredWidth: addLabel.implicitWidth + 20
-      radius: 16
-      color: Qt.rgba(1, 1, 1, 0.1)
+      radius: Theme.radiusPill - 8
+      color: Theme.bgHover
       Text {
         id: addLabel
         anchors.centerIn: parent
         text: "Add Widget"
-        color: "#f5f5f7"
+        color: Theme.text
         font.family: Theme.fontFamily
-        font.pixelSize: 12
+        font.pixelSize: Theme.fontSizeSm
         font.weight: Font.Medium
       }
       MouseArea {
@@ -54,17 +54,17 @@ Rectangle {
     Rectangle {
       Layout.preferredHeight: 32
       Layout.preferredWidth: snapLabel.implicitWidth + 20
-      radius: 16
-      color: root.snapToGrid ? Theme.accentSoft : Qt.rgba(1, 1, 1, 0.1)
+      radius: Theme.radiusPill - 8
+      color: root.snapToGrid ? Theme.accentSoft : Theme.bgHover
       border.width: root.snapToGrid ? 1 : 0
       border.color: Theme.accent
       Text {
         id: snapLabel
         anchors.centerIn: parent
         text: root.snapToGrid ? "Snap on" : "Snap to Grid"
-        color: "#f5f5f7"
+        color: Theme.text
         font.family: Theme.fontFamily
-        font.pixelSize: 12
+        font.pixelSize: Theme.fontSizeSm
         font.weight: Font.Medium
       }
       MouseArea {
@@ -81,15 +81,15 @@ Rectangle {
     Rectangle {
       Layout.preferredHeight: 32
       Layout.preferredWidth: doneLabel.implicitWidth + 24
-      radius: 16
+      radius: Theme.radiusPill - 8
       color: Theme.accent
       Text {
         id: doneLabel
         anchors.centerIn: parent
         text: "Done"
-        color: "#fff"
+        color: "#ffffff"
         font.family: Theme.fontFamily
-        font.pixelSize: 12
+        font.pixelSize: Theme.fontSizeSm
         font.weight: Font.Medium
       }
       MouseArea {
