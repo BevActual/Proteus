@@ -78,6 +78,22 @@ ColumnLayout {
     }
 
     SettingsFormRow {
+      label: "Hyprland"
+      hint: SystemInfo.busy && !SystemInfo.hyprVersion.length
+          ? "Reading…"
+          : SystemInfo.hyprLabel
+      showSeparator: true
+    }
+
+    SettingsFormRow {
+      label: "Quickshell"
+      hint: SystemInfo.busy && !SystemInfo.qsVersion.length
+          ? "Reading…"
+          : SystemInfo.qsLabel
+      showSeparator: true
+    }
+
+    SettingsFormRow {
       label: "Operating system"
       hint: SystemInfo.busy && !SystemInfo.osPretty.length
           ? "Reading…"
@@ -271,9 +287,9 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Fact: /etc/os-release + uname · hw-probe.json · soft Hyprland profile via "
-        + "set-hypr-profile.sh (console≡media.conf; not a hard posture switch) · "
-        + "session under Users."
+    text: "Fact: /etc/os-release + uname · quickshell --version · hyprctl version · "
+        + "hw-probe.json · soft Hyprland profile via set-hypr-profile.sh "
+        + "(console≡media.conf; not a hard posture switch) · session under Users."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11
