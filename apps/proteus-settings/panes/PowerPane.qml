@@ -73,58 +73,75 @@ ColumnLayout {
       showSeparator: false
     }
 
+    // Full-width segmented — same horizontal inset as SettingsFormRow (spaceMd).
     Item {
+      id: modeBlock
       visible: Power.profilesAvailable
       Layout.fillWidth: true
-      Layout.preferredHeight: 48
-      Layout.leftMargin: Theme.spaceSm
-      Layout.rightMargin: Theme.spaceSm
-      Layout.topMargin: Theme.spaceSm
-      Layout.bottomMargin: Theme.spaceSm
+      Layout.preferredHeight: modeCol.implicitHeight + Theme.spaceSm * 2
 
-      SettingsSegmented {
+      ColumnLayout {
+        id: modeCol
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        enabled: !Power.profileBusy && Power.profileOptions.length > 0
-        options: Power.profileOptions
-        selected: Power.activeProfile
-        onActivated: id => Power.setProfile(id)
+        anchors.leftMargin: Theme.spaceMd
+        anchors.rightMargin: Theme.spaceMd
+        spacing: Theme.spaceSm
+
+        Text {
+          Layout.fillWidth: true
+          text: "Mode"
+          color: Theme.text
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSize
+        }
+
+        SettingsSegmented {
+          Layout.fillWidth: true
+          enabled: !Power.profileBusy && Power.profileOptions.length > 0
+          options: Power.profileOptions
+          selected: Power.activeProfile
+          onActivated: id => Power.setProfile(id)
+        }
+
+        Text {
+          Layout.fillWidth: true
+          text: Power.profileBusy ? "Applying…" : ("Using " + Power.activeProfileLabel)
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: 11
+          elide: Text.ElideRight
+        }
+      }
+
+      Rectangle {
+        anchors.left: parent.left
+        anchors.leftMargin: Theme.spaceMd
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: 1
+        color: Theme.separator
+        visible: perfNoteRow.visible || Power.profileError.length > 0
       }
     }
 
     SettingsFormRow {
-      visible: Power.profilesAvailable
-      label: "Current"
-      hint: Power.profileBusy ? "Applying…" : Power.activeProfileLabel
-      showSeparator: false
-    }
-
-    Text {
-      Layout.fillWidth: true
-      Layout.maximumWidth: 480
-      Layout.leftMargin: Theme.spaceSm
-      Layout.rightMargin: Theme.spaceSm
-      Layout.bottomMargin: Theme.spaceSm
+      id: perfNoteRow
       visible: Power.profilesAvailable
           && Power.availableProfiles.indexOf("performance") < 0
-      text: "Performance isn’t offered on this hardware (driver reports Balanced and Eco only)."
-      color: Theme.textMute
-      font.family: Theme.fontFamily
-      font.pixelSize: 11
-      wrapMode: Text.WordWrap
+      label: "Hardware"
+      hint: "Performance isn’t offered — driver reports Balanced and Eco only"
+      showSeparator: Power.profileError.length > 0
     }
-  }
 
-  Text {
-    Layout.fillWidth: true
-    Layout.maximumWidth: 480
-    visible: Power.profileError.length > 0 && Power.profilesAvailable
-    text: Power.profileError
-    color: Theme.danger
-    font.family: Theme.fontFamily
-    font.pixelSize: 12
-    wrapMode: Text.WordWrap
+    SettingsFormRow {
+      visible: Power.profilesAvailable && Power.profileError.length > 0
+      label: "Error"
+      hint: Power.profileError
+      labelColor: Theme.danger
+      showSeparator: false
+    }
   }
 
   SettingsGroup {
@@ -188,7 +205,7 @@ ColumnLayout {
           : root.policyHint(Power.actionLabel(Power.idleAction), Power.idleActionDefaulted)
       showSeparator: true
       SettingsCombo {
-        preferredWidth: 200
+        preferredWidth: 168
         enabled: !Power.busy
         model: root.actionOpts
         currentValue: Power.idleAction
@@ -228,7 +245,7 @@ ColumnLayout {
           : root.policyHint(Power.actionLabel(Power.lidSwitch), Power.lidSwitchDefaulted)
       showSeparator: true
       SettingsCombo {
-        preferredWidth: 200
+        preferredWidth: 168
         enabled: !Power.busy
         model: root.actionOpts
         currentValue: Power.lidSwitch
@@ -247,7 +264,7 @@ ColumnLayout {
                             Power.lidSwitchExternalPowerDefaulted)
       showSeparator: true
       SettingsCombo {
-        preferredWidth: 200
+        preferredWidth: 168
         enabled: !Power.busy
         model: root.actionOpts
         currentValue: Power.lidSwitchExternalPower
@@ -269,7 +286,7 @@ ColumnLayout {
         text: Power.busy ? "…" : "Reset"
         color: Theme.accent
         font.family: Theme.fontFamily
-        font.pixelSize: 12
+        font.pixelSize: Theme.fontSize
       }
     }
 
@@ -284,7 +301,7 @@ ColumnLayout {
         text: "Install"
         color: Theme.accent
         font.family: Theme.fontFamily
-        font.pixelSize: 12
+        font.pixelSize: Theme.fontSize
       }
     }
 
@@ -303,20 +320,22 @@ ColumnLayout {
     }
   }
 
-  Text {
-    Layout.fillWidth: true
-    Layout.maximumWidth: 480
+  SettingsGroup {
+    title: "Status"
     visible: Power.logindError.length > 0
-    text: Power.logindError
-    color: Theme.danger
-    font.family: Theme.fontFamily
-    font.pixelSize: 12
-    wrapMode: Text.WordWrap
+
+    SettingsFormRow {
+      label: "Logind"
+      hint: Power.logindError
+      labelColor: Theme.danger
+      showSeparator: false
+    }
   }
 
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
+    Layout.topMargin: Theme.spaceXs
     text: "Fact: powerprofilesctl (PPD) · UPower · pkexec proteus-logind → "
         + "/etc/systemd/logind.conf.d/99-proteus.conf (reloads systemd-logind)."
     color: Theme.textMute
