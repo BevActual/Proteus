@@ -22,6 +22,29 @@ Singleton {
   readonly property string qsLabel: root.qsVersion.length ? root.qsVersion : "—"
   readonly property string hyprLabel: root.hyprVersion.length ? root.hyprVersion : "—"
 
+  // Multi-line clipboard block for Settings → About.
+  readonly property string summaryText: {
+    const lines = [
+      "Proteus — Bevington Systems",
+      "OS: " + root.osLabel,
+      "Kernel: " + root.kernelLabel,
+      "Hyprland: " + root.hyprLabel,
+      "Quickshell: " + root.qsLabel
+    ]
+    if (Hardware.ready) {
+      lines.push("Class: " + (Hardware.deviceClass || "—")
+          + (Hardware.chassis ? (" · chassis " + Hardware.chassis) : ""))
+      lines.push("Posture hint: " + (Hardware.postureHint || "—"))
+    }
+    if (HyprProfile.activeProfileLabel && HyprProfile.activeProfileLabel !== "—")
+      lines.push("Hyprland profile: " + HyprProfile.activeProfileLabel + " (soft)")
+    return lines.join("\n")
+  }
+
+  function copySummary() {
+    Config.copyToClipboard(root.summaryText)
+  }
+
   function refresh() {
     if (root.busy)
       return

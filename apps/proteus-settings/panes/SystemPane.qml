@@ -254,12 +254,26 @@ ColumnLayout {
     SettingsFormRow {
       label: Hardware.probing ? "Probing…" : "Refresh hardware"
       hint: Hardware.ready ? "Cache: ~/.config/proteus/hw-probe.json" : ""
-      showSeparator: false
+      showSeparator: true
       interactive: !Hardware.probing
       onActivated: Hardware.refresh()
       Text {
         text: Hardware.probing ? "…" : "›"
         color: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+      }
+    }
+
+    SettingsFormRow {
+      label: "Copy system info"
+      hint: "OS · kernel · Hyprland · Quickshell · class"
+      showSeparator: false
+      interactive: true
+      onActivated: SystemInfo.copySummary()
+      Text {
+        text: "Copy"
+        color: Theme.accent
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSize
       }
