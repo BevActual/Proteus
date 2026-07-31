@@ -225,6 +225,12 @@ Singleton {
       keywords: "per-app volume"
     },
     {
+      id: "sound-matrix",
+      label: "Mixer",
+      hubId: "sound",
+      keywords: "routing mixer channels wave link apps pipewire matrix omnibus"
+    },
+    {
       id: "sound-latency",
       label: "Latency & buffer",
       hubId: "sound",

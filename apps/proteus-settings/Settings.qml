@@ -116,6 +116,10 @@ Item {
       label: "Applications"
     },
     {
+      key: "sound-matrix",
+      label: "Mixer"
+    },
+    {
       key: "sound-latency",
       label: "Latency & buffer"
     }
@@ -341,11 +345,16 @@ Item {
           Layout.topMargin: Theme.spaceSm
           clip: true
           ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+          ScrollBar.vertical.policy: root.page === "sound-matrix"
+              ? ScrollBar.AlwaysOff
+              : ScrollBar.AsNeeded
           contentWidth: availableWidth
 
           // Sticky loaders: cold start only builds the active category (source: defers QML compile).
           ColumnLayout {
             width: scroll.availableWidth
+            // Mixer leaf scrolls itself — pin content to the viewport so the shell doesn’t.
+            height: root.page === "sound-matrix" ? scroll.availableHeight : undefined
             spacing: 0
 
             StickyPaneLoader {
@@ -397,6 +406,8 @@ Item {
             }
             StickyPaneLoader {
               want: root.section === "sound"
+              Layout.fillHeight: root.page === "sound-matrix"
+              Layout.minimumHeight: root.page === "sound-matrix" ? 320 : 0
               source: "panes/SoundPane.qml"
               onLoaded: {
                 item.page = Qt.binding(() => root.page)

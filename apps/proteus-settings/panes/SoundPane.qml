@@ -6,10 +6,11 @@ import "../shared"
 import "../kit"
 
 // Sound category hub → leaf loaders (Desktop/Appearance pattern).
-// Page ids: sound · sound-output · sound-input · sound-apps · sound-latency.
+// Page ids: sound · sound-output · sound-input · sound-apps · sound-matrix · sound-latency.
 ColumnLayout {
   id: root
   Layout.fillWidth: true
+  Layout.fillHeight: page === "sound-matrix"
   spacing: Theme.spaceMd
 
   property string page: "sound"
@@ -42,6 +43,10 @@ ColumnLayout {
     {
       key: "sound-apps",
       label: "Applications"
+    },
+    {
+      key: "sound-matrix",
+      label: "Mixer"
     },
     {
       key: "sound-latency",
@@ -193,6 +198,15 @@ ColumnLayout {
   }
 
   Timer {
+    id: mixAppsTimer
+    interval: 2500
+    repeat: true
+    running: root.page === "sound-apps" || root.page === "sound-matrix"
+    triggeredOnStart: true
+    onTriggered: Audio.refreshMix()
+  }
+
+  Timer {
     id: refreshAppsSoon
     interval: 250
     repeat: false
@@ -220,6 +234,14 @@ ColumnLayout {
   StickyPaneLoader {
     want: root.page === "sound-apps"
     source: "SoundAppsLeaf.qml"
+    onLoaded: item.host = root
+  }
+
+  StickyPaneLoader {
+    want: root.page === "sound-matrix"
+    Layout.fillHeight: want
+    Layout.minimumHeight: want ? 320 : 0
+    source: "SoundMatrixLeaf.qml"
     onLoaded: item.host = root
   }
 

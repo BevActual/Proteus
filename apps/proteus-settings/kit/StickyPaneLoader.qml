@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 
 // Creates source / sourceComponent only when want becomes true; keeps instance after first load.
-// Width/kept run on status Ready so consumers can still use onLoaded without clobbering us.
+// Width/height sync via Binding so fillHeight can turn on after the first Ready (e.g. Mixer).
 Loader {
   id: loader
   Layout.fillWidth: true
@@ -18,10 +18,21 @@ Loader {
   asynchronous: asyncLoad
 
   onStatusChanged: {
-    if (status !== Loader.Ready || !item)
-      return
-    if (sticky)
+    if (status === Loader.Ready && sticky && item)
       kept = true
-    item.width = Qt.binding(function () { return loader.width })
+  }
+
+  Binding {
+    target: loader.item
+    property: "width"
+    value: loader.width
+    when: loader.status === Loader.Ready && loader.item
+  }
+
+  Binding {
+    target: loader.item
+    property: "height"
+    value: loader.height
+    when: loader.status === Loader.Ready && loader.item && loader.Layout.fillHeight
   }
 }
