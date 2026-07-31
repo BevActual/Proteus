@@ -95,6 +95,47 @@ Singleton {
       defaultSize: "md",
       unique: true,
       source: "widgets/WeatherWidget.qml"
+    },
+    {
+      id: "calendar",
+      label: "Calendar",
+      hint: "Today at a glance, month grid at M/L",
+      category: "Time",
+      icon: "📅",
+      defaultSize: "md",
+      unique: true,
+      source: "widgets/CalendarWidget.qml"
+    },
+    {
+      id: "system",
+      label: "System glance",
+      hint: "CPU · memory · uptime, storage at L",
+      category: "System",
+      icon: "📈",
+      defaultSize: "md",
+      unique: true,
+      source: "widgets/SystemWidget.qml"
+    },
+    {
+      id: "notes",
+      label: "Note",
+      hint: "Sticky note — click to write (read-only on lock)",
+      category: "Personal",
+      icon: "📝",
+      defaultSize: "md",
+      unique: true,
+      source: "widgets/NotesWidget.qml"
+    },
+    {
+      id: "worldclock",
+      label: "World clock",
+      hint: "Time in another city — add one per place",
+      category: "Time",
+      icon: "🌐",
+      defaultSize: "sm",
+      // First multi-instance type: each Add creates a new city clock.
+      unique: false,
+      source: "widgets/WorldClockWidget.qml"
     }
   ]
 

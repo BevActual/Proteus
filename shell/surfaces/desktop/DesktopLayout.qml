@@ -48,6 +48,18 @@ QtObject {
     return 1
   }
 
+  // Frame widths match what each widget card actually draws (see the width
+  // caps in widgets/*.qml) — otherwise frames carry invisible padding and
+  // cards can never sit flush against each other.
+  readonly property var widthCaps: ({
+    weather: { sm: 140, md: 200, lg: 280 },
+    battery: { sm: 140, md: 200, lg: 280 },
+    system: { sm: 160, md: 220, lg: 300 },
+    calendar: { sm: 150, md: 210, lg: 260 },
+    notes: { sm: 170, md: 230, lg: 300 },
+    worldclock: { sm: 150, md: 200, lg: 280 }
+  })
+
   function contentWidth(type, size) {
     const maxW = Math.min(surfaceWidth - margin * 2, 420)
     if (type === "clock") {
@@ -57,12 +69,25 @@ QtObject {
         return Math.min(maxW * 0.72, 320)
       return Math.min(maxW, 400)
     }
+    const caps = widthCaps[String(type || "")]
+    if (caps)
+      return Math.min(maxW, caps[String(size || "md")] || caps.md)
     if (size === "sm")
       return Math.min(maxW * 0.55, 220)
     if (size === "lg")
       return Math.min(maxW, 360)
     return Math.min(maxW * 0.78, 300)
   }
+
+  // Heights track the drawn card (body + 20px card padding) so frames don't
+  // carry invisible slack below the plate. Calendar uses the 6-row worst case.
+  readonly property var heightCaps: ({
+    calendar: { sm: 86, md: 168, lg: 194 },
+    notes: { sm: 98, md: 134, lg: 172 },
+    system: { sm: 74, md: 96, lg: 126 },
+    worldclock: { sm: 84, md: 88, lg: 92 },
+    battery: { sm: 72, md: 84, lg: 88 }
+  })
 
   function contentHeight(type, size) {
     if (type === "clock") {
@@ -72,6 +97,9 @@ QtObject {
         return 120
       return 160
     }
+    const caps = heightCaps[String(type || "")]
+    if (caps)
+      return caps[String(size || "md")] || caps.md
     if (size === "lg")
       return 120
     if (size === "sm")
@@ -91,7 +119,8 @@ QtObject {
     }
   }
 
-  readonly property real overlapGap: 10
+  // 0 = frames may touch edge-to-edge (tight packing) but never overlap.
+  readonly property real overlapGap: 0
 
   function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh, gap) {
     const g = gap === undefined ? overlapGap : gap
@@ -204,6 +233,59 @@ QtObject {
       }
     }
     return desired
+  }
+
+  // Free-place alignment: snap the dragged frame's edges/center to the
+  // edges/centers of neighboring widgets (and the surface center) when within
+  // threshold. Returns adjusted position + guide lines to draw.
+  readonly property real alignThreshold: 8
+
+  function alignAdjust(px, py, width, height, excludeId) {
+    const others = otherFrames(excludeId)
+    const vLines = [originX]
+    const hLines = [originY]
+    for (let i = 0; i < others.length; i++) {
+      const o = others[i]
+      vLines.push(o.x, o.x + o.width, o.x + o.width / 2)
+      hLines.push(o.y, o.y + o.height, o.y + o.height / 2)
+    }
+    const anchorsX = [0, width / 2, width]
+    const anchorsY = [0, height / 2, height]
+
+    let bestDx = null
+    let guideX = 0
+    for (let i = 0; i < vLines.length; i++) {
+      for (let j = 0; j < anchorsX.length; j++) {
+        const d = vLines[i] - (px + anchorsX[j])
+        if (Math.abs(d) <= alignThreshold && (bestDx === null || Math.abs(d) < Math.abs(bestDx))) {
+          bestDx = d
+          guideX = vLines[i]
+        }
+      }
+    }
+
+    let bestDy = null
+    let guideY = 0
+    for (let i = 0; i < hLines.length; i++) {
+      for (let j = 0; j < anchorsY.length; j++) {
+        const d = hLines[i] - (py + anchorsY[j])
+        if (Math.abs(d) <= alignThreshold && (bestDy === null || Math.abs(d) < Math.abs(bestDy))) {
+          bestDy = d
+          guideY = hLines[i]
+        }
+      }
+    }
+
+    const guides = []
+    if (bestDx !== null)
+      guides.push({ vertical: true, pos: guideX })
+    if (bestDy !== null)
+      guides.push({ vertical: false, pos: guideY })
+    return {
+      x: px + (bestDx !== null ? bestDx : 0),
+      y: py + (bestDy !== null ? bestDy : 0),
+      guides: guides
+    }
   }
 
   function freeNormFromPixel(px, py, width, height) {

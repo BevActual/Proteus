@@ -5,11 +5,22 @@ import Quickshell.Io
 import QtQuick
 
 // Read-only load snapshot for Settings → About
-// (CPU · mem · swap · root storage · uptime). Poll only while `watching`.
+// (CPU · mem · swap · root storage · uptime). Poll only while `watching`
+// (Control Center) or while any widget holds a retain() reference.
 Singleton {
   id: root
 
   property bool watching: false
+  property int watchers: 0
+  readonly property bool polling: watching || watchers > 0
+
+  function retain() {
+    watchers++
+  }
+
+  function release() {
+    watchers = Math.max(0, watchers - 1)
+  }
   property real cpuPercent: -1
   property real memUsedGiB: -1
   property real memTotalGiB: -1
@@ -56,8 +67,8 @@ Singleton {
     loadProc.running = true
   }
 
-  onWatchingChanged: {
-    if (watching) {
+  onPollingChanged: {
+    if (polling) {
       root.refresh()
       poll.restart()
     } else {

@@ -66,7 +66,10 @@ QtObject {
       clockColor: clockColor,
       showDate: w && w.showDate === false ? false : true,
       dateStyle: dateStyle,
-      clockDepth: w && w.clockDepth === false ? false : true
+      clockDepth: w && w.clockDepth === false ? false : true,
+      noteText: String((w && w.noteText) || ""),
+      tzId: String((w && w.tzId) || "UTC"),
+      tzLabel: String((w && w.tzLabel) || "UTC")
     }
   }
 
@@ -101,13 +104,17 @@ QtObject {
     if (!found)
       return null
     let list = host.desktopWidgetsList.slice()
-    for (let i = 0; i < list.length; i++) {
-      if (String(list[i].type) === t) {
-        if (!list[i].enabled)
-          setDesktopWidgetEnabled(list[i].id, true)
-        if (size)
-          setDesktopWidgetSize(list[i].id, size)
-        return list[i]
+    // unique types re-enable/refocus the existing instance; multi-instance
+    // types (worldclock) always add a fresh one.
+    if (found.unique !== false) {
+      for (let i = 0; i < list.length; i++) {
+        if (String(list[i].type) === t) {
+          if (!list[i].enabled)
+            setDesktopWidgetEnabled(list[i].id, true)
+          if (size)
+            setDesktopWidgetSize(list[i].id, size)
+          return list[i]
+        }
       }
     }
     const pos = nextDesktopWidgetPos(list)

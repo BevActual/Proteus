@@ -29,7 +29,7 @@ One schema for all postures; panes enable/disable by capability.
 | Location / weather | `location*`, `weatherUnits`, `weatherEnabled` | Weather / DateTime / Privacy |
 | Tailscale | `tailscaleLoginServer` | Network Tailscale leaf |
 | Font | `fontFamily`, `fontSize`, `fontSizeSm`, `userFonts` (`Family=/path;…`) | Theme / Style pane |
-| Launcher | `launcherRecents`, `launcherFileRecents`, `launcherTagCatalog`, `launcherAppTags` | Spotlight / Launcher |
+| Beacon | `launcherRecents`, `launcherFileRecents`, `launcherTagCatalog`, `launcherAppTags` | Beacon (system search; keys keep the legacy `launcher` prefix — persisted) |
 | Dock pins | `dockPins` (comma desktop ids; `""` defaults; `-` empty) | DockApps |
 | Icon plates / overrides | `iconPlateMode` (`default` \| `dark` \| `clear` \| `tinted`), `iconPlateCustom`, `iconOverrides` (`id=path;…`) | Theme + DockApps / EnvGate |
 | Notifications | `notificationsDnd` | Notifications |
@@ -39,7 +39,11 @@ One schema for all postures; panes enable/disable by capability.
 seat metadata in `~/.config/proteus/accounts.json`. Never in `settings.json`.
 
 Arrays (`lockWidgets`, `desktopWidgets`, `wallpaperAlbums`, `wallpaperDailySources`)
-are JSON lists; normalizers live on Widgets / Background.
+are JSON lists; normalizers live on Widgets / Background. Widget instances carry
+per-type option fields (clock `clockWeight`/`clockColor`/`showDate`/`dateStyle`/
+`clockDepth`, media `showControls`/`showWhenIdle`, note `noteText`, world clock
+`tzId`/`tzLabel`). Catalog types are one-per-surface unless the entry sets
+`unique: false` (world clock — one instance per city).
 
 ## Not in this file
 

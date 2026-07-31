@@ -12,6 +12,8 @@ Item {
   property bool showGallery: false
   property bool snapToGrid: Config.desktopWidgetsSnapToGrid
   property bool appletDragging: false
+  // Alignment guide lines published by the dragging applet
+  property var alignGuides: []
 
   DesktopLayout {
     id: deskLayout
@@ -42,19 +44,32 @@ Item {
     gridCanvas.requestPaint()
   }
 
-  // Empty desktop: long-press enters Customize; click clears selection.
-  // Keep below applets; do not cover them (z:0). Guides/dim are paint-only.
+  // Empty desktop: long-press enters Customize; click clears selection
+  // (and ends an in-place Note edit). Keep below applets (z:0).
   MouseArea {
     anchors.fill: parent
     z: 0
     enabled: !root.appletDragging
-    onPressAndHold: {
-      if (!root.customizeMode)
-        root.enterCustomize()
+    onPressAndHold: mouse => {
+      if (root.customizeMode)
+        return
+      root.enterCustomize()
+      // Select the widget under the press, if the hold happened on one.
+      const frames = deskLayout.frames
+      for (let i = 0; i < frames.length; i++) {
+        const f = frames[i]
+        if (mouse.x >= f.x && mouse.x <= f.x + f.width
+            && mouse.y >= f.y && mouse.y <= f.y + f.height) {
+          root.selectedWidgetId = String(f.id)
+          break
+        }
+      }
     }
     onClicked: {
       if (root.customizeMode)
         root.selectedWidgetId = ""
+      else if (ShellState.desktopNoteEditing)
+        ShellState.desktopNoteEditing = false
     }
   }
 
@@ -126,6 +141,24 @@ Item {
     }
   }
 
+  // Alignment guides — paint-only hairlines while a widget is dragged into
+  // alignment with a neighbor's edge/center (or the surface center).
+  Repeater {
+    model: root.alignGuides
+
+    Rectangle {
+      required property var modelData
+      z: 2
+      enabled: false
+      x: modelData.vertical ? modelData.pos : 0
+      y: modelData.vertical ? 0 : modelData.pos
+      width: modelData.vertical ? 1 : root.width
+      height: modelData.vertical ? root.height : 1
+      color: Theme.accent
+      opacity: 0.7
+    }
+  }
+
   Item {
     id: appletLayer
     anchors.fill: parent
@@ -142,12 +175,12 @@ Item {
         selected: root.selectedWidgetId === String(modelData.id)
         surfaceWidth: root.width
         surfaceHeight: root.height
-        onRequestCustomize: root.enterCustomize()
         onSelectApplet: root.selectedWidgetId = String(modelData.id)
         onDraggingChanged: root.appletDragging = dragging
         onDragMoved: (nx, ny) => {
           Widgets.moveDesktopWidget(modelData.id, nx, ny)
         }
+        onDragGuides: guides => root.alignGuides = guides
       }
     }
   }
@@ -211,6 +244,49 @@ Item {
         root.appletDragging = false
       }
     }
+  }
+
+  // Arrow keys nudge the selected widget while customizing.
+  // Free placement: 8px (Shift = 40px); snap-to-grid: one grid cell.
+  function nudgeSelected(dx, dy, big) {
+    const wid = root.selectedWidgetId
+    if (!wid.length)
+      return
+    let w = null
+    const list = Widgets.desktopWidgetsEnabledList
+    for (let i = 0; i < list.length; i++) {
+      if (String(list[i].id) === wid) {
+        w = list[i]
+        break
+      }
+    }
+    if (!w)
+      return
+    const f = deskLayout.frameForWidget(w)
+    if (!f)
+      return
+    const step = root.snapToGrid ? deskLayout.pitch : (big ? 40 : 8)
+    const placed = deskLayout.resolveNoOverlap(
+        f.x + dx * step, f.y + dy * step, f.width, f.height, wid)
+    const n = deskLayout.normFromPixel(placed.x, placed.y, 0, 0, f.width, f.height)
+    Widgets.moveDesktopWidget(wid, n.x, n.y)
+  }
+
+  Keys.onPressed: event => {
+    if (!root.customizeMode || root.showGallery)
+      return
+    const big = !!(event.modifiers & Qt.ShiftModifier)
+    if (event.key === Qt.Key_Left)
+      root.nudgeSelected(-1, 0, big)
+    else if (event.key === Qt.Key_Right)
+      root.nudgeSelected(1, 0, big)
+    else if (event.key === Qt.Key_Up)
+      root.nudgeSelected(0, -1, big)
+    else if (event.key === Qt.Key_Down)
+      root.nudgeSelected(0, 1, big)
+    else
+      return
+    event.accepted = true
   }
 
   Keys.onEscapePressed: {

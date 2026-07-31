@@ -32,6 +32,34 @@ QtObject {
         return Math.min(120, surfaceHeight * 0.15)
       return Math.min(160, surfaceHeight * 0.2)
     }
+    if (type === "calendar") {
+      if (size === "sm")
+        return Math.min(96, surfaceHeight * 0.12)
+      if (size === "md")
+        return Math.min(190, surfaceHeight * 0.22)
+      return Math.min(226, surfaceHeight * 0.26)
+    }
+    if (type === "notes") {
+      if (size === "sm")
+        return Math.min(112, surfaceHeight * 0.13)
+      if (size === "md")
+        return Math.min(148, surfaceHeight * 0.17)
+      return Math.min(186, surfaceHeight * 0.21)
+    }
+    if (type === "system") {
+      if (size === "sm")
+        return Math.min(80, surfaceHeight * 0.1)
+      if (size === "md")
+        return Math.min(122, surfaceHeight * 0.14)
+      return Math.min(156, surfaceHeight * 0.18)
+    }
+    if (type === "worldclock") {
+      if (size === "sm")
+        return Math.min(92, surfaceHeight * 0.11)
+      if (size === "md")
+        return Math.min(100, surfaceHeight * 0.12)
+      return Math.min(116, surfaceHeight * 0.14)
+    }
     if (size === "lg")
       return Math.min(120, surfaceHeight * 0.14)
     if (size === "sm")

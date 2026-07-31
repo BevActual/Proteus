@@ -51,7 +51,10 @@ Item {
     target: bodyLoader.item
     property: "widgetData"
     value: root.widgetData
-    when: !!bodyLoader.item && root.isClock
+    // Notes / world clock show their saved state on the lock surface but stay
+    // read-only (canEdit / interactive are never bound here).
+    when: !!bodyLoader.item && (root.isClock
+        || root.widgetType === "notes" || root.widgetType === "worldclock")
   }
   Binding {
     target: bodyLoader.item

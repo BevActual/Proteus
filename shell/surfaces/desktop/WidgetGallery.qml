@@ -42,10 +42,13 @@ Rectangle {
     return id !== "clock" || !Widgets.lockHasClockWidget
   }
 
-  function showsAddedHint(id) {
-    if (!root.hasType(id))
+  function showsAddedHint(entry) {
+    // Multi-instance types (worldclock) can always be added again.
+    if (entry.unique === false)
       return false
-    return root.isLock ? id !== "clock" : true
+    if (!root.hasType(entry.id))
+      return false
+    return root.isLock ? entry.id !== "clock" : true
   }
 
   function addWidget(id) {
@@ -174,17 +177,48 @@ Rectangle {
                 anchors.margins: 12
                 spacing: 12
 
+                // Live preview — a real (non-interactive) instance of the
+                // widget, scaled down. Falls back to the catalog glyph while
+                // the component loads.
                 Rectangle {
-                  Layout.preferredWidth: 64
+                  Layout.preferredWidth: 104
                   Layout.preferredHeight: 64
                   radius: 12
-                  color: Qt.rgba(1, 1, 1, 0.08)
+                  color: Qt.rgba(1, 1, 1, 0.05)
+                  clip: true
+
                   Text {
                     anchors.centerIn: parent
-                    // Glyph comes from the catalog, so a new applet type does
-                    // not need a case added here.
+                    visible: previewLoader.status !== Loader.Ready
                     text: modelData.icon || "▫"
                     font.pixelSize: 26
+                  }
+
+                  Item {
+                    id: previewStage
+                    x: 4
+                    y: 4
+                    width: 200
+                    height: 130
+                    scale: 0.48
+                    transformOrigin: Item.TopLeft
+                    enabled: false
+
+                    Loader {
+                      id: previewLoader
+                      anchors.fill: parent
+                      source: {
+                        const s = Widgets.widgetSourceFor(modelData.id)
+                        return s.length ? Qt.resolvedUrl(s) : ""
+                      }
+                      onLoaded: {
+                        if (!item)
+                          return
+                        item.size = "sm"
+                        if (item.showWhenIdle !== undefined)
+                          item.showWhenIdle = true
+                      }
+                    }
                   }
                 }
 
@@ -206,7 +240,7 @@ Rectangle {
                     Layout.fillWidth: true
                   }
                   Text {
-                    visible: root.showsAddedHint(modelData.id)
+                    visible: root.showsAddedHint(modelData)
                     text: root.addedHint
                     color: Theme.accent
                     font.pixelSize: 10

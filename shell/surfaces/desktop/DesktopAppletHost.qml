@@ -12,9 +12,10 @@ Item {
   property real surfaceWidth: 400
   property real surfaceHeight: 800
 
-  signal requestCustomize()
   signal selectApplet()
   signal dragMoved(real normX, real normY)
+  // Alignment guide lines while free-dragging ([] when none / drag ends)
+  signal dragGuides(var guides)
 
   readonly property var widgetData: frame && frame.widget ? frame.widget : null
   readonly property string widgetId: widgetData ? String(widgetData.id) : ""
@@ -38,11 +39,30 @@ Item {
     }
   }
 
+  // Types whose QML declares the given optional property (Binding to a
+  // missing property would warn).
+  readonly property var dataTypes: ["clock", "notes", "worldclock"]
+  readonly property var clickTypes: ["clock", "calendar", "weather", "system", "battery", "worldclock"]
+
   Binding {
     target: bodyLoader.item
     property: "widgetData"
     value: root.widgetData
-    when: !!bodyLoader.item && root.widgetType === "clock"
+    when: !!bodyLoader.item && root.dataTypes.indexOf(root.widgetType) >= 0
+  }
+  Binding {
+    target: bodyLoader.item
+    property: "canEdit"
+    value: !root.customizeMode
+    when: !!bodyLoader.item && root.widgetType === "notes"
+  }
+  // Widgets act on normal click (calendar popover, Mission Center, Settings,
+  // city picker…) — never while customizing, never on the lock surface.
+  Binding {
+    target: bodyLoader.item
+    property: "interactive"
+    value: !root.customizeMode
+    when: !!bodyLoader.item && root.clickTypes.indexOf(root.widgetType) >= 0
   }
   Binding {
     target: bodyLoader.item
@@ -154,11 +174,23 @@ Item {
         return
       // Parent-space cursor via scene map — stable while the item moves.
       const p = mapToItem(root.parent, mouse.x, mouse.y)
-      const rawX = p.x - pressOX
-      const rawY = p.y - pressOY
+      let rawX = p.x - pressOX
+      let rawY = p.y - pressOY
       const wid = root.widgetId
       if (root.layout) {
+        // Free placement: magnetize to neighbor edges/centers first; drop the
+        // guides if collision resolution then pushes the frame elsewhere.
+        let guides = []
+        if (!root.layout.snapToGrid) {
+          const a = root.layout.alignAdjust(rawX, rawY, root.width, root.height, wid)
+          rawX = a.x
+          rawY = a.y
+          guides = a.guides
+        }
         const placed = root.layout.resolveNoOverlap(rawX, rawY, root.width, root.height, wid)
+        if (Math.abs(placed.x - rawX) > 0.5 || Math.abs(placed.y - rawY) > 0.5)
+          guides = []
+        root.dragGuides(guides)
         root.dragX = placed.x
         root.dragY = placed.y
       } else {
@@ -174,37 +206,18 @@ Item {
         const n = root.layout.normFromPixel(placed.x, placed.y, 0, 0, root.width, root.height)
         root.dragMoved(n.x, n.y)
       }
+      root.dragGuides([])
       root.dragging = false
     }
-    onCanceled: root.dragging = false
-  }
-
-  Timer {
-    id: holdTimer
-    interval: 550
-    onTriggered: {
-      root.requestCustomize()
-      root.selectApplet()
+    onCanceled: {
+      root.dragGuides([])
+      root.dragging = false
     }
   }
 
-  MouseArea {
-    anchors.fill: parent
-    z: 5
-    enabled: !root.customizeMode
-    propagateComposedEvents: true
-    onPressed: mouse => {
-      holdTimer.restart()
-      mouse.accepted = false
-    }
-    onReleased: mouse => {
-      holdTimer.stop()
-      mouse.accepted = false
-    }
-    onCanceled: holdTimer.stop()
-    onPositionChanged: mouse => {
-      holdTimer.stop()
-      mouse.accepted = false
-    }
-  }
+  // No long-press MouseArea here: an unaccepted press never receives its
+  // release, so a hold timer armed on press would fire even after a normal
+  // click (phantom Customize). Long-press over non-interactive regions falls
+  // through to the surface's press-and-hold; interactive widget areas carry
+  // their own onPressAndHold → ShellState.enterDesktopCustomize().
 }

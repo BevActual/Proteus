@@ -65,7 +65,10 @@ QtObject {
       clockColor: clockColor,
       showDate: w && w.showDate === false ? false : true,
       dateStyle: dateStyle,
-      clockDepth: w && w.clockDepth === false ? false : true
+      clockDepth: w && w.clockDepth === false ? false : true,
+      noteText: String((w && w.noteText) || ""),
+      tzId: String((w && w.tzId) || "UTC"),
+      tzLabel: String((w && w.tzLabel) || "UTC")
     }
   }
 
@@ -151,13 +154,16 @@ QtObject {
     if (!found)
       return null
     let list = host.lockWidgetsList.slice()
-    for (let i = 0; i < list.length; i++) {
-      if (String(list[i].type) === t) {
-        if (!list[i].enabled)
-          setLockWidgetEnabled(list[i].id, true)
-        if (size)
-          setLockWidgetSize(list[i].id, size)
-        return list[i]
+    // unique types re-enable the existing instance; multi-instance types add.
+    if (found.unique !== false) {
+      for (let i = 0; i < list.length; i++) {
+        if (String(list[i].type) === t) {
+          if (!list[i].enabled)
+            setLockWidgetEnabled(list[i].id, true)
+          if (size)
+            setLockWidgetSize(list[i].id, size)
+          return list[i]
+        }
       }
     }
     const stripCount = list.filter(w => w.type !== "clock").length
