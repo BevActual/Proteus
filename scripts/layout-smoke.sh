@@ -44,6 +44,7 @@ REQUIRED=(
   LockLayoutZones.qml
   Notifications.qml
   KeepAwake.qml
+  LocalSend.qml
   Hud.qml
   Brightness.qml
   Packages.qml

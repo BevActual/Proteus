@@ -424,6 +424,10 @@ Singleton {
     })
   }
 
+  function openLocalSend() {
+    LocalSend.open()
+  }
+
   function copyToClipboard(text) {
     const t = String(text || "")
     if (!t.length)
