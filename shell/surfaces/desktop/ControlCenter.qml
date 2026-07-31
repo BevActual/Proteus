@@ -97,7 +97,7 @@ Item {
 
       Text {
         Layout.fillWidth: true
-        text: "Deep Sound / Network controls live in Settings"
+        text: "Deep Sound / Network / Power live in Settings"
         color: Theme.textMute
         font.family: Theme.fontFamily
         font.pixelSize: 11

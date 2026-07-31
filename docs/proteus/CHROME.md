@@ -182,6 +182,7 @@ shell surfaces that rhyme):
 | **SettingsFormRow** | Label + hint + trailing control |
 | **SettingsHubList** | › rows into sub-settings |
 | **SettingsSegmented** | Exclusive segment pick |
+| **SettingsCombo** | Trailing popup picker (Theme chip + elevated menu; not Fusion ComboBox) |
 | **Fact line** | Mute one-liner naming the on-disk / CLI fact |
 
 Shell chrome (TopBar, Dock, Control Center, lock Customize) should reuse the
