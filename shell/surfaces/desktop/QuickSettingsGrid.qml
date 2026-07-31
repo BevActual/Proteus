@@ -894,7 +894,7 @@ ColumnLayout {
           x: Math.max(0, tile.width - width)
           width: Math.max(220, tile.width)
           padding: 4
-          closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+          closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
           modal: false
 
           background: Rectangle {
