@@ -1,0 +1,19 @@
+[package]
+name = "proteus-audio-mix"
+version = "0.1.0"
+edition = "2021"
+description = "Resident mixer dump + peaks helper for Proteus Settings Sound"
+license = "MIT"
+
+[[bin]]
+name = "proteus-audio-mix"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1

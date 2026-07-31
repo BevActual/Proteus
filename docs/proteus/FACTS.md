@@ -56,7 +56,9 @@ directory**. Name helpers clearly (`BackgroundDaily.qml`, `ConfigHypr.qml`, …)
 |------|-------|------|
 | Preference / chrome state | QML (`shell/shared/…`) | One Config schema; façades mutate via FileView or thin helpers |
 | Read-only discovery | Python OK (`services/proteus-hw-probe`) | JSON out; no privileged write |
-| Privileged mutation | Rust CLI (`services/proteus-pkg`, …) + polkit | Settings proposes → confirm → helper |
+| Privileged mutation | Rust CLI (`services/proteus-pkg`, `services/proteus-logind`, …) + polkit | Settings proposes → confirm → helper |
+| Hot-path read (mixer) | Rust resident `proteus-audio-mix serve` (+ Python fallback) | Dump+peaks while Apps/Mixer open |
+| Power mode (PPD) | `powerprofilesctl` / `power-profiles-daemon` (session polkit) | Eco = `power-saver`; no Proteus helper |
 
 **Do not** add silent Python helpers for privileged mutation. **Do not** grow a
 second `settings-*.json` per posture.

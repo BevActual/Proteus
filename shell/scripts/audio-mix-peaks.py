@@ -94,6 +94,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("sinks", nargs="+")
     ap.add_argument("--window-ms", type=int, default=40)
+    ap.add_argument("--period-ms", type=int, default=140)
     ap.add_argument("--rate", type=int, default=16000)
     args = ap.parse_args()
     if not shutil.which("parec"):
@@ -102,6 +103,7 @@ def main() -> int:
         return 0
     window_bytes = max(256, int(args.rate * (args.window_ms / 1000.0) * 2))
     levels = {s: 0 for s in args.sinks}
+    period = max(0.05, args.period_ms / 1000.0)
     idx = 0
     while True:
         if not args.sinks:
@@ -118,7 +120,7 @@ def main() -> int:
                 levels[k] = max(0, int(levels[k] * 0.72))
         if not emit(levels):
             return 0
-        time.sleep(0.05)
+        time.sleep(period)
 
 
 if __name__ == "__main__":

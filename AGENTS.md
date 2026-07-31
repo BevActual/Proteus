@@ -37,7 +37,7 @@ full PLAYBOOK or queue here. Override sibling paths with `MOBIUS_ROOT` /
 - **`vm`** — boot guest: `./vm/run.sh`; provision: `./vm/provision.sh`; artifacts in `PROTEUS_VM_CACHE`; overlay `vm/install/`; helpers `vm/guest/`.
 - **`nested`** — host quick shell test: `./scripts/run-nested.sh`.
 - **`probe`** — Wave A hardware JSON: `./services/proteus-hw-probe/proteus-hw-probe` · smoke: `./scripts/hw-probe-smoke.sh`
-- **`smoke`** — host suite: `./scripts/smoke-all.sh` (layout · config · hw-probe · install · session · qs-version; guest QS if SSH `:2222` or `PROTEUS_GUEST=1`)
+- **`smoke`** — host suite: `./scripts/smoke-all.sh` (layout · config · hw-probe · install · session · qs-version · power-logind · audio-mix-serve; guest QS if SSH `:2222` or `PROTEUS_GUEST=1`)
 - **`settings`** — work in `apps/proteus-settings/` + `shell/shared` (symlink).
 - **`shell`** — Quickshell chrome only; do not grow product apps here ([STACK.md](docs/proteus/STACK.md)).
 - **`loop` / `standing` / …** — follow **Mobius** `AGENTS.md`; Proteus items may be queued there with home: Proteus.

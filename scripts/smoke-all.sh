@@ -14,6 +14,8 @@ run config-schema-smoke.sh
 run app-manifest-smoke.sh
 run chrome-tokens-smoke.sh
 run software-reliability-smoke.sh
+run power-logind-smoke.sh
+run audio-mix-serve-smoke.sh
 run hw-probe-smoke.sh
 run install-smoke.sh
 run session-smoke.sh

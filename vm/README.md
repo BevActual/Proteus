@@ -134,13 +134,17 @@ Useful binds: `Super+Return` → `proteus-terminal` (Ghostty + VM GL workaround)
 bash /mnt/proteus/vm/guest/install-keybinds.sh
 bash /mnt/proteus/vm/guest/install-desktop-conf.sh
 # or all of the above via:
-# Build mutator on the host first if needed:
+# Build mutators / helpers on the host first if needed:
 #   (cd services/proteus-pkg && cargo build --release)
+#   (cd services/proteus-logind && cargo build --release)
+#   (cd services/proteus-audio-mix && cargo build --release && mkdir -p bin && cp target/release/proteus-audio-mix bin/)
 bash /mnt/proteus/vm/guest/install-settings-app.sh
 # (also runs hide-system-apps.sh — Settings-covered tools + Quickshell hidden; Calculator stays)
 # Overlay apps + post-install re-run hide-system-apps idempotently.
-# or just the package helper:
+# or just the helpers:
 #   sudo bash /mnt/proteus/vm/guest/install-proteus-pkg.sh
+#   sudo bash /mnt/proteus/vm/guest/install-proteus-logind.sh
+#   sudo bash /mnt/proteus/vm/guest/install-proteus-audio-mix.sh
 ```
 
 ### Notes / blockers

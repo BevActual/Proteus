@@ -1185,7 +1185,13 @@ def move_channel(channel: str, index: int) -> dict:
         return {"ok": False, "error": err or "could not move"}
     profiles["channels"] = channels
     save_profiles(profiles)
-    return {"ok": True, "id": channel, "index": int(index), "error": ""}
+    return {
+        "ok": True,
+        "id": channel,
+        "index": int(index),
+        "order": [str(x.get("id") or "") for x in channels if isinstance(x, dict)],
+        "error": "",
+    }
 
 
 def move_mix(mix_id: str, index: int) -> dict:
@@ -1196,7 +1202,13 @@ def move_mix(mix_id: str, index: int) -> dict:
         return {"ok": False, "error": err or "could not move"}
     profiles["mixes"] = mixes
     save_profiles(profiles)
-    return {"ok": True, "id": mix_id, "index": int(index), "error": ""}
+    return {
+        "ok": True,
+        "id": mix_id,
+        "index": int(index),
+        "order": [str(x.get("id") or "") for x in mixes if isinstance(x, dict)],
+        "error": "",
+    }
 
 
 def move_input(input_id: str, index: int) -> dict:
@@ -1207,7 +1219,13 @@ def move_input(input_id: str, index: int) -> dict:
         return {"ok": False, "error": err or "could not move"}
     profiles["inputs"] = inputs
     save_profiles(profiles)
-    return {"ok": True, "id": input_id, "index": int(index), "error": ""}
+    return {
+        "ok": True,
+        "id": input_id,
+        "index": int(index),
+        "order": [str(x.get("id") or "") for x in inputs if isinstance(x, dict)],
+        "error": "",
+    }
 
 
 def apply_profiles(playing: list[dict], profiles: dict, sinks: list[dict]) -> None:

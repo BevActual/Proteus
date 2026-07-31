@@ -124,7 +124,7 @@ Proteus/
     proteus-settings/ # Settings.qml + kit/ + panes/*; shared/ → ../../shell/shared
   env/                # seeds: hypr/ · ghostty/ · fastfetch/ (see env/README.md)
   vm/                 # QEMU harness + guest/ mutators + install/ overlay; ISO/qcow in PROTEUS_VM_CACHE
-  services/           # proteus-hw-probe (read) · proteus-pkg (privileged mutate)
+  services/           # proteus-hw-probe (read) · proteus-pkg · proteus-logind · proteus-audio-mix
   scripts/            # run-nested, run-desktop, *-smoke.sh, smoke-all
   tests/              # fixtures for schema/layout smokes (not a QML unit runner)
 ```
@@ -135,6 +135,8 @@ do not put façades in domain subdirs behind `qmldir` without a proven cold star
 On-disk facts: [FACTS.md](./FACTS.md) · key groups: [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md).
 
 `services/proteus-pkg` — privileged pacman mutator (pkexec + polkit) for Settings Software.
+`services/proteus-logind` — privileged logind drop-in writer (pkexec + polkit) for Settings Power.
+`services/proteus-audio-mix` — session-scoped resident dump+peaks for Sound Mixer (no polkit; mutations still `audio-mix.py`).
 Optional later: more Rust CLIs (`proteus-net`, etc.) so QML stays thin
 (Meridian-style: apps as clients of helpers). Future first-party apps under
 `apps/` as Tauri projects ([STACK.md](./STACK.md)).

@@ -4,7 +4,8 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// Proteus audio control — thin wrapper over pactl / pw-metadata / pw-link.
+// Proteus audio control — thin wrapper over pactl / pw-metadata / pw-link
+// plus resident proteus-audio-mix serve for Mixer dump+peaks (Python fallback).
 //
 // Extracted from Config.qml, which had grown to own prefs, wallpaper, packages,
 // displays and audio at once. Persisted state still lives in Config (one
@@ -12,6 +13,7 @@ import QtQuick
 // Config.audioLatency rather than keeping its own copy.
 //
 // Audio matrix (Omnibus-style) uses shell/scripts/audio-matrix.py → pw-link.
+// Mixer mutations still use shell/scripts/audio-mix.py.
 Singleton {
   id: root
 
@@ -249,6 +251,13 @@ Singleton {
   property var mixPeaks: ({})
   property int mixPeakSubscribers: 0
   property string mixPeakDevices: ""
+  // Resident helper (proteus-audio-mix serve) — dump+peaks while Apps/Mixer open.
+  property int mixServeConsumers: 0
+  property bool mixServeRunning: false
+  property bool mixServeStopping: false
+  property bool mixHelperAvailable: false
+  property string mixHelperBin: ""
+  property string mixCtlPath: ""
 
   function subscribeMixPeaks(deviceList) {
     const devices = (deviceList || []).filter(d => d && String(d).length)
@@ -264,6 +273,8 @@ Singleton {
       root.mixPeaks = ({})
       root.mixPeakDevices = ""
       mixPeaksProc.running = false
+      if (root.mixServeRunning)
+        root._mixCtlWrite("peaks")
     }
   }
 
@@ -277,20 +288,96 @@ Singleton {
       root._restartMixPeaks()
   }
 
-  function _restartMixPeaks() {
-    mixPeaksProc.running = false
-    if (root.mixPeakSubscribers <= 0 || !root.mixPeakDevices.length)
+  function _mixCtlWrite(line) {
+    const ctl = root.mixCtlPath
+    if (!ctl || !String(line || "").length)
       return
+    Quickshell.execDetached({
+      command: ["bash", "-c", "printf '%s\\n' " + JSON.stringify(String(line)) + " > " + JSON.stringify(ctl)]
+    })
+  }
+
+  function _restartMixPeaks() {
     const sinks = root.mixPeakDevices.split("\n").filter(s => s.length)
-    if (!sinks.length)
+    if (root.mixServeRunning) {
+      mixPeaksProc.running = false
+      if (root.mixPeakSubscribers <= 0) {
+        root._mixCtlWrite("peaks")
+        return
+      }
+      root._mixCtlWrite(sinks.length ? ("peaks " + sinks.join(" ")) : "peaks")
+      return
+    }
+    mixPeaksProc.running = false
+    if (root.mixPeakSubscribers <= 0 || !sinks.length)
       return
     mixPeaksProc.command = [
       "python3",
       Config.scriptsDir + "/audio-mix-peaks.py",
       "--window-ms",
-      "40"
+      "35",
+      "--period-ms",
+      "140"
     ].concat(sinks)
     mixPeaksProc.running = true
+  }
+
+  function startMixServe() {
+    root.mixServeConsumers = root.mixServeConsumers + 1
+    if (root.mixServeConsumers === 1)
+      root._ensureMixServe()
+  }
+
+  function stopMixServe() {
+    root.mixServeConsumers = Math.max(0, root.mixServeConsumers - 1)
+    if (root.mixServeConsumers === 0)
+      root._stopMixServe()
+  }
+
+  function _ensureMixServe() {
+    if (root.mixServeRunning)
+      return
+    if (root.mixHelperBin.length) {
+      root._launchMixServe(root.mixHelperBin)
+      return
+    }
+    mixHelperResolveProc.running = false
+    mixHelperResolveProc.running = true
+  }
+
+  function _stopMixServe() {
+    root.mixServeStopping = true
+    if (root.mixServeRunning)
+      root._mixCtlWrite("quit")
+    mixServeProc.running = false
+    root.mixServeRunning = false
+    // Fall back to Python peaks if still subscribed.
+    if (root.mixPeakSubscribers > 0)
+      root._restartMixPeaks()
+  }
+
+  function _launchMixServe(bin) {
+    const path = String(bin || "").trim()
+    if (!path.length)
+      return
+    root.mixServeStopping = false
+    root.mixHelperBin = path
+    root.mixHelperAvailable = true
+    const runtime = Quickshell.env("XDG_RUNTIME_DIR") || ("/tmp/proteus-" + Quickshell.env("USER"))
+    root.mixCtlPath = runtime + "/proteus-audio-mix.ctl"
+    const sinks = root.mixPeakDevices.split("\n").filter(s => s.length)
+    const cmd = [path, "serve", "--dump-ms", "4500", "--ctl", root.mixCtlPath]
+    if (sinks.length) {
+      cmd.push("--peaks")
+      for (let i = 0; i < sinks.length; i++)
+        cmd.push(sinks[i])
+    }
+    mixServeProc.command = cmd
+    mixServeProc.running = false
+    mixServeProc.running = true
+    root.mixServeRunning = true
+    if (root.mixDragging)
+      Qt.callLater(() => root._mixCtlWrite("pause"))
   }
 
   function mixPeakFor(sinkId) {
@@ -298,13 +385,124 @@ Singleton {
     const v = m[String(sinkId || "")]
     return typeof v === "number" ? v : 0
   }
+
   property var mixApps: []
   property var mixUnassigned: []
   property var mixAssignOptions: []
   property string mixError: ""
   property bool mixBusy: false
+  // Mixer UI mid-drag — pause polling so dumps don't fight live reorder.
+  property bool mixDragging: false
+  onMixDraggingChanged: {
+    if (!root.mixServeRunning)
+      return
+    root._mixCtlWrite(root.mixDragging ? "pause" : "resume")
+  }
   property bool mixReady: false
   property string mixDumpFp: ""
+
+  function applyMixOrder(kind, orderIds) {
+    if (kind === "mix")
+      root.mixMixes = root._reorderByIds(root.mixMixes, orderIds)
+    else if (kind === "channel")
+      root.mixChannels = root._reorderByIds(root.mixChannels, orderIds)
+    else if (kind === "input")
+      root.mixInputs = root._reorderByIds(root.mixInputs, orderIds)
+  }
+
+  function _reorderByIds(list, orderIds) {
+    const src = list || []
+    const order = orderIds || []
+    if (!src.length || !order.length)
+      return src
+    const byId = {}
+    for (let i = 0; i < src.length; i++) {
+      const id = src[i] && src[i].id
+      if (id)
+        byId[id] = src[i]
+    }
+    const next = []
+    const seen = {}
+    for (let i = 0; i < order.length; i++) {
+      const id = order[i]
+      if (byId[id] && !seen[id]) {
+        next.push(byId[id])
+        seen[id] = true
+      }
+    }
+    for (let i = 0; i < src.length; i++) {
+      const id = src[i] && src[i].id
+      if (id && !seen[id])
+        next.push(src[i])
+    }
+    return next
+  }
+
+  // Cheap dump identity — avoid JSON.stringify of full channel/app trees every poll.
+  function _mixDumpFingerprint(d, assign) {
+    const ch = d.channels || []
+    const inn = d.inputs || []
+    const mixes = d.mixes || []
+    const apps = d.apps || []
+    const srcs = d.availableSources || []
+    const parts = [
+      d.ok ? 1 : 0,
+      d.listening || "",
+      d.ok ? "" : (d.error || "")
+    ]
+    for (let i = 0; i < srcs.length; i++) {
+      const s = srcs[i] || {}
+      parts.push("s", s.id || s.name, s.label || "")
+    }
+    for (let i = 0; i < ch.length; i++) {
+      const c = ch[i] || {}
+      const folder = c.apps || []
+      let keys = ""
+      for (let j = 0; j < folder.length; j++)
+        keys += (folder[j].key || "") + (folder[j].playing ? "*" : "") + ","
+      parts.push("c", c.id, c.label, c.volume, c.muted ? 1 : 0, c.count || 0, keys)
+      const cells = c.cells || c.routes || {}
+      if (typeof cells === "object") {
+        for (const mixId of Object.keys(cells)) {
+          const cell = cells[mixId] || {}
+          parts.push(mixId, cell.on ? 1 : 0, cell.volume, cell.muted ? 1 : 0)
+        }
+      }
+    }
+    for (let i = 0; i < inn.length; i++) {
+      const c = inn[i] || {}
+      parts.push("i", c.id, c.label, c.volume, c.muted ? 1 : 0, c.source || "")
+      const cells = c.cells || c.routes || {}
+      if (typeof cells === "object") {
+        for (const mixId of Object.keys(cells)) {
+          const cell = cells[mixId] || {}
+          parts.push(mixId, cell.on ? 1 : 0, cell.volume, cell.muted ? 1 : 0)
+        }
+      }
+    }
+    for (let i = 0; i < mixes.length; i++) {
+      const m = mixes[i] || {}
+      parts.push("m", m.id, m.label, m.hear ? 1 : 0)
+    }
+    for (let i = 0; i < apps.length; i++) {
+      const a = apps[i] || {}
+      parts.push("a", a.key || a.id, a.channel || a.sink || "", a.volume, a.muted ? 1 : 0)
+    }
+    for (let i = 0; i < (assign || []).length; i++) {
+      const o = assign[i] || {}
+      parts.push("o", o.id, o.kind, o.label, o.present === false ? 0 : 1)
+    }
+    return parts.join("|")
+  }
+
+  function _assignMixList(kind, nextList) {
+    if (kind === "mix")
+      root.mixMixes = nextList || []
+    else if (kind === "channel")
+      root.mixChannels = nextList || []
+    else
+      root.mixInputs = nextList || []
+  }
 
   readonly property var mixChannelCatalog: [
     { id: "proteus_mix_system", label: "Apps" },
@@ -451,9 +649,7 @@ Singleton {
     const ch = String(channelId || "").trim()
     if (!ch || root.mixBusy)
       return
-    root.mixBusy = true
     root.mixError = ""
-    root.mixDumpFp = ""
     mixMoveChannelProc.command = [
       "python3",
       Config.scriptsDir + "/audio-mix.py",
@@ -469,9 +665,7 @@ Singleton {
     const id = String(mixId || "").trim()
     if (!id || root.mixBusy)
       return
-    root.mixBusy = true
     root.mixError = ""
-    root.mixDumpFp = ""
     mixMoveMixProc.command = [
       "python3",
       Config.scriptsDir + "/audio-mix.py",
@@ -487,9 +681,7 @@ Singleton {
     const id = String(inputId || "").trim()
     if (!id || root.mixBusy)
       return
-    root.mixBusy = true
     root.mixError = ""
-    root.mixDumpFp = ""
     mixMoveInputProc.command = [
       "python3",
       Config.scriptsDir + "/audio-mix.py",
@@ -556,8 +748,60 @@ Singleton {
   }
 
   function refreshMix() {
+    if (root.mixServeRunning) {
+      root._mixCtlWrite("dump")
+      return
+    }
     mixDumpProc.running = false
     mixDumpProc.running = true
+  }
+
+  function _applyMixDump(d) {
+    if (!d || typeof d !== "object")
+      return
+    const assign = (d.assignOptions || []).filter(o => o.kind === "mix" || o.present !== false)
+    const fp = root._mixDumpFingerprint(d, assign)
+    if (fp === root.mixDumpFp) {
+      if (!d.ok)
+        root.mixError = d.error || "Could not list apps"
+      return
+    }
+    root.mixDumpFp = fp
+    root.mixReady = !!d.ok
+    root._assignMixList("channel", d.channels || [])
+    root._assignMixList("input", d.inputs || [])
+    root.mixAvailableSources = d.availableSources || []
+    root._assignMixList("mix", d.mixes || [])
+    root.mixListening = d.listening || "system"
+    root.mixApps = d.apps || []
+    root.mixUnassigned = d.unassigned || []
+    root.mixAssignOptions = assign
+    if (!d.ok)
+      root.mixError = d.error || "Could not list apps"
+    else if (!root.mixBusy)
+      root.mixError = ""
+  }
+
+  function _applyMixPeaksMap(d) {
+    if (!d || typeof d !== "object")
+      return
+    const prev = root.mixPeaks || ({})
+    const next = {}
+    let changed = false
+    const keys = Object.keys(d)
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i]
+      const raw = Number(d[k])
+      const v = isNaN(raw) ? 0 : Math.max(0, Math.min(100, Math.round(raw / 5) * 5))
+      next[k] = v
+      if ((prev[k] || 0) !== v)
+        changed = true
+    }
+    const prevKeys = Object.keys(prev)
+    if (prevKeys.length !== keys.length)
+      changed = true
+    if (changed)
+      root.mixPeaks = next
   }
 
   function ensureMixChannels() {
@@ -936,9 +1180,102 @@ Singleton {
       onRead: line => {
         try {
           const d = JSON.parse(String(line || "").trim() || "{}")
-          if (d && typeof d === "object")
-            root.mixPeaks = d
+          root._applyMixPeaksMap(d)
         } catch (e) {
+        }
+      }
+    }
+  }
+
+  Process {
+    id: mixHelperResolveProc
+    command: [
+      "bash",
+      "-c",
+      "ROOT=\"" + Config.scriptsDir + "/../..\"; "
+          + "for c in \"$ROOT/services/proteus-audio-mix/bin/proteus-audio-mix\" "
+          + "\"$ROOT/services/proteus-audio-mix/target/release/proteus-audio-mix\" "
+          + "/usr/local/libexec/proteus-audio-mix "
+          + "$(command -v proteus-audio-mix 2>/dev/null); do "
+          + "if [ -x \"$c\" ]; then printf '%s' \"$c\"; exit 0; fi; done; exit 1"
+    ]
+    stdout: StdioCollector {
+      id: mixHelperResolveOut
+    }
+    onExited: exitCode => {
+      const bin = String(mixHelperResolveOut.text || "").trim()
+      if (exitCode === 0 && bin.length) {
+        root.mixHelperAvailable = true
+        if (root.mixServeConsumers > 0 && !root.mixServeRunning)
+          root._launchMixServe(bin)
+        return
+      }
+      root.mixHelperAvailable = false
+      root.mixHelperBin = ""
+      // No helper — fall back to Python dump poll via refreshMix.
+      if (root.mixServeConsumers > 0)
+        root.refreshMix()
+    }
+  }
+
+  Process {
+    id: mixServeProc
+    running: false
+    command: ["true"]
+    stdout: SplitParser {
+      splitMarker: "\n"
+      onRead: line => {
+        try {
+          const d = JSON.parse(String(line || "").trim() || "{}")
+          if (!d || typeof d !== "object")
+            return
+          if (d.t === "peaks") {
+            root._applyMixPeaksMap(d.v || {})
+            return
+          }
+          if (d.t === "dump" || d.ok !== undefined) {
+            root._applyMixDump(d)
+          }
+        } catch (e) {
+        }
+      }
+    }
+    onExited: () => {
+      root.mixServeRunning = false
+      if (root.mixServeStopping) {
+        root.mixServeStopping = false
+        return
+      }
+      if (root.mixServeConsumers > 0 && root.mixHelperBin.length) {
+        // Brief respawn if leaf still open (crash).
+        Qt.callLater(() => {
+          if (root.mixServeConsumers > 0 && !root.mixServeRunning && !root.mixServeStopping)
+            root._launchMixServe(root.mixHelperBin)
+        })
+      }
+    }
+  }
+
+  Process {
+    id: mixDumpProc
+    command: ["python3", Config.scriptsDir + "/audio-mix.py", "dump"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const d = JSON.parse(String(text || "").trim() || "{}")
+          root._applyMixDump(d)
+        } catch (e) {
+          root.mixReady = false
+          root.mixDumpFp = ""
+          root.mixChannels = []
+          root.mixInputs = []
+          root.mixAvailableSources = []
+          root.mixMixes = []
+          root.mixListening = "system"
+          root.mixApps = []
+          root.mixUnassigned = []
+          root.mixAssignOptions = []
+          root.mixError = "Could not parse app mix"
         }
       }
     }
@@ -1042,62 +1379,6 @@ Singleton {
             + "'echo Install qpwgraph or helvum for a graph editor; read -r _'; fi"
       ]
     })
-  }
-
-  Process {
-    id: mixDumpProc
-    command: ["python3", Config.scriptsDir + "/audio-mix.py", "dump"]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        try {
-          const d = JSON.parse(String(text || "").trim() || "{}")
-          const assign = (d.assignOptions || []).filter(o => o.kind === "mix" || o.present !== false)
-          // Skip identical dumps so Repeaters/combos aren't rebuilt (Apps flicker).
-          const fp = JSON.stringify({
-            ok: !!d.ok,
-            channels: d.channels || [],
-            inputs: d.inputs || [],
-            availableSources: d.availableSources || [],
-            mixes: d.mixes || [],
-            apps: d.apps || [],
-            unassigned: d.unassigned || [],
-            assign: assign,
-            error: d.ok ? "" : (d.error || "")
-          })
-          if (fp === root.mixDumpFp) {
-            if (!d.ok)
-              root.mixError = d.error || "Could not list apps"
-            return
-          }
-          root.mixDumpFp = fp
-          root.mixReady = !!d.ok
-          root.mixChannels = d.channels || []
-          root.mixInputs = d.inputs || []
-          root.mixAvailableSources = d.availableSources || []
-          root.mixMixes = d.mixes || []
-          root.mixListening = d.listening || "system"
-          root.mixApps = d.apps || []
-          root.mixUnassigned = d.unassigned || []
-          root.mixAssignOptions = assign
-          if (!d.ok)
-            root.mixError = d.error || "Could not list apps"
-          else if (!root.mixBusy)
-            root.mixError = ""
-        } catch (e) {
-          root.mixReady = false
-          root.mixDumpFp = ""
-          root.mixChannels = []
-          root.mixInputs = []
-          root.mixAvailableSources = []
-          root.mixMixes = []
-          root.mixListening = "system"
-          root.mixApps = []
-          root.mixUnassigned = []
-          root.mixAssignOptions = []
-          root.mixError = "Could not parse app mix"
-        }
-      }
-    }
   }
 
   Process {
@@ -1381,17 +1662,22 @@ Singleton {
       id: mixMoveChannelOut
     }
     onExited: () => {
-      root.mixBusy = false
-      root.mixDumpFp = ""
       try {
         const d = JSON.parse(String(mixMoveChannelOut.text || "").trim() || "{}")
-        if (d && d.ok === false)
+        if (d && d.ok === false) {
           root.mixError = d.error || "Could not move channel"
-        else
+          root.refreshMix()
+        } else {
           root.mixError = ""
+          if (d && d.order && d.order.length) {
+            const cur = (root.mixChannels || []).map(c => c && c.id)
+            if (cur.join("\n") !== d.order.join("\n"))
+              root.applyMixOrder("channel", d.order)
+          }
+        }
       } catch (e) {
+        root.refreshMix()
       }
-      root.refreshMix()
     }
   }
 
@@ -1402,17 +1688,22 @@ Singleton {
       id: mixMoveMixOut
     }
     onExited: () => {
-      root.mixBusy = false
-      root.mixDumpFp = ""
       try {
         const d = JSON.parse(String(mixMoveMixOut.text || "").trim() || "{}")
-        if (d && d.ok === false)
+        if (d && d.ok === false) {
           root.mixError = d.error || "Could not move mix"
-        else
+          root.refreshMix()
+        } else {
           root.mixError = ""
+          if (d && d.order && d.order.length) {
+            const cur = (root.mixMixes || []).map(m => m && m.id)
+            if (cur.join("\n") !== d.order.join("\n"))
+              root.applyMixOrder("mix", d.order)
+          }
+        }
       } catch (e) {
+        root.refreshMix()
       }
-      root.refreshMix()
     }
   }
 
@@ -1423,17 +1714,22 @@ Singleton {
       id: mixMoveInputOut
     }
     onExited: () => {
-      root.mixBusy = false
-      root.mixDumpFp = ""
       try {
         const d = JSON.parse(String(mixMoveInputOut.text || "").trim() || "{}")
-        if (d && d.ok === false)
+        if (d && d.ok === false) {
           root.mixError = d.error || "Could not move input"
-        else
+          root.refreshMix()
+        } else {
           root.mixError = ""
+          if (d && d.order && d.order.length) {
+            const cur = (root.mixInputs || []).map(m => m && m.id)
+            if (cur.join("\n") !== d.order.join("\n"))
+              root.applyMixOrder("input", d.order)
+          }
+        }
       } catch (e) {
+        root.refreshMix()
       }
-      root.refreshMix()
     }
   }
 

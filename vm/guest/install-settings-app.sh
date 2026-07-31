@@ -78,6 +78,24 @@ else
   echo "note: skipped proteus-pkg (build release on host first)"
 fi
 
+# Privileged logind writer (polkit) — Settings → Power
+if [[ -x "${ROOT}/services/proteus-logind/bin/proteus-logind" ]] \
+  || [[ -x "${ROOT}/services/proteus-logind/target/release/proteus-logind" ]] \
+  || command -v cargo >/dev/null 2>&1; then
+  bash "${ROOT}/vm/guest/install-proteus-logind.sh"
+else
+  echo "note: skipped proteus-logind (build release on host first)"
+fi
+
+# Resident mixer dump+peaks — Settings → Sound Mixer / Apps
+if [[ -x "${ROOT}/services/proteus-audio-mix/bin/proteus-audio-mix" ]] \
+  || [[ -x "${ROOT}/services/proteus-audio-mix/target/release/proteus-audio-mix" ]] \
+  || command -v cargo >/dev/null 2>&1; then
+  bash "${ROOT}/vm/guest/install-proteus-audio-mix.sh"
+else
+  echo "note: skipped proteus-audio-mix (build release on host first)"
+fi
+
 # Flathub user remote (Settings → Software → Flathub)
 ensure_flathub_for() {
   local user="$1"

@@ -49,7 +49,8 @@ Adaptive app behavior (one identity, environment-shaped): [APPLICATIONS.md](./AP
 | Shell chrome (bar, dock, launcher, overlays) | **QML / Quickshell** | Wayland layer-shell; Hyprland integrations |
 | System control center (`proteus-settings`) | **QML / Quickshell** *(today)* | Same tokens/spine; may revisit Tauri if FloatingWindow lifecycle hurts |
 | **Hardware / env probes** (read-only discovery → JSON) | **Python** *(blessed)* | Fast to iterate; `proteus-hw-probe` Wave A. **Rust rewrite candidate** when schema stabilizes or we need a single static binary on guests |
-| System helpers that **mutate** state (apply config, pacman wrappers, privileged ops) | **Rust** small CLIs (+ bash when tiny) | Thin, smokeable; keeps QML dumb (Meridian habit). Example: `services/proteus-pkg` + polkit |
+| System helpers that **mutate** state (apply config, pacman wrappers, privileged ops) | **Rust** small CLIs (+ bash when tiny) | Thin, smokeable; keeps QML dumb (Meridian habit). Examples: `services/proteus-pkg`, `services/proteus-logind` + polkit |
+| Hot-path session helpers (mixer dump/peaks, …) | **Rust** resident CLI (`serve`) | Spawned while Settings leaf open; NDJSON to QML. Example: `services/proteus-audio-mix` |
 | First-party Proteus apps (Files, Host console, …) | **TypeScript + Tauri (Rust)** | Matches **Rowena**; not shell chrome |
 | Host / ops backends (libvirt, containers, status) | **Rust** services or existing Linux tools behind a thin API | Trust + long-running; UI is Tauri or Settings |
 
@@ -72,11 +73,12 @@ Do **not** grow silent Python helpers for privileged mutation — that stays Rus
 
 ## 4. New work defaults
 
-1. New **Settings pane** → QML module + optional helper (Python probe / Rust mutator)  
-2. New **Proteus app** → Tauri + TS, theme aligned with Proteus tokens  
-3. New **mutating system capability** → Rust CLI that Settings/apps call  
-4. New **read-only discovery** → Python probe OK (log in §6 if long-lived)  
-5. Prefer **built-in Quickshell integrations** (PipeWire, tray, UPower, …) before new daemons — until the fact is privileged or multi-consumer  
+1. New **Settings pane** → QML module + optional helper (Python probe / Rust mutator / resident serve)
+2. New **Proteus app** → Tauri + TS, theme aligned with Proteus tokens
+3. New **mutating system capability** → Rust CLI that Settings/apps call
+4. New **read-only discovery** → Python probe OK (log in §6 if long-lived)
+5. Prefer **built-in Quickshell integrations** (PipeWire, tray, UPower, …) before new daemons — until the fact is privileged, multi-consumer, or a hot poll path (then Rust `serve`)
+6. New **hot-path poll** (mixer peaks/dump, …) → Rust resident helper while the leaf is open; keep mutations thin
 
 ---
 

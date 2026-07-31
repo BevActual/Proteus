@@ -30,6 +30,9 @@ ColumnLayout {
   property string status: ""
   property string clockSummary: ""
   property string nullSinkHint: ""
+  // Resident dump+peaks while Apps/Mixer open; Python dump fallback if helper missing.
+  property bool mixServeActive: false
+  property bool mixFallbackPoll: false
 
   readonly property var sections: [
     {
@@ -181,14 +184,6 @@ ColumnLayout {
     }
   }
 
-  onPageChanged: root.syncSourcePeaks()
-  Component.onDestruction: {
-    if (root.sourcePeaksSubscribed) {
-      Audio.unsubscribeSourcePeaks()
-      root.sourcePeaksSubscribed = false
-    }
-  }
-
   Timer {
     id: appsTimer
     interval: 1500
@@ -197,13 +192,51 @@ ColumnLayout {
     onTriggered: root.refreshApps()
   }
 
+  function syncMixServe() {
+    const want = root.page === "sound-apps" || root.page === "sound-matrix"
+    if (want && !root.mixServeActive) {
+      Audio.startMixServe()
+      root.mixServeActive = true
+      root.mixFallbackPoll = false
+      // If resolve finds no binary, start a light Python poll.
+      Qt.callLater(() => {
+        if (root.mixServeActive && !Audio.mixServeRunning && !Audio.mixHelperAvailable)
+          root.mixFallbackPoll = true
+      })
+    } else if (!want && root.mixServeActive) {
+      Audio.stopMixServe()
+      root.mixServeActive = false
+      root.mixFallbackPoll = false
+    }
+  }
+
   Timer {
-    id: mixAppsTimer
-    interval: 2500
+    id: mixFallbackTimer
+    interval: 4500
     repeat: true
-    running: root.page === "sound-apps" || root.page === "sound-matrix"
+    running: root.mixFallbackPoll && !Audio.mixServeRunning && !Audio.mixDragging
     triggeredOnStart: true
     onTriggered: Audio.refreshMix()
+  }
+
+  Timer {
+    id: mixServeWatch
+    interval: 800
+    repeat: true
+    running: root.mixServeActive && !Audio.mixServeRunning
+    onTriggered: {
+      if (Audio.mixServeRunning) {
+        root.mixFallbackPoll = false
+        return
+      }
+      if (!Audio.mixHelperAvailable)
+        root.mixFallbackPoll = true
+    }
+  }
+
+  onPageChanged: {
+    root.syncSourcePeaks()
+    root.syncMixServe()
   }
 
   Timer {
@@ -257,7 +290,19 @@ ColumnLayout {
   }
 
   Component.onCompleted: {
+    root.syncMixServe()
     if (active)
       refresh()
+  }
+
+  Component.onDestruction: {
+    if (root.sourcePeaksSubscribed) {
+      Audio.unsubscribeSourcePeaks()
+      root.sourcePeaksSubscribed = false
+    }
+    if (root.mixServeActive) {
+      Audio.stopMixServe()
+      root.mixServeActive = false
+    }
   }
 }
