@@ -67,11 +67,11 @@ Item {
   Rectangle {
     anchors.fill: parent
     anchors.margins: -4
-    radius: 14
+    radius: Theme.radiusLg + 2
     visible: root.customizeMode
     color: "transparent"
     border.width: root.selected ? 2 : 1
-    border.color: root.selected ? Theme.accent : Qt.rgba(1, 1, 1, 0.45)
+    border.color: root.selected ? Theme.accent : Theme.chromeBorder
   }
 
   Rectangle {
@@ -81,18 +81,22 @@ Item {
     anchors.margins: -6
     width: 28
     height: 22
-    radius: 8
-    color: Qt.rgba(0, 0, 0, 0.65)
+    radius: Theme.radius
+    color: Theme.elevatedFill
+    border.width: 1
+    border.color: Theme.chromeBorder
     z: 6
     Text {
       anchors.centerIn: parent
       text: String(root.widgetData && root.widgetData.size ? root.widgetData.size : "md").toUpperCase()
-      color: "white"
+      color: Theme.text
+      font.family: Theme.fontFamily
       font.pixelSize: 9
-      font.bold: true
+      font.weight: Font.DemiBold
     }
     MouseArea {
       anchors.fill: parent
+      cursorShape: Qt.PointingHandCursor
       onClicked: Widgets.cycleDesktopWidgetSize(root.widgetId)
     }
   }
@@ -105,17 +109,19 @@ Item {
     width: 22
     height: 22
     radius: 11
-    color: Qt.rgba(0.9, 0.2, 0.2, 0.92)
+    color: Theme.danger
     z: 6
     Text {
       anchors.centerIn: parent
       text: "−"
-      color: "white"
+      color: "#ffffff"
+      font.family: Theme.fontFamily
       font.pixelSize: 16
-      font.bold: true
+      font.weight: Font.DemiBold
     }
     MouseArea {
       anchors.fill: parent
+      cursorShape: Qt.PointingHandCursor
       onClicked: Widgets.removeDesktopWidget(root.widgetId)
     }
   }
