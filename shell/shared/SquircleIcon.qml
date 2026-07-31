@@ -7,7 +7,7 @@ Item {
 
   property alias source: img.source
   property int pixelSize: 128
-  property real cornerRatio: 0.2237
+  property real cornerRatio: Theme.squircleCornerRatio
   property bool fillCrop: false
   property real glyphScale: 0.72
   property bool showBorder: false
