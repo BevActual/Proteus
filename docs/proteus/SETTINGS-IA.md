@@ -107,7 +107,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse; later touchpad / tablet | keybinds + input hyprctl | `shipped` |
 | **Power** (`power`) | Power mode segmented (PPD); battery (UPower); idle / lid FormRows via `proteus-logind` drop-in + conf escape | `powerprofilesctl` / UPower / `proteus-logind` | `shipped` |
 | **Users** (`users`) | Session Lock/Logout/Reboot/Shutdown; current + other local users (read-only + Refresh); greetd status + conf escape | `Config.session` · id/getent · greetd/`/etc/greetd/config.toml` | `shipped` |
-| **Online accounts** (`accounts`) | Mail / contacts / cloud provider seats (coming soon; no OAuth) | TBD (not inventing mail/contacts apps here) | `partial` |
+| **Online accounts** (`accounts`) | Connector catalog + Google PKCE seats (`proteus-accounts` vault); Microsoft/Nextcloud/… listed | `proteus-accounts` + `Accounts.qml` (mail/contacts apps Out) | `partial` |
 | **Date & time** (`datetime`) | Live clock, searchable timezone + locale pickers, NTP, **Location** (place + units + 5-day forecast + Match TZ) | `timedatectl` / `localectl set-locale` / Open-Meteo | `shipped` |
 | **Privacy** (`privacy`) | Permission categories listed; grants not enforced yet | EnvGate / adaptive apps later | `partial` |
 | **Software** (`packages`) | Hub → Updates; Repos / AUR / Flathub (Install\|Installed mode-safe, per-mode search, op narrative); AppImages; Orphans — helper honesty when yay/paru/flatpak missing | `pacman` + `proteus-pkg` · yay/paru · flatpak + Flathub · local AppImages | `shipped` |
@@ -306,14 +306,15 @@ hub); guest `./scripts/software-guest-smoke.sh` in `smoke-all` (SKIP unless SSH 
 locale set + 5-day forecast + Match TZ shipped; manual time / RTC writers Out.
 **Power** mode (PPD) + logind writer shipped; charge-threshold / TLP stay Out.
 
-**Online accounts · Privacy** are `partial` — provider OAuth and permission
+**Online accounts** seats are `partial` — catalog + Google PKCE when configured;
+mail/contacts/Drive **apps** stay Out. **Privacy** remains `partial` — permission
 enforcement Out. **Users** session/greeter status shipped (add-remove + writing
 greeter prefs stay Out).
 
 Depth order for what’s left:
 
 1. **Users depth** — write greeter/autologin prefs; add-remove stays Out of Settings  
-2. **Online accounts** — real provider connect when adaptive mail/contacts exist  
+2. **Online accounts depth** — Microsoft / Nextcloud connect; consumers stay Out  
 3. **Privacy** — grant model when adaptive apps need it  
 4. **Network depth** — Tailscale login-server (Headscale); peer/exit-node UI; in-pane pairing; WireGuard / password Wi‑Fi wizard (hub + leaves shipped)  
 5. **Peripherals** — touchpad / tablet  

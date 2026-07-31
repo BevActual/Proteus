@@ -45,6 +45,7 @@ facts: [`vm/guest/`](../../vm/guest/).
 | **Widgets** | Applet catalog + lock/desktop CRUD | Own FileView |
 | **Theme** | Chrome tokens from Config accent/font/mode | System facts |
 | **SystemInfo** | Read-only OS/kernel/QS/Hypr strings + About copy summary | Privileged writes; hostname edit |
+| **Accounts** | Online accounts catalog + seat status via `proteus-accounts` | OAuth secrets in `settings.json`; inventing mail/contacts apps |
 
 **Why flat `shell/shared/`:** Quickshell directory imports + `property alias`
 across singletons in *subdirectories* (or via `qmldir`) hit load-order cycles.
@@ -58,6 +59,7 @@ directory**. Name helpers clearly (`BackgroundDaily.qml`, `ConfigHypr.qml`, …)
 | Preference / chrome state | QML (`shell/shared/…`) | One Config schema; façades mutate via FileView or thin helpers |
 | Read-only discovery | Python OK (`services/proteus-hw-probe`) | JSON out; no privileged write |
 | Privileged mutation | Rust CLI (`services/proteus-pkg`, `services/proteus-logind`, …) + polkit | Settings proposes → confirm → helper |
+| Online accounts seats | Rust CLI `services/proteus-accounts` (user vault; no polkit) | Tokens outside `settings.json`; PKCE browser connect |
 | Hot-path read (mixer) | Rust resident `proteus-audio-mix serve` (+ Python fallback) | Dump+peaks while Apps/Mixer open |
 | Power mode (PPD) | `powerprofilesctl` / `power-profiles-daemon` (session polkit) | Eco = `power-saver`; no Proteus helper |
 

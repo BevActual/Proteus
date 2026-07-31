@@ -87,6 +87,15 @@ else
   echo "note: skipped proteus-logind (build release on host first)"
 fi
 
+# Online accounts seats (user-scoped; no polkit)
+if [[ -x "${ROOT}/services/proteus-accounts/bin/proteus-accounts" ]] \
+  || [[ -x "${ROOT}/services/proteus-accounts/target/release/proteus-accounts" ]] \
+  || command -v cargo >/dev/null 2>&1; then
+  bash "${ROOT}/vm/guest/install-proteus-accounts.sh"
+else
+  echo "note: skipped proteus-accounts (build release on host first)"
+fi
+
 # Resident mixer dump+peaks — Settings → Sound Mixer / Apps
 if [[ -x "${ROOT}/services/proteus-audio-mix/bin/proteus-audio-mix" ]] \
   || [[ -x "${ROOT}/services/proteus-audio-mix/target/release/proteus-audio-mix" ]] \

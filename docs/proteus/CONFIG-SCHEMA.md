@@ -33,6 +33,10 @@ One schema for all postures; panes enable/disable by capability.
 | Icon plates / overrides | `iconPlateMode` (`default` \| `dark` \| `clear` \| `tinted`), `iconPlateCustom`, `iconOverrides` (`id=path;…`) | Theme + DockApps / EnvGate |
 | Notifications | `notificationsDnd` | Notifications |
 
+**Not account secrets:** OAuth tokens live under
+`~/.local/share/proteus/accounts/tokens/` (0600) via `proteus-accounts`; public
+seat metadata in `~/.config/proteus/accounts.json`. Never in `settings.json`.
+
 Arrays (`lockWidgets`, `desktopWidgets`, `wallpaperAlbums`, `wallpaperDailySources`)
 are JSON lists; normalizers live on Widgets / Background.
 

@@ -47,6 +47,7 @@ REQUIRED=(
   LocalSend.qml
   HyprProfile.qml
   SystemInfo.qml
+  Accounts.qml
   Hud.qml
   Brightness.qml
   Packages.qml

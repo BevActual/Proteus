@@ -75,7 +75,7 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 | Chrome design lock (`CHROME.md`) | `shipped` — principles + token tables + Settings patterns; sibling export `env/chrome/` `shipped` |
 | Theme tokens | `shipped` — space/radius scale + accent/font from Config; company lock [CHROME.md](./CHROME.md) |
 | Shared package layout (flat + helpers) | `shipped` — Config/Background ownership split; Settings `kit/`; guest dogfood OK |
-| Smoke suite (`scripts/*-smoke.sh`) | `shipped` — layout · config-schema · app-manifest · chrome-tokens · software-reliability · power-logind · audio-mix-serve · hw-probe · install · session · qs-version; optional `qs-guest` + `software-guest` via `smoke-all` / `PROTEUS_GUEST=1` |
+| Smoke suite (`scripts/*-smoke.sh`) | `shipped` — layout · config-schema · app-manifest · chrome-tokens · software-reliability · power-logind · accounts · audio-mix-serve · hw-probe · install · session · qs-version; optional `qs-guest` + `software-guest` via `smoke-all` / `PROTEUS_GUEST=1` |
 
 ---
 
@@ -95,7 +95,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Power (PPD mode + battery + idle/lid) | `shipped` — Performance/Balanced/Eco via `powerprofilesctl`; battery via UPower; `pkexec proteus-logind` drop-in + reload (not restart); CC Power tile; charge thresholds / TLP Out |
 | Date & time (clock, timezone search, NTP, locale, **Location**) | `shipped` — timezone/NTP/`localectl set-locale` polkit-gated; searchable locale picker + locale.conf escape; Location explicit place search (never IP); Open-Meteo current + **5-day forecast** + Conditions H/L/sunrise; Match time zone to place when TZ differs; desktop/lock weather widget; manual time / RTC writers Out |
 | Users (session actions + read-only local users · greetd status) | `shipped` — Session FormRow honesty (Lock/Logout/Reboot/Shutdown); current/other users + Refresh; greetd active/autologin status + read-only conf escape; no add/remove; Settings does not write greeter prefs |
-| Online accounts (provider seats) | `partial` — coming soon; no OAuth |
+| Online accounts (provider seats) | `partial` — locked connector catalog (Google connectable; Microsoft/Nextcloud/Apple/Exchange/IMAP/CalDAV/CardDAV listed); `proteus-accounts` + vault tokens (not settings.json); Google PKCE when client id set; mail/contacts/Drive apps Out |
 | Privacy (permission categories) | `partial` — listed; not enforced |
 | About (hardware class / capabilities) | `shipped` — OS/kernel (`SystemInfo`); Hyprland/Quickshell versions; hw-probe class/caps; soft Hyprland profile picker; Copy system info; session → Users; hard posture switch Out |
 | Host / VM·container setup | **out of Settings** — separate app later |
