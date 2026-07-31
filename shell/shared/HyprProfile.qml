@@ -1,0 +1,203 @@
+pragma Singleton
+
+import Quickshell
+import Quickshell.Io
+import QtQuick
+
+// Soft Hyprland posture profile select — Settings About + set-hypr-profile.sh.
+// Soft reload only; not a hard posture switch (POSTURES.md / COMPOSITOR.md).
+Singleton {
+  id: root
+
+  // UI ids: desktop | console | host | home  (console → media.conf on disk)
+  property string activeProfile: ""
+  property bool busy: false
+  property string error: ""
+  property bool helperMissing: false
+  property string helperPath: ""
+
+  readonly property string pointerPath: Quickshell.env("HOME") + "/.config/hypr/proteus-profile.conf"
+  readonly property string profilesDir: Quickshell.env("HOME") + "/.config/hypr/profiles"
+
+  readonly property var profileCatalog: [
+    { id: "desktop", label: "Desktop", file: "desktop" },
+    { id: "console", label: "Console", file: "media" },
+    { id: "host", label: "Host", file: "host" },
+    { id: "home", label: "Home (parked)", file: "home" }
+  ]
+
+  readonly property var profileOptions: {
+    const out = []
+    for (let i = 0; i < root.profileCatalog.length; i++) {
+      const c = root.profileCatalog[i]
+      out.push({ id: c.id, label: c.label })
+    }
+    return out
+  }
+
+  readonly property string activeProfileLabel: root.profileLabel(root.activeProfile)
+
+  readonly property string softHonesty: "Soft Hyprland profile reload — not a hard posture switch."
+
+  function profileLabel(uiId) {
+    const u = String(uiId || "")
+    for (let i = 0; i < root.profileCatalog.length; i++) {
+      if (root.profileCatalog[i].id === u)
+        return root.profileCatalog[i].label
+    }
+    return u.length ? u : "—"
+  }
+
+  function uiIdFromFile(fileStem) {
+    const f = String(fileStem || "")
+    if (f === "media")
+      return "console"
+    for (let i = 0; i < root.profileCatalog.length; i++) {
+      if (root.profileCatalog[i].file === f)
+        return root.profileCatalog[i].id
+    }
+    return f
+  }
+
+  function fileFromUiId(uiId) {
+    const u = String(uiId || "")
+    for (let i = 0; i < root.profileCatalog.length; i++) {
+      if (root.profileCatalog[i].id === u)
+        return root.profileCatalog[i].file
+    }
+    if (u === "console")
+      return "media"
+    return u
+  }
+
+  function scriptArgFromUiId(uiId) {
+    // set-hypr-profile.sh accepts console|media|desktop|host|home
+    const u = String(uiId || "")
+    if (u === "console")
+      return "console"
+    return root.fileFromUiId(u)
+  }
+
+  function parsePointerText(raw) {
+    const text = String(raw || "")
+    const re = /profiles\/([A-Za-z0-9_-]+)\.conf/
+    const m = text.match(re)
+    if (!m)
+      return ""
+    return root.uiIdFromFile(m[1])
+  }
+
+  function applyPointerText(raw) {
+    const id = root.parsePointerText(raw)
+    root.activeProfile = id
+    if (id.length && !root.busy)
+      root.error = ""
+  }
+
+  function refresh() {
+    pointerFile.reload()
+    probeHelperProc.running = false
+    probeHelperProc.running = true
+  }
+
+  function set(uiId) {
+    const id = String(uiId || "")
+    if (!id.length)
+      return
+    let known = false
+    for (let i = 0; i < root.profileCatalog.length; i++) {
+      if (root.profileCatalog[i].id === id) {
+        known = true
+        break
+      }
+    }
+    if (!known) {
+      root.error = "Unknown profile: " + id
+      return
+    }
+    if (id === root.activeProfile && !root.busy)
+      return
+    if (!root.helperPath.length) {
+      root.helperMissing = true
+      root.error = "set-hypr-profile.sh not found (install desktop conf / PROTEUS_ROOT)"
+      return
+    }
+
+    root.busy = true
+    root.error = ""
+    const arg = root.scriptArgFromUiId(id)
+    setProc.command = ["bash", root.helperPath, arg]
+    setProc.running = false
+    setProc.running = true
+  }
+
+  Component.onCompleted: root.refresh()
+
+  FileView {
+    id: pointerFile
+    path: root.pointerPath
+    watchChanges: true
+    onLoaded: root.applyPointerText(pointerFile.text())
+    onLoadFailed: {
+      if (!root.busy) {
+        root.activeProfile = ""
+        root.error = "No active profile pointer yet"
+      }
+    }
+  }
+
+  Process {
+    id: probeHelperProc
+    command: [
+      "bash",
+      "-c",
+      "candidates=()\n"
+          + "[[ -n \"${PROTEUS_ROOT:-}\" ]] && candidates+=(\"${PROTEUS_ROOT}/vm/guest/set-hypr-profile.sh\")\n"
+          + "candidates+=(\"/mnt/proteus/vm/guest/set-hypr-profile.sh\"\n"
+          + "  \"${HOME}/Projects/Proteus/vm/guest/set-hypr-profile.sh\")\n"
+          + "for p in \"${candidates[@]}\"; do\n"
+          + "  [[ -f \"$p\" ]] && echo \"$p\" && exit 0\n"
+          + "done\n"
+          + "exit 1\n"
+    ]
+    stdout: StdioCollector {
+      id: probeOut
+    }
+    onExited: (exitCode) => {
+      if (exitCode === 0) {
+        const p = probeOut.text.trim().split("\n")[0] || ""
+        root.helperPath = p
+        root.helperMissing = !p.length
+        if (p.length && root.error.indexOf("set-hypr-profile") >= 0)
+          root.error = ""
+      } else {
+        root.helperPath = ""
+        root.helperMissing = true
+      }
+    }
+  }
+
+  Process {
+    id: setProc
+    command: ["true"]
+    stderr: StdioCollector {
+      id: setErr
+    }
+    stdout: StdioCollector {
+      id: setOut
+    }
+    onExited: (exitCode) => {
+      root.busy = false
+      if (exitCode === 0) {
+        root.error = ""
+        root.refresh()
+        return
+      }
+      const e = setErr.text.trim().split("\n")[0]
+          || setOut.text.trim().split("\n").filter(l => l.length).slice(-1)[0]
+          || ""
+      root.error = e.length ? e : "Could not change Hyprland posture profile"
+      root.refresh()
+    }
+  }
+}
