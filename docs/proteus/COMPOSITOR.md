@@ -146,7 +146,8 @@ still `planned`. Keyboard + Desktop fragments `shipped`; Displays layout canvas
 ```
 
 Today’s helper is **soft only**: `vm/guest/set-hypr-profile.sh
-desktop|media|host|home` (`media` = console alias). Intended product flip =
+desktop|console|media|host|home` (`console` ≡ `media`). Settings → About
+(`HyprProfile.qml`) soft-selects the same pointer. Intended product flip =
 **hard switch** (engines + shell), not profile reload alone — see
 [POSTURES.md](./POSTURES.md) § Hard switches.
 
@@ -204,7 +205,7 @@ compositor chrome for that unit.
 | Guest Hyprland + QS shell | `shipped` |
 | Settings → keybinds → hypr conf | `shipped` |
 | Settings → gaps/borders via hyprctl | `shipped` |
-| Per-posture hypr profiles | `partial` — desktop + media(console alias)/host/home stubs + soft `set-hypr-profile.sh` |
+| Per-posture hypr profiles | `partial` — desktop + media(console alias)/host/home stubs + soft `set-hypr-profile.sh` + Settings About picker |
 | Console / host hard switches | `planned` — engine + shell session flip |
 | QS respawn / crash policy | `partial` — `proteus-qs` flock/backoff/`--restart`; optional `proteus-qs.service` user unit (hypr exec-once still default) |
 | Capability resolver | `planned` |

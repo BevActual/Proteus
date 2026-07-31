@@ -50,7 +50,7 @@ the thesis ahead of code where marked `planned`.
 | Hyprland session | `shipped` | Backend for desktop posture; greetd / proteus-session |
 | Quickshell shell | `shipped` | Chrome runtime; `/mnt/proteus/shell` via 9p |
 | Nested Hyprland (host) | `shipped` | `scripts/run-nested.sh` — shell-only quick test |
-| Hyprland posture profiles | `partial` — desktop + media(console alias)/host/home stubs + soft `set-hypr-profile.sh`; hard switches `planned` — [POSTURES.md](./POSTURES.md) · [COMPOSITOR.md](./COMPOSITOR.md) |
+| Hyprland posture profiles | `partial` — desktop + media(console alias)/host/home stubs + soft `set-hypr-profile.sh` + Settings About picker (`HyprProfile.qml`); hard switches `planned` — [POSTURES.md](./POSTURES.md) · [COMPOSITOR.md](./COMPOSITOR.md) |
 | QS version pin / respawn policy | `partial` — `proteus-qs` flock + `--restart` + orphan reap + backoff; optional systemd `--user` unit; version recorded in `qs-guest-smoke` / `qs-version-smoke`; after QS upgrade re-run guest smoke; IgnorePkg/ISO pin Out |
 
 ---
@@ -97,7 +97,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Users (session actions + read-only local users · greetd status) | `shipped` — Session FormRow honesty (Lock/Logout/Reboot/Shutdown); current/other users + Refresh; greetd active/autologin status + read-only conf escape; no add/remove; Settings does not write greeter prefs |
 | Online accounts (provider seats) | `partial` — coming soon; no OAuth |
 | Privacy (permission categories) | `partial` — listed; not enforced |
-| About (hardware class / capabilities) | `partial` — session actions → Users |
+| About (hardware class / capabilities) | `partial` — hw-probe class/caps; soft Hyprland profile picker (`HyprProfile` · console≡media); session actions → Users; hard posture switch Out |
 | Host / VM·container setup | **out of Settings** — separate app later |
 | Cold-start (open feel) | `shipped` — async `shell.qml` → `Settings.qml`; `kit/StickyPaneLoader` (active category first, sticky after visit); Keyboard/Keybinds deferred; Settings QS skips live hw-probe (`Hardware.isSettingsApp` → cache only) |
 
@@ -120,7 +120,8 @@ Locked product set: [POSTURES.md](./POSTURES.md).
 
 Focus set + hard switches: [POSTURES.md](./POSTURES.md). Selection today:
 `PROTEUS_SURFACE` env (default `desktop`). Soft hypr helper:
-`set-hypr-profile.sh` (`media` / `console` → console alias).
+`set-hypr-profile.sh` (`media` / `console` → console alias) + Settings → About
+picker (`HyprProfile.qml`) — soft reload only, not a hard posture switch.
 
 ---
 
@@ -204,7 +205,7 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 - More Rust helper CLIs under `services/` (Wave A probe is Python; `proteus-pkg` + `proteus-logind` mutators + `proteus-audio-mix` resident dump/peaks shipped; mixer mutations still Python)  
 - Posture / prefers / device_classes enforcement on manifests (schema only today)  
 - ISO / installer productization (dogfood overlay in `vm/install/` is enough for now)  
-- Settings UI for posture hard-switch picker (CLI soft profile only today)  
+- Settings UI for posture **hard-switch** picker (soft Hyprland profile picker shipped in About)  
 - Rowena (and other sibling) CSS retarget onto `--proteus-*` export  
 
 When shipping a feature, update this file in the same change.

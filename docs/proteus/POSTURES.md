@@ -116,7 +116,8 @@ fragments may still express desktop tuning; they do not define the product flip.
 
 Helper today (soft only): `vm/guest/set-hypr-profile.sh
 desktop|console|media|host|home` — `console` ≡ `media` (legacy filename);
-hard-session switch is `planned`.
+Settings → About exposes the same soft select via `HyprProfile.qml` (Kind row
+states soft≠hard). Hard-session switch is `planned`.
 
 ---
 
