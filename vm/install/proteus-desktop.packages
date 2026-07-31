@@ -25,3 +25,9 @@ mousepad
 file-roller
 unzip
 satty
+
+# LAN AirDrop-style share — Settings → Network → LocalSend · Control Center tile.
+# Prefer AUR prebuilt (localsend-bin) over source localsend (Flutter/fvm make-deps)
+# or Flatpak. Omarchy/official mirrors may ship `localsend` — desktop.sh treats
+# either package name as satisfying this seat.
+localsend-bin
