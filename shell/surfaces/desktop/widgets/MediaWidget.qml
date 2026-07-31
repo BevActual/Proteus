@@ -3,7 +3,8 @@ import QtQuick.Layouts
 import Quickshell.Services.Mpris
 import "../../../shared"
 
-// Lock-screen Now playing card (MPRIS). Configured via Settings → Lock → Widgets.
+// Now playing card (MPRIS) — shared by the lock and desktop surfaces.
+// Added / configured via the surface's Customize mode (see Widgets.widgetCatalog).
 Item {
   id: root
   property string size: "md"

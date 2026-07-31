@@ -8,6 +8,9 @@ Item {
   id: root
   property string size: "sm"
   property bool showWhenIdle: true
+  // Desktop only: click opens the calendar popover (weather summary) or,
+  // without a location, Settings → Date & time to set one.
+  property bool interactive: false
 
   implicitWidth: card.implicitWidth
   implicitHeight: card.implicitHeight
@@ -24,7 +27,23 @@ Item {
     radius: 16
     color: Qt.rgba(28 / 255, 28 / 255, 30 / 255, 0.72)
     border.width: 1
-    border.color: Qt.rgba(1, 1, 1, 0.1)
+    border.color: wxMa.containsMouse && root.interactive
+        ? Qt.rgba(1, 1, 1, 0.25) : Qt.rgba(1, 1, 1, 0.1)
+
+    MouseArea {
+      id: wxMa
+      anchors.fill: parent
+      visible: root.interactive
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: {
+        if (Weather.hasLocation)
+          ShellState.toggleCalendar()
+        else
+          ShellState.openSettings("datetime")
+      }
+      onPressAndHold: ShellState.enterDesktopCustomize()
+    }
 
     ColumnLayout {
       id: body

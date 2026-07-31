@@ -7,6 +7,8 @@ Item {
   id: root
   property string size: "sm"
   property bool showWhenIdle: true
+  // Desktop only: click opens Settings → Power
+  property bool interactive: false
 
   readonly property var device: UPower.displayDevice
   readonly property real pct: {
@@ -39,7 +41,18 @@ Item {
     radius: 16
     color: Qt.rgba(28 / 255, 28 / 255, 30 / 255, 0.72)
     border.width: 1
-    border.color: Qt.rgba(1, 1, 1, 0.1)
+    border.color: battMa.containsMouse && root.interactive
+        ? Qt.rgba(1, 1, 1, 0.25) : Qt.rgba(1, 1, 1, 0.1)
+
+    MouseArea {
+      id: battMa
+      anchors.fill: parent
+      visible: root.interactive
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: ShellState.openSettings("power")
+      onPressAndHold: ShellState.enterDesktopCustomize()
+    }
 
     ColumnLayout {
       id: body

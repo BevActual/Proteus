@@ -7,6 +7,8 @@ Item {
   id: root
   property var widgetData: null
   property string size: widgetData ? String(widgetData.size || "lg") : "lg"
+  // Desktop only (bound by DesktopAppletHost): click opens the calendar popover
+  property bool interactive: false
 
   readonly property string weight: widgetData ? String(widgetData.clockWeight || "light") : "light"
   readonly property color clockColor: {
@@ -78,5 +80,13 @@ Item {
   SystemClock {
     id: clock
     precision: SystemClock.Minutes
+  }
+
+  MouseArea {
+    anchors.fill: parent
+    visible: root.interactive
+    cursorShape: Qt.PointingHandCursor
+    onClicked: ShellState.toggleCalendar()
+    onPressAndHold: ShellState.enterDesktopCustomize()
   }
 }
