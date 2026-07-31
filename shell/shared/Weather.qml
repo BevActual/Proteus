@@ -68,6 +68,36 @@ Singleton {
     return root.description + " · " + root.temperatureText
   }
 
+  // Conditions row detail: today high/low + sunrise/sunset when known.
+  readonly property string conditionsDetail: {
+    if (!root.ready)
+      return root.summary
+    const parts = [root.summary]
+    const hi = Math.round(root.high)
+    const lo = Math.round(root.low)
+    if (root.high || root.low)
+      parts.push("H " + hi + root.tempUnit + " · L " + lo + root.tempUnit)
+    const rise = root.clockFromIso(root.sunrise)
+    const set = root.clockFromIso(root.sunset)
+    if (rise.length && set.length)
+      parts.push("↑ " + rise + " · ↓ " + set)
+    return parts.join(" · ")
+  }
+
+  function clockFromIso(iso) {
+    const s = String(iso || "")
+    const m = s.match(/T(\d{2}):(\d{2})/)
+    if (!m)
+      return ""
+    let h = parseInt(m[1], 10)
+    const min = m[2]
+    const ap = h >= 12 ? "PM" : "AM"
+    h = h % 12
+    if (h === 0)
+      h = 12
+    return h + ":" + min + " " + ap
+  }
+
   // Short weekday for a daily ISO date (YYYY-MM-DD…).
   function forecastDayLabel(isoDate, index) {
     if (index === 0)

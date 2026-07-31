@@ -336,8 +336,8 @@ ColumnLayout {
     SettingsFormRow {
       visible: !root.pickingPlace && Config.locationName.length > 0
       label: "Conditions"
-      hint: Weather.summary
-      showSeparator: Weather.hasForecast || Config.locationName.length > 0
+      hint: Weather.conditionsDetail
+      showSeparator: true
       interactive: true
       onActivated: Weather.refresh()
       Text {
@@ -346,6 +346,38 @@ ColumnLayout {
         font.family: Theme.fontFamily
         font.pixelSize: 12
       }
+    }
+
+    SettingsFormRow {
+      // Offer sync when Open-Meteo place TZ differs from the system zone.
+      visible: !root.pickingPlace
+          && Config.locationName.length > 0
+          && Config.locationTimezone.length > 0
+          && Config.locationTimezone !== DateTime.timezone
+      label: "Match time zone to place"
+      hint: root.friendlyZone(Config.locationTimezone)
+          + " · system is "
+          + (DateTime.timezone.length ? root.friendlyZone(DateTime.timezone) : "unset")
+          + " · polkit"
+      showSeparator: Weather.hasForecast || Config.locationName.length > 0
+      interactive: !DateTime.busy
+      onActivated: DateTime.setTimezone(Config.locationTimezone)
+      Text {
+        text: DateTime.busy ? "…" : "Apply"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+
+    SettingsFormRow {
+      visible: !root.pickingPlace
+          && Config.locationName.length > 0
+          && Config.locationTimezone.length > 0
+          && Config.locationTimezone === DateTime.timezone
+      label: "Place time zone"
+      hint: root.friendlyZone(Config.locationTimezone) + " · matches system"
+      showSeparator: Weather.hasForecast || Config.locationName.length > 0
     }
 
     Repeater {
