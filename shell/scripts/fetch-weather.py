@@ -8,7 +8,9 @@ Two modes, each printing one JSON object to stdout:
 
   --search "<name>"          {"ok": true, "results": [{name, admin1, country,
                               countryCode, latitude, longitude, timezone}, ...]}
-  --lat <f> --lon <f>        {"ok": true, "current": {...}, "today": {...}}
+  --lat <f> --lon <f>        {"ok": true, "current": {...}, "today": {...},
+                              "daily": [{date, high, low, sunrise, sunset,
+                              code, description}, ...] }  # up to 5 days
 
 Only the coordinates you set are sent, and only to api.open-meteo.com. Nothing
 about the machine goes with them.
@@ -144,8 +146,14 @@ def forecast(lat: float, lon: float, imperial: bool) -> int:
             "temperature_2m", "apparent_temperature", "relative_humidity_2m",
             "is_day", "weather_code", "wind_speed_10m",
         ]),
-        "daily": "temperature_2m_max,temperature_2m_min,sunrise,sunset",
-        "forecast_days": 1,
+        "daily": ",".join([
+            "weather_code",
+            "temperature_2m_max",
+            "temperature_2m_min",
+            "sunrise",
+            "sunset",
+        ]),
+        "forecast_days": 5,
         "timezone": "auto",
     }
     if imperial:
@@ -157,9 +165,32 @@ def forecast(lat: float, lon: float, imperial: bool) -> int:
     daily = data.get("daily") or {}
     units = data.get("current_units") or {}
 
-    def first(key):
-        seq = daily.get(key) or []
-        return seq[0] if seq else None
+    dates = daily.get("time") or []
+    highs = daily.get("temperature_2m_max") or []
+    lows = daily.get("temperature_2m_min") or []
+    sunrises = daily.get("sunrise") or []
+    sunsets = daily.get("sunset") or []
+    codes = daily.get("weather_code") or []
+
+    days = []
+    for i, date in enumerate(dates):
+        code = codes[i] if i < len(codes) else None
+        days.append({
+            "date": date or "",
+            "high": highs[i] if i < len(highs) else None,
+            "low": lows[i] if i < len(lows) else None,
+            "sunrise": sunrises[i] if i < len(sunrises) else "",
+            "sunset": sunsets[i] if i < len(sunsets) else "",
+            "code": code,
+            "description": describe(code),
+        })
+
+    today = days[0] if days else {
+        "high": None,
+        "low": None,
+        "sunrise": "",
+        "sunset": "",
+    }
 
     out = {
         "ok": True,
@@ -173,12 +204,14 @@ def forecast(lat: float, lon: float, imperial: bool) -> int:
             "description": describe(cur.get("weather_code")),
             "observedAt": cur.get("time") or "",
         },
+        # Backward-compatible first-day slice for widgets / Conditions.
         "today": {
-            "high": first("temperature_2m_max"),
-            "low": first("temperature_2m_min"),
-            "sunrise": first("sunrise") or "",
-            "sunset": first("sunset") or "",
+            "high": today.get("high"),
+            "low": today.get("low"),
+            "sunrise": today.get("sunrise") or "",
+            "sunset": today.get("sunset") or "",
         },
+        "daily": days,
         "units": {
             "temperature": units.get("temperature_2m") or ("°F" if imperial else "°C"),
             # Open-Meteo reports "mp/h"; normalise to the conventional spelling.

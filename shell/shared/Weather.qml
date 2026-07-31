@@ -37,8 +37,11 @@ Singleton {
   property string sunset: ""
   property string tempUnit: "°C"
   property string windUnit: "km/h"
+  // Multi-day rows from fetch-weather.py (`daily` array, up to 5).
+  property var forecast: []
 
   readonly property bool ready: root.code >= 0 && root.error.length === 0
+  readonly property bool hasForecast: root.forecast.length > 0
 
   // Place search state (Settings → Date & time → Location)
   property bool searching: false
@@ -63,6 +66,28 @@ Singleton {
     if (!root.ready)
       return "No data yet"
     return root.description + " · " + root.temperatureText
+  }
+
+  // Short weekday for a daily ISO date (YYYY-MM-DD…).
+  function forecastDayLabel(isoDate, index) {
+    if (index === 0)
+      return "Today"
+    const s = String(isoDate || "")
+    const day = s.length >= 10 ? s.slice(0, 10) : s
+    if (!day.length)
+      return "Day " + (index + 1)
+    const d = new Date(day + "T12:00:00")
+    if (isNaN(d.getTime()))
+      return day
+    return Qt.formatDate(d, "ddd")
+  }
+
+  function forecastRangeText(day) {
+    if (!day)
+      return ""
+    const hi = Math.round(Number(day.high) || 0)
+    const lo = Math.round(Number(day.low) || 0)
+    return hi + root.tempUnit + " / " + lo + root.tempUnit
   }
 
   // Coarse glyph for the widget; WMO buckets, day/night aware.
@@ -161,6 +186,7 @@ Singleton {
     Config.flushSettings()
     root.code = -1
     root.error = ""
+    root.forecast = []
   }
 
   function setUnits(id) {
@@ -194,6 +220,7 @@ Singleton {
           const c = res.current || {}
           const t = res.today || {}
           const u = res.units || {}
+          const days = Array.isArray(res.daily) ? res.daily : []
           root.temperature = Number(c.temperature) || 0
           root.apparent = Number(c.apparent) || 0
           root.humidity = Math.round(Number(c.humidity) || 0)
@@ -207,6 +234,15 @@ Singleton {
           root.tempUnit = String(u.temperature || "°C")
           root.windUnit = String(u.windSpeed || "km/h")
           root.fetchedAt = String(c.observedAt || "")
+          root.forecast = days.map(d => ({
+            date: String(d.date || ""),
+            high: Number(d.high) || 0,
+            low: Number(d.low) || 0,
+            sunrise: String(d.sunrise || ""),
+            sunset: String(d.sunset || ""),
+            code: (d.code === undefined || d.code === null) ? -1 : Number(d.code),
+            description: String(d.description || "")
+          }))
           // Set last: `ready` keys off it, so everything else is in place first.
           root.code = (c.code === undefined || c.code === null) ? -1 : Number(c.code)
           root.error = ""

@@ -337,7 +337,7 @@ ColumnLayout {
       visible: !root.pickingPlace && Config.locationName.length > 0
       label: "Conditions"
       hint: Weather.summary
-      showSeparator: true
+      showSeparator: Weather.hasForecast || Config.locationName.length > 0
       interactive: true
       onActivated: Weather.refresh()
       Text {
@@ -345,6 +345,22 @@ ColumnLayout {
         color: Theme.accent
         font.family: Theme.fontFamily
         font.pixelSize: 12
+      }
+    }
+
+    Repeater {
+      model: (!root.pickingPlace && Config.locationName.length > 0)
+          ? Weather.forecast
+          : []
+
+      SettingsFormRow {
+        required property var modelData
+        required property int index
+        label: Weather.forecastDayLabel(modelData.date, index)
+        hint: (modelData.description.length ? (modelData.description + " · ") : "")
+            + Weather.forecastRangeText(modelData)
+        showSeparator: index < Weather.forecast.length - 1
+            || Config.locationName.length > 0
       }
     }
 
