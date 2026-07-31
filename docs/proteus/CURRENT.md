@@ -61,10 +61,10 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 
 | Feature | Status |
 |---------|--------|
-| Top bar (launcher, workspaces, title, clock, settings) | `partial` — wallpaper-first glass menu bar (`menuBarAlpha` clearer than dock; soft text outline when thin); app title on left; status cluster → Control Center (unread badge · DND label) |
-| Control Center (notifications + quick settings) | `shipped` — list empty/Dismiss honesty; toast/`showToast` SoT (DND · CC-open suppress); **unified Sound plate** (master on plate · Listen ▾ · Sources ▾ with per-source volume · Mixer ›); elevated tiles; Settings/NM escapes; no Settings Notifications pane |
+| Top bar (launcher, workspaces, title, clock, settings) | `partial` — wallpaper-first glass menu bar (`menuBarAlpha` clearer than dock; soft text outline when thin); app title on left; status cluster → Control Center (unread badge · DND · Awake labels) |
+| Control Center (notifications + quick settings) | `shipped` — list empty/Dismiss honesty; toast/`showToast` SoT (DND · CC-open suppress); **unified Sound plate** (master on plate · Listen ▾ · Sources ▾ with per-source volume · Mixer ›); elevated tiles; **Keep Awake** · **Power** profile menu; Settings/NM escapes; no Settings Notifications pane |
 | Status HUD (volume · brightness) | `shipped` — top-right elevated glass chip (`Hud` / `StatusHud`, toast plate language); XF86 + IPC; suppressed while Control Center open; brightness honest-skip without `/sys/class/backlight` |
-| App launcher (`Super+Space` / `Super+D`) | `partial` — Apps / Files / Clipboard / Actions (Ctrl+1–4; active mode pill labels); empty Apps = calm **Recents** hierarchy (or honest empty); empty Files = **Recents** + **Places** (or honest empty); Files search = Folders then Files (depth ≤5 · 40-cap · capped hint); `launcherFileRecents` on open; fuzzy + tags + Settings; EnvGate unavailable honesty (badge · reasons); calc/convert + near-miss hint; cliphist missing-vs-empty; allowlisted Actions (lock/logout/settings/CC/DND/power) |
+| App launcher (`Super+Space` / `Super+D`) | `partial` — Apps / Files / Clipboard / Actions (Ctrl+1–4; active mode pill labels); empty Apps = calm **Recents** hierarchy (or honest empty); empty Files = **Recents** + **Places** (or honest empty); Files search = Folders then Files (depth ≤5 · 40-cap · capped hint); `launcherFileRecents` on open; fuzzy + tags + Settings; EnvGate unavailable honesty (badge · reasons); calc/convert + near-miss hint; cliphist missing-vs-empty; allowlisted Actions (lock/logout/settings/CC/DND/Keep Awake/LocalSend/power) |
 | Dock (pins, magnify, running dots) | `shipped` — continuous frosted glass shelf (`glassAlpha` frost floor + curve-following edge glow; no straight specular); smooth magnify; running disc vs active accent pill; long-press edit (−/+ · Done); press-drag reorder / drag-off remove; glass Keep/Remove (`ChromeMenuPlate`) |
 | Session start (`proteus-session`) | `partial` — prefers `start-hyprland` (known paths; fail-closed to Hyprland); hypr seed `exec-once` = qs/bg/cliphist only (install strips terminal autostart); `hide-system-apps` via apps + post-install (Settings-covered tools + Quickshell; Calculator stays); host `session-smoke` + `install-smoke` |
 | Desktop widgets (free place; Customize) | `partial` — long-press empty desktop or `Super+Shift+W`; free-place + optional Snap to Grid (center graph · no overlap); catalog via `Widgets.qml`; separate from lock |
@@ -75,7 +75,7 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 | Chrome design lock (`CHROME.md`) | `shipped` — principles + token tables + Settings patterns; sibling export `env/chrome/` `shipped` |
 | Theme tokens | `shipped` — space/radius scale + accent/font from Config; company lock [CHROME.md](./CHROME.md) |
 | Shared package layout (flat + helpers) | `shipped` — Config/Background ownership split; Settings `kit/`; guest dogfood OK |
-| Smoke suite (`scripts/*-smoke.sh`) | `shipped` — layout · config-schema · app-manifest · chrome-tokens · software-reliability · audio-mix-serve · hw-probe · install · session · qs-version; optional qs-guest via `smoke-all` / `PROTEUS_GUEST=1` |
+| Smoke suite (`scripts/*-smoke.sh`) | `shipped` — layout · config-schema · app-manifest · chrome-tokens · software-reliability · power-logind · audio-mix-serve · hw-probe · install · session · qs-version; optional qs-guest via `smoke-all` / `PROTEUS_GUEST=1` |
 
 ---
 
@@ -92,7 +92,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Software → Updates / Repos / AUR / Flathub / AppImages / Orphans (Install\|Installed mode-safe loads; sticky action bar; rich rows; live op command + Cancel + last error; empty Installed honesty; popular browse; leaf UI memory) | `partial` — optional guest: `yay`/`paru`, `flatpak` + Flathub; AppImages need no helper; dep graphs / Snap Out; `./scripts/software-reliability-smoke.sh` + optional `./scripts/software-guest-smoke.sh` |
 | Sound → Output / Input / Applications / Mixer / Latency (`sound`) | `shipped` — Desktop-style hub + `Sound*Leaf` StickyPaneLoaders; **Mixer** Wave Link–style grid (channels/inputs × mixes; Speakers/mix listen; rename; peaks); resident `proteus-audio-mix serve` for dump+peaks (Python `audio-mix.py` mutations + fallback); Output/Input/Apps/Latency FormRows; pactl + `pw-metadata` |
 | Network → This machine / Devices / Wi‑Fi / Bluetooth / Tailscale / VPN (`network`) | `shipped` — Desktop-style hub + `Network*Leaf` StickyPaneLoaders; hostname Apply; device/Wi‑Fi FormRow honesty; BT/TS/VPN status + escape hatches; password Wi‑Fi / pairing / Headscale stay system tools |
-| Power (battery via UPower; logind idle/lid read-only + conf escape hatch) | `partial` — writing lid/idle needs a privileged helper |
+| Power (PPD mode + battery + idle/lid) | `shipped` — Performance/Balanced/Eco via `powerprofilesctl`; battery via UPower; `pkexec proteus-logind` drop-in + reload (not restart); CC Power tile; charge thresholds / TLP Out |
 | Date & time (clock, timezone search, NTP, locale, **Location**) | `partial` — timezone/NTP polkit-gated; location is explicit place search (never IP); Open-Meteo weather for that place + desktop/lock weather widget; no forecast view |
 | Users (session actions + read-only local users · greetd status) | `shipped` — Session FormRow honesty (Lock/Logout/Reboot/Shutdown); current/other users + Refresh; greetd active/autologin status + read-only conf escape; no add/remove; Settings does not write greeter prefs |
 | Online accounts (provider seats) | `partial` — coming soon; no OAuth |
@@ -170,6 +170,7 @@ Focus set + hard switches: [POSTURES.md](./POSTURES.md). Selection today:
 | `./scripts/qs-version-smoke.sh` | Record QS version policy (no IgnorePkg); checks `qs-guest-smoke` upgrade path |
 | `./scripts/software-reliability-smoke.sh` | Host static checks for Software mode-safe loads + op narrative |
 | `./scripts/audio-mix-serve-smoke.sh` | Host checks for `proteus-audio-mix` dump/serve + Audio.qml wiring |
+| `./scripts/power-logind-smoke.sh` | Host static checks for `proteus-logind` + Power.qml wiring |
 | `./scripts/software-guest-smoke.sh` | Guest Software dogfood (browse/inventory + Flatpak install/remove; pacman mutator if passwordless sudo) |
 | `./scripts/qs-guest-smoke.sh` | Guest cold-start `SHELL_OK` / `SETTINGS_OK` + record `quickshell` version |
 
@@ -200,7 +201,7 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 - pacman IgnorePkg / ISO QS version pin (record + smoke only today)  
 - Host posture chrome or workload panes  
 - First-party Tauri app under `apps/`  
-- More Rust helper CLIs under `services/` (Wave A probe is Python; `proteus-pkg` mutator + `proteus-audio-mix` resident dump/peaks shipped; mixer mutations still Python)  
+- More Rust helper CLIs under `services/` (Wave A probe is Python; `proteus-pkg` + `proteus-logind` mutators + `proteus-audio-mix` resident dump/peaks shipped; mixer mutations still Python)  
 - Posture / prefers / device_classes enforcement on manifests (schema only today)  
 - ISO / installer productization (dogfood overlay in `vm/install/` is enough for now)  
 - Settings UI for posture hard-switch picker (CLI soft profile only today)  

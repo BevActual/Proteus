@@ -80,7 +80,8 @@ Examples:
 | Location | Explicit place search → precise lat/lon in `settings.json` (**never IP-inferred**); Open-Meteo geocoding |
 | Weather | `api.open-meteo.com` current conditions for the stored location — no API key; only those coordinates are sent |
 | Battery charge / health / estimate | UPower display device (`Quickshell.Services.UPower`) |
-| Idle / lid policy | `/etc/systemd/logind.conf` — **read-only**; commented keys reported as shipped defaults |
+| Power mode (Performance / Balanced / Eco) | `powerprofilesctl` → `power-profiles-daemon` (`power-saver` labeled Eco); only profiles the driver advertises |
+| Idle / lid policy | `pkexec proteus-logind` → `/etc/systemd/logind.conf.d/99-proteus.conf` (+ **reload** logind — never restart, which drops the seat); effective merge with main conf; escape hatch still opens `logind.conf` |
 
 Power escape hatch: always allow opening or editing the underlying file when
 one exists (Keyboard / Desktop / Displays → “Edit … conf”). Prefer Quickshell
@@ -103,7 +104,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Sound** (`sound`) | Category → Output / Input / Applications / Mixer / Latency — leaf files + FormRow kit | pactl + `proteus-audio-mix` / `audio-peak.py` + `pw-metadata` + `pw-link` | `shipped` |
 | **Network** (`network`) | Category → This machine / Devices / Wi‑Fi / Bluetooth / Tailscale / VPN — leaf files + FormRow kit | hostnamectl / nmcli / bluetoothctl / tailscale | `shipped` |
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse; later touchpad / tablet | keybinds + input hyprctl | `shipped` |
-| **Power** (`power`) | Battery charge / health / estimate (UPower); logind idle + lid policy read-only with conf escape hatch | UPower / `logind.conf` | `partial` |
+| **Power** (`power`) | Power mode segmented (PPD); battery (UPower); idle / lid FormRows via `proteus-logind` drop-in + conf escape | `powerprofilesctl` / UPower / `proteus-logind` | `shipped` |
 | **Users** (`users`) | Session Lock/Logout/Reboot/Shutdown; current + other local users (read-only + Refresh); greetd status + conf escape | `Config.session` · id/getent · greetd/`/etc/greetd/config.toml` | `shipped` |
 | **Online accounts** (`accounts`) | Mail / contacts / cloud provider seats (coming soon; no OAuth) | TBD (not inventing mail/contacts apps here) | `partial` |
 | **Date & time** (`datetime`) | Live clock, searchable timezone picker, network time toggle, locale, **Location** (shared system place + units) | `timedatectl` / `localectl` / Open-Meteo | `partial` |
@@ -148,6 +149,8 @@ the sub-settings list:
 | Desktop widgets | **Not in Settings** — unlocked desktop long-press or `Super+Shift+W` → Customize; free place + optional Snap to Grid; separate `desktopWidgets[]` |
 | Notifications / DND | **Shell Control Center** (top-bar status cluster) — list depth · toast/`showToast` · DND · QS volume/tiles; Status HUD for media-key volume/brightness (suppressed while CC open); deep Sound/Network stay in Settings panes; **no Settings Notifications category** |
 | Mix (inputs) | **Shell Control Center** unified **Sound** plate — master volume on plate; Listen ▾ + Sources ▾ (name · On/Off · peak · volume); Mixer › → Settings |
+| Keep Awake | **Shell Control Center** duration menu (+ menu-bar **Awake** when on; Spotlight Actions) — temporary `systemd-inhibit idle:sleep` so hypridle/logind skip idle lock & sleep; **not** a Settings Power control |
+| Power mode | **Settings → Power** segmented + Control Center **Power** tile menu — `powerprofilesctl` (Performance / Balanced / Eco) |
 | Font | Searchable system/user list (`kit/SettingsFontPicker`); **Add font…** user-scoped install (`~/.local/share/fonts/proteus` · `userFonts`); size slider; live Aa preview |
 
 Open a row → leaf controls; **‹ Appearance** / Esc returns to the list. Desktop
@@ -270,8 +273,9 @@ FormRow/Group — not a single mega-inline `NetworkPane` body.
 
 ## 7. Growth
 
-**Power** and **Date & time** are `partial` (see §2) — remaining work is
-write-gaps (logind helper, locale set, forecast UI), not greenfield panes.
+**Date & time** is `partial` (see §2) — remaining work is write-gaps (locale
+set, forecast UI), not a greenfield pane. **Power** mode (PPD) + logind writer
+shipped; charge-threshold / TLP stay Out.
 
 **Online accounts · Privacy** are `partial` — provider OAuth and permission
 enforcement Out. **Users** session/greeter status shipped (add-remove + writing
@@ -282,17 +286,17 @@ Depth order for what’s left:
 1. **Users depth** — write greeter/autologin prefs; add-remove stays Out of Settings  
 2. **Online accounts** — real provider connect when adaptive mail/contacts exist  
 3. **Privacy** — grant model when adaptive apps need it  
-4. **Power** — privileged logind idle/lid writer (read-only today)  
-5. **Date & time** — locale set; weather forecast view  
-6. **Network depth** — Tailscale login-server (Headscale); peer/exit-node UI; in-pane pairing; WireGuard / password Wi‑Fi wizard (hub + leaves shipped)  
-7. **Peripherals** — touchpad / tablet  
-8. **Software** — dep graphs later; Omarchy-style Install/Remove pickers + mode-safe loads + op narrative shipped (`partial`; Snap Out)  
-9. **Settings Notifications pane** — optional later; shell Control Center is the SoT today  
+4. **Date & time** — locale set; weather forecast view  
+5. **Network depth** — Tailscale login-server (Headscale); peer/exit-node UI; in-pane pairing; WireGuard / password Wi‑Fi wizard (hub + leaves shipped)  
+6. **Peripherals** — touchpad / tablet  
+7. **Software** — dep graphs later; Omarchy-style Install/Remove pickers + mode-safe loads + op narrative shipped (`partial`; Snap Out)  
+8. **Settings Notifications pane** — optional later; shell Control Center is the SoT today  
 
 *(Displays layout + Revert follow-ups shipped — removed from growth depth.)*
 *(Network hub + FormRow polish shipped — depth wizards stay on the list.)*
 *(Control Center notifications + QS depth shipped — Settings Notifications pane stays Out.)*
 *(Users session + greetd status shipped — writing greeter prefs / useradd stay Out.)*
+*(Power mode PPD + logind writer shipped — charge thresholds / TLP stay Out.)*
 
 Virt / container setup stays a **separate app**, not a Settings growth item.
 
