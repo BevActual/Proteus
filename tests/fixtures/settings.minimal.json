@@ -19,6 +19,8 @@
   "locationLongitude": 0,
   "locationTimezone": "",
   "weatherUnits": "metric",
+  "weatherEnabled": true,
+  "tailscaleLoginServer": "",
   "accentId": "blue",
   "accentCustom": "#3d8bfd",
   "chromeMode": "dark",

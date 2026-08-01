@@ -5,7 +5,7 @@ import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Privacy: what leaves the machine · weather mute · session · honest
+// Privacy & security: what leaves the machine · weather mute · session · honest
 // permission categories (not enforced — SETTINGS-IA · APPLICATIONS).
 ColumnLayout {
   id: root
@@ -29,7 +29,7 @@ ColumnLayout {
     },
     {
       label: "Location",
-      hint: "Precise place from Date & time — not IP-inferred"
+      hint: "Precise place from Date, time & weather — not IP-inferred"
     },
     {
       label: "Notifications",
@@ -140,8 +140,8 @@ ColumnLayout {
     SettingsFormRow {
       label: "Location"
       hint: Config.locationName.length
-          ? (Config.locationName + " · Date & time")
-          : "Not set · Date & time"
+          ? (Config.locationName + " · Date, time & weather")
+          : "Not set · Date, time & weather"
       showSeparator: true
       interactive: true
       onActivated: root.requestGo("datetime")

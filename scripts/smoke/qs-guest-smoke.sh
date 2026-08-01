@@ -119,6 +119,107 @@ if kill -0 "$SP" 2>/dev/null; then
   fi
 fi
 
+# Customize + widgets probe — add/move/snap/remove without gallery UI.
+# Prefer worldclock (multi-instance) so we always create a fresh id and can
+# remove it without touching the user's unique widgets. Trap cleans up.
+if kill -0 "$SP" 2>/dev/null; then
+  SMOKE_WID=""
+  cleanup_smoke_widget() {
+    if [[ -n "${SMOKE_WID}" ]]; then
+      qs -p /mnt/proteus/shell ipc call widgets remove "${SMOKE_WID}" >/dev/null 2>&1 || true
+    fi
+    # Leave Customize off for the rest of the session / later smokes.
+    cust="$(qs -p /mnt/proteus/shell ipc call chrome state 2>/dev/null || echo '')"
+    if [[ "${cust}" == *'"customize":true'* ]]; then
+      qs -p /mnt/proteus/shell ipc call chrome customizeDesktop >/dev/null 2>&1 || true
+    fi
+    qs -p /mnt/proteus/shell ipc call widgets setSnap 0 >/dev/null 2>&1 || true
+  }
+  trap cleanup_smoke_widget EXIT
+
+  before_state="$(qs -p /mnt/proteus/shell ipc call widgets state 2>/dev/null || echo '')"
+  echo "WIDGETS_BEFORE=${before_state}"
+  before_count="$(python3 -c 'import json,sys; d=json.loads(sys.argv[1] or "{}"); print(int(d.get("count",0)))' "${before_state}" 2>/dev/null || echo 0)"
+
+  qs -p /mnt/proteus/shell ipc call chrome customizeDesktop >/dev/null 2>&1
+  sleep 0.4
+  cust_state="$(qs -p /mnt/proteus/shell ipc call chrome state 2>/dev/null || echo '')"
+  if [[ "${cust_state}" == *'"customize":true'* ]]; then
+    echo CUSTOMIZE_OK
+  else
+    echo "CUSTOMIZE_FAIL state=${cust_state}"
+  fi
+
+  SMOKE_WID="$(qs -p /mnt/proteus/shell ipc call widgets add worldclock 2>/dev/null | tr -d '\r' || true)"
+  echo "WIDGETS_ADD_ID=${SMOKE_WID}"
+  sleep 0.3
+  after_add="$(qs -p /mnt/proteus/shell ipc call widgets state 2>/dev/null || echo '')"
+  echo "WIDGETS_AFTER_ADD=${after_add}"
+  after_count="$(python3 -c 'import json,sys; d=json.loads(sys.argv[1] or "{}"); print(int(d.get("count",0)))' "${after_add}" 2>/dev/null || echo 0)"
+  if [[ -n "${SMOKE_WID}" && "${after_count}" -gt "${before_count}" ]]; then
+    echo WIDGETS_ADD_OK
+  else
+    echo "WIDGETS_ADD_FAIL id=${SMOKE_WID} before=${before_count} after=${after_count}"
+  fi
+
+  if [[ -n "${SMOKE_WID}" ]]; then
+    qs -p /mnt/proteus/shell ipc call widgets move "${SMOKE_WID}" 0.2 0.2 >/dev/null 2>&1
+    sleep 0.15
+    qs -p /mnt/proteus/shell ipc call widgets move "${SMOKE_WID}" 0.5 0.5 >/dev/null 2>&1
+    sleep 0.15
+    if kill -0 "$SP" 2>/dev/null; then
+      echo WIDGETS_MOVE_OK
+    else
+      echo WIDGETS_MOVE_DEAD
+    fi
+  else
+    echo WIDGETS_MOVE_SKIP
+  fi
+
+  qs -p /mnt/proteus/shell ipc call widgets setSnap 1 >/dev/null 2>&1
+  sleep 0.2
+  snap_on="$(qs -p /mnt/proteus/shell ipc call widgets state 2>/dev/null || echo '')"
+  qs -p /mnt/proteus/shell ipc call widgets setSnap 0 >/dev/null 2>&1
+  sleep 0.2
+  snap_off="$(qs -p /mnt/proteus/shell ipc call widgets state 2>/dev/null || echo '')"
+  if [[ "${snap_on}" == *'"snap":true'* && "${snap_off}" == *'"snap":false'* ]]; then
+    echo WIDGETS_SNAP_OK
+  else
+    echo "WIDGETS_SNAP_FAIL on=${snap_on} off=${snap_off}"
+  fi
+
+  if [[ -n "${SMOKE_WID}" ]]; then
+    qs -p /mnt/proteus/shell ipc call widgets remove "${SMOKE_WID}" >/dev/null 2>&1
+    sleep 0.2
+    after_rm="$(qs -p /mnt/proteus/shell ipc call widgets state 2>/dev/null || echo '')"
+    echo "WIDGETS_AFTER_RM=${after_rm}"
+    if [[ "${after_rm}" != *"${SMOKE_WID}"* ]]; then
+      echo WIDGETS_REMOVE_OK
+      SMOKE_WID=""
+    else
+      echo WIDGETS_REMOVE_FAIL
+    fi
+  fi
+
+  qs -p /mnt/proteus/shell ipc call chrome customizeDesktop >/dev/null 2>&1
+  sleep 0.3
+  cust_end="$(qs -p /mnt/proteus/shell ipc call chrome state 2>/dev/null || echo '')"
+  if [[ "${cust_end}" == *'"customize":false'* ]]; then
+    echo CUSTOMIZE_EXIT_OK
+  else
+    echo "CUSTOMIZE_EXIT_FAIL state=${cust_end}"
+  fi
+
+  if kill -0 "$SP" 2>/dev/null; then
+    echo WIDGETS_SHELL_ALIVE
+  else
+    echo WIDGETS_SHELL_DEAD
+  fi
+
+  trap - EXIT
+  cleanup_smoke_widget
+fi
+
 # Fatal patterns from prior load-order / alias bugs
 if rg -q 'Invalid alias reference|TypeError|Unable to find id' /tmp/proteus-shell.log /tmp/proteus-settings.log 2>/dev/null; then
   echo LOG_ERRORS
@@ -140,6 +241,13 @@ echo "${out}" | grep -q POLKIT_AGENT_OK || { echo "qs-guest-smoke: FAIL hyprpolk
 echo "${out}" | grep -q NAV_OK || { echo "qs-guest-smoke: FAIL Install… deep link (nav installSearch) did not land on packages-search" >&2; exit 1; }
 echo "${out}" | grep -q BEACON_OK || { echo "qs-guest-smoke: FAIL Beacon universal search (chrome beacon reboot) returned no action row" >&2; exit 1; }
 echo "${out}" | grep -q CALENDAR_OK || { echo "qs-guest-smoke: FAIL calendar popover (chrome calendar) did not open" >&2; exit 1; }
+echo "${out}" | grep -q CUSTOMIZE_OK || { echo "qs-guest-smoke: FAIL Customize mode (chrome customizeDesktop) did not open" >&2; exit 1; }
+echo "${out}" | grep -q WIDGETS_ADD_OK || { echo "qs-guest-smoke: FAIL widgets add (worldclock probe)" >&2; exit 1; }
+echo "${out}" | grep -q WIDGETS_MOVE_OK || { echo "qs-guest-smoke: FAIL widgets move left shell dead or skipped" >&2; exit 1; }
+echo "${out}" | grep -q WIDGETS_SNAP_OK || { echo "qs-guest-smoke: FAIL widgets setSnap did not round-trip" >&2; exit 1; }
+echo "${out}" | grep -q WIDGETS_REMOVE_OK || { echo "qs-guest-smoke: FAIL widgets remove left probe id" >&2; exit 1; }
+echo "${out}" | grep -q CUSTOMIZE_EXIT_OK || { echo "qs-guest-smoke: FAIL Customize did not exit" >&2; exit 1; }
+echo "${out}" | grep -q WIDGETS_SHELL_ALIVE || { echo "qs-guest-smoke: FAIL shell died during widgets probe" >&2; exit 1; }
 if echo "${out}" | grep -q LOG_ERRORS; then
   echo "qs-guest-smoke: FAIL TypeError / Invalid alias in logs" >&2
   exit 1

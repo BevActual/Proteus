@@ -26,7 +26,7 @@ One schema for all postures; panes enable/disable by capability.
 | Lock/desktop applets | `lockWidgets[]`, `desktopWidgets[]`, `desktopWidgetsSnapToGrid`, `lockShowClock` | Widgets |
 | Wallpaper | `wallpaperKind`, `wallpaperId`, `wallpaperMode`, `wallpaperColor`, `wallpaperCustomPath`, `wallpaperFolder`, `wallpaperShuffle`, `wallpaperAlbum*`, `wallpaperSlideshow*`, `wallpaperDaily*`, `wallpaperVideo*`, `wallpaperReactive*` | Background |
 | Audio prefs | `audioLatency` | Audio |
-| Location / weather | `location*`, `weatherUnits`, `weatherEnabled` | Weather / DateTime / Privacy |
+| Location / weather | `location*`, `weatherUnits`, `weatherEnabled` | Weather / Date, time & weather / Privacy & security |
 | Tailscale | `tailscaleLoginServer` | Network Tailscale leaf |
 | Font | `fontFamily`, `fontSize`, `fontSizeSm`, `userFonts` (`Family=/path;…`) | Theme / Style pane |
 | Beacon | `launcherRecents`, `launcherFileRecents`, `launcherTagCatalog`, `launcherAppTags` | Beacon (system search; keys keep the legacy `launcher` prefix — persisted) |

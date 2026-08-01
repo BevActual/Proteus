@@ -5,7 +5,7 @@ import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Date & time: clock, timezone, network time, locale.
+// Date, time & weather: clock, timezone, network time, locale, location.
 ColumnLayout {
   id: root
   Layout.fillWidth: true
@@ -314,7 +314,7 @@ ColumnLayout {
     SettingsFormRow {
       visible: !root.pickingPlace && !Config.weatherEnabled
       label: "Weather fetch"
-      hint: "Off — Open-Meteo muted under Privacy"
+      hint: "Off — Open-Meteo muted under Privacy & security"
       showSeparator: Config.locationName.length > 0
     }
 

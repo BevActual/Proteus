@@ -17,11 +17,16 @@ Singleton {
     "label": "Settings",
     "icon": "proteus-settings",
     "special": "settings",
-    // FloatingWindow WM class is "quickshell" (see proteus-settings.desktop).
-    "match": "quickshell",
+    // FloatingWindow class is shared with shell chrome ("quickshell") — match by
+    // window title instead so the pin is not always "running".
+    "match": "",
+    "titleMatch": "Proteus Settings",
     "desktopId": "proteus-settings",
     "command": ["proteus-settings"]
   }
+
+  // Dock-minimize parking workspace (Hyprland has no classic minimize).
+  readonly property string minimizeWorkspace: "special:minimized"
 
   // Default middle pins when Config.dockPins is unset
   readonly property var defaultPinIds: [
@@ -447,8 +452,44 @@ Singleton {
     return ""
   }
 
+  function titleOf(toplevel) {
+    if (!toplevel)
+      return ""
+    if (toplevel.wayland && toplevel.wayland.title)
+      return String(toplevel.wayland.title)
+    const ipc = toplevel.lastIpcObject
+    if (ipc && ipc.title)
+      return String(ipc.title)
+    if (toplevel.title)
+      return String(toplevel.title)
+    return ""
+  }
+
+  function titleMatchOf(entry) {
+    if (!entry)
+      return ""
+    return String(entry.titleMatch || "").trim()
+  }
+
+  function workspaceNameOf(toplevel) {
+    if (!toplevel)
+      return ""
+    const ipc = toplevel.lastIpcObject
+    if (ipc && ipc.workspace) {
+      if (ipc.workspace.name)
+        return String(ipc.workspace.name)
+    }
+    if (toplevel.workspace && toplevel.workspace.name)
+      return String(toplevel.workspace.name)
+    return ""
+  }
+
   function isRunning(entry) {
-    if (!entry || !entry.match)
+    if (!entry)
+      return false
+    if (titleMatchOf(entry).length || entry.special === "settings")
+      return windowsFor(entry).length > 0
+    if (!entry.match)
       return false
     const needle = entry.match.toLowerCase()
     const tops = Hyprland.toplevels.values
@@ -459,13 +500,24 @@ Singleton {
     return false
   }
 
-  // All toplevels of an entry's app class (for Quit / window cycling).
+  // All toplevels of an entry (class match, or titleMatch for Settings).
   function windowsFor(entry) {
-    if (!entry || !entry.match)
+    if (!entry)
       return []
-    const needle = entry.match.toLowerCase()
+    const titleNeedle = titleMatchOf(entry)
+        || (entry.special === "settings" ? "Proteus Settings" : "")
     const wins = []
     const tops = Hyprland.toplevels.values
+    if (titleNeedle.length) {
+      for (let i = 0; i < tops.length; i++) {
+        if (titleOf(tops[i]) === titleNeedle)
+          wins.push(tops[i])
+      }
+      return wins
+    }
+    if (!entry.match)
+      return []
+    const needle = entry.match.toLowerCase()
     for (let i = 0; i < tops.length; i++) {
       if (classOf(tops[i]).toLowerCase().indexOf(needle) !== -1)
         wins.push(tops[i])
@@ -480,9 +532,69 @@ Singleton {
     return addr
   }
 
+  function minimizeToplevel(toplevel) {
+    const addr = windowAddress(toplevel)
+    if (!addr.length)
+      return false
+    Hyprland.dispatch("movetoworkspacesilent " + minimizeWorkspace + ",address:" + addr)
+    return true
+  }
+
+  function isMinimizedToplevel(toplevel) {
+    const ws = workspaceNameOf(toplevel)
+    return ws === minimizeWorkspace || ws.indexOf("special:minimized") === 0
+  }
+
+  function closeToplevel(toplevel) {
+    const addr = windowAddress(toplevel)
+    if (addr.length)
+      Hyprland.dispatch("closewindow address:" + addr)
+  }
+
+  // —— Active-window controls (menu bar traffic lights + tiling toggle) ——
+
+  function closeActiveWindow() {
+    closeToplevel(Hyprland.activeToplevel)
+  }
+
+  function minimizeActiveWindow() {
+    minimizeToplevel(Hyprland.activeToplevel)
+  }
+
+  // Maximize-with-bar toggle (Hyprland "fullscreen 1" acts on the active window).
+  function maximizeActiveWindow() {
+    if (Hyprland.activeToplevel)
+      Hyprland.dispatch("fullscreen 1")
+  }
+
+  readonly property bool activeFloating: {
+    const t = Hyprland.activeToplevel
+    if (!t)
+      return false
+    const ipc = t.lastIpcObject
+    return !!(ipc && ipc.floating)
+  }
+
+  function toggleFloatActiveWindow() {
+    const t = Hyprland.activeToplevel
+    if (!t)
+      return
+    const addr = windowAddress(t)
+    Hyprland.dispatch(addr.length ? ("togglefloating address:" + addr) : "togglefloating")
+    floatRefresh.restart()
+  }
+
+  Timer {
+    id: floatRefresh
+    interval: 140
+    onTriggered: Hyprland.refreshToplevels()
+  }
+
   function focusToplevel(toplevel) {
     const addr = windowAddress(toplevel)
     if (addr.length) {
+      if (isMinimizedToplevel(toplevel))
+        Hyprland.dispatch("movetoworkspace +0,address:" + addr)
       Hyprland.dispatch("focuswindow address:" + addr)
       return true
     }
@@ -511,10 +623,16 @@ Singleton {
   }
 
   function isActive(entry) {
-    if (!entry || !entry.match)
+    if (!entry)
       return false
     const t = Hyprland.activeToplevel
     if (!t)
+      return false
+    const titleNeedle = titleMatchOf(entry)
+        || (entry.special === "settings" ? "Proteus Settings" : "")
+    if (titleNeedle.length)
+      return titleOf(t) === titleNeedle
+    if (!entry.match)
       return false
     return classOf(t).toLowerCase().indexOf(entry.match.toLowerCase()) !== -1
   }
@@ -527,6 +645,18 @@ Singleton {
       return
     }
     if (entry.special === "settings") {
+      const settingsWins = windowsFor(entry)
+      if (settingsWins.length) {
+        // Frontmost → dock-minimize; otherwise restore / raise (never spawn).
+        if (isActive(entry)) {
+          minimizeToplevel(settingsWins[0])
+          return
+        }
+        if (focusToplevel(settingsWins[0]))
+          return
+        ShellState.openSettings()
+        return
+      }
       ShellState.openSettings()
       return
     }
@@ -546,7 +676,21 @@ Singleton {
         if (focusToplevel(wins[(at + 1) % wins.length]))
           return
       }
-      if (focusToplevel(wins[0]))
+      // Single focused window → dock-minimize; click again restores (Windows-taskbar
+      // semantics; Hyprland minimize = park on special:minimized).
+      if (wins.length === 1 && isActive(entry)) {
+        minimizeToplevel(wins[0])
+        return
+      }
+      // Prefer a visible window; otherwise restore a parked one.
+      let target = wins[0]
+      for (let i = 0; i < wins.length; i++) {
+        if (!isMinimizedToplevel(wins[i])) {
+          target = wins[i]
+          break
+        }
+      }
+      if (focusToplevel(target))
         return
     }
 
@@ -640,6 +784,7 @@ Singleton {
       case "windowtitle":
       case "windowtitlev2":
       case "fullscreen":
+      case "changefloatingmode":
         Hyprland.refreshToplevels()
         break
       }

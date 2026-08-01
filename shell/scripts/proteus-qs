@@ -83,7 +83,10 @@ reap_chrome
 while true; do
   log "starting quickshell -p ${SHELL_PATH}"
   start_ts=$(date +%s 2>/dev/null || echo 0)
-  quickshell -p "${SHELL_PATH}"
+  # 9>&- : never leak the flock fd into quickshell (and its execDetached
+  # children) — a surviving grandchild kept the lock held after a crash,
+  # locking every future wrapper out ("refusing double chrome" forever).
+  quickshell -p "${SHELL_PATH}" 9>&-
   ec=$?
   end_ts=$(date +%s 2>/dev/null || echo 0)
   ran=$((end_ts - start_ts))

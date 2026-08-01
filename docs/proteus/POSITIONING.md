@@ -2,7 +2,7 @@
 doc: positioning
 role: external-summary
 audience: contributors, partners, future public copy
-last_updated: "2026-07-30"
+last_updated: "2026-08-01"
 doc_status: active
 scope: Product thesis, field comparison, differentiator, non-goals
 related:
@@ -68,7 +68,7 @@ Field note: Omarchy owns keyboard agency + opinionated Arch; GNOME/Cosmic own
 average-person calm with trade-offs on depth. Proteus sits in the middle—
 nicety for normals, agency for keyboard people, Facts + escapes for Linux.
 
-- **Defaults** feel calm and predictable (dock, launcher, Style, Keyboard).
+- **Defaults** feel calm and predictable (dock, Beacon, Appearance, Peripherals → Keyboard).
 - **Power** stays Linux-native (real conf files, CLI, packages, virt).
 - **One spine** across postures; chrome, engines, and primary panes change with
   the job — identity does not.
@@ -154,7 +154,7 @@ App/chrome languages: [STACK.md](./STACK.md).
 
 ## 6. Proof order
 
-1. **Desktop spine** undeniable (chrome + Settings + facts on disk) — *in progress*
+1. **Desktop spine** undeniable (chrome + Settings + facts on disk) — *primary / dogfoodable*
 2. **Console** hard switch (game-scoped compositor + sparse shell) *or* **host**
    hard switch — pick by dogfood wedge  
 3. Complete the focus three  

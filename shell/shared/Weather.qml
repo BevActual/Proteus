@@ -43,7 +43,7 @@ Singleton {
   readonly property bool ready: root.code >= 0 && root.error.length === 0
   readonly property bool hasForecast: root.forecast.length > 0
 
-  // Place search state (Settings → Date & time → Location)
+  // Place search state (Settings → Date, time & weather → Location)
   property bool searching: false
   property var searchResults: []
   property string searchError: ""
@@ -58,7 +58,7 @@ Singleton {
 
   readonly property string summary: {
     if (!Config.weatherEnabled)
-      return "Weather fetch off — Privacy"
+      return "Weather fetch off — Privacy & security"
     if (!root.hasLocation)
       return "No location set"
     if (root.error.length)

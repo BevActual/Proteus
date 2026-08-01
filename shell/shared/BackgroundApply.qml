@@ -32,14 +32,22 @@ Item {
     wallpaperScanProc.running = true
   }
 
+  // Matches every runner generation: the respawn-loop wrapper (comm =
+  // proteus-bg via pgrep -x), its quickshell child, and the legacy
+  // `exec -a proteus-bg` style whose comm is quickshell but whose cmdline
+  // starts with proteus-bg — pgrep -x missed that one entirely, so every
+  // background change stacked another wallpaper instance until reboot.
+  // [r] bracket keeps -f patterns from matching the probing shell itself.
+  readonly property string bgProcPattern: "'(quickshell|proteus-bg) (-p )?.*shell/wallpape[r]'"
+
   function stopBackgroundBackends() {
     // Clear legacy shims + previous runner instances
     return "pkill -x swaybg 2>/dev/null || true; "
         + "pkill -x mpvpaper 2>/dev/null || true; "
         + "pkill -x proteus-bg 2>/dev/null || true; "
-        + "pkill -f 'quickshell -p .*/shell/wallpaper' 2>/dev/null || true; "
+        + "pkill -f " + bgProcPattern + " 2>/dev/null || true; "
         + "for i in 1 2 3 4 5 6 7 8 9 10; do "
-        + "  pgrep -x swaybg >/dev/null || pgrep -x mpvpaper >/dev/null || pgrep -x proteus-bg >/dev/null || pgrep -f 'quickshell -p .*/shell/wallpaper' >/dev/null || break; "
+        + "  pgrep -x swaybg >/dev/null || pgrep -x mpvpaper >/dev/null || pgrep -x proteus-bg >/dev/null || pgrep -f " + bgProcPattern + " >/dev/null || break; "
         + "  sleep 0.05; "
         + "done; "
   }
@@ -59,7 +67,10 @@ Item {
         "export QT_QPA_PLATFORM=\"${QT_QPA_PLATFORM:-wayland}\"; "
             + "pkill -x swaybg 2>/dev/null || true; "
             + "pkill -x mpvpaper 2>/dev/null || true; "
-            + "if pgrep -x proteus-bg >/dev/null || pgrep -f 'quickshell -p .*/shell/wallpaper' >/dev/null; then "
+            // grep -vx $$ : this script's own cmdline contains the literal
+            // fallback "quickshell -p …/shell/wallpaper", so a bare pgrep -f
+            // always self-matches and the respawn silently no-ops.
+            + "if pgrep -x proteus-bg >/dev/null || pgrep -f " + bgProcPattern + " | grep -vqx \"$$\"; then "
             + "  touch \"$HOME/.config/proteus/settings.json\" 2>/dev/null || true; "
             + "  exit 0; "
             + "fi; "
@@ -82,6 +93,40 @@ Item {
 
   function applyWallpaper() {
     host.applyBackground()
+  }
+
+  // Watchdog — heal a dead wallpaper runner without a reboot. Background
+  // changes can crash proteus-bg; the wrapper respawns crashes, and this
+  // covers everything else (KILL, wrapper failure, OOM). Only respawns after
+  // the runner has been seen alive this session, so nested/dev shells that
+  // never start a wallpaper don't get one spawned under them.
+  property bool bgSeenAlive: false
+
+  Timer {
+    interval: 15000
+    running: true
+    repeat: true
+    onTriggered: {
+      if (!bgWatchProc.running)
+        bgWatchProc.running = true
+    }
+  }
+
+  Process {
+    id: bgWatchProc
+    command: ["bash", "-c",
+      "pgrep -x proteus-bg >/dev/null || pgrep -f '(quickshell|proteus-bg) (-p )?.*shell/wallpape[r]' >/dev/null"]
+    onExited: (code, status) => {
+      if (code === 0) {
+        apply.bgSeenAlive = true
+        return
+      }
+      if (!apply.bgSeenAlive)
+        return
+      apply.bgSeenAlive = false
+      console.warn("Background: wallpaper runner died — respawning proteus-bg")
+      host.applyBackground()
+    }
   }
   Process {
     id: wallpaperScanProc

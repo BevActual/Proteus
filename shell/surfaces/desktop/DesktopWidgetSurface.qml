@@ -247,7 +247,7 @@ Item {
   }
 
   // Arrow keys nudge the selected widget while customizing.
-  // Free placement: 8px (Shift = 40px); snap-to-grid: one grid cell.
+  // Free: 8px (Shift = 40px); snap-to-grid: one pitch step (8px).
   function nudgeSelected(dx, dy, big) {
     const wid = root.selectedWidgetId
     if (!wid.length)

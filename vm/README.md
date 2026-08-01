@@ -105,8 +105,8 @@ your user password. `Super+L` locks again anytime.
 - Re-apply: `sudo bash /mnt/proteus/vm/guest/apply-greeter.sh && sudo systemctl restart greetd`
 - After logout, **tuigreet** still appears for account selection
 
-Disable auto-lock on session start by setting `"lockOnSessionStart": false` in
-`~/.config/proteus/settings.json` (Settings UI later).
+Disable auto-lock on session start in **Settings → Appearance → Lock screen**,
+or set `"lockOnSessionStart": false` in `~/.config/proteus/settings.json`.
 
 ### Quickshell chrome supervisor
 
@@ -128,7 +128,7 @@ If greetd is not running, log in on a TTY and run:
 
 Optional auto-start on tty1: `touch ~/.proteus-autostart-hyprland` (see `~/.bash_profile`). SSH logins are unaffected.
 
-Useful binds: `Super+Return` → `proteus-terminal` (Ghostty + VM GL workaround), `Super+Space` Beacon (system search), `Super+,` Settings, `Super+Shift+E` exit Hyprland. Rebind in **Settings → Keyboard** (writes `~/.config/hypr/proteus-keybinds.conf`). Desktop/Displays write `proteus-general.conf` / `proteus-monitors.conf`. First-time guest wiring:
+Useful binds: `Super+Return` → `proteus-terminal` (Ghostty + VM GL workaround), `Super+Space` Beacon (system search), `Super+,` Settings, `Super+Shift+E` exit Hyprland. Rebind in **Settings → Peripherals → Keyboard** (writes `~/.config/hypr/proteus-keybinds.conf`). Desktop/Displays write `proteus-general.conf` / `proteus-monitors.conf`. First-time guest wiring:
 
 ```bash
 bash /mnt/proteus/vm/guest/install-keybinds.sh

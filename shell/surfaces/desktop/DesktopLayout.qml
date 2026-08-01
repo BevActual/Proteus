@@ -10,8 +10,9 @@ QtObject {
   property var widgets: []
   property bool snapToGrid: false
 
-  // Graph-paper pitch (px). Origin = usable-surface center (dead-middle always snaps).
-  readonly property real pitch: 40
+  // Graph-paper pitch (px). 16 keeps stacks lattice-friendly without a
+  // full-surface spiral (pitch 8 × halfCols≈120 froze free-drag resolve).
+  readonly property real pitch: 16
   readonly property real margin: Math.max(8, Math.min(surfaceWidth, surfaceHeight) * 0.015)
   readonly property real originX: surfaceWidth * 0.5
   readonly property real originY: surfaceHeight * 0.5
@@ -23,8 +24,11 @@ QtObject {
   readonly property real cellWidth: pitch
   readonly property real cellHeight: pitch
   readonly property real gutter: 0
+  // Hard cap on fallback search — resolve runs on every drag move.
+  readonly property int maxResolveRings: 12
 
   function colSpanFor(type, size) {
+    // Spans are UI hints only — placement is free / pitch-snapped, not cell-tiled.
     const s = String(size || "md")
     if (s === "sm")
       return 1
@@ -57,7 +61,8 @@ QtObject {
     system: { sm: 160, md: 220, lg: 300 },
     calendar: { sm: 150, md: 210, lg: 260 },
     notes: { sm: 170, md: 230, lg: 300 },
-    worldclock: { sm: 150, md: 200, lg: 280 }
+    worldclock: { sm: 150, md: 200, lg: 280 },
+    media: { sm: 220, md: 300, lg: 360 }
   })
 
   function contentWidth(type, size) {
@@ -79,14 +84,17 @@ QtObject {
     return Math.min(maxW * 0.78, 300)
   }
 
-  // Heights track the drawn card (body + 20px card padding) so frames don't
-  // carry invisible slack below the plate. Calendar uses the 6-row worst case.
+  // Heights track the drawn card (body + card padding) so frames don't carry
+  // invisible slack below the plate — flush stacks sit card-to-card.
+  // Calendar uses the 6-row worst case.
   readonly property var heightCaps: ({
     calendar: { sm: 86, md: 168, lg: 194 },
     notes: { sm: 98, md: 134, lg: 172 },
     system: { sm: 74, md: 96, lg: 126 },
     worldclock: { sm: 84, md: 88, lg: 92 },
-    battery: { sm: 72, md: 84, lg: 88 }
+    battery: { sm: 72, md: 84, lg: 88 },
+    weather: { sm: 78, md: 110, lg: 132 },
+    media: { sm: 92, md: 112, lg: 128 }
   })
 
   function contentHeight(type, size) {
@@ -121,6 +129,7 @@ QtObject {
 
   // 0 = frames may touch edge-to-edge (tight packing) but never overlap.
   readonly property real overlapGap: 0
+  readonly property real flushEps: 0.75
 
   function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh, gap) {
     const g = gap === undefined ? overlapGap : gap
@@ -154,8 +163,7 @@ QtObject {
     return out
   }
 
-  function collidesAt(px, py, width, height, excludeId, othersOverride) {
-    const others = otherFrames(excludeId, othersOverride)
+  function collidesAtWith(others, px, py, width, height) {
     for (let i = 0; i < others.length; i++) {
       const o = others[i]
       if (rectsOverlap(px, py, width, height, o.x, o.y, o.width, o.height, overlapGap))
@@ -164,81 +172,199 @@ QtObject {
     return false
   }
 
-  // Snap widget center to nearest graph intersection; clamp to usable area.
+  function collidesAt(px, py, width, height, excludeId, othersOverride) {
+    return collidesAtWith(otherFrames(excludeId, othersOverride), px, py, width, height)
+  }
+
+  // True when the frame already sits flush against a neighbor (edge-to-edge).
+  function isFlushAgainst(others, px, py, width, height) {
+    const eps = flushEps
+    for (let i = 0; i < others.length; i++) {
+      const o = others[i]
+      const side = Math.abs(px + width - o.x) < eps || Math.abs(o.x + o.width - px) < eps
+      const stack = Math.abs(py + height - o.y) < eps || Math.abs(o.y + o.height - py) < eps
+      if (!side && !stack)
+        continue
+      if (side && !(py + height <= o.y || o.y + o.height <= py))
+        return true
+      if (stack && !(px + width <= o.x || o.x + o.width <= px))
+        return true
+    }
+    return false
+  }
+
+  // Flush seats against the given others list (caller caches once per resolve).
+  function flushPackCandidatesWith(others, px, py, width, height) {
+    const out = []
+    const push = (x, y) => {
+      out.push({
+        x: x,
+        y: y
+      })
+    }
+    for (let i = 0; i < others.length; i++) {
+      const o = others[i]
+      push(px, o.y + o.height)
+      push(px, o.y - height)
+      push(o.x + o.width, py)
+      push(o.x - width, py)
+      push(o.x, o.y + o.height)
+      push(o.x + o.width - width, o.y + o.height)
+      push(o.x + (o.width - width) * 0.5, o.y + o.height)
+      push(o.x, o.y - height)
+      push(o.x + o.width - width, o.y - height)
+      push(o.x + (o.width - width) * 0.5, o.y - height)
+      push(o.x + o.width, o.y)
+      push(o.x + o.width, o.y + o.height - height)
+      push(o.x + o.width, o.y + (o.height - height) * 0.5)
+      push(o.x - width, o.y)
+      push(o.x - width, o.y + o.height - height)
+      push(o.x - width, o.y + (o.height - height) * 0.5)
+    }
+    return out
+  }
+
+  // Min-penetration push to sit flush against overlapping neighbors (O(N)).
+  function separateFromOthers(others, px, py, width, height) {
+    let x = px
+    let y = py
+    // A few passes so a seat between two widgets can settle.
+    for (let pass = 0; pass < 3; pass++) {
+      let moved = false
+      for (let i = 0; i < others.length; i++) {
+        const o = others[i]
+        if (!rectsOverlap(x, y, width, height, o.x, o.y, o.width, o.height, overlapGap))
+          continue
+        const pushLeft = (x + width) - o.x
+        const pushRight = (o.x + o.width) - x
+        const pushUp = (y + height) - o.y
+        const pushDown = (o.y + o.height) - y
+        let best = pushLeft
+        let nx = o.x - width
+        let ny = y
+        if (pushRight < best) {
+          best = pushRight
+          nx = o.x + o.width
+          ny = y
+        }
+        if (pushUp < best) {
+          best = pushUp
+          nx = x
+          ny = o.y - height
+        }
+        if (pushDown < best) {
+          nx = x
+          ny = o.y + o.height
+        }
+        const c = clampPixel(nx, ny, width, height)
+        if (Math.abs(c.x - x) > 0.01 || Math.abs(c.y - y) > 0.01) {
+          x = c.x
+          y = c.y
+          moved = true
+        }
+      }
+      if (!moved)
+        break
+    }
+    return {
+      x: x,
+      y: y
+    }
+  }
+
+  // Snap top-left to the graph so edges share a lattice (tighter stacks than
+  // center-snap, which left gaps when heights weren't multiples of pitch).
   function snapPixel(px, py, width, height) {
-    const cx = px + width * 0.5
-    const cy = py + height * 0.5
-    let ix = Math.round((cx - originX) / pitch)
-    let iy = Math.round((cy - originY) / pitch)
+    let ix = Math.round((px - originX) / pitch)
+    let iy = Math.round((py - originY) / pitch)
     ix = Math.max(-halfCols, Math.min(halfCols, ix))
     iy = Math.max(-halfRows, Math.min(halfRows, iy))
-    const gx = ix * pitch
-    const gy = iy * pitch
-    return clampPixel(originX + gx - width * 0.5, originY + gy - height * 0.5, width, height)
+    return clampPixel(originX + ix * pitch, originY + iy * pitch, width, height)
   }
 
   function snapPixelIndices(ix, iy, width, height) {
     const cx = Math.max(-halfCols, Math.min(halfCols, ix))
     const cy = Math.max(-halfRows, Math.min(halfRows, iy))
-    return clampPixel(originX + cx * pitch - width * 0.5, originY + cy * pitch - height * 0.5, width, height)
+    return clampPixel(originX + cx * pitch, originY + cy * pitch, width, height)
   }
 
-  // Place at desired pixel without overlapping others (spiral / grid search).
+  // Place at desired pixel without overlapping others.
+  // Cheap path (cached others + flush + min-penetration) first — must stay
+  // O(neighbors) because this runs on every drag move.
   // othersOverride: optional [{id,x,y,width,height}, ...] instead of live Config widgets.
   function resolveNoOverlap(px, py, width, height, excludeId, othersOverride) {
+    const others = otherFrames(excludeId, othersOverride)
     let desired = clampPixel(px, py, width, height)
-    if (snapToGrid)
+    if (snapToGrid && !isFlushAgainst(others, desired.x, desired.y, width, height))
       desired = snapPixel(desired.x, desired.y, width, height)
-    if (!collidesAt(desired.x, desired.y, width, height, excludeId, othersOverride))
+    if (!collidesAtWith(others, desired.x, desired.y, width, height))
       return desired
 
-    if (snapToGrid) {
-      const cx = desired.x + width * 0.5
-      const cy = desired.y + height * 0.5
-      const baseIx = Math.round((cx - originX) / pitch)
-      const baseIy = Math.round((cy - originY) / pitch)
-      let best = null
-      let bestDist = Infinity
-      for (let ring = 0; ring <= Math.max(halfCols, halfRows) + 2; ring++) {
-        for (let dx = -ring; dx <= ring; dx++) {
-          for (let dy = -ring; dy <= ring; dy++) {
-            if (ring > 0 && Math.max(Math.abs(dx), Math.abs(dy)) !== ring)
-              continue
-            const cand = snapPixelIndices(baseIx + dx, baseIy + dy, width, height)
-            if (collidesAt(cand.x, cand.y, width, height, excludeId, othersOverride))
-              continue
-            const dist = Math.abs(cand.x - desired.x) + Math.abs(cand.y - desired.y)
-            if (dist < bestDist) {
-              bestDist = dist
-              best = cand
-            }
-          }
-        }
-        if (best)
-          return best
+    // 1) Flush pack — closest edge-touching seat near the drag point.
+    const flush = flushPackCandidatesWith(others, desired.x, desired.y, width, height)
+    let best = null
+    let bestDist = Infinity
+    for (let i = 0; i < flush.length; i++) {
+      const cand = clampPixel(flush[i].x, flush[i].y, width, height)
+      if (collidesAtWith(others, cand.x, cand.y, width, height))
+        continue
+      const dist = Math.abs(cand.x - desired.x) + Math.abs(cand.y - desired.y)
+      if (dist < bestDist) {
+        bestDist = dist
+        best = cand
       }
-      return desired
+    }
+    if (best)
+      return best
+
+    // 2) Min-penetration separate (O(N)) — avoids full-surface spiral freezes.
+    const sep = separateFromOthers(others, desired.x, desired.y, width, height)
+    if (!collidesAtWith(others, sep.x, sep.y, width, height)) {
+      if (!snapToGrid || isFlushAgainst(others, sep.x, sep.y, width, height))
+        return sep
+      const sn = snapPixel(sep.x, sep.y, width, height)
+      if (!collidesAtWith(others, sn.x, sn.y, width, height))
+        return sn
+      return sep
     }
 
-    const step = Math.max(12, Math.round(pitch / 2))
-    for (let ring = 1; ring <= 40; ring++) {
+    // 3) Short capped spiral only — never scan the whole desktop.
+    const maxRing = maxResolveRings
+    if (snapToGrid) {
+      const baseIx = Math.round((desired.x - originX) / pitch)
+      const baseIy = Math.round((desired.y - originY) / pitch)
+      for (let ring = 1; ring <= maxRing; ring++) {
+        for (let dx = -ring; dx <= ring; dx++) {
+          for (let dy = -ring; dy <= ring; dy++) {
+            if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring)
+              continue
+            const cand = snapPixelIndices(baseIx + dx, baseIy + dy, width, height)
+            if (!collidesAtWith(others, cand.x, cand.y, width, height))
+              return cand
+          }
+        }
+      }
+      return sep
+    }
+
+    const step = pitch
+    for (let ring = 1; ring <= maxRing; ring++) {
       for (let dx = -ring; dx <= ring; dx++) {
         for (let dy = -ring; dy <= ring; dy++) {
           if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring)
             continue
           const cand = clampPixel(desired.x + dx * step, desired.y + dy * step, width, height)
-          if (!collidesAt(cand.x, cand.y, width, height, excludeId, othersOverride))
+          if (!collidesAtWith(others, cand.x, cand.y, width, height))
             return cand
         }
       }
     }
-    return desired
+    return sep
   }
 
-  // Free-place alignment: snap the dragged frame's edges/center to the
-  // edges/centers of neighboring widgets (and the surface center) when within
-  // threshold. Returns adjusted position + guide lines to draw.
-  readonly property real alignThreshold: 8
+  // Alignment: magnetize edges/centers to neighbors + surface center.
+  // Slightly generous so stacks catch while dragging; flush resolve keeps them tight.
+  readonly property real alignThreshold: 10
 
   function alignAdjust(px, py, width, height, excludeId) {
     const others = otherFrames(excludeId)

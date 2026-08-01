@@ -32,6 +32,7 @@ ShellRoot {
   // Smoke/dogfood probe: drive nav + Install… seed from the CLI.
   //   qs -p <config> ipc call nav state
   //   qs -p <config> ipc call nav installSearch qpwgraph packages-search
+  //   qs -p <config> ipc call nav raise   # focus existing window (single-instance)
   IpcHandler {
     target: "nav"
 
@@ -45,6 +46,38 @@ ShellRoot {
 
     function installSearch(query: string, leaf: string): void {
       SettingsNav.goInstallSearch(query, leaf)
+    }
+
+    // Bring the existing Settings window forward (launcher reuses one instance).
+    // Pulls off special:minimized when the dock parked it there.
+    function raise(): void {
+      win.visible = true
+      try {
+        win.requestActivate()
+      } catch (e) {
+      }
+      Quickshell.execDetached({
+        command: [
+          "bash",
+          "-lc",
+          "addr=$(hyprctl clients -j 2>/dev/null | python3 -c '"
+              + "import json,sys\n"
+              + "try:\n"
+              + "  cs=json.load(sys.stdin)\n"
+              + "except Exception:\n"
+              + "  raise SystemExit(0)\n"
+              + "for c in cs:\n"
+              + "  if c.get(\"title\")==\"Proteus Settings\":\n"
+              + "    print(c.get(\"address\",\"\") or \"\"); break\n"
+              + "' 2>/dev/null || true)\n"
+              + "if [[ -n \"${addr}\" ]]; then\n"
+              + "  hyprctl dispatch movetoworkspace +0,address:\"${addr}\" >/dev/null 2>&1 || true\n"
+              + "  hyprctl dispatch focuswindow address:\"${addr}\" >/dev/null 2>&1 || true\n"
+              + "else\n"
+              + "  hyprctl dispatch focuswindow 'title:^(Proteus Settings)$' >/dev/null 2>&1 || true\n"
+              + "fi\n"
+        ]
+      })
     }
 
     function state(): string {

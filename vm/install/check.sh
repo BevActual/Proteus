@@ -85,8 +85,11 @@ if [[ -f "${HYPR_SEED}" ]]; then
     && ok "hypr seed cliphist exec-once" || bad "hypr seed missing cliphist"
   grep -q 'hyprpolkitagent' "${HYPR_SEED}" \
     && ok "hypr seed polkit agent exec-once" || bad "hypr seed missing hyprpolkitagent"
+  # Settings is a normal app window now — the old float+center popup rule
+  # must NOT come back (it made Settings a centered sheet).
   grep -q 'Proteus Settings' "${HYPR_SEED}" \
-    && ok "hypr seed Settings float rule" || bad "hypr seed missing Settings float rule"
+    && bad "hypr seed still has legacy Settings float rule" \
+    || ok "hypr seed has no Settings float rule (normal window)"
   if grep -qiE '^[[:space:]]*exec-once[[:space:]]*=.*(ghostty|kitty|alacritty|foot|proteus-terminal|wezterm)' "${HYPR_SEED}"; then
     bad "hypr seed must not exec-once a terminal"
   else

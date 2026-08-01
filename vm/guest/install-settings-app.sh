@@ -10,25 +10,71 @@ bash "${ROOT}/vm/guest/install-icons.sh"
 bash "${ROOT}/vm/guest/hide-system-apps.sh"
 
 install -d /usr/local/bin
-install -m 755 "${APP}/proteus-settings" /usr/local/bin/proteus-settings
-# Rewrite launcher to absolute share path when installed from 9p (optional override)
+# Launcher uses the live app tree on 9p; single-instance via nav IPC + raise.
 cat > /usr/local/bin/proteus-settings << EOF
 #!/usr/bin/env bash
 set -euo pipefail
+DIR="${APP}"
 export QS_ICON_THEME="\${QS_ICON_THEME:-Papirus-Dark}"
-exec quickshell -p "${APP}"
+
+for arg in "\$@"; do
+  case "\$arg" in
+    --page=*) export PROTEUS_SETTINGS_PAGE="\${arg#--page=}" ;;
+    --query=*) export PROTEUS_SETTINGS_QUERY="\${arg#--query=}" ;;
+  esac
+done
+
+ipc() {
+  if command -v qs >/dev/null 2>&1; then
+    qs -p "\${DIR}" ipc call "\$@"
+  else
+    quickshell -p "\${DIR}" ipc call "\$@"
+  fi
+}
+
+# Reuse a live instance — navigate/raise instead of spawning another Quickshell.
+if ipc nav state >/dev/null 2>&1; then
+  page="\${PROTEUS_SETTINGS_PAGE:-}"
+  query="\${PROTEUS_SETTINGS_QUERY:-}"
+  if [[ -n "\${query}" ]]; then
+    leaf="\${page:-packages-search}"
+    ipc nav installSearch "\${query}" "\${leaf}" >/dev/null 2>&1 || true
+  elif [[ -n "\${page}" ]]; then
+    ipc nav go "\${page}" >/dev/null 2>&1 || true
+  fi
+  ipc nav raise >/dev/null 2>&1 || true
+  exit 0
+fi
+
+exec quickshell -n -p "\${DIR}"
 EOF
 chmod 755 /usr/local/bin/proteus-settings
 
 # Animated background runner (Quickshell layer-shell)
-# argv0 = proteus-bg after exec so pgrep -x / Settings apply can detect it.
+# comm = proteus-bg (script name) so pgrep -x / Settings apply can detect it.
+# Respawn loop: background changes can crash the Quickshell wallpaper process;
+# without the guard the compositor splash stays until reboot. Clean exits and
+# operator signals (TERM/INT/KILL) stop the loop so Settings' pkill works.
 cat > /usr/local/bin/proteus-bg << EOF
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 export PROTEUS_ROOT="${ROOT}"
 export QS_ICON_THEME="\${QS_ICON_THEME:-Papirus-Dark}"
 export QT_QPA_PLATFORM="\${QT_QPA_PLATFORM:-wayland}"
-exec -a proteus-bg quickshell -p "${ROOT}/shell/wallpaper"
+
+child=""
+trap '[[ -n "\${child}" ]] && kill "\${child}" 2>/dev/null; exit 143' TERM INT
+while :; do
+  quickshell -p "${ROOT}/shell/wallpaper" &
+  child=\$!
+  wait "\${child}"
+  ec=\$?
+  case "\${ec}" in
+    0 | 129 | 130 | 137 | 143) exit "\${ec}" ;;
+  esac
+  echo "proteus-bg: quickshell exited \${ec} — respawning" >&2
+  sleep 1
+done
 EOF
 chmod 755 /usr/local/bin/proteus-bg
 

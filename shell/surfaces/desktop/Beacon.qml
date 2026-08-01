@@ -118,10 +118,10 @@ Item {
     },
     {
       id: "settings-privacy",
-      name: "Privacy settings",
-      subtitle: "Action · Settings → Privacy",
+      name: "Privacy & security",
+      subtitle: "Action · Settings → Privacy & security",
       icon: "preferences-system-privacy",
-      keywords: "privacy weather mute clipboard localsend settings",
+      keywords: "privacy security weather mute clipboard localsend lock settings",
       destructive: false
     },
     {
@@ -1041,6 +1041,15 @@ Item {
       return
     }
     if (row.entry) {
+      const appId = DockApps.normalizeDesktopId(row.entry.id)
+      // Desktop entry and Action both land here — never spawn a second Settings.
+      if (appId === "proteus-settings" || appId === "settings") {
+        ShellState.openSettings()
+        ShellState.closeLauncher()
+        search.text = ""
+        list.currentIndex = 0
+        return
+      }
       Config.recordLauncherRecent(row.entry.id)
       row.entry.execute()
     }

@@ -2,7 +2,7 @@
 doc: architecture
 role: agent-map
 audience: coding agents, contributors
-last_updated: "2026-07-30"
+last_updated: "2026-08-01"
 doc_status: active
 scope: Layers, ownership, repo layout, HARD RULES
 related:
@@ -45,7 +45,7 @@ Cold-start map for `~/Projects/Proteus`. Where this disagrees with code,
 │  proteus-settings (QS today) · future Tauri apps        │
 ├─────────────────────────────────────────────────────────┤
 │  Shell chrome (Quickshell)                              │
-│  bar · dock · launcher · toasts — launches, doesn’t own │
+│  bar · dock · Beacon · toasts — launches, doesn’t own   │
 ├─────────────────────────────────────────────────────────┤
 │  Shared spine                                           │
 │  Theme · Config · Keybinds · Posture/capabilities       │
@@ -97,6 +97,10 @@ Mobius gates; implementation later).
 | `Hardware.qml` | Wave A: cache-first; shell live-probes (+ deferred refresh); Settings QS cache-only (`isSettingsApp`) → caps / device class |
 | `Keybinds.qml` | Catalog + overrides → `proteus-keybinds.conf` |
 | `ShellState.qml` | Beacon / open Settings / hardware mirrors |
+| `HyprProfile.qml` | Soft hypr profile pointer (`media` ≡ console); About picker — not a hard posture switch |
+| `SystemInfo.qml` · `SystemLoad.qml` | About OS/kernel/QS/Hypr facts + About-active load strip |
+| `MissionCenter.qml` | Detect/open Mission Center escape (About / glance) |
+| `Accounts.qml` | Online accounts catalog + seats via `proteus-accounts` |
 | `Posture` *(intended)* | Resolver: capabilities + role → posture template |
 | `Capabilities` *(intended)* | Device-environment flags — **probe feeds this today via Hardware** |
 
@@ -124,7 +128,7 @@ Proteus/
     proteus-settings/ # Settings.qml + kit/ + panes/*; shared/ → ../../shell/shared
   env/                # seeds: hypr/ · ghostty/ · fastfetch/ (see env/README.md)
   vm/                 # QEMU harness + guest/ mutators + install/ overlay; ISO/qcow in PROTEUS_VM_CACHE
-  services/           # proteus-hw-probe (read) · proteus-pkg · proteus-logind · proteus-audio-mix
+  services/           # proteus-hw-probe (read) · proteus-pkg · proteus-logind · proteus-audio-mix · proteus-accounts
   scripts/            # runners + tools: run-nested, run-desktop, smoke-all (entry)
     smoke/            # all *-smoke.sh gates (host + guest); run via ./scripts/smoke-all.sh
   tests/              # fixtures for schema/layout smokes (not a QML unit runner)
@@ -138,6 +142,7 @@ On-disk facts: [FACTS.md](./FACTS.md) · key groups: [CONFIG-SCHEMA.md](./CONFIG
 `services/proteus-pkg` — privileged pacman mutator (pkexec + polkit) for Settings Software.
 `services/proteus-logind` — privileged logind drop-in writer (pkexec + polkit) for Settings Power.
 `services/proteus-audio-mix` — session-scoped resident dump+peaks for Sound Mixer (no polkit; mutations still `audio-mix.py`).
+`services/proteus-accounts` — user-scoped online-accounts vault + Google PKCE (no polkit; tokens outside `settings.json`).
 Optional later: more Rust CLIs (`proteus-net`, etc.) so QML stays thin
 (Meridian-style: apps as clients of helpers). Future first-party apps under
 `apps/` as Tauri projects ([STACK.md](./STACK.md)).
@@ -191,7 +196,7 @@ Do not reimplement Meridian providers or Mobius queue inside Proteus.
 | Layout / Config keys | `./scripts/smoke/layout-smoke.sh` · `./scripts/smoke/config-schema-smoke.sh` · fixtures in `tests/` |
 | Host smoke suite | `./scripts/smoke-all.sh` |
 | Guest installers | `vm/guest/*.sh` on running guest |
-| Keybinds | Settings → Keyboard round-trip + `~/.config/hypr/proteus-keybinds.conf` |
+| Keybinds | Settings → Peripherals → Keyboard round-trip + `~/.config/hypr/proteus-keybinds.conf` |
 | Desktop / Displays | Settings → `proteus-general.conf` / `proteus-monitors.conf` |
 | Hardware probe | `./scripts/smoke/hw-probe-smoke.sh` |
 | Docs-only | Keep CURRENT cites honest |

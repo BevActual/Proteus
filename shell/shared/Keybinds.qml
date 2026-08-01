@@ -559,6 +559,12 @@ Singleton {
       }
       out += bindLine(e) + "\n"
     }
+    // Fixed mouse binds (not in the rebind catalog): Hyprland draws no
+    // titlebars, so ⌘+drag anywhere on a window is how floating windows move
+    // (edge/corner resize without a modifier comes from resize_on_border).
+    out += "# Mouse\n"
+    out += "bindm = SUPER, mouse:272, movewindow\n"
+    out += "bindm = SUPER, mouse:273, resizewindow\n"
     return out
   }
 

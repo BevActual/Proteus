@@ -10,7 +10,10 @@ run() {
 }
 
 run layout-smoke.sh
+run widget-layout-resolve-smoke.sh
+run ipc-contract-smoke.sh
 run config-schema-smoke.sh
+run config-roundtrip-smoke.sh
 run app-manifest-smoke.sh
 run chrome-tokens-smoke.sh
 run software-reliability-smoke.sh

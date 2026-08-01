@@ -144,6 +144,56 @@ Scope {
     }
   }
 
+  // Smoke/dogfood probe: desktop widgets CRUD without the gallery UI.
+  //   qs -p <config> ipc call widgets state
+  //   qs -p <config> ipc call widgets add battery
+  //   qs -p <config> ipc call widgets move <id> 0.2 0.2
+  //   qs -p <config> ipc call widgets remove <id>
+  //   qs -p <config> ipc call widgets setSnap 1
+  IpcHandler {
+    target: "widgets"
+
+    function state(): string {
+      const list = Widgets.desktopWidgetsEnabledList || []
+      const ids = []
+      const types = []
+      for (let i = 0; i < list.length; i++) {
+        ids.push(String(list[i].id))
+        types.push(String(list[i].type))
+      }
+      return JSON.stringify({
+        snap: !!Config.desktopWidgetsSnapToGrid,
+        count: list.length,
+        ids: ids,
+        types: types
+      })
+    }
+
+    function add(type: string): string {
+      const w = Widgets.addDesktopWidget(String(type || ""))
+      if (!w)
+        return ""
+      return String(w.id || "")
+    }
+
+    function move(id: string, x: string, y: string): void {
+      const nx = Number(x)
+      const ny = Number(y)
+      Widgets.moveDesktopWidget(String(id || ""), nx, ny)
+    }
+
+    function remove(id: string): void {
+      Widgets.removeDesktopWidget(String(id || ""))
+    }
+
+    function setSnap(on: string): void {
+      const s = String(on || "").toLowerCase()
+      Config.desktopWidgetsSnapToGrid = (s === "1" || s === "true" || s === "on")
+      if (!Config.deferSettingsWrites)
+        Config.flushSettings()
+    }
+  }
+
   IpcHandler {
     target: "hud"
     function ping(): void {
@@ -212,15 +262,21 @@ Scope {
     running: true
     repeat: false
     onTriggered: {
-      if (!Config.lockOnSessionStart)
-        return
       if (!ShellState.sessionStartLockPending)
         return
-      ShellState.sessionStartLockPending = false
-      if (root.skipSessionLock) {
-        console.warn("session lock skipped — PROTEUS_SKIP_SESSION_LOCK is set")
+      if (!Config.lockOnSessionStart) {
+        // No boot lock wanted — release the chrome held back during pending.
+        ShellState.sessionStartLockPending = false
         return
       }
+      if (root.skipSessionLock) {
+        console.warn("session lock skipped — PROTEUS_SKIP_SESSION_LOCK is set")
+        ShellState.sessionStartLockPending = false
+        return
+      }
+      // Keep pending TRUE while locked: chrome/widgets stay unmapped beneath
+      // the lock, so the desktop never peeks during cold boot. Cleared by
+      // ShellState.unlockSession() on the first successful unlock.
       ShellState.lockSession()
     }
   }
@@ -234,7 +290,7 @@ Scope {
       screen: modelData
 
       // Below windows (Bottom); Overlay while customizing so applets stay on top
-      visible: !ShellState.sessionLocked
+      visible: !ShellState.sessionLocked && !ShellState.sessionStartLockPending
       exclusionMode: ExclusionMode.Ignore
       exclusiveZone: 0
       color: "transparent"
@@ -295,7 +351,7 @@ Scope {
       required property var modelData
       screen: modelData
       readonly property bool onThisScreen: Config.chromeOnScreen(modelData, Config.barMonitor)
-      visible: onThisScreen && !ShellState.desktopCustomizeMode
+      visible: onThisScreen && !ShellState.desktopCustomizeMode && !ShellState.sessionStartLockPending
 
       readonly property int peek: 3
       readonly property int barH: Theme.barHeight
@@ -355,13 +411,17 @@ Scope {
       required property var modelData
       screen: modelData
       readonly property bool onThisScreen: Config.dockEnabled && Config.chromeOnScreen(modelData, Config.dockMonitor)
-      visible: onThisScreen && !ShellState.desktopCustomizeMode
+      visible: onThisScreen && !ShellState.desktopCustomizeMode && !ShellState.sessionStartLockPending
 
       readonly property int peek: 4
       readonly property int dockGap: Theme.dockGap
-      // Full panel height (shelf + magnify headroom) — must match exclusive zone
+      // Base panel height (shelf + magnify headroom) — must match exclusive zone
       // or windows draw into the transparent area and text ghosts through the dock.
-      readonly property int dockH: Math.max(dock.implicitHeight, Theme.dockPanelHeight)
+      readonly property int dockH: Math.max(dock.baseHeight, Theme.dockPanelHeight)
+      // Window-preview band above the shelf: reserved permanently (fixed surface
+      // size — resizing the layer on hover made Hyprland clip the dock bottom)
+      // and input-masked so it never steals clicks from windows.
+      readonly property int dockWinH: dockH + dock.previewReserve
       property bool dockHovered: false
       property bool dockRevealed: !Config.dockAutoHide || dockHovered || ShellState.launcherOpen
 
@@ -371,12 +431,20 @@ Scope {
         bottom: true
       }
 
-      margins.bottom: dockRevealed ? dockGap : -(dockH - peek)
-      implicitHeight: onThisScreen ? dockH : 0
+      margins.bottom: dockRevealed ? dockGap : -(dockWinH - peek)
+      implicitHeight: onThisScreen ? dockWinH : 0
       exclusiveZone: onThisScreen && (!Config.dockAutoHide || dockRevealed) ? (dockH + dockGap) : 0
       exclusionMode: Config.dockAutoHide && !dockRevealed ? ExclusionMode.Ignore : ExclusionMode.Auto
       color: "transparent"
       WlrLayershell.namespace: "proteus-dock"
+
+      // Only the dock's input zone takes pointer events — the reserved preview
+      // band passes through to whatever is beneath.
+      mask: dockMask
+      Region {
+        id: dockMask
+        item: dock.inputZone
+      }
 
       Behavior on margins.bottom {
         NumberAnimation {
@@ -407,6 +475,7 @@ Scope {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         visible: Config.dockEnabled
+        autoHidden: Config.dockAutoHide && !dockWin.dockRevealed
       }
     }
   }

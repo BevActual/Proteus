@@ -178,14 +178,30 @@ Item {
       let rawY = p.y - pressOY
       const wid = root.widgetId
       if (root.layout) {
-        // Free placement: magnetize to neighbor edges/centers first; drop the
-        // guides if collision resolution then pushes the frame elsewhere.
+        // Magnetize to neighbor edges/centers (free + snap). With snap-to-grid,
+        // lattice-snap only unmagnetized axes so flush stacks aren't pulled apart.
         let guides = []
-        if (!root.layout.snapToGrid) {
-          const a = root.layout.alignAdjust(rawX, rawY, root.width, root.height, wid)
-          rawX = a.x
-          rawY = a.y
-          guides = a.guides
+        const a = root.layout.alignAdjust(rawX, rawY, root.width, root.height, wid)
+        rawX = a.x
+        rawY = a.y
+        guides = a.guides
+        if (root.layout.snapToGrid) {
+          let magnetX = false
+          let magnetY = false
+          for (let gi = 0; gi < guides.length; gi++) {
+            const g = guides[gi]
+            if (!g)
+              continue
+            if (g.vertical)
+              magnetX = true
+            else
+              magnetY = true
+          }
+          const snapped = root.layout.snapPixel(rawX, rawY, root.width, root.height)
+          if (!magnetX)
+            rawX = snapped.x
+          if (!magnetY)
+            rawY = snapped.y
         }
         const placed = root.layout.resolveNoOverlap(rawX, rawY, root.width, root.height, wid)
         if (Math.abs(placed.x - rawX) > 0.5 || Math.abs(placed.y - rawY) > 0.5)

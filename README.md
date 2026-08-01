@@ -3,20 +3,20 @@
 **Bevington Systems** — an adaptive environment that reshapes itself to **where
 you are** and **what this machine’s job is** (posture = hardware + use).
 
+**Focus set (prove these):**
+
 | Posture | Intent |
 |---------|--------|
-| Desktop | Create / windowed work (first target) |
-| Media | Lean-back consume + play (TV, games) |
-| Wearable | Micro / glance |
-| XR | Spatial / headset |
-| Vehicle | Eyes-up, locked task set |
-| Home | House controller (scenes, devices) |
+| Desktop | Create / windowed work (primary spine) |
+| Console | Lean-back consume + play (TV, games) — hypr stub still `media.conf` |
 | Host | Operate the box — headless by default, **UI when you want it** |
+
+**Parked (thesis only):** wearable · xr · vehicle · home — see
+[docs/proteus/POSTURES.md](docs/proteus/POSTURES.md).
 
 Session modes (focus, present, meeting, …) sit *on* postures. Hardware kits
 (vitals-only wearable, voice-only home hub, headless host, …) vary by
-**capabilities** inside a posture — see
-[docs/proteus/POSTURES.md](docs/proteus/POSTURES.md).
+**capabilities** inside a posture.
 
 **Thesis:** Linux under the hood, Mac in the hand. Settings bridges elegant UI
 to inspectable system facts. See **[docs/](docs/README.md)**.
@@ -37,7 +37,8 @@ Built on Arch Linux + [Quickshell](https://quickshell.org/) (Qt/QML) + Hyprland.
 
 ## Status
 
-Early scaffold. Desktop spine in progress; other postures are stubs/planned.
+Desktop spine is dogfoodable in the VM (shell + Settings largely shipped).
+Console and host hard switches remain planned; parked postures are thesis only.
 Honest inventory: [docs/proteus/CURRENT.md](docs/proteus/CURRENT.md).
 
 ## Test in a VM (recommended)
@@ -76,24 +77,28 @@ Shell-only experiments (does not replace the VM for distro work):
 docs/            # POSITIONING, ARCHITECTURE, POSTURES, CURRENT, …
 vm/              # QEMU/KVM Arch guest harness
 env/             # Seeds: hypr/ · ghostty/ · fastfetch/
-scripts/         # run-nested.sh, run-desktop.sh
+scripts/         # run-nested.sh, run-desktop.sh, smoke-all.sh · smoke/
 shell/           # Quickshell (chrome)
   shared/        # Theme, Config, Keybinds, ShellState, …
   surfaces/      # Desktop + posture stubs
 apps/
-  proteus-settings/   # Control center (Style, Desktop, Keyboard, …)
+  proteus-settings/   # Control center (Appearance, Desktop, Peripherals, …)
 services/
   proteus-hw-probe/   # Wave A: desktop/laptop → capabilities JSON
+  proteus-pkg/        # privileged pacman mutator (Software)
+  proteus-logind/     # privileged logind drop-in (Power)
+  proteus-audio-mix/  # resident dump+peaks (Sound Mixer)
+  proteus-accounts/   # online-accounts vault + Google PKCE
 ```
 
 ### Desktop shell (today)
 
-- Top bar: glass menu bar; launcher, workspaces, app title, clock, status → Control Center
-- App launcher (`Super+Space` / `Super+D`) — Apps / Files / Clipboard modes; fuzzy + tags
+- Top bar: glass menu bar; app title, workspaces, clock+weather, status → Control Center (Beacon is off the bar)
+- **Beacon** (`Super+Space` / `Super+D`; dock pin) — Apps / Files / Clipboard / Actions; fuzzy + tags
 - Dock — floating glass shelf + Mag; pins, running dots
 - Terminal: `Super+Return` → `proteus-terminal` (Ghostty + VM GL workaround)
 - Session: `proteus-session` → `start-hyprland`/Hyprland; no terminal `exec-once`; stray system apps hidden (`hide-system-apps.sh`)
-- **Settings** (`Super+,`) — Appearance (incl. Icons), Desktop (incl. Beacon), Displays, Sound, Network, Software (pacman / AUR / Flatpak / AppImages / Orphans), …; cold-start via sticky pane loaders
+- **Settings** (`Super+,`) — Appearance (incl. Icons / Lock), Desktop (incl. Beacon), Displays, Sound, Network, Peripherals (Keyboard / Mouse), Software (pacman / AUR / Flatpak / AppImages / Orphans), …; cold-start via sticky pane loaders
 - Keybinds file: `~/.config/hypr/proteus-keybinds.conf`
 
 Full honest inventory: [docs/proteus/CURRENT.md](docs/proteus/CURRENT.md).

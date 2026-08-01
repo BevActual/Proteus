@@ -1,4 +1,5 @@
 import Quickshell
+import Quickshell.Hyprland
 import QtQuick
 import QtQuick.Window
 import "../../shared"
@@ -58,13 +59,77 @@ Item {
     anchors.leftMargin: root.sidePad
     anchors.rightMargin: root.sidePad
 
-    // Left: app name · workspaces (Beacon lives in the dock + Super shortcut)
+    // Left: window controls · app name · workspaces (Beacon lives in the dock)
     Row {
       id: leftRow
       anchors.left: parent.left
       anchors.verticalCenter: parent.verticalCenter
       spacing: 10
       z: 2
+
+      // Traffic lights for the focused window (Hyprland draws no decorations —
+      // the bar owns close / minimize / maximize, macOS-style).
+      Item {
+        id: lights
+        anchors.verticalCenter: parent.verticalCenter
+        width: lightsRow.implicitWidth
+        height: 14
+        visible: Hyprland.activeToplevel !== null
+
+        readonly property bool hot: lightsHover.hovered
+
+        HoverHandler {
+          id: lightsHover
+        }
+
+        Row {
+          id: lightsRow
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: 7
+
+          Repeater {
+            model: [
+              { fill: "#ff5f57", edge: "#e0443e", glyph: "×", act: "close" },
+              { fill: "#febc2e", edge: "#d89e24", glyph: "−", act: "min" },
+              { fill: "#28c840", edge: "#1faf33", glyph: "+", act: "max" }
+            ]
+
+            Rectangle {
+              required property var modelData
+              anchors.verticalCenter: parent.verticalCenter
+              width: 12
+              height: 12
+              radius: 6
+              color: modelData.fill
+              border.width: 1
+              border.color: modelData.edge
+
+              Text {
+                anchors.centerIn: parent
+                visible: lights.hot
+                text: parent.modelData.glyph
+                color: Qt.rgba(0, 0, 0, 0.55)
+                font.pixelSize: 9
+                font.bold: true
+              }
+
+              MouseArea {
+                anchors.fill: parent
+                anchors.margins: -2
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  if (parent.modelData.act === "close")
+                    DockApps.closeActiveWindow()
+                  else if (parent.modelData.act === "min")
+                    DockApps.minimizeActiveWindow()
+                  else
+                    DockApps.maximizeActiveWindow()
+                }
+              }
+            }
+          }
+        }
+      }
 
       Text {
         anchors.verticalCenter: parent.verticalCenter
@@ -133,6 +198,87 @@ Item {
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onClicked: ShellState.toggleCalendar()
+      }
+    }
+
+    // Tiling toggle (COSMIC-adjacent) — float ⇄ tile the focused window.
+    // Accent = floating (state, not decor); grid glyph = tiled.
+    Rectangle {
+      id: tileToggle
+      anchors.right: statusCluster.left
+      anchors.rightMargin: 6
+      anchors.verticalCenter: parent.verticalCenter
+      height: root.controlH
+      width: root.controlH + 8
+      radius: height / 2
+      z: 2
+      visible: Hyprland.activeToplevel !== null
+      color: tileMa.containsMouse
+          ? (Theme.light ? Qt.rgba(0, 0, 0, 0.06) : Qt.rgba(1, 1, 1, 0.1))
+          : "transparent"
+
+      readonly property bool floating: DockApps.activeFloating
+      readonly property color glyphColor: floating
+          ? Theme.accent
+          : (Theme.light ? Qt.rgba(0.11, 0.11, 0.12, 0.88) : Qt.rgba(0.96, 0.96, 0.97, 0.92))
+
+      Item {
+        anchors.centerIn: parent
+        width: 14
+        height: 12
+
+        // Tiled — 2×2 grid
+        Grid {
+          anchors.fill: parent
+          visible: !tileToggle.floating
+          columns: 2
+          rowSpacing: 2
+          columnSpacing: 2
+
+          Repeater {
+            model: 4
+            Rectangle {
+              width: 6
+              height: 5
+              radius: 1
+              color: tileToggle.glyphColor
+            }
+          }
+        }
+
+        // Floating — two offset panes
+        Item {
+          anchors.fill: parent
+          visible: tileToggle.floating
+
+          Rectangle {
+            x: 0
+            y: 0
+            width: 9
+            height: 8
+            radius: 1.5
+            color: "transparent"
+            border.width: 1.4
+            border.color: tileToggle.glyphColor
+            opacity: 0.7
+          }
+          Rectangle {
+            x: 5
+            y: 4
+            width: 9
+            height: 8
+            radius: 1.5
+            color: tileToggle.glyphColor
+          }
+        }
+      }
+
+      MouseArea {
+        id: tileMa
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: DockApps.toggleFloatActiveWindow()
       }
     }
 

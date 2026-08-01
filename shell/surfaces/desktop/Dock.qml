@@ -1,4 +1,5 @@
 import Quickshell
+import Quickshell.Wayland
 import QtQuick
 import QtQuick.Window
 import "../../shared"
@@ -94,8 +95,35 @@ Item {
   readonly property int magHeadroom: (maxIconSize - iconSize) + tipH + tipGap + 12
   readonly property real plateRadius: shelfHeight * Theme.squircleCornerRatio
 
+  // Window previews — hover-dwell popup with one live thumbnail per window.
+  // The band is a FIXED reserve above the shelf: resizing the layer surface on
+  // open/close made Hyprland re-anchor mid-frame (dock bottom visibly clipped).
+  // Input is masked to `inputZone` so the transparent band never steals clicks.
+  property int previewIndex: -1
+  readonly property bool previewOpen: previewIndex >= 0
+  property var previewWins: []
+  property int previewArmIndex: -1
+  readonly property int previewThumbW: 168
+  // thumb (168·0.62 ≈ 104) + title 22 + plate pad 20 + gap 24
+  readonly property int previewReserve: 170
+  // Auto-hide state from the panel window — widens the mask to the hover peek.
+  property bool autoHidden: false
+
+  readonly property int baseHeight: Math.round(shelfHeight + magHeadroom)
   implicitWidth: Math.round(rowWidth + padX * 2)
-  implicitHeight: Math.round(shelfHeight + magHeadroom)
+  implicitHeight: baseHeight + previewReserve
+
+  // Input region for the panel window mask: shelf + magnify headroom at rest;
+  // the full surface while the preview popup is open or the dock is auto-hidden
+  // (the hover peek strip lives at the surface top).
+  readonly property Item inputZone: maskZone
+  Item {
+    id: maskZone
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    height: root.previewOpen || root.autoHidden ? parent.height : root.baseHeight
+  }
 
   function centerAt(index) {
     if (index < 0 || index >= cellLefts.length)
@@ -155,11 +183,41 @@ Item {
     return items[menuIndex]
   }
 
+  function hasPreviewableWindows(index) {
+    const e = items[index]
+    if (!e || e.separator || e.special === "launcher")
+      return false
+    return DockApps.windowsFor(e).length > 0
+  }
+
+  function openPreview(index) {
+    if (editMode || dragging || menuOpen)
+      return
+    const e = items[index]
+    if (!e || e.separator || e.special === "launcher")
+      return
+    const wins = DockApps.windowsFor(e)
+    if (!wins.length)
+      return
+    previewWins = wins
+    previewIndex = index
+    previewCloseTimer.stop()
+  }
+
+  function closePreview() {
+    previewIndex = -1
+    previewArmIndex = -1
+    previewWins = []
+    previewTimer.stop()
+    previewCloseTimer.stop()
+  }
+
   function openPinMenu(index, x, y) {
     if (dragging)
       return
     if (index < 0 || index >= items.length)
       return
+    root.closePreview()
     const entry = items[index]
     const keep = DockApps.canKeepInDock(entry)
     const remove = DockApps.canUnpin(entry)
@@ -183,6 +241,7 @@ Item {
 
   function enterEditMode() {
     root.closePinMenu()
+    root.closePreview()
     root.editMode = true
     root.suppressClick = true
     root.tipIndex = -1
@@ -212,6 +271,7 @@ Item {
     if (!canDragEntry(entry))
       return false
     root.closePinMenu()
+    root.closePreview()
     holdTimer.stop()
     root.dragging = true
     root.dragIndex = index
@@ -308,6 +368,9 @@ Item {
     id: plate
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.bottom: parent.bottom
+    // 1px lift so the edge-glow rim (plate + 1px on every side) can draw its
+    // bottom band inside the surface — flush, it clipped to top+sides only.
+    anchors.bottomMargin: 1
     width: parent.width
     height: root.shelfHeight
     radius: root.plateRadius
@@ -344,6 +407,28 @@ Item {
     }
   }
 
+  // Hover dwell before the preview opens (tooltip stays instant).
+  Timer {
+    id: previewTimer
+    interval: 420
+    repeat: false
+    onTriggered: {
+      if (root.previewArmIndex >= 0 && root.hasPreviewableWindows(root.previewArmIndex))
+        root.openPreview(root.previewArmIndex)
+    }
+  }
+
+  // Grace period when the pointer leaves the shelf/popup before closing.
+  Timer {
+    id: previewCloseTimer
+    interval: 260
+    repeat: false
+    onTriggered: {
+      if (!previewHover.hovered && !dockMa.containsMouse)
+        root.closePreview()
+    }
+  }
+
   MouseArea {
     id: dockMa
     anchors.fill: parent
@@ -353,6 +438,8 @@ Item {
     z: 10
     onEntered: root.hovered = true
     onExited: {
+      if (root.previewOpen)
+        previewCloseTimer.restart()
       if (root.menuOpen || root.dragging)
         return
       if (!root.editMode) {
@@ -380,6 +467,21 @@ Item {
       }
       const hi = root.editMode ? -1 : root.indexAt(mouse.x)
       root.tipIndex = (hi >= 0 && root.items[hi] && root.items[hi].separator) ? -1 : hi
+      // Preview arm / retarget — instant switch while a popup is already open.
+      if (!root.editMode && !root.dragging && !root.menuOpen) {
+        if (root.previewOpen) {
+          if (hi >= 0 && hi !== root.previewIndex && root.hasPreviewableWindows(hi))
+            root.openPreview(hi)
+        } else if (hi >= 0 && root.hasPreviewableWindows(hi)) {
+          if (root.previewArmIndex !== hi) {
+            root.previewArmIndex = hi
+            previewTimer.restart()
+          }
+        } else {
+          root.previewArmIndex = -1
+          previewTimer.stop()
+        }
+      }
     }
     onClicked: mouse => {
       if (root.suppressClick) {
@@ -406,6 +508,7 @@ Item {
       }
       if (i < 0)
         return
+      root.closePreview()
       DockApps.focusOrLaunch(root.items[i])
     }
     onPressed: mouse => {
@@ -691,6 +794,159 @@ Item {
     }
   }
 
+  // Window preview popup — glass plate with live thumbnails; click focuses
+  // (restores dock-minimized windows), ✕ closes the window.
+  ChromeMenuPlate {
+    id: previewPlate
+    visible: root.previewOpen
+    z: 45
+    readonly property int n: root.previewWins.length
+    readonly property int cardW: n > 0
+        ? Math.max(96, Math.min(root.previewThumbW, Math.floor((root.width - 32 - (n - 1) * 10) / n)))
+        : root.previewThumbW
+    readonly property int thumbH: Math.round(cardW * 0.62)
+    readonly property int cardH: thumbH + 22
+    width: Math.max(1, n) * cardW + Math.max(0, n - 1) * 10 + 20
+    height: cardH + 20
+    x: Math.max(8, Math.min(
+          root.centerAt(Math.max(0, root.previewIndex)) - width * 0.5,
+          root.width - width - 8))
+    y: root.height - root.shelfHeight - height - 12
+
+    HoverHandler {
+      id: previewHover
+      onHoveredChanged: {
+        if (hovered)
+          previewCloseTimer.stop()
+        else
+          previewCloseTimer.restart()
+      }
+    }
+
+    Row {
+      anchors.centerIn: parent
+      spacing: 10
+
+      Repeater {
+        model: root.previewWins
+
+        Item {
+          id: previewCard
+          required property var modelData
+          required property int index
+          width: previewPlate.cardW
+          height: previewPlate.cardH
+
+          readonly property bool parked: DockApps.isMinimizedToplevel(modelData)
+          readonly property bool cardHot: cardMa.containsMouse || closeMa.containsMouse
+
+          Rectangle {
+            id: thumbFrame
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: previewPlate.thumbH
+            radius: Theme.radiusSm
+            color: Theme.light ? Qt.rgba(0, 0, 0, 0.08) : Qt.rgba(1, 1, 1, 0.06)
+            border.width: 1
+            border.color: previewCard.cardHot ? Theme.accent : Theme.chromeHairline
+            clip: true
+
+            ScreencopyView {
+              anchors.fill: parent
+              anchors.margins: 1
+              captureSource: previewCard.modelData.wayland ? previewCard.modelData.wayland : null
+              live: root.previewOpen
+              opacity: previewCard.parked ? 0.55 : 1
+            }
+
+            // Parked (dock-minimized) hint
+            Rectangle {
+              visible: previewCard.parked
+              anchors.right: parent.right
+              anchors.bottom: parent.bottom
+              anchors.margins: 5
+              width: hiddenLabel.implicitWidth + 10
+              height: 16
+              radius: 8
+              color: Qt.rgba(0, 0, 0, 0.55)
+              Text {
+                id: hiddenLabel
+                anchors.centerIn: parent
+                text: "Hidden"
+                color: "#f5f5f7"
+                font.family: Theme.fontFamily
+                font.pixelSize: 9
+                font.weight: Font.Medium
+              }
+            }
+          }
+
+          Text {
+            anchors.top: thumbFrame.bottom
+            anchors.topMargin: 4
+            anchors.left: parent.left
+            anchors.right: parent.right
+            text: DockApps.titleOf(previewCard.modelData)
+            color: Theme.text
+            font.family: Theme.fontFamily
+            font.pixelSize: 11
+            elide: Text.ElideRight
+            horizontalAlignment: Text.AlignHCenter
+          }
+
+          MouseArea {
+            id: cardMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              DockApps.focusToplevel(previewCard.modelData)
+              root.closePreview()
+            }
+          }
+
+          // ✕ close — only while hovering the card (macOS Exposé-ish)
+          Rectangle {
+            visible: previewCard.cardHot
+            anchors.top: thumbFrame.top
+            anchors.left: thumbFrame.left
+            anchors.margins: 4
+            width: 18
+            height: 18
+            radius: 9
+            color: Qt.rgba(0, 0, 0, 0.6)
+            border.width: 1
+            border.color: Qt.rgba(1, 1, 1, 0.25)
+            Text {
+              anchors.centerIn: parent
+              text: "✕"
+              color: "#f5f5f7"
+              font.pixelSize: 9
+              font.bold: true
+            }
+            MouseArea {
+              id: closeMa
+              anchors.fill: parent
+              anchors.margins: -3
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                const target = previewCard.modelData
+                DockApps.closeToplevel(target)
+                const rest = root.previewWins.filter(w => w !== target)
+                if (rest.length)
+                  root.previewWins = rest
+                else
+                  root.closePreview()
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
   Repeater {
     model: root.items
 
@@ -705,7 +961,7 @@ Item {
       property real displayPress: 1
       property real bounceY: 0
       readonly property real rise: root.maxIconSize * (displayS - root.restScale)
-      readonly property bool tipOn: !isSep && root.tipIndex === index && !root.menuOpen && !root.editMode && !root.dragging
+      readonly property bool tipOn: !isSep && root.tipIndex === index && !root.menuOpen && !root.editMode && !root.dragging && !root.previewOpen
       readonly property bool brandIcon: modelData.special === "launcher"
           || modelData.special === "settings"
           || modelData.icon === "proteus-launcher"

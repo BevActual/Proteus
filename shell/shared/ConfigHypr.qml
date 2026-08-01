@@ -30,8 +30,14 @@ Item {
     out += "  gaps_in = " + host.gapsIn + "\n"
     out += "  gaps_out = " + host.gapsOut + "\n"
     out += "  border_size = " + host.borderSize + "\n"
+    // Accent ring on the focused window only — inactive stays invisible so the
+    // ring appears on hover/keyboard focus and disappears when focus leaves.
     out += "  col.active_border = rgba(" + c + "cc)\n"
-    out += "  col.inactive_border = rgba(2a3544aa)\n"
+    out += "  col.inactive_border = rgba(00000000)\n"
+    // macOS-like floating windows: grab any edge/corner to resize.
+    out += "  resize_on_border = true\n"
+    out += "  extend_border_grab_area = 12\n"
+    out += "  hover_icon_on_border = true\n"
     out += "}\n\n"
     out += "decoration {\n"
     out += "  rounding = " + host.rounding + "\n"
@@ -73,6 +79,18 @@ Item {
     })
     Quickshell.execDetached({
       command: ["hyprctl", "keyword", "general:col.active_border", "rgba(" + c + "cc)"]
+    })
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "general:col.inactive_border", "rgba(00000000)"]
+    })
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "general:resize_on_border", "true"]
+    })
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "general:extend_border_grab_area", "12"]
+    })
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "general:hover_icon_on_border", "true"]
     })
     Quickshell.execDetached({
       command: ["hyprctl", "keyword", "decoration:rounding", String(host.rounding)]

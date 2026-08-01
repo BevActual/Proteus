@@ -2,7 +2,7 @@
 doc: facts
 role: reference
 audience: coding agents, contributors
-last_updated: "2026-07-30"
+last_updated: "2026-08-01"
 doc_status: active
 scope: On-disk truth paths; QML façade vs services mutators
 related:
@@ -77,13 +77,17 @@ Public API: `import "../../shared"` (Settings: `shared` → `../../shell/shared`
 
 ```
 shell/shared/
-  Theme.qml Config.qml ConfigHypr.qml
+  Theme.qml ThemeSlider.qml ThemeSwitch.qml SquircleIcon.qml ChromeMenuPlate.qml
+  Config.qml ConfigHypr.qml
   Background.qml BackgroundCatalog.qml BackgroundDaily.qml BackgroundApply.qml
   Widgets.qml WidgetsLock.qml WidgetsDesktop.qml
-  Audio.qml Brightness.qml Hud.qml Power.qml DateTime.qml Weather.qml Displays.qml …
+  Audio.qml Brightness.qml Hud.qml Power.qml DateTime.qml Weather.qml Displays.qml
   ShellState.qml Hardware.qml EnvGate.qml Keybinds.qml Notifications.qml LockLayoutZones.qml
+  HyprProfile.qml SystemInfo.qml SystemLoad.qml MissionCenter.qml Accounts.qml
+  ActiveWindow.qml KeepAwake.qml LocalSend.qml NetworkDiagnostics.qml Packages.qml
+  DockApps.qml Time.qml …
 apps/proteus-settings/
-  kit/     # SettingsFormRow · Group · HubList · Segmented · StickyPaneLoader
+  kit/     # SettingsFormRow · Group · HubList · Segmented · StickyPaneLoader · Combo …
   panes/   # product panes
 ```
 

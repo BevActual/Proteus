@@ -2,7 +2,7 @@
 doc: settings-ia
 role: reference
 audience: UI, contributors
-last_updated: "2026-07-30"
+last_updated: "2026-08-01"
 doc_status: active
 scope: Settings control-center categories, backends, hybrid UX pattern
 related:
@@ -81,7 +81,7 @@ Examples:
 | Timezone / network time | `timedatectl set-timezone` / `set-ntp` (polkit-gated; errors surfaced in-pane) |
 | Locale | `localectl list-locales` / `set-locale LANG=…` (polkit-gated; stderr in-pane) + `/etc/locale.conf` escape |
 | Location | Explicit place search → precise lat/lon + place timezone in `settings.json` (**never IP-inferred**); Open-Meteo geocoding; optional Match time zone to place |
-| Weather | `api.open-meteo.com` current + 5-day daily forecast for the stored location — no API key; only those coordinates are sent; mute via `weatherEnabled` (Privacy) |
+| Weather | `api.open-meteo.com` current + 5-day daily forecast for the stored location — no API key; only those coordinates are sent; mute via `weatherEnabled` (Privacy & security) |
 | Battery charge / health / estimate | UPower display device (`Quickshell.Services.UPower`) |
 | Power mode (Performance / Balanced / Eco) | `powerprofilesctl` → `power-profiles-daemon` (`power-saver` labeled Eco); only profiles the driver advertises |
 | Idle / lid policy | `pkexec proteus-logind` → `/etc/systemd/logind.conf.d/99-proteus.conf` (+ **reload** logind — never restart, which drops the seat); effective merge with main conf; escape hatch still opens `logind.conf` |
@@ -110,8 +110,8 @@ Left-nav + content pane (macOS System Settings style).
 | **Power** (`power`) | Power mode segmented (PPD); battery (UPower); idle / lid FormRows via `proteus-logind` drop-in + conf escape | `powerprofilesctl` / UPower / `proteus-logind` | `shipped` |
 | **Users** (`users`) | Session Lock/Logout + confirm Reboot/Shutdown; current user (GECOS/home) + other local users read-only; Online accounts jump; greetd status + conf escape | `Config.session` · id/getent · greetd/`/etc/greetd/config.toml` | `shipped` |
 | **Online accounts** (`accounts`) | Connector catalog + Google PKCE seats (`proteus-accounts` vault); Microsoft/Nextcloud/… listed | `proteus-accounts` + `Accounts.qml` (mail/contacts apps Out) | `partial` |
-| **Date & time** (`datetime`) | Live clock, searchable timezone + locale pickers, NTP, **Location** (place + units + 5-day forecast + Match TZ) | `timedatectl` / `localectl set-locale` / Open-Meteo | `shipped` |
-| **Privacy** (`privacy`) | What leaves + weather mute + session (DND / Lock / clear clipboard / LocalSend); permission categories listed, grants not enforced | Config · Weather · Notifications · EnvGate later | `partial` |
+| **Date, time & weather** (`datetime`) | Live clock, searchable timezone + locale pickers, NTP, **Location** (place + units + 5-day forecast + Match TZ) | `timedatectl` / `localectl set-locale` / Open-Meteo | `shipped` |
+| **Privacy & security** (`privacy`) | What leaves + weather mute + session (DND / Lock / clear clipboard / LocalSend); permission categories listed, grants not enforced | Config · Weather · Notifications · EnvGate later | `partial` |
 | **Software** (`packages`) | Hub → Updates; Repos / AUR / Flathub (Install\|Installed mode-safe, per-mode search, op narrative); AppImages; Orphans — helper honesty when yay/paru/flatpak missing | `pacman` + `proteus-pkg` · yay/paru · flatpak + Flathub · local AppImages | `shipped` |
 | **About** (`system`) | OS/kernel/hostname · QS/Hypr · load/mem/storage · battery when present · Mission Center (Install… → Flathub · `io.missioncenter.MissionCenter`) · Check for updates → Software; hardware caps; soft Hyprland profile; Copy + Copied | `SystemInfo` · `SystemLoad` · `MissionCenter` · `Power` · probe · `HyprProfile` | `shipped` |
 
@@ -146,7 +146,7 @@ the sub-settings list:
 
 | Sub-setting | Role |
 |-------------|------|
-| Accent color | Presets + custom hex + **HSV color graph** (`kit/ColorGraphPicker`, debounced commit / coalesced settings+hypr); **Dark / Light** (`kit/SettingsSegmented`); **Opacity** (0% clear · 100% solid, live — bar uses clearer `menuBarAlpha`, dock richer `glassAlpha`) + **Blur** (frosted bar/dock/launcher; debounced Hypr apply) |
+| Accent & chrome | Presets + custom hex + **HSV color graph** (`kit/ColorGraphPicker`, debounced commit / coalesced settings+hypr); **Dark / Light** (`kit/SettingsSegmented`); **Opacity** (0% clear · 100% solid, live — bar uses clearer `menuBarAlpha`, dock richer `glassAlpha`) + **Blur** (frosted bar/dock/Beacon; debounced Hypr apply) |
 | Background | Kind hub (`kit/SettingsKindPicker`): Color (`kit/SettingsColorPresetGroup` + graph) · Image (built-in stock + albums/slideshow; empty-album honesty; Missing thumb overlay) · Daily · Video · Animated. Applied by **`proteus-bg`** (Hypr `exec-once`) |
 | Lock screen | Same Kind/color kit as Background + dim; Match desktop; **widgets only via lock Customize** (long-press) — not in Settings |
 | Icons | **Default / Dark / Clear / Tinted** side-by-side squircle compare (`kit/SettingsIconStylePicker`); Tinted tint graph; custom art Switch/Reset; dock Keep/Remove via glass right-click menu + long-press edit (−) / drag-off (running apps appear on dock) |
@@ -180,7 +180,7 @@ Reference hybrid leaf under **Peripherals → Keyboard**:
 **Peripherals** category (same drill-in as Appearance): Keyboard · Mouse.
 Headphones/speakers stay under **Sound**, not Peripherals.
 
-Defaults include launcher (`Super+Space` / `Super+D`), Settings (`Super+,`),
+Defaults include Beacon (`Super+Space` / `Super+D`), Settings (`Super+,`),
 terminal, workspaces, etc. (`env/hypr/proteus-keybinds.conf` template).
 
 ---
@@ -306,12 +306,12 @@ hub); guest `./scripts/smoke/software-guest-smoke.sh` in `smoke-all` (SKIP unles
 
 ## 7. Growth
 
-**Appearance** hub + five leaves shipped (mega-page merge Out). **Date & time**
+**Appearance** hub + five leaves shipped (mega-page merge Out). **Date, time & weather**
 locale set + 5-day forecast + Match TZ shipped; manual time / RTC writers Out.
 **Power** mode (PPD) + logind writer shipped; charge-threshold / TLP stay Out.
 
 **Online accounts** seats are `partial` — catalog + Google PKCE when configured;
-mail/contacts/Drive **apps** stay Out. **Privacy** ships transparency + weather
+mail/contacts/Drive **apps** stay Out. **Privacy & security** ships transparency + weather
 mute + session controls; **permission grant model** still Out until adaptive
 apps need it. **Users** session/greeter status shipped (add-remove + writing
 greeter prefs stay Out).
@@ -320,7 +320,7 @@ Depth order for what’s left:
 
 1. **Users depth** — write greeter/autologin prefs; add-remove stays Out of Settings  
 2. **Online accounts depth** — Microsoft / Nextcloud connect; consumers stay Out  
-3. **Privacy grant model** — when adaptive apps need it (transparency/mute/session shipped)  
+3. **Privacy & security grant model** — when adaptive apps need it (transparency/mute/session shipped)  
 4. **Network polish** — largely shipped (IPv4 on Devices · Diagnostics ss/firewall); Headscale admin / OpenVPN wizard stay Out  
 5. **Peripherals** — touchpad / tablet  
 6. **Software depth** — dependency graphs later; Snap stays Out (hub + six leaves + smoke matrix shipped)  
@@ -335,10 +335,10 @@ Depth order for what’s left:
 *(Users polish: Reboot/Shutdown confirm · GECOS/home · Online accounts jump shipped.)*
 *(Power mode PPD + logind writer shipped — charge thresholds / TLP stay Out.)*
 *(Software hub + six leaves + reliability/guest smoke shipped — dep graphs / Snap stay Out.)*
-*(Appearance hub + Date & time locale/forecast shipped — manual time/RTC Out.)*
+*(Appearance hub + Date, time & weather locale/forecast shipped — manual time/RTC Out.)*
 *(About OS/kernel/hostname · load strip · Mission Center escape · Copy+Copied ·
 soft profile shipped — hard posture switch Out; no in-Settings live dashboard.)*
-*(Privacy transparency · weather mute · session shipped — grant model still Out.)*
+*(Privacy & security transparency · weather mute · session shipped — grant model still Out.)*
 
 Virt / container setup stays a **separate app**, not a Settings growth item.
 

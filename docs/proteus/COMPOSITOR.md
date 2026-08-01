@@ -2,7 +2,7 @@
 doc: compositor
 role: architecture
 audience: architects, contributors, coding agents
-last_updated: "2026-07-30"
+last_updated: "2026-08-01"
 doc_status: active
 scope: Engines under hard-switch postures; Hyprland + Quickshell; profiles, capabilities, limits
 related:
@@ -103,7 +103,7 @@ Prefer these for OS facts before inventing daemons.
 | **Shell ≠ app platform** | Chrome + Settings in QS; product apps → Tauri ([STACK.md](./STACK.md)) |
 | **Hyprland-shaped integrations** | Best backend for **desktop** — not universal; **console** uses a game-scoped path |
 | **Output / session fragility** | Crashes reported on monitor hotplug, TTY switch, KVM, sleep — **v1:** `shell/scripts/proteus-qs` backoff loop from Hyprland `exec-once`; never keep sole truth in QS memory |
-| **Session start hygiene** | `vm/guest/proteus-session` prefers `start-hyprland`; hypr seed `exec-once` = qs/bg/cliphist only (no terminal); `hide-system-apps` from apps + post-install; host `session-smoke` / `install-smoke` |
+| **Session start hygiene** | `vm/guest/proteus-session` prefers `start-hyprland`; hypr seed `exec-once` = qs/bg/cliphist/hyprpolkitagent (no terminal); `hide-system-apps` from apps + post-install; host `session-smoke` / `install-smoke` |
 | **Young / moving target** | **v1:** record `quickshell --version` in `qs-guest-smoke` / `qs-version-smoke` (do **not** `IgnorePkg`-pin rolling Arch); after `pacman -Syu` re-run `PROTEUS_GUEST=1 ./scripts/smoke-all.sh`; ISO pin later |
 | **QML is programming** | Shared modules; Rust helpers for messy IO |
 | **Settings as second `quickshell -p`** | OK now; files are SoT; revisit Tauri Settings if lifecycle hurts |
@@ -128,15 +128,15 @@ Do **not** fork Quickshell — wrap it; upstream bugs when we hit them.
 
 `partial` — desktop profile + active pointer `shipped`; `media.conf` (console
 alias) / host / home stubs `shipped`. Hard-switch sessions for console/host
-still `planned`. Keyboard + Desktop fragments `shipped`; Displays layout canvas
-`partial` (drag + full-snapshot Revert):
+still `planned`. Keyboard + Desktop + Displays fragments `shipped` (Displays:
+drag layout + full-snapshot Revert):
 
 ```
 ~/.config/hypr/
   hyprland.conf                 # sources below
-  proteus-keybinds.conf         # Settings → Keyboard  (shipped)
-  proteus-general.conf          # gaps, borders, rounding, animations  (shipped)
-  proteus-monitors.conf         # Displays list stub  (partial)
+  proteus-keybinds.conf         # Settings → Peripherals → Keyboard + fixed bindm mouse binds (⌘+drag move / ⌘+right-drag resize)  (shipped)
+  proteus-general.conf          # gaps, borders, rounding, animations, resize_on_border edge grab, accent focus ring (inactive transparent)  (shipped)
+  proteus-monitors.conf         # Displays live monitor= lines  (shipped)
   proteus-profile.conf          # active posture pointer → profiles/*.conf  (shipped)
   profiles/
     desktop.conf                # shipped (tiling defaults)
@@ -204,10 +204,10 @@ compositor chrome for that unit.
 |------|--------|
 | Guest Hyprland + QS shell | `shipped` |
 | Settings → keybinds → hypr conf | `shipped` |
-| Settings → gaps/borders via hyprctl | `shipped` |
+| Settings → gaps/borders via hyprctl | `shipped` — incl. `resize_on_border` (floating edge/corner resize) + accent focus ring (active accent / inactive transparent) + ⌘+drag `bindm` window move |
 | Per-posture hypr profiles | `partial` — desktop + media(console alias)/host/home stubs + soft `set-hypr-profile.sh` + Settings About picker |
 | Console / host hard switches | `planned` — engine + shell session flip |
-| QS respawn / crash policy | `partial` — `proteus-qs` flock/backoff/`--restart`; optional `proteus-qs.service` user unit (hypr exec-once still default) |
+| QS respawn / crash policy | `shipped` — `proteus-qs` flock/backoff/`--restart` + orphan reap (lock fd closed for the child — a leaked fd in a grandchild once wedged every restart); wallpaper runner `proteus-bg` = crash-respawn wrapper + in-shell 15s watchdog; optional `proteus-qs.service` user unit (hypr exec-once still default); version recorded in smoke (IgnorePkg/ISO pin Out) |
 | Capability resolver | `planned` |
 | Pin QS version in guest docs/ISO | `shipped` — version **recorded** in smoke; IgnorePkg/ISO pin Out |
 | Greeter/lock in QS | `partial` — lock screen shipped (PAM); greetd/tuigreet still login |

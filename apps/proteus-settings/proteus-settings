@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Launch the Proteus Settings application (one-stop control center).
-# Optional: --page=network · --query=qpwgraph
+# Single-instance: if Settings is already running, navigate/raise it instead of
+# spawning another Quickshell. Optional: --page=network · --query=qpwgraph
 #   or PROTEUS_SETTINGS_PAGE / PROTEUS_SETTINGS_QUERY
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,4 +26,28 @@ for arg in "$@"; do
   esac
 done
 
-exec quickshell -p "${DIR}"
+ipc() {
+  # Prefer qs when present; quickshell accepts the same ipc subcommand.
+  if command -v qs >/dev/null 2>&1; then
+    qs -p "${DIR}" ipc call "$@"
+  else
+    quickshell -p "${DIR}" ipc call "$@"
+  fi
+}
+
+# Reuse a live instance (IPC up) — apply deep link, focus, exit.
+if ipc nav state >/dev/null 2>&1; then
+  page="${PROTEUS_SETTINGS_PAGE:-}"
+  query="${PROTEUS_SETTINGS_QUERY:-}"
+  if [[ -n "${query}" ]]; then
+    leaf="${page:-packages-search}"
+    ipc nav installSearch "${query}" "${leaf}" >/dev/null 2>&1 || true
+  elif [[ -n "${page}" ]]; then
+    ipc nav go "${page}" >/dev/null 2>&1 || true
+  fi
+  ipc nav raise >/dev/null 2>&1 || true
+  exit 0
+fi
+
+# -n: if a second launch races past the IPC probe, exit instead of doubling.
+exec quickshell -n -p "${DIR}"

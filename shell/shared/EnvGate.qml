@@ -92,14 +92,14 @@ Singleton {
     },
     {
       id: "datetime",
-      label: "Date & time",
+      label: "Date, time & weather",
       status: "partial",
       requires: [],
       requiresAny: []
     },
     {
       id: "privacy",
-      label: "Privacy",
+      label: "Privacy & security",
       status: "partial",
       requires: [],
       requiresAny: []
@@ -328,15 +328,15 @@ Singleton {
     },
     {
       id: "datetime",
-      label: "Date & time",
+      label: "Date, time & weather",
       hubId: "datetime",
-      keywords: "clock timezone ntp"
+      keywords: "clock timezone ntp locale weather forecast location"
     },
     {
       id: "privacy",
-      label: "Privacy",
+      label: "Privacy & security",
       hubId: "privacy",
-      keywords: "permissions camera mic"
+      keywords: "privacy security permissions camera mic clipboard lock"
     },
     {
       id: "packages",

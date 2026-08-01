@@ -2,14 +2,14 @@ import QtQuick
 import QtQuick.Layouts
 import "../../../shared"
 
-// Current conditions for the system location (Settings → Date & time → Location).
+// Current conditions for the system location (Settings → Date, time & weather → Location).
 // Shared by the lock and desktop surfaces — see Widgets.widgetCatalog.
 Item {
   id: root
   property string size: "sm"
   property bool showWhenIdle: true
   // Desktop only: click opens the calendar popover (weather summary) or,
-  // without a location, Settings → Date & time to set one.
+  // without a location, Settings → Date, time & weather to set one.
   property bool interactive: false
 
   implicitWidth: card.implicitWidth

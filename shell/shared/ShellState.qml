@@ -132,6 +132,9 @@ Singleton {
 
   function unlockSession() {
     sessionLocked = false
+    // First unlock of the session — allow chrome/widgets to map (they are
+    // held back during the cold-boot lock so the desktop never flashes).
+    sessionStartLockPending = false
   }
 
   function openSettings(pageId, query) {
@@ -147,13 +150,18 @@ Singleton {
       envPrefix += "PROTEUS_SETTINGS_PAGE=" + shellQuote(page) + " "
     if (q.length)
       envPrefix += "PROTEUS_SETTINGS_QUERY=" + shellQuote(q) + " "
+    // Prefer the live tree launcher (single-instance via nav IPC) when the
+    // repo is mounted — PATH may still point at a stale /usr/local copy.
+    const root = String(Quickshell.env("PROTEUS_ROOT") || "").trim()
+    const live = (root.length ? root : "/mnt/proteus") + "/apps/proteus-settings/proteus-settings"
     Quickshell.execDetached({
       command: [
         "bash",
         "-lc",
         envPrefix
-          + "command -v proteus-settings >/dev/null && exec proteus-settings"
-          + " || exec /mnt/proteus/apps/proteus-settings/proteus-settings"
+          + "if [[ -x " + shellQuote(live) + " ]]; then exec " + shellQuote(live) + "; fi; "
+          + "command -v proteus-settings >/dev/null && exec proteus-settings; "
+          + "exec " + shellQuote(live)
       ]
     })
   }
