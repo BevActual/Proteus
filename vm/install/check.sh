@@ -42,7 +42,21 @@ ok "desktop packages: ${desk_n}"
 [[ -f "${ROOT}/env/hypr/hyprland.conf" ]] && ok env/hypr/hyprland.conf || bad env/hypr/hyprland.conf
 [[ -f "${ROOT}/env/hypr/proteus-profile.conf" ]] && ok env/hypr/proteus-profile.conf || bad env/hypr/proteus-profile.conf
 [[ -f "${ROOT}/env/hypr/profiles/desktop.conf" ]] && ok env/hypr/profiles/desktop.conf || bad env/hypr/profiles/desktop.conf
-[[ -f "${ROOT}/env/hypr/profiles/media.conf" ]] && ok env/hypr/profiles/media.conf || bad env/hypr/profiles/media.conf
+[[ -f "${ROOT}/env/hypr/profiles/console.conf" ]] && ok env/hypr/profiles/console.conf || bad env/hypr/profiles/console.conf
+[[ -x "${ROOT}/vm/guest/proteus-posture" ]] && ok vm/guest/proteus-posture || bad vm/guest/proteus-posture
+[[ -x "${ROOT}/vm/guest/proteus-guide" ]] && ok vm/guest/proteus-guide || bad vm/guest/proteus-guide
+[[ -x "${ROOT}/vm/guest/apply-console-kit.sh" ]] && ok vm/guest/apply-console-kit.sh || bad vm/guest/apply-console-kit.sh
+[[ -x "${ROOT}/shell/scripts/proteus-console-launch" ]] && ok shell/scripts/proteus-console-launch || bad shell/scripts/proteus-console-launch
+if bash -n "${ROOT}/vm/guest/apply-console-kit.sh" 2>/dev/null; then
+  ok "apply-console-kit.sh bash -n"
+else
+  bad "apply-console-kit.sh (bash -n)"
+fi
+if bash -n "${ROOT}/shell/scripts/proteus-console-launch" 2>/dev/null; then
+  ok "proteus-console-launch bash -n"
+else
+  bad "proteus-console-launch (bash -n)"
+fi
 [[ -f "${ROOT}/env/hypr/profiles/host.conf" ]] && ok env/hypr/profiles/host.conf || bad env/hypr/profiles/host.conf
 [[ -f "${ROOT}/env/hypr/profiles/home.conf" ]] && ok env/hypr/profiles/home.conf || bad env/hypr/profiles/home.conf
 if [[ -f "${ROOT}/shell/scripts/proteus-qs" ]]; then

@@ -21,6 +21,10 @@ ColumnLayout {
     {
       key: "peripherals-mouse",
       label: "Mouse"
+    },
+    {
+      key: "peripherals-gamepads",
+      label: "Gamepads"
     }
   ]
 

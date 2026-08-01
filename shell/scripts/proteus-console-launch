@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# proteus-console-launch — run an app under console posture with VM-safe GL.
+# Usage:
+#   proteus-console-launch [--gamescope|--no-gamescope] <command...>
+#   proteus-console-launch [--gamescope|--no-gamescope] --desktop <desktop-id>
+set -euo pipefail
+
+USE_GAMESCOPE=-1 # -1 auto, 0 off, 1 on
+DESKTOP_ID=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --gamescope)
+      USE_GAMESCOPE=1
+      shift
+      ;;
+    --no-gamescope)
+      USE_GAMESCOPE=0
+      shift
+      ;;
+    --desktop)
+      DESKTOP_ID="${2:-}"
+      shift 2
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -h|--help)
+      echo "usage: $0 [--gamescope|--no-gamescope] [--desktop ID | command...]" >&2
+      exit 0
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+if [[ -n "${DESKTOP_ID}" ]]; then
+  DESKTOP_ID="${DESKTOP_ID%.desktop}"
+  set -- gtk-launch "${DESKTOP_ID}"
+elif [[ $# -eq 0 ]]; then
+  echo "usage: $0 [--gamescope|--no-gamescope] [--desktop ID | command...]" >&2
+  exit 2
+fi
+
+# Auto-wrap known game seats when not explicitly set
+if [[ "${USE_GAMESCOPE}" -eq -1 ]]; then
+  case "${1:-}" in
+    steam|retroarch)
+      USE_GAMESCOPE=1
+      ;;
+    *)
+      USE_GAMESCOPE=0
+      ;;
+  esac
+fi
+
+is_vm() {
+  local vendor product
+  vendor="$(tr -d '\0' </sys/class/dmi/id/sys_vendor 2>/dev/null || true)"
+  product="$(tr -d '\0' </sys/class/dmi/id/product_name 2>/dev/null || true)"
+  [[ "${vendor}${product}" =~ [Qq][Ee][Mm][Uu]|[Vv]irtual|[Vv]Mware|[Bb]ox|[Xx]en|[Bb]ochs ]]
+}
+
+ENV_ARGS=()
+if [[ "${PROTEUS_TERMINAL_SOFTGL:-}" == "1" || "${PROTEUS_TERMINAL_SOFTGL:-}" == "true" ]]; then
+  ENV_ARGS+=(LIBGL_ALWAYS_SOFTWARE=1)
+elif is_vm; then
+  ENV_ARGS+=(MESA_GL_VERSION_OVERRIDE=4.3 MESA_GLSL_VERSION_OVERRIDE=430)
+fi
+
+run_cmd() {
+  if ((${#ENV_ARGS[@]})); then
+    exec env "${ENV_ARGS[@]}" "$@"
+  fi
+  exec "$@"
+}
+
+if [[ -n "${DESKTOP_ID}" ]]; then
+  if ! command -v gtk-launch >/dev/null 2>&1; then
+    if command -v gio >/dev/null 2>&1; then
+      set -- gio launch "${DESKTOP_ID}.desktop"
+    elif command -v dex >/dev/null 2>&1; then
+      set -- dex "${DESKTOP_ID}.desktop"
+    else
+      echo "proteus-console-launch: no gtk-launch/gio/dex for desktop ${DESKTOP_ID}" >&2
+      exit 127
+    fi
+  fi
+fi
+
+if [[ "${USE_GAMESCOPE}" -eq 1 ]]; then
+  if command -v gamescope >/dev/null 2>&1; then
+    if ((${#ENV_ARGS[@]})); then
+      exec env "${ENV_ARGS[@]}" gamescope -f -- "$@"
+    fi
+    exec gamescope -f -- "$@"
+  else
+    echo "proteus-console-launch: gamescope missing — running bare" >&2
+  fi
+fi
+
+run_cmd "$@"

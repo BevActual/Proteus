@@ -101,5 +101,12 @@ need "$APP" 'proteus/appimages' "AppImages library path"
 need "$APP" 'No authentication' "AppImages user-only honesty"
 need "$APP" 'onCancelled' "AppImages Cancel"
 
+# --- Web apps: URL → desktop entry via proteus-webapp ---
+WEB="$ROOT/apps/proteus-settings/panes/PackagesWebAppsPane.qml"
+need "$WEB" 'proteus-webapp' "Web apps helper"
+need "$WEB" 'No authentication' "Web apps user-only honesty"
+need "$WEB" 'onCancelled' "Web apps Cancel"
+need "$ROOT/shell/scripts/proteus-webapp" 'proteus-web-' "Web apps desktop prefix"
+
 [[ "$fail" -eq 0 ]] || { echo "software-reliability-smoke: FAILED" >&2; exit 1; }
 echo "software-reliability-smoke: OK"

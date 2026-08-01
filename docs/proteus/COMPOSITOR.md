@@ -126,10 +126,11 @@ Do **not** fork Quickshell — wrap it; upstream bugs when we hit them.
 
 ## 4. Profiles on disk
 
-`partial` — desktop profile + active pointer `shipped`; `media.conf` (console
-alias) / host / home stubs `shipped`. Hard-switch sessions for console/host
-still `planned`. Keyboard + Desktop + Displays fragments `shipped` (Displays:
-drag layout + full-snapshot Revert):
+`partial` — desktop + **console** profiles + active pointer `shipped`; host /
+home stubs `shipped`. Console hard switch `partial` (`proteus-posture` +
+ConsoleShell + per-title Gamescope); host hard switch still `planned`.
+Keyboard + Desktop + Displays fragments `shipped` (Displays: drag layout +
+full-snapshot Revert):
 
 ```
 ~/.config/hypr/
@@ -140,16 +141,15 @@ drag layout + full-snapshot Revert):
   proteus-profile.conf          # active posture pointer → profiles/*.conf  (shipped)
   profiles/
     desktop.conf                # shipped (tiling defaults)
-    media.conf                  # stub — legacy name for **console** (rename later)
+    console.conf                # shipped (fullscreen kiosk rules; soft or via proteus-posture)
     host.conf                   # stub (ops / lean later)
     home.conf                   # stub — parked posture only
 ```
 
-Today’s helper is **soft only**: `vm/guest/set-hypr-profile.sh
-desktop|console|media|host|home` (`console` ≡ `media`). Settings → About
-(`HyprProfile.qml`) soft-selects the same pointer. Intended product flip =
-**hard switch** (engines + shell), not profile reload alone — see
-[POSTURES.md](./POSTURES.md) § Hard switches.
+Soft helper: `vm/guest/set-hypr-profile.sh desktop|console|media|host|home`
+(`media` ≡ `console`). Settings → About soft-selects the same pointer.
+**Hard console flip:** `vm/guest/proteus-posture` (Fact + chrome + profile) —
+see [POSTURES.md](./POSTURES.md) § Hard switches.
 
 Nested template today: `env/hypr/hyprland.conf` sources `proteus-monitors.conf`,
 `proteus-general.conf`, `proteus-keybinds.conf`, and `proteus-profile.conf`.
@@ -206,7 +206,8 @@ compositor chrome for that unit.
 | Settings → keybinds → hypr conf | `shipped` |
 | Settings → gaps/borders via hyprctl | `shipped` — incl. `resize_on_border` (floating edge/corner resize) + accent focus ring (active accent / inactive transparent) + ⌘+drag `bindm` window move |
 | Per-posture hypr profiles | `partial` — desktop + media(console alias)/host/home stubs + soft `set-hypr-profile.sh` + Settings About picker |
-| Console / host hard switches | `planned` — engine + shell session flip |
+| Console hard switch | `partial` — proteus-posture + ConsoleShell + console.conf + per-title Gamescope; full Gamescope session later |
+| Host hard switch | `planned` — lean/ops session flip |
 | QS respawn / crash policy | `shipped` — `proteus-qs` flock/backoff/`--restart` + orphan reap (lock fd closed for the child — a leaked fd in a grandchild once wedged every restart); wallpaper runner `proteus-bg` = crash-respawn wrapper + in-shell 15s watchdog; optional `proteus-qs.service` user unit (hypr exec-once still default); version recorded in smoke (IgnorePkg/ISO pin Out) |
 | Capability resolver | `planned` |
 | Pin QS version in guest docs/ISO | `shipped` — version **recorded** in smoke; IgnorePkg/ISO pin Out |

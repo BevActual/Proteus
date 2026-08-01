@@ -14,8 +14,98 @@ Item {
   readonly property bool openState: ShellState.controlCenterOpen
   property real openProgress: openState ? 1 : 0
   readonly property bool stillVisible: openState || openProgress > 0.001
+  // Pad focus: volume | dnd | console | glance | lock | shot | settings
+  property int padIndex: 0
+  readonly property var padSlots: ["volume", "dnd", "console", "glance", "lock", "shot", "settings"]
 
   visible: stillVisible
+
+  function padMove(delta) {
+    const n = padSlots.length
+    if (!n)
+      return
+    padIndex = (padIndex + delta + n) % n
+  }
+
+  function padActivate() {
+    const slot = padSlots[Math.max(0, Math.min(padIndex, padSlots.length - 1))]
+    if (slot === "volume")
+      return
+    if (slot === "dnd") {
+      Notifications.toggleDnd()
+      return
+    }
+    if (slot === "console") {
+      ShellState.closeControlCenter()
+      const proot = String(Quickshell.env("PROTEUS_ROOT") || "/mnt/proteus")
+      Quickshell.execDetached({
+        command: [
+          "bash", "-lc",
+          "command -v proteus-posture >/dev/null && setsid proteus-posture console >/dev/null 2>&1 & "
+              + "|| setsid " + proot + "/vm/guest/proteus-posture console >/dev/null 2>&1 &"
+        ]
+      })
+      return
+    }
+    if (slot === "glance") {
+      ShellState.closeControlCenter()
+      if (MissionCenter.available)
+        MissionCenter.open()
+      else
+        MissionCenter.openSoftware()
+      return
+    }
+    ShellState.closeControlCenter()
+    if (slot === "lock")
+      ShellState.lockSession()
+    else if (slot === "shot") {
+      Quickshell.execDetached({
+        command: [
+          "bash",
+          "-lc",
+          "sleep 0.4; d=\"$HOME/Pictures/Screenshots\"; mkdir -p \"$d\"; "
+              + "f=\"$d/Screenshot-$(date +%Y-%m-%d-%H%M%S).png\"; "
+              + "grim \"$f\" && { command -v notify-send >/dev/null 2>&1 "
+              + "&& notify-send 'Screenshot saved' \"$f\" || true; }"
+        ]
+      })
+    } else {
+      ShellState.openSettings()
+    }
+  }
+
+  function handlePad(button) {
+    const b = String(button || "")
+    if (b === "b" || b === "select") {
+      ShellState.closeControlCenter()
+      return
+    }
+    if (b === "a" || b === "start") {
+      padActivate()
+      return
+    }
+    if (b === "up") {
+      padMove(-1)
+      return
+    }
+    if (b === "down") {
+      padMove(1)
+      return
+    }
+    if (b === "left") {
+      if (padSlots[padIndex] === "volume")
+        Audio.stepVolume(-5)
+      else
+        padMove(-1)
+      return
+    }
+    if (b === "right") {
+      if (padSlots[padIndex] === "volume")
+        Audio.stepVolume(5)
+      else
+        padMove(1)
+    }
+  }
 
   Behavior on openProgress {
     NumberAnimation {
@@ -26,8 +116,10 @@ Item {
 
   onOpenStateChanged: {
     SystemLoad.watching = openState
-    if (openState)
+    if (openState) {
+      padIndex = 0
       forceActiveFocus()
+    }
   }
 
   readonly property real panelW: Math.min(360, parent.width - 24)
@@ -259,6 +351,60 @@ Item {
   }
 
   Keys.onEscapePressed: ShellState.closeControlCenter()
+  Keys.onPressed: event => {
+    if (event.key === Qt.Key_Up) {
+      root.padMove(-1)
+      event.accepted = true
+    } else if (event.key === Qt.Key_Down) {
+      root.padMove(1)
+      event.accepted = true
+    } else if (event.key === Qt.Key_Left) {
+      root.handlePad("left")
+      event.accepted = true
+    } else if (event.key === Qt.Key_Right) {
+      root.handlePad("right")
+      event.accepted = true
+    } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+      root.padActivate()
+      event.accepted = true
+    }
+  }
   focus: true
+
+  // Pad focus hint
+  Text {
+    anchors.left: parent.left
+    anchors.bottom: parent.bottom
+    anchors.margins: Theme.spaceSm
+    z: 50
+    visible: root.openState
+    text: {
+      const slot = root.padSlots[root.padIndex] || ""
+      const labels = {
+        volume: "Volume (←/→)",
+        dnd: "Do Not Disturb",
+        console: "Enter Console",
+        glance: "System glance",
+        lock: "Lock",
+        shot: "Screenshot",
+        settings: "Settings"
+      }
+      return "◎ " + (labels[slot] || slot)
+    }
+    color: Theme.accent
+    font.family: Theme.fontFamily
+    font.pixelSize: 11
+    font.weight: Font.Medium
+  }
+
+  Connections {
+    target: ShellState
+    function onPadAction(button) {
+      if (!ShellState.controlCenterOpen || ShellState.sessionLocked)
+        return
+      root.handlePad(button)
+    }
+  }
+
   Component.onCompleted: forceActiveFocus()
 }

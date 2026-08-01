@@ -181,6 +181,7 @@ adaptive app can honor the contract.
 | App capability manifest | `partial` — `env/apps/` schema + catalog; EnvGate load |
 | Beacon filtering by contract | `partial` — manifest match + heuristic fallback |
 | DesktopEntries launcher | `shipped` (desktop) |
+| Console lean seats | `partial` — Browser / Media / Terminal / Steam / RetroArch / Desktop via `proteus-console-launch`; Jump Back In = `consoleRecents`; Library/Search = DesktopEntries (+ Games tag); Web apps from Software leaf |
 
 ---
 

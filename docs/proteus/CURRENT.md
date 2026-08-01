@@ -25,7 +25,8 @@ status_legend:
 # Proteus — current status
 
 Desktop spine is dogfoodable (shell + Settings largely shipped). Console and
-host hard switches remain planned; parked postures are thesis only. Docs
+console hard switch is `partial` (layered session + proteus-posture); host hard
+switch remains planned; parked postures are thesis only. Docs
 describe the thesis ahead of code where marked `planned`.
 
 ## Document map
@@ -51,7 +52,7 @@ describe the thesis ahead of code where marked `planned`.
 | Hyprland session | `shipped` | Backend for desktop posture; greetd / proteus-session |
 | Quickshell shell | `shipped` | Chrome runtime; `/mnt/proteus/shell` via 9p |
 | Nested Hyprland (host) | `shipped` | `scripts/run-nested.sh` — shell-only quick test |
-| Hyprland posture profiles | `partial` — desktop + media(console alias)/host/home stubs + soft `set-hypr-profile.sh` + Settings About picker (`HyprProfile.qml`); hard switches `planned` — [POSTURES.md](./POSTURES.md) · [COMPOSITOR.md](./COMPOSITOR.md) |
+| Hyprland posture profiles | `partial` — desktop + console (fullscreen rules) / host / home stubs + soft `set-hypr-profile.sh` + Settings About picker; console hard switch via `proteus-posture` — [POSTURES.md](./POSTURES.md) · [COMPOSITOR.md](./COMPOSITOR.md) |
 | QS version pin / respawn policy | `shipped` — `proteus-qs` flock + `--restart` + orphan reap + backoff; optional systemd `--user` unit; version **recorded** in `qs-guest-smoke` / `qs-version-smoke` (not IgnorePkg); after QS upgrade re-run guest smoke; IgnorePkg/ISO pin Out |
 
 ---
@@ -69,7 +70,7 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 | Dock (pins, magnify, running dots) | `shipped` — continuous frosted glass shelf (`glassAlpha` frost floor + curve-following edge glow **looping the full plate** — plate lifts 1px so the bottom band isn't clipped at the surface edge; no straight specular); smooth magnify; running disc vs active accent pill; hairline divider pins ‖ transients; launch bounce until first window; **window management**: click minimizes the focused app (parks on `special:minimized`; click restores — multi-window focused apps cycle instead), **hover-dwell preview popup** (glass plate, live `ScreencopyView` thumbnail per window · click focuses/restores · ✕ closes · "Hidden" badge on parked; popup band is a **fixed surface reserve + input mask** — resizing the layer on hover made Hyprland clip the dock bottom, and the mask keeps the transparent band click-through); **Settings pin** title-matches `Proteus Settings` (not shared `quickshell` class) — click toggles minimize/restore, never spawns a second instance; Beacon + desktop entry also route through `openSettings` single-instance; long-press edit (−/+ · Done); press-drag reorder / drag-off remove; glass Keep/Remove/Quit (`ChromeMenuPlate`) |
 | Session start (`proteus-session`) | `shipped` — prefers `start-hyprland` (known paths; fail-closed to Hyprland); hypr seed `exec-once` = qs/bg/cliphist/polkit agent (install strips terminal autostart); Settings tiles like any app window (legacy float+center rule removed; config.sh migrates old installs); `hide-system-apps` via apps + post-install (Settings-covered tools + Quickshell; Calculator stays); host `session-smoke` + `install-smoke` |
 | Desktop widgets (free place; Customize) | `shipped` — long-press (empty desktop or a widget) or `Super+Shift+W` (probe: `chrome customizeDesktop` IPC); free-place + optional Snap to Grid (16px edge lattice · no overlap); **tight packing** (frame width/height tables match the drawn cards — no invisible slack; `overlapGap: 0`; collision resolve caches neighbors, prefers flush seats + min-penetration separate, capped spiral — avoids free-drag freezes); **alignment guides** while dragging free or snap (accent hairlines magnetize edges/centers to neighbors + surface center, 10px threshold; snap mode keeps magnetized axes off the lattice so stacks stay flush; dropped if collision resolution moves the frame); **arrow keys nudge the selected widget** (8px · Shift 40px · one pitch when snapping; Customize grabs the keyboard so Esc/arrows land); **widgets are click-interactive outside Customize** (clock/calendar → calendar popover · weather → popover or Settings → Date, time & weather when no location · system → Mission Center/Software · battery → Settings → Power · note → edit in place · world clock → city picker) — the old per-widget hold timer armed on an unaccepted press and fired customize after normal clicks (phantom Customize); long-press now lives on the surface (with press hit-test select) + interactive areas' own `onPressAndHold`; **Add Widget gallery renders live scaled previews** (real widget instances, non-interactive; catalog glyph while loading); catalog via `Widgets.qml` — clock · media · battery · weather · **calendar** (today tile at S, month grid + today disc at M/L, midnight rollover) · **system glance** (CPU/mem bars + uptime via `SystemLoad` retain/release refcount; storage at L) · **note** (sticky — click to write in place, debounced save to `noteText`, widget layer raises + grabs keyboard while editing via `ShellState.desktopNoteEditing`; read-only on lock) · **world clock** (first multi-instance type, `unique: false` — one per city; `TZ=<zone> date` owns the tz math; in-widget city picker persists `tzId`/`tzLabel`); separate from lock; **not** in Settings; widget store Out |
-| Lock screen (`Super+L`, PAM + `WlSessionLock`) | `shipped` — Customize mode, zone layout, applets; cold boot auto-lock **with no desktop peek** (bar/dock/widgets gate on `sessionStartLockPending`, held until first unlock — only the wallpaper maps beneath the lock); attempt cooldown after 3 misses |
+| Lock screen (`Super+L`, PAM + `WlSessionLock`) | `shipped` — Customize mode, zone layout, applets; cold boot auto-lock **with no desktop peek** (bar/dock/widgets gate on `sessionStartLockPending`, held until first unlock — only the wallpaper maps beneath the lock); attempt cooldown after 3 misses; **console** reuses the same `LockSurface` / PAM path (`ConsoleShell` hosts `WlSessionLock` — previously desktop-only, so Super+L / CC Lock left a dead or no-op lock in console) |
 | Global shortcuts (Beacon, settings, lock) | `shipped` |
 | Hardware probe at session start (`Hardware.qml`) | `shipped` — Wave A |
 | Env gate (Beacon / Settings / dock) | `shipped` — `EnvGate.qml` (+ `env/apps` manifests); app icon resolve + Proteus brand marks |
@@ -91,7 +92,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Desktop → Gaps / Borders / Motion / Dock & menu bar / Beacon | `shipped` — Appearance-style hub + `Desktop*Leaf` StickyPaneLoaders; Gaps/Borders/Motion `SettingsFormRow` + live hints; Dock disable honesty + Advanced conf escape; Beacon blurb (universal search; Tab / Ctrl+1–4 modes), Clear recent apps + recent files, tag FormRows; live hypr + `proteus-general.conf` / `settings.json` |
 | Displays (scale / mode / orientation, Identify; layout canvas) | `shipped` — drag layout + full-snapshot Revert; Refresh/re-entry clears Revert; post-Apply topology drift + Hyprland monitor events cancel Revert; list merge by connector name; clearer Apply/Revert status + conf escape |
 | Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) | `shipped` |
-| Software → Updates / Repos / AUR / Flathub / AppImages / Orphans (`packages`) | `shipped` — hub + `Packages*Pane` StickyPaneLoaders; Install\|Installed mode-safe loads + leafUi; sticky action bar; live `$` op + Cancel + last error; empty Installed / orphans / AppImages honesty; hub Needs yay/paru · flatpak; AppImages user-only (no polkit); escape **Install…** → seeded Software leaf (`SettingsNav.goInstallSearch` / `PROTEUS_SETTINGS_QUERY`; seed beats leafUi restore; LocalSend/Tailscale/BT/Mixer/Wireshark/Mission Center/yay/flatpak); `software-reliability-smoke` (all six leaves) + `software-guest-smoke` in `smoke-all` (yay **or** paru); dep graphs / Snap Out |
+| Software → Updates / Repos / AUR / Flathub / AppImages / Web apps / Orphans (`packages`) | `shipped` — hub + `Packages*Pane` StickyPaneLoaders; Install\|Installed mode-safe loads + leafUi; sticky action bar; live `$` op + Cancel + last error; empty Installed / orphans / AppImages honesty; **Web apps** (`proteus-webapp` → user `.desktop`, no polkit); hub Needs yay/paru · flatpak; AppImages user-only; escape **Install…** → seeded Software leaf; `software-reliability-smoke` + `software-guest-smoke` in `smoke-all` (yay **or** paru); dep graphs / Snap Out |
 | Sound → Output / Input / Applications / Mixer / Latency (`sound`) | `shipped` — Desktop-style hub + `Sound*Leaf` StickyPaneLoaders; **Mixer** Wave Link–style grid (channels/inputs × mixes; Speakers/mix listen; rename; peaks; drag-reorder with full-row/column drop lines + wider gutters); instant expand/listen (dbl-click rename); slideVol + dump-pause while dragging levels; honest setup CTA; × confirm; graph editor escape (`qpwgraph` Install… → Repos); refcounted `mixBusy`; folder/picker wheel capture; resident `proteus-audio-mix serve` (Python mutations + fallback); Output/Input/Apps/Latency FormRows; pactl + `pw-metadata` |
 | Network → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN (`network`) | `shipped` — hub + leaves; password Wi‑Fi; BT pair; Devices IPv4; **Diagnostics** (iface bars · `ss` · firewall · route/DNS · ping · Wireshark); LocalSend; Tailscale peers/exit/login-server; VPN up/down + WG import; Headscale admin / OpenVPN wizard Out |
 | Power (PPD mode + battery + idle/lid) | `shipped` — Performance/Balanced/Eco via `powerprofilesctl`; battery via UPower; `pkexec proteus-logind` drop-in + reload (not restart); CC Power tile; charge thresholds / TLP Out |
@@ -118,14 +119,19 @@ Locked product set: [POSTURES.md](./POSTURES.md).
 | Posture | Status |
 |---------|--------|
 | desktop | `partial` — primary focus spine |
-| console | `planned` — hard switch (game-scoped compositor + sparse shell); code stub `couch`; hypr stub `media.conf` |
+| console | `partial` — layered ConsoleShell + hard `proteus-posture`; seats Browser / Media / Terminal / Steam / RetroArch / Desktop / Web apps via `proteus-console-launch` (+ gamescope auto for Steam/RA); Jump Back In (`consoleRecents`); Library/Search from DesktopEntries; pad grammar (`proteus-guide` → `chrome pad`) on home/switcher/CC/Beacon; Guide long-hold → exit confirm; session lock; `apply-console-kit.sh`; full Gamescope *session* later |
 | host | `planned` — hard switch (lean/ops; UI on demand); hypr stub `host.conf` |
 | home · wearable · xr · vehicle | `parked` — thesis only; not in proof order |
 
-Focus set + hard switches: [POSTURES.md](./POSTURES.md). Selection today:
-`PROTEUS_SURFACE` env (default `desktop`). Soft hypr helper:
-`set-hypr-profile.sh` (`media` / `console` → console alias) + Settings → About
-picker (`HyprProfile.qml`) — soft reload only, not a hard posture switch.
+Focus set + hard switches: [POSTURES.md](./POSTURES.md). Hard console flip:
+`proteus-posture console|desktop` (Fact `~/.config/proteus/posture` + chrome +
+profile). Enter from desktop: Beacon Action · Control Center tile ·
+`Super+Shift+C`. Soft hypr helper `set-hypr-profile.sh` + Settings → About
+picker remain soft-only (window-rule component, not the product flip).
+
+Console dogfood (guest): `sudo bash /mnt/proteus/vm/guest/apply-console-kit.sh`
+then `proteus-posture console`. Seats use `proteus-console-launch` (VM GL
+override + optional gamescope).
 
 ---
 
@@ -140,7 +146,8 @@ picker (`HyprProfile.qml`) — soft reload only, not a hard posture switch.
 | `~/.config/hypr/proteus-general.conf` | Gaps, borders, rounding, animations (sourced) |
 | `~/.config/hypr/proteus-monitors.conf` | Displays live `monitor =` lines (sourced) |
 | `~/.config/hypr/proteus-profile.conf` | Active posture profile pointer → `profiles/*.conf` |
-| `~/.config/hypr/profiles/*.conf` | Posture fragments (desktop shipped; media=console alias / host / home stubs) |
+| `~/.config/proteus/posture` | Hard-switch Fact (`desktop` \| `console`) — boot + `proteus-qs` when `PROTEUS_SURFACE` unset |
+| `~/.config/hypr/profiles/*.conf` | Posture fragments (desktop + console fullscreen rules shipped; host / home stubs) |
 | `~/.config/hypr/hyprland.conf` | Guest/session compositor config |
 | `env/hypr/hyprland.conf` | Nested template (sources general / monitors / keybinds / profile) |
 | `env/hypr/proteus-keybinds.conf` | Default binds template |
@@ -195,7 +202,7 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 | Lock | Doc | Code status |
 |------|-----|-------------|
 | Stack split (QML / Tauri / Rust) | [STACK.md](./STACK.md) | Settings+shell = QML; no Tauri apps yet |
-| Hyprland as backend + QS limits | [COMPOSITOR.md](./COMPOSITOR.md) | Desktop Hyprland `shipped`; console/host hard switches `planned`; media.conf = console alias stub; home parked |
+| Hyprland as backend + QS limits | [COMPOSITOR.md](./COMPOSITOR.md) | Desktop Hyprland `shipped`; console hard switch `partial` (ConsoleShell + proteus-posture + console.conf); host `planned`; home parked |
 | Adaptive apps / environment contract | [APPLICATIONS.md](./APPLICATIONS.md) | `partial` — `env/apps` manifests + EnvGate prefer; postures unused |
 | Hardware module catalog | [HARDWARE.md](./HARDWARE.md) | Wave A probe + `Hardware.qml` session load |
 | Capability / posture resolver | [POSTURES.md](./POSTURES.md) | Probe → caps in shell; posture still stub |
@@ -206,8 +213,8 @@ SSH default: `ssh -p 2222 andrew@127.0.0.1`
 
 ## 8. Not yet
 
-- Remaining focus hard switches (**console**, **host**) — game-scoped compositor + sparse shell; lean ops session  
-- Soft hypr profile reload sold as posture (use hard switches)  
+- Remaining focus hard switch (**host**) — lean ops session; console Gamescope *session* hardening
+- Soft hypr profile reload sold as posture (use `proteus-posture` for console)
 - Parked postures (home / wearable / xr / vehicle) before focus three are proven  
 - Snap / dependency graphs in Software  
 - pacman IgnorePkg / ISO QS version pin (record + smoke only today)  

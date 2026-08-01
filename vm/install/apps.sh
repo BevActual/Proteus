@@ -19,12 +19,27 @@ fi
 
 # Interim capture helpers on PATH (first-party chrome will replace)
 SCRIPTS="${PROTEUS_ROOT}/shell/scripts"
-for s in proteus-screenshot proteus-clipboard proteus-colorpick proteus-terminal; do
+for s in proteus-screenshot proteus-clipboard proteus-colorpick proteus-terminal proteus-console-launch; do
   if [[ -f "${SCRIPTS}/${s}" ]]; then
     proteus_root install -m 755 "${SCRIPTS}/${s}" "/usr/local/bin/${s}"
     proteus_log "installed /usr/local/bin/${s}"
   fi
 done
+
+# Hard posture switch + Guide-button listener + soft profile helper (console)
+for s in proteus-posture proteus-guide set-hypr-profile.sh; do
+  if [[ -f "${GUEST}/${s}" ]]; then
+    proteus_root install -m 755 "${GUEST}/${s}" "/usr/local/bin/${s}"
+    proteus_log "installed /usr/local/bin/${s}"
+  fi
+done
+
+# Console dogfood kit (gamescope · python-evdev · helpers · console.conf seed)
+if [[ -f "${GUEST}/apply-console-kit.sh" ]]; then
+  proteus_root bash "${GUEST}/apply-console-kit.sh" || {
+    echo "apps: note — apply-console-kit skipped or failed" >&2
+  }
+fi
 
 proteus_root bash "${GUEST}/install-settings-app.sh"
 # Idempotent: refresh NoDisplay stubs even if Settings install was a no-op

@@ -5,7 +5,7 @@ import QtQuick
 import "surfaces"
 
 ShellRoot {
-  // Override with: PROTEUS_SURFACE=phone ./scripts/run-desktop.sh
+  // Override with: PROTEUS_SURFACE=console ./scripts/run-desktop.sh
   // Later: auto-detect from form factor / session.
   readonly property string surface: {
     const e = Quickshell.env("PROTEUS_SURFACE")
@@ -20,8 +20,9 @@ ShellRoot {
         return phoneComp
       case "vr":
         return vrComp
-      case "couch":
-        return couchComp
+      case "console":
+      case "couch": // legacy alias → console
+        return consoleComp
       case "watch":
         return watchComp
       default:
@@ -33,6 +34,6 @@ ShellRoot {
   Component { id: desktopComp; DesktopShell {} }
   Component { id: phoneComp; PhoneShell {} }
   Component { id: vrComp; VrShell {} }
-  Component { id: couchComp; CouchShell {} }
+  Component { id: consoleComp; ConsoleShell {} }
   Component { id: watchComp; WatchShell {} }
 }

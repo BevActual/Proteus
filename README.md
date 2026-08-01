@@ -8,7 +8,7 @@ you are** and **what this machine’s job is** (posture = hardware + use).
 | Posture | Intent |
 |---------|--------|
 | Desktop | Create / windowed work (primary spine) |
-| Console | Lean-back consume + play (TV, games) — hypr stub still `media.conf` |
+| Console | Lean-back consume + play (TV, games) — `proteus-posture` + ConsoleShell |
 | Host | Operate the box — headless by default, **UI when you want it** |
 
 **Parked (thesis only):** wearable · xr · vehicle · home — see
@@ -38,8 +38,9 @@ Built on Arch Linux + [Quickshell](https://quickshell.org/) (Qt/QML) + Hyprland.
 ## Status
 
 Desktop spine is dogfoodable in the VM (shell + Settings largely shipped).
-Console and host hard switches remain planned; parked postures are thesis only.
-Honest inventory: [docs/proteus/CURRENT.md](docs/proteus/CURRENT.md).
+Console hard switch is dogfoodable (`proteus-posture`); host hard switch remains
+planned; parked postures are thesis only. Honest inventory:
+[docs/proteus/CURRENT.md](docs/proteus/CURRENT.md).
 
 ## Test in a VM (recommended)
 

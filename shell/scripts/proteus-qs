@@ -31,8 +31,32 @@ MAX_BACKOFF=30
 HEALTHY_SECS=120
 
 export QS_ICON_THEME="${QS_ICON_THEME:-Papirus-Dark}"
-export PROTEUS_ROOT="${PROTEUS_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
-export PROTEUS_SURFACE="${PROTEUS_SURFACE:-desktop}"
+# Resolve tree when installed to /usr/local/bin (dirname/../.. is not the repo)
+if [[ -z "${PROTEUS_ROOT:-}" || ! -d "${PROTEUS_ROOT}/shell" ]]; then
+  _here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [[ -d "${_here}/../../shell" ]]; then
+    PROTEUS_ROOT="$(cd "${_here}/../.." && pwd)"
+  elif [[ -d /mnt/proteus/shell ]]; then
+    PROTEUS_ROOT=/mnt/proteus
+  else
+    PROTEUS_ROOT="${PROTEUS_ROOT:-/mnt/proteus}"
+  fi
+fi
+export PROTEUS_ROOT
+# Boot persistence: when unset, read hard-switch Fact (~/.config/proteus/posture)
+if [[ -z "${PROTEUS_SURFACE:-}" ]]; then
+  _posture_file="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/posture"
+  if [[ -f "${_posture_file}" ]]; then
+    PROTEUS_SURFACE="$(tr -d '[:space:]' <"${_posture_file}" || true)"
+  fi
+fi
+case "${PROTEUS_SURFACE:-}" in
+  desktop|console|couch|phone|vr|watch) ;;
+  *) PROTEUS_SURFACE=desktop ;;
+esac
+# Legacy alias
+[[ "${PROTEUS_SURFACE}" == "couch" ]] && PROTEUS_SURFACE=console
+export PROTEUS_SURFACE
 export PATH="/usr/local/bin:${PROTEUS_ROOT}/shell/scripts:${PATH}"
 SELF="${PROTEUS_ROOT}/shell/scripts/proteus-qs"
 
@@ -49,11 +73,17 @@ reap_chrome() {
 kill_other_wrappers() {
   local my=$$
   local pid
-  # Match wrappers targeting this shell path; skip this PID.
+  # Match wrappers targeting this shell path (repo path or /usr/local/bin).
   while read -r pid; do
     [[ -z "${pid}" || "${pid}" == "${my}" ]] && continue
     kill "${pid}" 2>/dev/null || true
-  done < <(pgrep -f "${SELF}( --restart)? ${SHELL_PATH}" 2>/dev/null || true)
+  done < <(
+    {
+      pgrep -f "${SELF}( --restart)? ${SHELL_PATH}" 2>/dev/null || true
+      pgrep -f "/usr/local/bin/proteus-qs( --restart)? ${SHELL_PATH}" 2>/dev/null || true
+      pgrep -f "proteus-qs( --restart)? ${SHELL_PATH}" 2>/dev/null || true
+    } | sort -u
+  )
   sleep 0.2
 }
 

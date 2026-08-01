@@ -22,7 +22,14 @@ seed "${ROOT}/env/hypr/proteus-monitors.conf" "${HYPR_DIR}/proteus-monitors.conf
 
 mkdir -p "${HYPR_DIR}/profiles"
 seed "${ROOT}/env/hypr/profiles/desktop.conf" "${HYPR_DIR}/profiles/desktop.conf"
-seed "${ROOT}/env/hypr/profiles/media.conf" "${HYPR_DIR}/profiles/media.conf"
+seed "${ROOT}/env/hypr/profiles/console.conf" "${HYPR_DIR}/profiles/console.conf"
+# Migrate legacy media.conf if present
+if [[ -f "${HYPR_DIR}/profiles/media.conf" && ! -f "${HYPR_DIR}/profiles/console.conf" ]]; then
+  mv "${HYPR_DIR}/profiles/media.conf" "${HYPR_DIR}/profiles/console.conf"
+fi
+if [[ -f "${HYPR_DIR}/proteus-profile.conf" ]] && grep -q 'profiles/media\.conf' "${HYPR_DIR}/proteus-profile.conf" 2>/dev/null; then
+  sed -i 's|profiles/media\.conf|profiles/console.conf|g' "${HYPR_DIR}/proteus-profile.conf"
+fi
 seed "${ROOT}/env/hypr/profiles/host.conf" "${HYPR_DIR}/profiles/host.conf"
 seed "${ROOT}/env/hypr/profiles/home.conf" "${HYPR_DIR}/profiles/home.conf"
 seed "${ROOT}/env/hypr/proteus-profile.conf" "${HYPR_DIR}/proteus-profile.conf"
@@ -39,6 +46,13 @@ if [[ -f "${HYPR}" ]]; then
   ensure_source "proteus-monitors.conf" "Proteus displays (Settings → Displays)"
   ensure_source "proteus-general.conf" "Proteus desktop (Settings → Desktop)"
   ensure_source "proteus-profile.conf" "Proteus posture profile (set-hypr-profile.sh)"
+
+  # Hard-coding PROTEUS_SURFACE=desktop in exec-once fights the posture Fact /
+  # proteus-posture hard switch — strip so proteus-qs reads ~/.config/proteus/posture.
+  if grep -qE 'PROTEUS_SURFACE=desktop' "${HYPR}" 2>/dev/null; then
+    sed -i -E 's/PROTEUS_SURFACE=desktop[[:space:]]+//g' "${HYPR}"
+    echo "Stripped hardcoded PROTEUS_SURFACE=desktop from ${HYPR}"
+  fi
 
   # Migrate legacy swaybg → unified proteus-bg wallpaper runtime.
   # Prefer an absolute path — Hyprland's exec-once PATH often lacks ~/.local/bin.

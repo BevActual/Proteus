@@ -16,8 +16,20 @@ export LANG="${LANG:-en_US.UTF-8}"
 export LC_ALL="${LC_ALL:-en_US.UTF-8}"
 export XDG_SESSION_TYPE=wayland
 export XDG_CURRENT_DESKTOP=Hyprland
-export PROTEUS_SURFACE="${PROTEUS_SURFACE:-desktop}"
 export PROTEUS_ROOT="${PROTEUS_ROOT:-/mnt/proteus}"
+# Hard-switch Fact — when PROTEUS_SURFACE unset, honour ~/.config/proteus/posture
+if [[ -z "${PROTEUS_SURFACE:-}" ]]; then
+  _posture_file="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/posture"
+  if [[ -f "${_posture_file}" ]]; then
+    PROTEUS_SURFACE="$(tr -d '[:space:]' <"${_posture_file}" || true)"
+  fi
+fi
+case "${PROTEUS_SURFACE:-}" in
+  desktop|console|couch|phone|vr|watch) ;;
+  *) PROTEUS_SURFACE=desktop ;;
+esac
+[[ "${PROTEUS_SURFACE}" == "couch" ]] && PROTEUS_SURFACE=console
+export PROTEUS_SURFACE
 # Dock / Super+Return → proteus-terminal (Ghostty + VM GL workaround)
 export PATH="/usr/local/bin:${PROTEUS_ROOT}/shell/scripts:${PATH}"
 # Quickshell chrome icons (Papirus); avoids Adwaita-only / missing glyphs

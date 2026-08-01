@@ -55,6 +55,11 @@ ColumnLayout {
         hint: "User library · no polkit"
       },
       {
+        key: "packages-webapps",
+        label: "Web apps",
+        hint: "URL → desktop app · no polkit"
+      },
+      {
         key: "packages-orphans",
         label: "Orphans",
         hint: "Unused dependencies"
@@ -125,6 +130,11 @@ ColumnLayout {
     want: root.page === "packages-appimages"
     source: "PackagesAppImagesPane.qml"
     onLoaded: item.active = Qt.binding(() => root.page === "packages-appimages")
+  }
+  StickyPaneLoader {
+    want: root.page === "packages-webapps"
+    source: "PackagesWebAppsPane.qml"
+    onLoaded: item.active = Qt.binding(() => root.page === "packages-webapps")
   }
   StickyPaneLoader {
     want: root.page === "packages-orphans"

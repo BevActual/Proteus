@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+# proteus-webapp — install / list / remove URL → user .desktop web apps.
+# Usage:
+#   proteus-webapp install <url> [name]
+#   proteus-webapp list [--json]
+#   proteus-webapp remove <id>
+#   proteus-webapp open <id>
+set -euo pipefail
+
+APPS_DIR="${XDG_DATA_HOME:-${HOME}/.local/share}/applications"
+PREFIX="proteus-web-"
+
+usage() {
+  echo "usage: $0 install <url> [name] | list [--json] | remove <id> | open <id>" >&2
+  exit 2
+}
+
+slugify() {
+  echo "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//; s/-+/-/g' | cut -c1-48
+}
+
+detect_browser() {
+  local b
+  for b in chromium chromium-browser google-chrome-stable brave firefox; do
+    if command -v "$b" >/dev/null 2>&1; then
+      echo "$b"
+      return 0
+    fi
+  done
+  return 1
+}
+
+browser_exec() {
+  local browser="$1" url="$2"
+  case "$browser" in
+    firefox*)
+      printf '%s' "${browser} --kiosk ${url}"
+      ;;
+    *)
+      printf '%s' "${browser} --app=${url}"
+      ;;
+  esac
+}
+
+cmd_install() {
+  local url="${1:-}" name="${2:-}"
+  [[ -n "$url" ]] || usage
+  case "$url" in
+    http://*|https://*) ;;
+    *)
+      echo "proteus-webapp: URL must start with http:// or https://" >&2
+      exit 2
+      ;;
+  esac
+  if [[ -z "$name" ]]; then
+    name="$(echo "$url" | sed -E 's|^https?://||; s|/.*||; s|^www\.||')"
+  fi
+  local browser
+  browser="$(detect_browser)" || {
+    echo "proteus-webapp: no browser found (chromium/firefox)" >&2
+    exit 127
+  }
+  local slug id desk exec_line
+  slug="$(slugify "$name")"
+  [[ -n "$slug" ]] || slug="app"
+  id="${PREFIX}${slug}"
+  desk="${APPS_DIR}/${id}.desktop"
+  mkdir -p "${APPS_DIR}"
+  exec_line="$(browser_exec "$browser" "$url")"
+  cat >"${desk}" <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=${name}
+Comment=Proteus web app · ${url}
+Exec=${exec_line}
+Terminal=false
+Categories=Network;WebBrowser;
+StartupNotify=true
+X-Proteus-WebApp=1
+X-Proteus-WebApp-Url=${url}
+Icon=applications-internet
+EOF
+  chmod 644 "${desk}"
+  if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "${APPS_DIR}" >/dev/null 2>&1 || true
+  fi
+  echo "${id}"
+}
+
+cmd_list() {
+  local json=0
+  [[ "${1:-}" == "--json" ]] && json=1
+  mkdir -p "${APPS_DIR}"
+  local first=1
+  if [[ "$json" -eq 1 ]]; then
+    printf '['
+  fi
+  local f id name url
+  shopt -s nullglob
+  for f in "${APPS_DIR}/${PREFIX}"*.desktop; do
+    id="$(basename "$f" .desktop)"
+    name="$(grep -E '^Name=' "$f" | head -1 | cut -d= -f2-)"
+    url="$(grep -E '^X-Proteus-WebApp-Url=' "$f" | head -1 | cut -d= -f2-)"
+    if [[ "$json" -eq 1 ]]; then
+      [[ "$first" -eq 1 ]] || printf ','
+      first=0
+      python3 -c 'import json,sys; print(json.dumps({"id":sys.argv[1],"name":sys.argv[2],"url":sys.argv[3]}), end="")' \
+        "$id" "$name" "$url"
+    else
+      printf '%s\t%s\t%s\n' "$id" "$name" "$url"
+    fi
+  done
+  if [[ "$json" -eq 1 ]]; then
+    printf ']\n'
+  fi
+}
+
+cmd_remove() {
+  local id="${1:-}"
+  [[ -n "$id" ]] || usage
+  id="${id%.desktop}"
+  case "$id" in
+    ${PREFIX}*) ;;
+    *)
+      echo "proteus-webapp: refusing to remove non-webapp id" >&2
+      exit 2
+      ;;
+  esac
+  local desk="${APPS_DIR}/${id}.desktop"
+  [[ -f "$desk" ]] || {
+    echo "proteus-webapp: not found: ${id}" >&2
+    exit 1
+  }
+  rm -f "$desk"
+  if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "${APPS_DIR}" >/dev/null 2>&1 || true
+  fi
+  echo "removed ${id}"
+}
+
+cmd_open() {
+  local id="${1:-}"
+  [[ -n "$id" ]] || usage
+  id="${id%.desktop}"
+  local desk="${APPS_DIR}/${id}.desktop"
+  [[ -f "$desk" ]] || {
+    echo "proteus-webapp: not found: ${id}" >&2
+    exit 1
+  }
+  if command -v gtk-launch >/dev/null 2>&1; then
+    exec gtk-launch "$id"
+  fi
+  exec gio launch "$desk"
+}
+
+[[ $# -ge 1 ]] || usage
+case "$1" in
+  install) shift; cmd_install "$@" ;;
+  list) shift; cmd_list "$@" ;;
+  remove) shift; cmd_remove "$@" ;;
+  open) shift; cmd_open "$@" ;;
+  *) usage ;;
+esac

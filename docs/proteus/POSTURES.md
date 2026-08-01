@@ -57,9 +57,9 @@ on every class/posture by default ([APPLICATIONS.md](./APPLICATIONS.md)).
 
 Compositor engines: [COMPOSITOR.md](./COMPOSITOR.md).
 
-> **Code stub today:** `PROTEUS_SURFACE=desktop|phone|vr|couch|watch` still loads
-> placeholder QML. `couch` → **console**; hypr profile file still `media.conf`
-> until renamed. See [§ Loader map](#9-loader-map-code-today).
+> **Loader today:** `PROTEUS_SURFACE=desktop|console` (+ legacy `couch`→console);
+> phone/vr/watch stubs remain. Hard console flip: `proteus-posture`. Soft profile:
+> `set-hypr-profile.sh` → `profiles/console.conf`. See [§ Loader map](#9-loader-map-code-today).
 
 ## Document map
 
@@ -86,7 +86,7 @@ Compositor engines: [COMPOSITOR.md](./COMPOSITOR.md).
 | Posture | Job | Chrome / engines | Status |
 |---------|-----|------------------|--------|
 | **desktop** | Create / windowed work (desk + laptop) | Full shell (bar, dock, Beacon); Hyprland tiling backend | `partial` — primary spine |
-| **console** | Lean-back consume + play (TV, film, games) | Sparse, remote/gamepad-friendly shell; **game-scoped compositor** (Gamescope-class or equivalent) — not desktop Hyprland with a skin | `planned` (code stub: `couch`; hypr stub: `media.conf`) |
+| **console** | Lean-back consume + play (TV, film, games) | Sparse ConsoleShell (nav/switcher/CC) over Hyprland kiosk rules; **per-title Gamescope** wraps; Guide button / Super+Home | `partial` — hard enter/exit shipped; full Gamescope session later |
 | **host** | Operate the box (VMs, containers, services, updates) | Default lean/headless; **UI on demand** (local or remote) — not a DE clone; little/no creative chrome | `planned` (hypr stub: `host.conf`) |
 
 **Naming:** **Console** is the locked product name for lean-back. Legacy docs /
@@ -114,10 +114,11 @@ A focus posture change is a **session-level job flip**:
 Soft hypr profile reload alone is **not** enough for console or host. Profile
 fragments may still express desktop tuning; they do not define the product flip.
 
-Helper today (soft only): `vm/guest/set-hypr-profile.sh
-desktop|console|media|host|home` — `console` ≡ `media` (legacy filename);
-Settings → About exposes the same soft select via `HyprProfile.qml` (Kind row
-states soft≠hard). Hard-session switch is `planned`.
+Soft helper: `vm/guest/set-hypr-profile.sh desktop|console|media|host|home`
+(`media` ≡ `console` → `profiles/console.conf`); Settings → About soft select
+via `HyprProfile.qml` (soft≠hard). **Hard console switch:**
+`vm/guest/proteus-posture console|desktop` — Fact + chrome restart + profile;
+Beacon / Control Center / `Super+Shift+C` enter; console Desktop tile exits.
 
 ---
 
@@ -310,7 +311,7 @@ posture only, no capability profile; hypr profile helper is soft-only.
 | Focus posture | `PROTEUS_SURFACE` today | Hypr profile file | Notes |
 |---------------|-------------------------|-------------------|--------|
 | desktop | `desktop` | `profiles/desktop.conf` | Default |
-| console | `couch` | `profiles/media.conf` | Rename surface → `console`, profile → `console.conf` when shell lands |
+| console | `console` (`couch` alias) | `profiles/console.conf` | Hard flip: `proteus-posture`; layered ConsoleShell |
 | host | — | `profiles/host.conf` | Stub; no QS surface loader yet |
 
 | Parked / other | `PROTEUS_SURFACE` | Notes |

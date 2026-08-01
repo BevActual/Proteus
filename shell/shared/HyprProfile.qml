@@ -5,11 +5,11 @@ import Quickshell.Io
 import QtQuick
 
 // Soft Hyprland posture profile select — Settings About + set-hypr-profile.sh.
-// Soft reload only; not a hard posture switch (POSTURES.md / COMPOSITOR.md).
+// Soft reload only; hard posture switch is proteus-posture (POSTURES.md).
 Singleton {
   id: root
 
-  // UI ids: desktop | console | host | home  (console → media.conf on disk)
+  // UI ids: desktop | console | host | home
   property string activeProfile: ""
   property bool busy: false
   property string error: ""
@@ -23,7 +23,7 @@ Singleton {
 
   readonly property var profileCatalog: [
     { id: "desktop", label: "Desktop", file: "desktop" },
-    { id: "console", label: "Console", file: "media" },
+    { id: "console", label: "Console", file: "console" },
     { id: "host", label: "Host", file: "host" },
     { id: "home", label: "Home (parked)", file: "home" }
   ]
@@ -39,15 +39,13 @@ Singleton {
 
   readonly property string activeProfileLabel: root.profileLabel(root.activeProfile)
 
-  readonly property string softHonesty: "Soft Hyprland profile reload — not a hard posture switch."
-
-  readonly property string consoleAliasNote: "Console uses profiles/media.conf on disk (legacy alias)."
+  readonly property string softHonesty: "Soft Hyprland window-rule profile — not a hard posture switch (use proteus-posture / Enter Console)."
 
   readonly property string activeDetail: {
     if (!root.activeProfile.length)
       return ""
     if (root.activeProfile === "console")
-      return root.consoleAliasNote
+      return "Console profile: fullscreen apps. Hard flip: proteus-posture console."
     if (root.activeProfile === "home")
       return "Home is parked — stub profile only."
     return ""
@@ -70,6 +68,7 @@ Singleton {
 
   function uiIdFromFile(fileStem) {
     const f = String(fileStem || "")
+    // Legacy media.conf → console
     if (f === "media")
       return "console"
     for (let i = 0; i < root.profileCatalog.length; i++) {
@@ -86,7 +85,7 @@ Singleton {
         return root.profileCatalog[i].file
     }
     if (u === "console")
-      return "media"
+      return "console"
     return u
   }
 
@@ -181,7 +180,6 @@ Singleton {
     onLoadFailed: {
       if (!root.busy) {
         root.activeProfile = ""
-        // Soft status — pointer seeds from install-desktop-conf / set-hypr-profile.
         root.statusNote = "No active profile pointer yet — pick a profile to create one"
         if (root.error.indexOf("pointer") >= 0)
           root.error = ""

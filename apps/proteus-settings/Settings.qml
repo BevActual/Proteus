@@ -72,6 +72,10 @@ Item {
     {
       key: "peripherals-mouse",
       label: "Mouse"
+    },
+    {
+      key: "peripherals-gamepads",
+      label: "Gamepads"
     }
   ]
 
@@ -95,6 +99,10 @@ Item {
     {
       key: "packages-appimages",
       label: "AppImages"
+    },
+    {
+      key: "packages-webapps",
+      label: "Web apps"
     },
     {
       key: "packages-orphans",
@@ -519,6 +527,10 @@ Item {
             StickyPaneLoader {
               want: root.page === "peripherals-mouse"
               source: "panes/MousePane.qml"
+            }
+            StickyPaneLoader {
+              want: root.page === "peripherals-gamepads"
+              source: "panes/GamepadsPane.qml"
             }
             StickyPaneLoader {
               want: root.section === "packages"

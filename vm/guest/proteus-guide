@@ -1,0 +1,295 @@
+#!/usr/bin/env python3
+"""proteus-guide — listen-only gamepad → Proteus chrome IPC.
+
+Guide (BTN_MODE): single/double from settings (nav | cc | off) in console;
+on desktop, single/double open Control Center when not off.
+
+Face buttons / D-pad / HAT: only while chrome reports padWanted (nav, switcher,
+CC, Beacon, lock). Never grabs the device — games keep the pad when chrome is down.
+"""
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+try:
+    import evdev
+    from evdev import ecodes
+except ImportError:
+    print("proteus-guide: python-evdev not installed", file=sys.stderr)
+    sys.exit(1)
+
+DOUBLE_MS = 350
+LONG_MS = 800
+SETTINGS = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "proteus" / "settings.json"
+POSTURE = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "proteus" / "posture"
+ROOT = Path(os.environ.get("PROTEUS_ROOT", "/mnt/proteus"))
+SHELL = ROOT / "shell"
+
+# Repeat for held D-pad
+REPEAT_MS = 220
+
+
+def log(msg: str) -> None:
+    line = f"{time.strftime('%Y-%m-%dT%H:%M:%S')} proteus-guide: {msg}\n"
+    try:
+        p = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "proteus-guide.log"
+        p.open("a").write(line)
+    except OSError:
+        pass
+
+
+def read_posture() -> str:
+    try:
+        return POSTURE.read_text(encoding="utf-8").strip() or "desktop"
+    except OSError:
+        return "desktop"
+
+
+def read_guide_actions() -> tuple[str, str]:
+    single, double = "nav", "cc"
+    try:
+        data = json.loads(SETTINGS.read_text(encoding="utf-8"))
+        single = str(data.get("gamepadsGuideSingle", single))
+        double = str(data.get("gamepadsGuideDouble", double))
+    except (OSError, json.JSONDecodeError):
+        pass
+
+    def norm(v: str) -> str:
+        v = (v or "").strip().lower()
+        if v in ("nav", "navigation", "switcher", "home"):
+            return "nav"
+        if v in ("cc", "controlcenter", "control-center", "settings"):
+            return "cc"
+        if v in ("off", "none", "disabled"):
+            return "off"
+        return "nav" if v == "" else v
+
+    return norm(single), norm(double)
+
+
+def shell_path() -> str:
+    return str(SHELL.resolve() if SHELL.exists() else SHELL)
+
+
+def qs_call(*args: str) -> str:
+    cmd = ["qs", "-p", shell_path(), "ipc", "call", *args]
+    try:
+        r = subprocess.run(cmd, check=False, capture_output=True, timeout=3, text=True)
+        return (r.stdout or "").strip()
+    except (OSError, subprocess.TimeoutExpired) as e:
+        log(f"ipc failed: {e}")
+        return ""
+
+
+def ipc_guide(action: str) -> None:
+    posture = read_posture()
+    if posture == "console":
+        target = {"nav": "consoleNav", "cc": "consoleCC"}.get(action)
+        if target:
+            qs_call("chrome", target)
+        return
+    # Desktop: Guide opens Control Center
+    if action in ("nav", "cc"):
+        qs_call("chrome", "controlCenter")
+
+
+def ipc_pad(button: str) -> None:
+    qs_call("chrome", "pad", button)
+
+
+def chrome_pad_wanted() -> bool:
+    raw = qs_call("chrome", "state")
+    if not raw:
+        return False
+    try:
+        # Strip ANSI / noise — take last JSON object-looking line
+        line = raw.strip().splitlines()[-1]
+        # Find JSON blob
+        i = line.find("{")
+        if i < 0:
+            return False
+        data = json.loads(line[i:])
+    except (json.JSONDecodeError, IndexError):
+        return False
+    if data.get("padWanted") is True:
+        return True
+    if data.get("locked"):
+        return True
+    if data.get("controlCenter") or data.get("launcher"):
+        return True
+    if data.get("nav") or data.get("switcher"):
+        return True
+    return False
+
+
+def is_gamepad(dev: evdev.InputDevice) -> bool:
+    caps = dev.capabilities().get(ecodes.EV_KEY, [])
+    markers = {
+        ecodes.BTN_MODE,
+        ecodes.BTN_GAMEPAD,
+        getattr(ecodes, "BTN_SOUTH", 0x130),
+        getattr(ecodes, "BTN_START", 0x13b),
+    }
+    return bool(markers.intersection(caps))
+
+
+def open_gamepads() -> list[evdev.InputDevice]:
+    out: list[evdev.InputDevice] = []
+    for path in evdev.list_devices():
+        try:
+            d = evdev.InputDevice(path)
+        except OSError:
+            continue
+        if is_gamepad(d):
+            out.append(d)
+    return out
+
+
+BTN_MAP = {
+    getattr(ecodes, "BTN_SOUTH", 0x130): "a",
+    getattr(ecodes, "BTN_EAST", 0x131): "b",
+    getattr(ecodes, "BTN_NORTH", 0x133): "x",
+    getattr(ecodes, "BTN_WEST", 0x134): "y",
+    getattr(ecodes, "BTN_START", 0x13b): "start",
+    getattr(ecodes, "BTN_SELECT", 0x13a): "select",
+    getattr(ecodes, "BTN_DPAD_UP", 0x220): "up",
+    getattr(ecodes, "BTN_DPAD_DOWN", 0x221): "down",
+    getattr(ecodes, "BTN_DPAD_LEFT", 0x222): "left",
+    getattr(ecodes, "BTN_DPAD_RIGHT", 0x223): "right",
+}
+
+HAT_X = getattr(ecodes, "ABS_HAT0X", 0x10)
+HAT_Y = getattr(ecodes, "ABS_HAT0Y", 0x11)
+
+
+def main() -> int:
+    devices = open_gamepads()
+    log(f"watching {len(devices)} gamepad(s) posture={read_posture()}")
+
+    pending_press = 0.0
+    mode_down_at = 0.0
+    mode_long_fired = False
+    single_action, double_action = read_guide_actions()
+    last_settings = time.time()
+    last_pad_wanted_poll = 0.0
+    pad_wanted = False
+    # Held direction for repeat: dir -> last_fire_time
+    held_dir: dict[str, float] = {}
+    hat_x = 0
+    hat_y = 0
+
+    from select import select
+
+    while True:
+        now = time.time()
+
+        if now - last_settings > 2.0:
+            single_action, double_action = read_guide_actions()
+            last_settings = now
+            devices = open_gamepads() or devices
+
+        if now - last_pad_wanted_poll > 0.35:
+            pad_wanted = chrome_pad_wanted()
+            last_pad_wanted_poll = now
+
+        if not devices:
+            time.sleep(1.0)
+            devices = open_gamepads()
+            continue
+
+        r, _, _ = select(devices, [], [], 0.04)
+        now = time.time()
+
+        # Guide long-hold → Start (exit confirm on console)
+        if mode_down_at and not mode_long_fired and (now - mode_down_at) * 1000 >= LONG_MS:
+            mode_long_fired = True
+            pending_press = 0.0
+            if read_posture() == "console":
+                ipc_pad("start")
+
+        # Guide single resolve
+        if pending_press and (now - pending_press) * 1000 >= DOUBLE_MS:
+            if single_action != "off":
+                ipc_guide(single_action)
+            pending_press = 0.0
+
+        # D-pad repeat while held and pad wanted
+        if pad_wanted:
+            for d, t0 in list(held_dir.items()):
+                if (now - t0) * 1000 >= REPEAT_MS:
+                    ipc_pad(d)
+                    held_dir[d] = now
+
+        for dev in r:
+            try:
+                for event in dev.read():
+                    if event.type == ecodes.EV_KEY:
+                        if event.code == ecodes.BTN_MODE:
+                            if event.value == 1:
+                                mode_down_at = now
+                                mode_long_fired = False
+                                if pending_press and (now - pending_press) * 1000 < DOUBLE_MS:
+                                    pending_press = 0.0
+                                    mode_down_at = 0.0
+                                    if double_action != "off":
+                                        ipc_guide(double_action)
+                                else:
+                                    pending_press = now
+                            elif event.value == 0:
+                                mode_down_at = 0.0
+                                if mode_long_fired:
+                                    mode_long_fired = False
+                                    pending_press = 0.0
+                            continue
+
+                        btn = BTN_MAP.get(event.code)
+                        if not btn:
+                            continue
+                        if event.value == 1:
+                            if btn in ("up", "down", "left", "right"):
+                                if pad_wanted:
+                                    ipc_pad(btn)
+                                    held_dir[btn] = now
+                            elif pad_wanted:
+                                ipc_pad(btn)
+                        elif event.value == 0 and btn in held_dir:
+                            del held_dir[btn]
+
+                    elif event.type == ecodes.EV_ABS and pad_wanted:
+                        if event.code == HAT_X:
+                            hat_x = event.value
+                            for d in ("left", "right"):
+                                held_dir.pop(d, None)
+                            if hat_x < 0:
+                                ipc_pad("left")
+                                held_dir["left"] = now
+                            elif hat_x > 0:
+                                ipc_pad("right")
+                                held_dir["right"] = now
+                        elif event.code == HAT_Y:
+                            hat_y = event.value
+                            for d in ("up", "down"):
+                                held_dir.pop(d, None)
+                            if hat_y < 0:
+                                ipc_pad("up")
+                                held_dir["up"] = now
+                            elif hat_y > 0:
+                                ipc_pad("down")
+                                held_dir["down"] = now
+            except OSError:
+                try:
+                    devices.remove(dev)
+                except ValueError:
+                    pass
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(0)

@@ -25,6 +25,12 @@ Singleton {
   property alias barMonitor: adapter.barMonitor
   property alias mouseSensitivity: adapter.mouseSensitivity
   property alias mouseAccelFlat: adapter.mouseAccelFlat
+  // Console Guide button (BTN_MODE) — nav | cc | off
+  property alias gamepadsGuideSingle: adapter.gamepadsGuideSingle
+  property alias gamepadsGuideDouble: adapter.gamepadsGuideDouble
+  // Console Jump Back In — [{ id, title, kind, desktopId?, command?, gamescope?, ts }, ...]
+  property alias consoleRecents: adapter.consoleRecents
+  property alias consoleLastMediaPath: adapter.consoleLastMediaPath
   property alias audioLatency: adapter.audioLatency
   property alias locationName: adapter.locationName
   property alias locationLatitude: adapter.locationLatitude
@@ -1150,6 +1156,11 @@ Singleton {
       property string barMonitor: "all"
       property real mouseSensitivity: 0
       property bool mouseAccelFlat: false
+      // Guide button in console posture: nav | cc | off
+      property string gamepadsGuideSingle: "nav"
+      property string gamepadsGuideDouble: "cc"
+      property var consoleRecents: []
+      property string consoleLastMediaPath: ""
       // low | balanced | high → PipeWire clock.force-quantum 256 / 512 / 1024
       property string audioLatency: "high"
       // One system location, set once and shared by every surface that needs

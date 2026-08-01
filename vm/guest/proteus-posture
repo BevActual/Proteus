@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# proteus-posture — hard posture switch (desktop ↔ console).
+# Usage: proteus-posture desktop|console
+# Writes ~/.config/proteus/posture, flips hypr profile pointer, restarts chrome.
+# Soft-only profile reload: set-hypr-profile.sh (not this helper).
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Prefer env / 9p mount when this script is installed to /usr/local/bin
+if [[ -n "${PROTEUS_ROOT:-}" && -d "${PROTEUS_ROOT}/shell" ]]; then
+  ROOT="${PROTEUS_ROOT}"
+elif [[ -d "${HERE}/../../shell" && -d "${HERE}/../../env" ]]; then
+  ROOT="$(cd "${HERE}/../.." && pwd)"
+elif [[ -d /mnt/proteus/shell ]]; then
+  ROOT=/mnt/proteus
+else
+  ROOT="${PROTEUS_ROOT:-/mnt/proteus}"
+fi
+export PROTEUS_ROOT="${ROOT}"
+
+TARGET="${1:-}"
+CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus"
+FACT="${CONFIG_DIR}/posture"
+SHELL_DIR="${ROOT}/shell"
+if [[ -x "${HERE}/proteus-qs" ]]; then
+  QS="${HERE}/proteus-qs"
+else
+  QS="${SHELL_DIR}/scripts/proteus-qs"
+fi
+if [[ -x "${HERE}/set-hypr-profile.sh" ]]; then
+  PROFILE_HELPER="${HERE}/set-hypr-profile.sh"
+else
+  PROFILE_HELPER="${ROOT}/vm/guest/set-hypr-profile.sh"
+fi
+if [[ -x "${HERE}/proteus-guide" ]]; then
+  GUIDE="${HERE}/proteus-guide"
+else
+  GUIDE="${ROOT}/vm/guest/proteus-guide"
+fi
+
+usage() {
+  echo "usage: $0 desktop|console" >&2
+  exit 2
+}
+
+[[ "${TARGET}" == "desktop" || "${TARGET}" == "console" ]] || usage
+
+mkdir -p "${CONFIG_DIR}"
+
+log() {
+  printf '%s proteus-posture: %s\n' "$(date -Iseconds 2>/dev/null || date)" "$*" \
+    >>"${XDG_RUNTIME_DIR:-/tmp}/proteus-posture.log" 2>/dev/null || true
+  echo "proteus-posture: $*"
+}
+
+write_fact() {
+  printf '%s\n' "$1" >"${FACT}"
+}
+
+stop_guide() {
+  pkill -f "${GUIDE}" 2>/dev/null || true
+  pkill -x proteus-guide 2>/dev/null || true
+}
+
+start_guide() {
+  stop_guide
+  if [[ ! -x "${GUIDE}" ]]; then
+    log "proteus-guide missing — Guide / pad inactive (keyboard stand-ins still work)"
+    return 0
+  fi
+  if ! python3 -c "import evdev" >/dev/null 2>&1; then
+    log "python-evdev missing — Guide / pad inactive (install python-evdev)"
+    return 0
+  fi
+  setsid env PROTEUS_ROOT="${PROTEUS_ROOT:-${ROOT}}" "${GUIDE}" >/dev/null 2>&1 &
+  log "proteus-guide started"
+}
+
+set_profile() {
+  if [[ -x "${PROFILE_HELPER}" ]]; then
+    bash "${PROFILE_HELPER}" "$1" || log "set-hypr-profile.sh failed (continuing)"
+  else
+    log "set-hypr-profile.sh not found — window rules may not flip"
+  fi
+}
+
+restart_chrome() {
+  local surface="$1"
+  if [[ ! -x "${QS}" ]]; then
+    echo "proteus-posture: proteus-qs not found at ${QS}" >&2
+    exit 1
+  fi
+  export PROTEUS_ROOT="${PROTEUS_ROOT:-${ROOT}}"
+  export PROTEUS_SURFACE="${surface}"
+  export PATH="/usr/local/bin:${PROTEUS_ROOT}/shell/scripts:${PATH}"
+  # Detached so callers inside Quickshell survive chrome teardown
+  setsid env PROTEUS_SURFACE="${surface}" PROTEUS_ROOT="${PROTEUS_ROOT}" \
+    "${QS}" --restart "${SHELL_DIR}" >/dev/null 2>&1 &
+}
+
+case "${TARGET}" in
+  console)
+    if ! command -v gamescope >/dev/null 2>&1; then
+      log "warn: gamescope not installed — console home works; game wraps degrade"
+    fi
+    write_fact console
+    log "Fact → console (${FACT})"
+    set_profile console
+    restart_chrome console
+    # Guide after chrome settle
+    sleep 0.8
+    start_guide
+    log "entered console"
+    ;;
+  desktop)
+    write_fact desktop
+    log "Fact → desktop (${FACT})"
+    set_profile desktop
+    restart_chrome desktop
+    # Keep guide on desktop for CC / Beacon / lock pad grammar
+    sleep 0.8
+    start_guide
+    log "entered desktop"
+    ;;
+esac

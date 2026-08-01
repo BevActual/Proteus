@@ -45,6 +45,14 @@ Item {
       destructive: false
     },
     {
+      id: "enter-console",
+      name: "Enter Console",
+      subtitle: "Action · proteus-posture console",
+      icon: "input-gaming",
+      keywords: "console game mode couch tv posture hard switch",
+      destructive: false
+    },
+    {
       id: "settings",
       name: "Open Settings",
       subtitle: "Action · proteus-settings",
@@ -941,7 +949,15 @@ Item {
       Config.session("reboot")
     else if (id === "shutdown")
       Config.session("shutdown")
-    else if (id === "settings")
+    else if (id === "enter-console") {
+      const root = String(Quickshell.env("PROTEUS_ROOT") || "/mnt/proteus")
+      Quickshell.execDetached({
+        command: [
+          "bash", "-lc",
+          "setsid " + root + "/vm/guest/proteus-posture console >/dev/null 2>&1 &"
+        ]
+      })
+    } else if (id === "settings")
       ShellState.openSettings()
     else if (id === "control-center")
       ShellState.openControlCenter()
@@ -1907,6 +1923,44 @@ Item {
       tagEditEntry = null
       search.text = query
       list.currentIndex = root.firstSelectableIndex()
+    }
+
+    function onPadAction(button) {
+      if (!ShellState.launcherOpen || ShellState.sessionLocked || ShellState.controlCenterOpen)
+        return
+      const b = String(button || "")
+      if (b === "b" || b === "select") {
+        if (search.text.length) {
+          search.text = ""
+          return
+        }
+        ShellState.closeLauncher()
+        return
+      }
+      if (b === "a" || b === "start") {
+        root.launchIndex(list.currentIndex)
+        return
+      }
+      if (b === "up") {
+        root.moveSelection(-1)
+        return
+      }
+      if (b === "down") {
+        root.moveSelection(1)
+        return
+      }
+      if (b === "left") {
+        // Cycle modes
+        const modes = ["apps", "files", "clipboard", "actions"]
+        let i = modes.indexOf(root.mode)
+        root.setMode(modes[(i - 1 + modes.length) % modes.length])
+        return
+      }
+      if (b === "right") {
+        const modes = ["apps", "files", "clipboard", "actions"]
+        let i = modes.indexOf(root.mode)
+        root.setMode(modes[(i + 1) % modes.length])
+      }
     }
   }
 

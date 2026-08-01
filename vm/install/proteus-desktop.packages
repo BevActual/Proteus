@@ -38,3 +38,10 @@ localsend-bin
 
 # Activity Monitor escape from Settings → About (Mission Center)
 mission-center
+
+# Console posture — per-title Gamescope wraps + Guide-button listener (proteus-guide)
+gamescope
+python-evdev
+# Console game seats (optional on thin hosts; apply-console-kit installs when present)
+steam
+retroarch

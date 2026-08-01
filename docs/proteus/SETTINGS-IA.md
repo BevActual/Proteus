@@ -78,6 +78,7 @@ Examples:
 | Flatpak / Flathub search / list / install / remove / update | `flatpak --user` · Flathub remote · Install\|Installed (mode-safe; empty honesty) · multi-select + live Cancel |
 | Package picker chrome | `kit/PackagesPickerRow` · `PackagesActionBar` · `PackagesOpProgress` (exact `$` command + last error) |
 | AppImages library | `~/.local/share/proteus/appimages` + `proteus-appimage-*.desktop` |
+| Web apps | `proteus-webapp` → `~/.local/share/applications/proteus-web-*.desktop` (Chromium `--app` / Firefox kiosk) |
 | Timezone / network time | `timedatectl set-timezone` / `set-ntp` (polkit-gated; errors surfaced in-pane) |
 | Locale | `localectl list-locales` / `set-locale LANG=…` (polkit-gated; stderr in-pane) + `/etc/locale.conf` escape |
 | Location | Explicit place search → precise lat/lon + place timezone in `settings.json` (**never IP-inferred**); Open-Meteo geocoding; optional Match time zone to place |
@@ -106,13 +107,13 @@ Left-nav + content pane (macOS System Settings style).
 | **Displays** (`displays`) | Layout canvas + per-monitor scale/mode/orientation; 10s Revert; Refresh/hotplug honesty; conf escape | hyprctl + `proteus-monitors.conf` | `shipped` |
 | **Sound** (`sound`) | Category → Output / Input / Applications / Mixer / Latency — leaf files + FormRow kit | pactl + `proteus-audio-mix` / `audio-peak.py` + `pw-metadata` + `pw-link` | `shipped` |
 | **Network** (`network`) | Category → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN — password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG import | hostnamectl / nmcli / bluetoothctl / localsend / tailscale / `NetworkDiagnostics` | `shipped` |
-| **Peripherals** (`peripherals`) | Category → Keyboard, Mouse; later touchpad / tablet | keybinds + input hyprctl | `shipped` |
+| **Peripherals** (`peripherals`) | Category → Keyboard, Mouse, Gamepads (Guide Facts); later touchpad / tablet | keybinds + input hyprctl + `gamepadsGuide*` | `shipped` |
 | **Power** (`power`) | Power mode segmented (PPD); battery (UPower); idle / lid FormRows via `proteus-logind` drop-in + conf escape | `powerprofilesctl` / UPower / `proteus-logind` | `shipped` |
 | **Users** (`users`) | Session Lock/Logout + confirm Reboot/Shutdown; current user (GECOS/home) + other local users read-only; Online accounts jump; greetd status + conf escape | `Config.session` · id/getent · greetd/`/etc/greetd/config.toml` | `shipped` |
 | **Online accounts** (`accounts`) | Connector catalog + Google PKCE seats (`proteus-accounts` vault); Microsoft/Nextcloud/… listed | `proteus-accounts` + `Accounts.qml` (mail/contacts apps Out) | `partial` |
 | **Date, time & weather** (`datetime`) | Live clock, searchable timezone + locale pickers, NTP, **Location** (place + units + 5-day forecast + Match TZ) | `timedatectl` / `localectl set-locale` / Open-Meteo | `shipped` |
 | **Privacy & security** (`privacy`) | What leaves + weather mute + session (DND / Lock / clear clipboard / LocalSend); permission categories listed, grants not enforced | Config · Weather · Notifications · EnvGate later | `partial` |
-| **Software** (`packages`) | Hub → Updates; Repos / AUR / Flathub (Install\|Installed mode-safe, per-mode search, op narrative); AppImages; Orphans — helper honesty when yay/paru/flatpak missing | `pacman` + `proteus-pkg` · yay/paru · flatpak + Flathub · local AppImages | `shipped` |
+| **Software** (`packages`) | Hub → Updates; Repos / AUR / Flathub (Install\|Installed mode-safe, per-mode search, op narrative); AppImages; **Web apps** (URL → `proteus-web-*.desktop` via `proteus-webapp`, no polkit); Orphans — helper honesty when yay/paru/flatpak missing | `pacman` + `proteus-pkg` · yay/paru · flatpak + Flathub · local AppImages · `proteus-webapp` | `shipped` |
 | **About** (`system`) | OS/kernel/hostname · QS/Hypr · load/mem/storage · battery when present · Mission Center (Install… → Flathub · `io.missioncenter.MissionCenter`) · Check for updates → Software; hardware caps; soft Hyprland profile; Copy + Copied | `SystemInfo` · `SystemLoad` · `MissionCenter` · `Power` · probe · `HyprProfile` | `shipped` |
 
 VM / container **setup** is **not** a Settings category — a separate host app later.
@@ -282,9 +283,9 @@ FormRow/Group — not a single mega-inline `NetworkPane` body.
 Software: click sidebar → heading **Software** + sub-settings list, then leaf
 pages via `kit/StickyPaneLoader` (`PackagesUpdatesPane`, `PackagesSearchPane`,
 `PackagesAurPane`, `PackagesFlatpakPane`, `PackagesAppImagesPane`,
-`PackagesOrphansPane`). Hub: `PackagesPane.qml`. Shared mutators / browse:
-`shell/shared/Packages.qml` + `pkexec proteus-pkg`. Kit: `PackagesPickerRow`,
-`PackagesActionBar`, `PackagesOpProgress`, `PackagesConfirm`.
+`PackagesWebAppsPane`, `PackagesOrphansPane`). Hub: `PackagesPane.qml`. Shared
+mutators / browse: `shell/shared/Packages.qml` + `pkexec proteus-pkg`. Kit:
+`PackagesPickerRow`, `PackagesActionBar`, `PackagesOpProgress`, `PackagesConfirm`.
 
 | Sub-setting | Role |
 |-------------|------|
@@ -293,10 +294,11 @@ pages via `kit/StickyPaneLoader` (`PackagesUpdatesPane`, `PackagesSearchPane`,
 | AUR | Same pattern via `yay` **or** `paru`; hub “Needs yay/paru” when missing |
 | Flathub | Same pattern via `flatpak`; hub Needs flatpak / Add Flathub remote |
 | AppImages | User library `~/.local/share/proteus/appimages`; no polkit; empty honesty |
+| Web apps | URL → `~/.local/share/applications/proteus-web-*.desktop` via `proteus-webapp`; no polkit |
 | Orphans | `pacman -Qdt` list; remove via `proteus-pkg orphans`; empty honesty |
 
-**Smoke matrix:** host `./scripts/smoke/software-reliability-smoke.sh` (all six leaves +
-hub); guest `./scripts/smoke/software-guest-smoke.sh` in `smoke-all` (SKIP unless SSH /
+**Smoke matrix:** host `./scripts/smoke/software-reliability-smoke.sh` (hub + leaves +
+Web apps); guest `./scripts/smoke/software-guest-smoke.sh` in `smoke-all` (SKIP unless SSH /
 `PROTEUS_GUEST=1`). **Out:** Snap; dependency graphs.
 
 **Module rule:** Software leaf helpers stay in `panes/Packages*Pane.qml` + `kit/`
@@ -337,7 +339,7 @@ Depth order for what’s left:
 *(Software hub + six leaves + reliability/guest smoke shipped — dep graphs / Snap stay Out.)*
 *(Appearance hub + Date, time & weather locale/forecast shipped — manual time/RTC Out.)*
 *(About OS/kernel/hostname · load strip · Mission Center escape · Copy+Copied ·
-soft profile shipped — hard posture switch Out; no in-Settings live dashboard.)*
+soft profile shipped — hard posture switch via proteus-posture / Beacon / CC (not About picker); no in-Settings live dashboard.)*
 *(Privacy & security transparency · weather mute · session shipped — grant model still Out.)*
 
 Virt / container setup stays a **separate app**, not a Settings growth item.

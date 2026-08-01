@@ -20,6 +20,10 @@ Scope {
     return v === "1" || v === "true"
   }
 
+  Component.onCompleted: {
+    ShellState.consoleSurfaceActive = false
+  }
+
   GlobalShortcut {
     appid: "proteus"
     name: "launcher"
@@ -133,13 +137,19 @@ Scope {
       return ShellState.beaconProbe
     }
 
+    function pad(button: string): void {
+      ShellState.handlePad(button)
+    }
+
     function state(): string {
       return JSON.stringify({
+        surface: "desktop",
         controlCenter: ShellState.controlCenterOpen,
         calendar: ShellState.calendarOpen,
         launcher: ShellState.launcherOpen,
         customize: ShellState.desktopCustomizeMode,
-        locked: ShellState.sessionLocked
+        locked: ShellState.sessionLocked,
+        padWanted: ShellState.padWanted
       })
     }
   }

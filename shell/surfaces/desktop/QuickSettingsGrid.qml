@@ -1080,6 +1080,16 @@ ColumnLayout {
           interactive: true,
           trailing: "›"
         })
+        tiles.push({
+          id: "console",
+          glyph: "▶",
+          title: "Console",
+          subtitle: "Hard switch · lean-back",
+          accent: false,
+          interactive: true,
+          trailing: "›",
+          span: 2
+        })
         return tiles
       }
 
@@ -1220,6 +1230,16 @@ ColumnLayout {
                 awakePopup.close()
               else
                 awakePopup.open()
+            } else if (modelData.id === "console") {
+              ShellState.closeControlCenter()
+              const proot = String(Quickshell.env("PROTEUS_ROOT") || "/mnt/proteus")
+              Quickshell.execDetached({
+                command: [
+                  "bash", "-lc",
+                  "command -v proteus-posture >/dev/null && setsid proteus-posture console >/dev/null 2>&1 & "
+                      + "|| setsid " + proot + "/vm/guest/proteus-posture console >/dev/null 2>&1 &"
+                ]
+              })
             }
           }
         }

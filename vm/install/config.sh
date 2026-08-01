@@ -168,9 +168,16 @@ seed_file "${PROTEUS_ROOT}/env/hypr/proteus-general.conf" "${HYPR_DIR}/proteus-g
 seed_file "${PROTEUS_ROOT}/env/hypr/proteus-monitors.conf" "${HYPR_DIR}/proteus-monitors.conf"
 proteus_as_user mkdir -p "${HYPR_DIR}/profiles"
 seed_file "${PROTEUS_ROOT}/env/hypr/profiles/desktop.conf" "${HYPR_DIR}/profiles/desktop.conf"
-seed_file "${PROTEUS_ROOT}/env/hypr/profiles/media.conf" "${HYPR_DIR}/profiles/media.conf"
+seed_file "${PROTEUS_ROOT}/env/hypr/profiles/console.conf" "${HYPR_DIR}/profiles/console.conf"
 seed_file "${PROTEUS_ROOT}/env/hypr/profiles/host.conf" "${HYPR_DIR}/profiles/host.conf"
 seed_file "${PROTEUS_ROOT}/env/hypr/profiles/home.conf" "${HYPR_DIR}/profiles/home.conf"
+# Migrate legacy media.conf pointer / file
+if [[ -f "${HYPR_DIR}/profiles/media.conf" && ! -f "${HYPR_DIR}/profiles/console.conf" ]]; then
+  mv "${HYPR_DIR}/profiles/media.conf" "${HYPR_DIR}/profiles/console.conf"
+fi
+if [[ -f "${HYPR_DIR}/proteus-profile.conf" ]] && grep -q 'profiles/media\.conf' "${HYPR_DIR}/proteus-profile.conf" 2>/dev/null; then
+  sed -i 's|profiles/media\.conf|profiles/console.conf|g' "${HYPR_DIR}/proteus-profile.conf"
+fi
 seed_file "${PROTEUS_ROOT}/env/hypr/proteus-profile.conf" "${HYPR_DIR}/proteus-profile.conf"
 
 # Ensure hypr sources for fragments seeded above (idempotent append)

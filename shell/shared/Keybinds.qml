@@ -66,6 +66,24 @@ Singleton {
       arg: "proteus:customize-desktop"
     },
     {
+      id: "enter-console",
+      category: "Session",
+      label: "Enter Console",
+      mods: "SUPER SHIFT",
+      key: "C",
+      dispatcher: "exec",
+      arg: "proteus-posture console"
+    },
+    {
+      id: "console-nav",
+      category: "Session",
+      label: "Console navigation / switcher",
+      mods: "SUPER",
+      key: "Home",
+      dispatcher: "global",
+      arg: "proteus:console-nav"
+    },
+    {
       id: "kill",
       category: "Windows",
       label: "Close Window",

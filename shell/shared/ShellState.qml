@@ -18,6 +18,25 @@ Singleton {
   // keyboard grab — see DesktopShell deskWidgetsWin)
   property bool desktopNoteEditing: false
 
+  // Console posture — nav layer + app switcher (ConsoleShell)
+  property bool consoleSurfaceActive: false
+  property bool consoleNavVisible: true
+  property bool consoleSwitcherOpen: false
+  // Guide long-press → return to desktop confirm (ConsoleHome)
+  property bool consoleExitConfirmOpen: false
+  // True while a console seat launch is in flight — suppress auto-show nav
+  // so Exclusive grab does not beat the new client to focus.
+  property bool consoleLaunchPending: false
+
+  // Pad grammar — surfaces connect to padAction / implement handlers
+  signal padAction(string button)
+  readonly property bool padWanted: sessionLocked
+      || controlCenterOpen
+      || launcherOpen
+      || consoleSwitcherOpen
+      || consoleExitConfirmOpen
+      || (consoleSurfaceActive && consoleNavVisible && !sessionLocked)
+
   // Hardware probe mirrors (session start — see Hardware.qml)
   readonly property bool hwReady: Hardware.ready
   readonly property bool hwProbing: Hardware.probing
@@ -40,6 +59,70 @@ Singleton {
     controlCenterOpen = false
     calendarOpen = false
     desktopNoteEditing = false
+    consoleSwitcherOpen = false
+    consoleExitConfirmOpen = false
+  }
+
+  // Shared pad router — lock → exit confirm → switcher → CC → Beacon → console nav
+  function handlePad(button) {
+    const b = String(button || "").toLowerCase()
+    if (!b.length)
+      return
+    padAction(b)
+  }
+
+  function showConsoleNav() {
+    consoleNavVisible = true
+    consoleSwitcherOpen = false
+  }
+
+  function hideConsoleNav() {
+    consoleNavVisible = false
+    consoleSwitcherOpen = false
+    controlCenterOpen = false
+  }
+
+  function toggleConsoleNav() {
+    if (consoleNavVisible && !consoleSwitcherOpen) {
+      hideConsoleNav()
+      return
+    }
+    consoleNavVisible = true
+    consoleSwitcherOpen = false
+  }
+
+  function openConsoleSwitcher() {
+    consoleNavVisible = true
+    controlCenterOpen = false
+    consoleSwitcherOpen = true
+  }
+
+  function closeConsoleSwitcher() {
+    consoleSwitcherOpen = false
+  }
+
+  function toggleConsoleSwitcher() {
+    if (consoleSwitcherOpen) {
+      consoleSwitcherOpen = false
+      return
+    }
+    openConsoleSwitcher()
+  }
+
+  // Guide single-press target: show nav; if already on home with apps running,
+  // open the switcher.
+  function consoleGuidePrimary() {
+    if (!consoleNavVisible) {
+      consoleNavVisible = true
+      consoleSwitcherOpen = false
+      controlCenterOpen = false
+      return
+    }
+    if (controlCenterOpen) {
+      controlCenterOpen = false
+      return
+    }
+    toggleConsoleSwitcher()
   }
 
   function toggleLauncher() {
@@ -127,6 +210,7 @@ Singleton {
 
   function lockSession() {
     closeOverlays()
+    consoleNavVisible = false
     sessionLocked = true
   }
 
