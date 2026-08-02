@@ -206,6 +206,18 @@ Item {
     return "#" + tags.join("  #")
   }
 
+  // Available apps: soft prefers hint, else tags/fallback. Blocked: EnvGate reason.
+  function appResultSubtitle(entry, fallback) {
+    if (!entry)
+      return fallback || ""
+    if (!EnvGate.appAvailable(entry))
+      return root.unavailableSubtitle(EnvGate.appBlockReason(entry))
+    const soft = EnvGate.appPrefersHint(entry)
+    if (soft.length)
+      return soft
+    return root.tagsSubtitle(entry.id, fallback || "Application")
+  }
+
   function queueFileSearch() {
     fileDebounce.restart()
   }
@@ -646,13 +658,11 @@ Item {
             entry: a,
             path: "",
             name: a.name,
-            subtitle: ok
-              ? root.tagsSubtitle(a.id, a.genericName || "Application")
-              : root.unavailableSubtitle(EnvGate.appBlockReason(a)),
+            subtitle: root.appResultSubtitle(a, a.genericName || "Application"),
             icon: EnvGate.resolveAppIcon(a),
             blocked: !ok,
             privacyBlocked: !ok && !!EnvGate.appPrivacyBlockPane(a),
-            score: 400 - i,
+            score: 400 - i + (ok ? EnvGate.appPrefersBoost(a) : 0),
             clipLine: "",
             calcValue: ""
           })
@@ -692,13 +702,11 @@ Item {
           entry: a,
           path: "",
           name: a.name,
-          subtitle: ok
-            ? root.tagsSubtitle(a.id, "Recent")
-            : root.unavailableSubtitle(EnvGate.appBlockReason(a)),
+          subtitle: root.appResultSubtitle(a, "Recent"),
           icon: EnvGate.resolveAppIcon(a),
           blocked: !ok,
           privacyBlocked: !ok && !!EnvGate.appPrivacyBlockPane(a),
-          score: 2000 - r,
+          score: 2000 - r + (ok ? EnvGate.appPrefersBoost(a) : 0),
           clipLine: "",
           calcValue: "",
           section: "recents"
@@ -739,13 +747,11 @@ Item {
           entry: e,
           path: "",
           name: e.name,
-          subtitle: ok
-            ? root.tagsSubtitle(e.id || pid, "Pinned")
-            : root.unavailableSubtitle(EnvGate.appBlockReason(e)),
+          subtitle: root.appResultSubtitle(e, "Pinned"),
           icon: EnvGate.resolveAppIcon(e),
           blocked: !ok,
           privacyBlocked: !ok && !!EnvGate.appPrivacyBlockPane(e),
-          score: 1500 - p,
+          score: 1500 - p + (ok ? EnvGate.appPrefersBoost(e) : 0),
           clipLine: "",
           calcValue: "",
           section: "pinned"
@@ -832,14 +838,14 @@ Item {
         const ok = EnvGate.appAvailable(a)
         if (!ok && !root.showUnavailable)
           continue
+        if (ok)
+          score += EnvGate.appPrefersBoost(a)
         rows.push({
           kind: "app",
           entry: a,
           path: "",
           name: a.name,
-          subtitle: ok
-            ? root.tagsSubtitle(a.id, a.genericName || "Application")
-            : root.unavailableSubtitle(EnvGate.appBlockReason(a)),
+          subtitle: root.appResultSubtitle(a, a.genericName || "Application"),
           icon: EnvGate.resolveAppIcon(a),
           blocked: !ok,
           privacyBlocked: !ok && !!EnvGate.appPrivacyBlockPane(a),
