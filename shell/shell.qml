@@ -23,6 +23,8 @@ ShellRoot {
       case "console":
       case "couch": // legacy alias → console
         return consoleComp
+      case "host":
+        return hostComp
       case "watch":
         return watchComp
       default:
@@ -35,5 +37,6 @@ ShellRoot {
   Component { id: phoneComp; PhoneShell {} }
   Component { id: vrComp; VrShell {} }
   Component { id: consoleComp; ConsoleShell {} }
+  Component { id: hostComp; HostShell {} }
   Component { id: watchComp; WatchShell {} }
 }

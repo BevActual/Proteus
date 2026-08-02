@@ -31,6 +31,8 @@ Singleton {
   // True while a console seat launch is in flight — suppress auto-show nav
   // so Exclusive grab does not beat the new client to focus.
   property bool consoleLaunchPending: false
+  // Host posture — lean ops chrome (HostShell)
+  property bool hostSurfaceActive: false
 
   // Pad grammar — surfaces connect to padAction / implement handlers
   signal padAction(string button)

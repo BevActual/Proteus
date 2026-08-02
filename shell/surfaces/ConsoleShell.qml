@@ -286,6 +286,7 @@ Scope {
 
   Component.onCompleted: {
     ShellState.consoleSurfaceActive = true
+    ShellState.hostSurfaceActive = false
     root.syncNavFade()
   }
 

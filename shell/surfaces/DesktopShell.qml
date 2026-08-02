@@ -22,6 +22,7 @@ Scope {
 
   Component.onCompleted: {
     ShellState.consoleSurfaceActive = false
+    ShellState.hostSurfaceActive = false
   }
 
   GlobalShortcut {

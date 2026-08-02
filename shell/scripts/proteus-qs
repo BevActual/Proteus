@@ -51,7 +51,7 @@ if [[ -z "${PROTEUS_SURFACE:-}" ]]; then
   fi
 fi
 case "${PROTEUS_SURFACE:-}" in
-  desktop|console|couch|phone|vr|watch) ;;
+  desktop|console|couch|host|phone|vr|watch) ;;
   *) PROTEUS_SURFACE=desktop ;;
 esac
 # Legacy alias

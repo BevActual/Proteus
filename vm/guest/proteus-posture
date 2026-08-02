@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# proteus-posture — hard posture switch (desktop ↔ console).
-# Usage: proteus-posture desktop|console
+# proteus-posture — hard posture switch (desktop ↔ console ↔ host).
+# Usage: proteus-posture desktop|console|host
 # Writes ~/.config/proteus/posture, flips hypr profile pointer, restarts chrome.
 # Soft-only profile reload: set-hypr-profile.sh (not this helper).
 set -euo pipefail
@@ -39,11 +39,11 @@ else
 fi
 
 usage() {
-  echo "usage: $0 desktop|console" >&2
+  echo "usage: $0 desktop|console|host" >&2
   exit 2
 }
 
-[[ "${TARGET}" == "desktop" || "${TARGET}" == "console" ]] || usage
+[[ "${TARGET}" == "desktop" || "${TARGET}" == "console" || "${TARGET}" == "host" ]] || usage
 
 mkdir -p "${CONFIG_DIR}"
 
@@ -157,5 +157,18 @@ case "${TARGET}" in
     sleep 0.8
     start_guide
     log "entered desktop"
+    ;;
+  host)
+    write_fact host
+    log "Fact → host (${FACT})"
+    set_profile host
+    # Stop console seats if any were left running
+    if [[ -x "${ROOT}/shell/scripts/proteus-console-seat" ]]; then
+      "${ROOT}/shell/scripts/proteus-console-seat" stop >/dev/null 2>&1 || true
+    fi
+    restart_chrome host
+    sleep 0.8
+    start_guide
+    log "entered host"
     ;;
 esac
