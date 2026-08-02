@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
-"""Proteus app permissions — store + Flatpak overrides + activity probe.
+"""Proteus app permissions — store + Flatpak + portal sync + capture enforce.
 
 Store: ~/.config/proteus/permissions.json
 Activity: delegates to privacy-indicators.py (SoT for in-use).
 Flatpak: best-effort `flatpak override --user` for mappable categories.
+Portal: PermissionStore SetPermission for devices/microphone|camera (+ screen best-effort).
+Capture: pactl mute denied mic source-outputs; PipeWire destroy denied video streams.
 
-Honesty: native pacman/AppImage apps are not sandboxed by this helper.
+Honesty: not a full OS sandbox (no AppArmor/v4l2 ACL). Fail-open until store ready
+is a QML concern — this CLI always reads the on-disk store.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -29,6 +33,17 @@ DEFAULT_CATEGORIES = {c: "allow" for c in CATEGORIES}
 
 # Flatpak categories we can map to overrides (others are store-only).
 FLATPAK_MAPPABLE = frozenset({"microphone", "camera"})
+
+PORTAL_DEST = "org.freedesktop.impl.portal.PermissionStore"
+PORTAL_PATH = "/org/freedesktop/impl/portal/PermissionStore"
+PORTAL_IFACE = "org.freedesktop.impl.portal.PermissionStore"
+
+# Category → PermissionStore (table, resource id)
+PORTAL_MAP = {
+    "microphone": ("devices", "microphone"),
+    "camera": ("devices", "camera"),
+    "screen": ("screencast", "all"),
+}
 
 
 def store_path() -> Path:
@@ -127,6 +142,318 @@ def cmd_store_get(_: argparse.Namespace) -> int:
     return 0
 
 
+def _portal_available() -> bool:
+    code, _, _ = _run(
+        [
+            "gdbus",
+            "call",
+            "--session",
+            "--dest",
+            PORTAL_DEST,
+            "--object-path",
+            PORTAL_PATH,
+            "--method",
+            "org.freedesktop.DBus.Peer.Ping",
+        ],
+        timeout=2.0,
+    )
+    return code == 0
+
+
+def _portal_perm_list(state: str) -> list[str]:
+    st = str(state).lower()
+    if st == "allow":
+        return ["yes"]
+    if st == "deny":
+        return ["no"]
+    return ["ask"]
+
+
+def _gdbus_as(strings: list[str]) -> str:
+    # gdbus CLI array-of-string literal: "['yes']"
+    inner = ", ".join("'" + s.replace("'", "'\\''") + "'" for s in strings)
+    return f"[{inner}]"
+
+
+def portal_set_permission(table: str, resource: str, app: str, state: str) -> tuple[bool, str]:
+    aid = normalize_app_id(app)
+    if not aid:
+        return False, "empty app id"
+    if not _portal_available():
+        return False, "portal PermissionStore unavailable"
+    perms = _portal_perm_list(state)
+    code, out, err = _run(
+        [
+            "gdbus",
+            "call",
+            "--session",
+            "--dest",
+            PORTAL_DEST,
+            "--object-path",
+            PORTAL_PATH,
+            "--method",
+            f"{PORTAL_IFACE}.SetPermission",
+            table,
+            "true",
+            resource,
+            aid,
+            _gdbus_as(perms),
+        ],
+        timeout=4.0,
+    )
+    if code != 0:
+        return False, err or out or "SetPermission failed"
+    return True, "ok"
+
+
+def portal_delete_permission(table: str, resource: str, app: str) -> tuple[bool, str]:
+    aid = normalize_app_id(app)
+    if not aid:
+        return False, "empty app id"
+    if not _portal_available():
+        return False, "portal PermissionStore unavailable"
+    code, out, err = _run(
+        [
+            "gdbus",
+            "call",
+            "--session",
+            "--dest",
+            PORTAL_DEST,
+            "--object-path",
+            PORTAL_PATH,
+            "--method",
+            f"{PORTAL_IFACE}.DeletePermission",
+            table,
+            resource,
+            aid,
+        ],
+        timeout=4.0,
+    )
+    if code != 0:
+        return False, err or out or "DeletePermission failed"
+    return True, "ok"
+
+
+def sync_portal_for_app(data: dict, app_id: str, cat: str) -> dict:
+    """Write one app×category into PermissionStore when mapped."""
+    if cat not in PORTAL_MAP:
+        return {"synced": False, "reason": "unmapped"}
+    table, resource = PORTAL_MAP[cat]
+    grant = app_grant(data, app_id, cat)
+    if grant == "ask":
+        # Leave portal prompt behavior; clear sticky yes/no if we set one earlier.
+        ok, msg = portal_delete_permission(table, resource, app_id)
+        return {"synced": ok, "action": "delete", "hint": msg, "grant": grant}
+    ok, msg = portal_set_permission(table, resource, app_id, grant)
+    return {"synced": ok, "action": "set", "hint": msg, "grant": grant}
+
+
+def sync_portal_store(data: dict | None = None, category: str | None = None) -> dict:
+    """Best-effort sync of store apps (and activity ids) to portal tables."""
+    data = data or load_store()
+    available = _portal_available()
+    results = []
+    if not available:
+        return {"ok": True, "portalAvailable": False, "synced": 0, "results": []}
+    cats = [category] if category else list(PORTAL_MAP.keys())
+    apps = set((data.get("apps") or {}).keys())
+    for aid in sorted(apps):
+        for cat in cats:
+            if cat not in PORTAL_MAP:
+                continue
+            # Only sync when app has an override or category is deny (tighten).
+            row = (data.get("apps") or {}).get(aid) or {}
+            if cat not in row and category_state(data, cat) != "deny":
+                continue
+            r = sync_portal_for_app(data, aid, cat)
+            r["app"] = aid
+            r["category"] = cat
+            results.append(r)
+    # Category deny with no per-app rows: nothing to stamp (portal is per-app).
+    synced = sum(1 for r in results if r.get("synced"))
+    return {
+        "ok": True,
+        "portalAvailable": True,
+        "synced": synced,
+        "attempted": len(results),
+        "results": results,
+    }
+
+
+def _source_outputs() -> list[dict]:
+    """Parse pactl list source-outputs → [{index, name, binary}]."""
+    code, out, _ = _run(["pactl", "list", "source-outputs"], timeout=3.0)
+    if code != 0 or not out:
+        return []
+    rows: list[dict] = []
+    cur: dict | None = None
+    for line in out.splitlines():
+        if line.startswith("Source Output #"):
+            if cur:
+                rows.append(cur)
+            m = re.search(r"#(\d+)", line)
+            cur = {
+                "index": int(m.group(1)) if m else -1,
+                "name": "",
+                "binary": "",
+            }
+            continue
+        if cur is None:
+            continue
+        s = line.strip()
+        if s.startswith("application.name ="):
+            cur["name"] = s.split("=", 1)[-1].strip().strip('"')
+        elif s.startswith("application.process.binary ="):
+            cur["binary"] = s.split("=", 1)[-1].strip().strip('"')
+    if cur:
+        rows.append(cur)
+    return rows
+
+
+def _resolve_desktop_id(app_name: str, binary: str) -> str:
+    # Keep local (do not import privacy-indicators — keep CLI light).
+    candidates = []
+    for raw in (app_name, binary, Path(binary).name if binary else ""):
+        s = (raw or "").strip()
+        if not s:
+            continue
+        candidates.extend([s, s.lower(), s.replace(" ", "-").lower()])
+    home = Path.home()
+    dirs = [home / ".local/share/applications"]
+    for part in os.environ.get("XDG_DATA_DIRS", "/usr/local/share:/usr/share").split(":"):
+        if part:
+            dirs.append(Path(part) / "applications")
+    seen: set[str] = set()
+    for c in candidates:
+        if c in seen:
+            continue
+        seen.add(c)
+        for d in dirs:
+            for fname in (c + ".desktop", c):
+                p = d / fname if str(fname).endswith(".desktop") else d / (str(fname) + ".desktop")
+                if p.is_file():
+                    return p.name[: -len(".desktop")]
+    blob = f"{app_name} {binary}".lower()
+    if "chromium" in blob:
+        return "chromium"
+    if "firefox" in blob:
+        return "firefox"
+    if "chrome" in blob:
+        return "google-chrome"
+    return ""
+
+
+def enforce_mic(data: dict) -> list[dict]:
+    actions = []
+    for row in _source_outputs():
+        idx = int(row.get("index", -1))
+        if idx < 0:
+            continue
+        desk = _resolve_desktop_id(str(row.get("name") or ""), str(row.get("binary") or ""))
+        # Category deny → mute everyone; else require resolved id with deny/ask.
+        cat_deny = category_state(data, "microphone") == "deny"
+        if desk:
+            g = app_grant(data, desk, "microphone")
+            block = g != "allow"
+        else:
+            block = cat_deny
+        if not block:
+            continue
+        code, _, err = _run(["pactl", "set-source-output-mute", str(idx), "1"], timeout=2.0)
+        actions.append(
+            {
+                "kind": "microphone",
+                "index": idx,
+                "app": desk or str(row.get("binary") or row.get("name") or ""),
+                "muted": code == 0,
+                "error": err if code else "",
+            }
+        )
+    return actions
+
+
+def enforce_camera(data: dict) -> list[dict]:
+    """Best-effort: destroy running PipeWire Stream/Input/Video nodes for denied apps."""
+    actions = []
+    code, raw, _ = _run(["pw-dump"], timeout=3.0)
+    if code != 0 or not raw.strip():
+        return actions
+    try:
+        dump = json.loads(raw)
+    except Exception:
+        return actions
+    if not isinstance(dump, list):
+        return actions
+    cat_deny = category_state(data, "camera") == "deny"
+    for obj in dump:
+        info = obj.get("info") or {}
+        props = info.get("props") or {}
+        state = str(info.get("state") or "").lower()
+        if state != "running":
+            continue
+        mc = str(props.get("media.class") or "")
+        if "Stream/Input/Video" not in mc:
+            continue
+        app_name = str(props.get("application.name") or props.get("node.name") or "")
+        binary = str(props.get("application.process.binary") or "")
+        desk = _resolve_desktop_id(app_name, binary)
+        if desk:
+            block = app_grant(data, desk, "camera") != "allow"
+        else:
+            block = cat_deny
+        if not block:
+            continue
+        nid = obj.get("id")
+        if nid is None:
+            continue
+        c2, _, err = _run(["pw-cli", "destroy", str(nid)], timeout=2.0)
+        actions.append(
+            {
+                "kind": "camera",
+                "node": nid,
+                "app": desk or binary or app_name,
+                "destroyed": c2 == 0,
+                "error": err if c2 else "",
+            }
+        )
+    return actions
+
+
+def cmd_portal_sync(args: argparse.Namespace) -> int:
+    cat = str(args.category) if getattr(args, "category", None) else ""
+    data = load_store()
+    out = sync_portal_store(data, category=cat if cat in PORTAL_MAP else None)
+    print(json.dumps(out))
+    return 0
+
+
+def cmd_enforce_capture(_: argparse.Namespace) -> int:
+    data = load_store()
+    mic = enforce_mic(data)
+    cam = enforce_camera(data)
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "microphone": mic,
+                "camera": cam,
+                "muted": sum(1 for a in mic if a.get("muted")),
+                "destroyed": sum(1 for a in cam if a.get("destroyed")),
+            }
+        )
+    )
+    return 0
+
+
+def _after_store_mutate(data: dict, category: str | None = None) -> dict:
+    portal = sync_portal_store(data, category=category if category in PORTAL_MAP else None)
+    enforce = {
+        "microphone": enforce_mic(data) if (not category or category == "microphone") else [],
+        "camera": enforce_camera(data) if (not category or category == "camera") else [],
+    }
+    return {"portal": portal, "enforce": enforce}
+
+
 def cmd_store_set_category(args: argparse.Namespace) -> int:
     cat = str(args.category)
     state = str(args.state).lower()
@@ -139,7 +466,8 @@ def cmd_store_set_category(args: argparse.Namespace) -> int:
     data = load_store()
     data["categories"][cat] = state
     save_store(data)
-    print(json.dumps({"ok": True, "category": cat, "state": state}))
+    extra = _after_store_mutate(data, category=cat)
+    print(json.dumps({"ok": True, "category": cat, "state": state, **extra}))
     return 0
 
 
@@ -162,7 +490,23 @@ def cmd_store_set_app(args: argparse.Namespace) -> int:
     grants[cat] = state
     apps[aid] = grants
     save_store(data)
-    print(json.dumps({"ok": True, "app": aid, "category": cat, "state": state}))
+    portal_one = sync_portal_for_app(data, aid, cat) if cat in PORTAL_MAP else {"synced": False}
+    enforce = {
+        "microphone": enforce_mic(data) if cat == "microphone" else [],
+        "camera": enforce_camera(data) if cat == "camera" else [],
+    }
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "app": aid,
+                "category": cat,
+                "state": state,
+                "portal": portal_one,
+                "enforce": enforce,
+            }
+        )
+    )
     return 0
 
 
@@ -302,6 +646,11 @@ def cmd_flatpak_set(args: argparse.Namespace) -> int:
             return 1
     else:
         msg = "store-only (no Flatpak override map)"
+    portal_one = sync_portal_for_app(data, ref, cat) if cat in PORTAL_MAP else {"synced": False}
+    enforce = {
+        "microphone": enforce_mic(data) if cat == "microphone" else [],
+        "camera": enforce_camera(data) if cat == "camera" else [],
+    }
     print(
         json.dumps(
             {
@@ -311,6 +660,8 @@ def cmd_flatpak_set(args: argparse.Namespace) -> int:
                 "state": state,
                 "flatpakApplied": applied and state != "ask",
                 "hint": msg,
+                "portal": portal_one,
+                "enforce": enforce,
             }
         )
     )
@@ -365,6 +716,11 @@ def main() -> int:
     p_g.add_argument("app")
     p_g.add_argument("category")
 
+    p_ps = sub.add_parser("portal-sync", help="Sync store apps → portal PermissionStore")
+    p_ps.add_argument("category", nargs="?", default="", help="optional: microphone|camera|screen")
+
+    sub.add_parser("enforce-capture", help="Mute/destroy active captures that violate Deny")
+
     args = ap.parse_args()
     dispatch = {
         "store-get": cmd_store_get,
@@ -374,6 +730,8 @@ def main() -> int:
         "flatpak-list": cmd_flatpak_list,
         "flatpak-set": cmd_flatpak_set,
         "granted": cmd_granted,
+        "portal-sync": cmd_portal_sync,
+        "enforce-capture": cmd_enforce_capture,
     }
     return dispatch[args.cmd](args)
 
