@@ -14,6 +14,9 @@ ColumnLayout {
   property string appFilter: ""
   property string allowKeywordDraft: ""
   property string denyKeywordDraft: ""
+  property string renameDraft: ""
+  property string newProfileDraft: ""
+  property bool confirmDelete: false
 
   readonly property var dayLabels: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
@@ -26,6 +29,16 @@ ColumnLayout {
   readonly property var activeProfile: {
     const _ = Config.focusActiveProfileId
     return FocusMode.activeProfile()
+  }
+
+  readonly property string activeProfileKey: {
+    const p = root.activeProfile
+    return FocusMode.activeProfileId() + ":" + (p ? String(p.name || "") : "")
+  }
+
+  onActiveProfileKeyChanged: {
+    root.renameDraft = root.activeProfile ? String(root.activeProfile.name || "") : ""
+    root.confirmDelete = false
   }
 
   readonly property var profileOptions: {
@@ -187,13 +200,135 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "Profile"
-      hint: root.activeProfile ? String(root.activeProfile.name || root.activeProfile.id || "") : "Work"
+      hint: root.profileOptions.length > 3
+          ? "Picker switches to a menu when you have more than three profiles"
+          : (root.activeProfile ? String(root.activeProfile.name || root.activeProfile.id || "") : "Work")
       showSeparator: true
       SettingsSegmented {
+        visible: root.profileOptions.length <= 3
         Layout.preferredWidth: Math.min(280, parent.width)
         options: root.profileOptions
         selected: FocusMode.activeProfileId()
         onActivated: id => FocusMode.setActiveProfileId(id)
+      }
+      SettingsCombo {
+        visible: root.profileOptions.length > 3
+        preferredWidth: 200
+        model: root.profileOptions
+        currentValue: FocusMode.activeProfileId()
+        onActivated: id => FocusMode.setActiveProfileId(id)
+      }
+    }
+
+    SettingsFormRow {
+      label: "Name"
+      hint: "Rename the active profile"
+      showSeparator: true
+      TextField {
+        Layout.preferredWidth: 160
+        text: root.renameDraft
+        color: Theme.text
+        placeholderText: "Work"
+        placeholderTextColor: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+        background: Item {}
+        onTextChanged: root.renameDraft = text
+        onEditingFinished: {
+          const id = FocusMode.activeProfileId()
+          if (String(root.renameDraft || "").trim().length)
+            FocusMode.renameProfile(id, root.renameDraft)
+        }
+      }
+    }
+
+    SettingsFormRow {
+      label: "Add profile"
+      hint: "Creates an empty profile and selects it"
+      showSeparator: true
+      TextField {
+        Layout.preferredWidth: 140
+        placeholderText: "Focus"
+        text: root.newProfileDraft
+        color: Theme.text
+        placeholderTextColor: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+        background: Item {}
+        onTextChanged: root.newProfileDraft = text
+        onAccepted: {
+          FocusMode.addProfile(root.newProfileDraft)
+          root.newProfileDraft = ""
+          text = ""
+        }
+      }
+      Text {
+        text: "Add"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: 13
+        MouseArea {
+          anchors.fill: parent
+          anchors.margins: -8
+          cursorShape: Qt.PointingHandCursor
+          onClicked: {
+            FocusMode.addProfile(root.newProfileDraft)
+            root.newProfileDraft = ""
+          }
+        }
+      }
+    }
+
+    SettingsFormRow {
+      label: "Delete profile"
+      hint: root.profiles.length <= 1
+          ? "Keep at least one profile"
+          : (root.confirmDelete ? "Confirm delete of the active profile" : "Removes the active profile")
+      showSeparator: true
+      Text {
+        visible: !root.confirmDelete
+        text: root.profiles.length <= 1 ? "—" : "Delete"
+        color: root.profiles.length <= 1 ? Theme.textMute : Theme.danger
+        font.family: Theme.fontFamily
+        font.pixelSize: 13
+        MouseArea {
+          anchors.fill: parent
+          anchors.margins: -8
+          enabled: root.profiles.length > 1
+          cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+          onClicked: root.confirmDelete = true
+        }
+      }
+      RowLayout {
+        visible: root.confirmDelete
+        spacing: Theme.spaceMd
+        Text {
+          text: "Cancel"
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: 13
+          MouseArea {
+            anchors.fill: parent
+            anchors.margins: -8
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.confirmDelete = false
+          }
+        }
+        Text {
+          text: "Delete"
+          color: Theme.danger
+          font.family: Theme.fontFamily
+          font.pixelSize: 13
+          MouseArea {
+            anchors.fill: parent
+            anchors.margins: -8
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              FocusMode.deleteProfile(FocusMode.activeProfileId())
+              root.confirmDelete = false
+            }
+          }
+        }
       }
     }
 
