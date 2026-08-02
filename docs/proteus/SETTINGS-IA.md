@@ -154,7 +154,7 @@ the sub-settings list:
 | Lock screen | Same Kind/color kit as Background + dim; Match desktop; **widgets only via lock Customize** (long-press) — not in Settings |
 | Icons | **Default / Dark / Clear / Tinted** side-by-side squircle compare (`kit/SettingsIconStylePicker`); Tinted tint graph; custom art Switch/Reset; dock Keep/Remove via glass right-click menu + long-press edit (−) / drag-off (running apps appear on dock) |
 | Desktop widgets | **Not in Settings** — unlocked desktop long-press or `Super+Shift+W` → Customize (Theme elevated bar · empty-hint honesty · size/− chrome); free place + optional Snap to Grid; separate `desktopWidgets[]`; store Out |
-| Notifications / DND | **Shell Control Center** (top-bar status cluster) — list depth · toast/`showToast` · DND · QS volume/tiles; Network tile → **Settings → Network** (nm-connection-editor stays a Settings escape); Status HUD for media-key volume/brightness (suppressed while CC open); deep Sound/Network/Power stay in Settings panes; **no Settings Notifications category** |
+| Notifications / DND | **Live list** stays **Shell Control Center** (top-bar status cluster) — toast/`showToast` · DND · QS volume/tiles; Network tile → **Settings → Network**; Status HUD for media-key volume/brightness (suppressed while CC open). **Prefs** live in top-level **Settings → Notifications** (`notifications` · hard DND · jump to Focus); deep Sound/Network/Power stay in Settings panes |
 | Mix (inputs) | **Shell Control Center** unified **Sound** plate — master volume on plate; Listen ▾ + Sources ▾ (name · On/Off · peak · volume); Mixer › → Settings |
 | Keep Awake | **Shell Control Center** duration menu (+ menu-bar **Awake** when on; Beacon Actions) — temporary `systemd-inhibit idle:sleep` so hypridle/logind skip idle lock & sleep; **not** a Settings Power control |
 | Power mode | **Settings → Power** segmented + Control Center **Power** tile menu — `powerprofilesctl` (Performance / Balanced / Eco) |
@@ -338,7 +338,7 @@ Depth order for what’s left:
 *(Network hub + FormRow polish shipped — depth wizards stay on the list.)*
 *(Network Diagnostics · Wireshark escape shipped — in-pane capture Out.)*
 *(Network depth: password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG import shipped — Headscale admin / OpenVPN wizard Out.)*
-*(Control Center notifications + QS depth shipped — Settings Notifications pane stays Out.)*
+*(Control Center notifications + QS depth shipped — Settings Notifications prefs pane shipped; live list stays CC.)*
 *(Users session + greetd status shipped — writing greeter prefs / useradd stay Out.)*
 *(Users polish: Reboot/Shutdown confirm · GECOS/home · Online accounts jump · lock screen PIN shipped.)*
 *(Power mode PPD + logind writer shipped — charge thresholds / TLP stay Out.)*
