@@ -3,8 +3,8 @@
 
 Writable seats: google · microsoft · exchange · imap · apple (SMTP).
 
-Thin UX: To + Subject + Body + optional CC/BCC (comma-separated).
-No attachments · HTML · drafts · reply.
+Thin UX: To + Subject + Body + optional CC/BCC + optional one local file attach.
+No HTML · drafts · reply · multi-file · upload sessions.
 Stdout: one JSON object. Never logs passwords/tokens.
 """
 from __future__ import annotations
@@ -13,6 +13,7 @@ import argparse
 import base64
 import email.message
 import json
+import mimetypes
 import os
 import smtplib
 import subprocess
@@ -24,6 +25,8 @@ from email.utils import formataddr, formatdate, make_msgid
 from pathlib import Path
 
 SENDABLE = ("google", "microsoft", "exchange", "imap", "apple")
+# Conservative cap (Graph JSON fileAttachment practical limit; Gmail allows more).
+ATTACH_MAX_BYTES = 10 * 1024 * 1024
 
 
 def _run(cmd: list[str], timeout: float = 20.0) -> tuple[int, str, str]:
@@ -110,6 +113,43 @@ def _http_json(
         return 0, None, str(e)
 
 
+def _load_attachment(path: str) -> dict:
+    """Read one local file for attach. Returns {ok, name, mime, data} or error."""
+    raw_path = (path or "").strip()
+    if not raw_path:
+        return {"ok": False, "error": "empty attachment path"}
+    p = Path(raw_path).expanduser()
+    if not p.is_file():
+        return {"ok": False, "error": f"attachment not found: {p.name}"}
+    try:
+        size = p.stat().st_size
+    except OSError as e:
+        return {"ok": False, "error": f"attachment unreadable: {e}"}
+    if size > ATTACH_MAX_BYTES:
+        return {
+            "ok": False,
+            "error": f"attachment too large (max {ATTACH_MAX_BYTES // (1024 * 1024)} MiB)",
+        }
+    try:
+        data = p.read_bytes()
+    except OSError as e:
+        return {"ok": False, "error": f"attachment read failed: {e}"}
+    mime, _ = mimetypes.guess_type(str(p))
+    if not mime:
+        mime = "application/octet-stream"
+    maintype, _, subtype = mime.partition("/")
+    if not subtype:
+        maintype, subtype = "application", "octet-stream"
+    return {
+        "ok": True,
+        "name": p.name,
+        "mime": f"{maintype}/{subtype}",
+        "maintype": maintype,
+        "subtype": subtype,
+        "data": data,
+    }
+
+
 def _rfc2822(
     *,
     from_addr: str,
@@ -118,6 +158,7 @@ def _rfc2822(
     body: str,
     cc: list[str] | None = None,
     bcc: list[str] | None = None,
+    attach: dict | None = None,
 ) -> bytes:
     msg = email.message.EmailMessage()
     msg["From"] = from_addr
@@ -130,6 +171,13 @@ def _rfc2822(
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = make_msgid()
     msg.set_content(body or "")
+    if attach and attach.get("ok"):
+        msg.add_attachment(
+            attach["data"],
+            maintype=attach["maintype"],
+            subtype=attach["subtype"],
+            filename=attach["name"],
+        )
     return msg.as_bytes()
 
 
@@ -145,6 +193,7 @@ def send_google(
     body: str,
     cc: list[str] | None = None,
     bcc: list[str] | None = None,
+    attach: dict | None = None,
 ) -> dict:
     raw = _b64url(
         _rfc2822(
@@ -154,6 +203,7 @@ def send_google(
             body=body,
             cc=cc,
             bcc=bcc,
+            attach=attach,
         )
     )
     status, data, err = _http_json(
@@ -174,6 +224,8 @@ def send_google(
             out["cc"] = cc
         if bcc:
             out["bcc"] = bcc
+        if attach and attach.get("ok"):
+            out["attachment"] = attach["name"]
         return out
     return {
         "ok": False,
@@ -190,6 +242,7 @@ def send_microsoft(
     provider: str = "microsoft",
     cc: list[str] | None = None,
     bcc: list[str] | None = None,
+    attach: dict | None = None,
 ) -> dict:
     message: dict = {
         "subject": subject,
@@ -203,6 +256,15 @@ def send_microsoft(
     if bcc:
         message["bccRecipients"] = [
             {"emailAddress": {"address": a}} for a in bcc
+        ]
+    if attach and attach.get("ok"):
+        message["attachments"] = [
+            {
+                "@odata.type": "#microsoft.graph.fileAttachment",
+                "name": attach["name"],
+                "contentType": attach["mime"],
+                "contentBytes": base64.b64encode(attach["data"]).decode("ascii"),
+            }
         ]
     payload = {"message": message, "saveToSentItems": True}
     status, data, err = _http_json(
@@ -222,6 +284,8 @@ def send_microsoft(
             out["cc"] = cc
         if bcc:
             out["bcc"] = bcc
+        if attach and attach.get("ok"):
+            out["attachment"] = attach["name"]
         return out
     return {
         "ok": False,
@@ -258,6 +322,7 @@ def send_smtp(
     body: str,
     cc: list[str] | None = None,
     bcc: list[str] | None = None,
+    attach: dict | None = None,
 ) -> dict:
     user = str(tok.get("username") or tok.get("email") or "").strip()
     password = str(tok.get("accessToken") or "")
@@ -274,6 +339,7 @@ def send_smtp(
         body=body,
         cc=cc,
         bcc=bcc,
+        attach=attach,
     )
     envelope = [to_addr] + list(cc or []) + list(bcc or [])
     try:
@@ -294,6 +360,8 @@ def send_smtp(
             out["cc"] = cc
         if bcc:
             out["bcc"] = bcc
+        if attach and attach.get("ok"):
+            out["attachment"] = attach["name"]
         return out
     except Exception as e:
         return {"ok": False, "error": f"{provider} SMTP: {e}", "provider": provider}
@@ -340,6 +408,7 @@ def send_mail(
     provider: str = "",
     cc: str = "",
     bcc: str = "",
+    attach_path: str = "",
 ) -> dict:
     to_addr = (to_addr or "").strip()
     subject = (subject or "").strip()
@@ -350,6 +419,23 @@ def send_mail(
         return {"ok": False, "error": "To address required"}
     if not subject:
         return {"ok": False, "error": "Subject required"}
+
+    attach: dict | None = None
+    if (attach_path or "").strip():
+        if os.environ.get("PROTEUS_MAIL_SEND_FIXTURE") == "1":
+            attach = {
+                "ok": True,
+                "name": Path(attach_path).name or "fixture.bin",
+                "mime": "application/octet-stream",
+                "maintype": "application",
+                "subtype": "octet-stream",
+                "data": b"",
+            }
+        else:
+            loaded = _load_attachment(attach_path)
+            if not loaded.get("ok"):
+                return {"ok": False, "error": str(loaded.get("error") or "attach failed")}
+            attach = loaded
 
     if os.environ.get("PROTEUS_MAIL_SEND_FIXTURE") == "1":
         out = {
@@ -363,6 +449,8 @@ def send_mail(
             out["cc"] = cc_list
         if bcc_list:
             out["bcc"] = bcc_list
+        if attach and attach.get("ok"):
+            out["attachment"] = attach["name"]
         return out
 
     order = [provider] if provider in SENDABLE else list(SENDABLE)
@@ -384,6 +472,7 @@ def send_mail(
                 body,
                 cc=cc_list,
                 bcc=bcc_list,
+                attach=attach,
             )
         elif prov in ("microsoft", "exchange"):
             result = send_microsoft(
@@ -394,10 +483,18 @@ def send_mail(
                 provider=prov,
                 cc=cc_list,
                 bcc=bcc_list,
+                attach=attach,
             )
         else:
             result = send_smtp(
-                prov, tok, to_addr, subject, body, cc=cc_list, bcc=bcc_list
+                prov,
+                tok,
+                to_addr,
+                subject,
+                body,
+                cc=cc_list,
+                bcc=bcc_list,
+                attach=attach,
             )
         if result.get("ok"):
             result["action"] = "send"
@@ -418,6 +515,7 @@ def main() -> int:
     p_send.add_argument("--body", default="")
     p_send.add_argument("--cc", default="", help="comma-separated CC addresses")
     p_send.add_argument("--bcc", default="", help="comma-separated BCC addresses")
+    p_send.add_argument("--attach", default="", help="optional local file path (one file)")
     p_send.add_argument("--provider", default="")
 
     sub.add_parser("providers", help="list sendable providers / seats")
@@ -436,6 +534,7 @@ def main() -> int:
                     provider=str(args.provider or ""),
                     cc=str(args.cc or ""),
                     bcc=str(args.bcc or ""),
+                    attach_path=str(args.attach or ""),
                 )
             )
         )
