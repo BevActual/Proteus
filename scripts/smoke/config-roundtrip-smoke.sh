@@ -51,6 +51,21 @@ if not isinstance(data, dict):
 data["gapsIn"] = int(data.get("gapsIn", 8)) + 1
 data["desktopWidgetsSnapToGrid"] = True
 data["launcherRecents"] = "smoke-app.desktop"
+# Desktop catch-up keys (#1248)
+data["workspaceMode"] = "perDisplay" if data.get("workspaceMode") != "perDisplay" else "synced"
+data["focusActiveProfileId"] = "sleep"
+data["focusProfiles"] = [
+    {
+        "id": "smoke-focus",
+        "label": "Smoke",
+        "allowedApps": ["smoke.desktop"],
+        "breakCritical": True,
+    }
+]
+data["controlCenterLayout"] = {
+    "tiles": {"wifi": {"visible": False}},
+    "order": ["wifi", "bluetooth"],
+}
 widgets = list(data.get("desktopWidgets") or [])
 widgets.append({
     "id": "smoke-dw-roundtrip",
@@ -76,6 +91,10 @@ required = {
     "desktopWidgets",
     "desktopWidgetsSnapToGrid",
     "launcherRecents",
+    "workspaceMode",
+    "focusProfiles",
+    "focusActiveProfileId",
+    "controlCenterLayout",
 }
 missing_req = sorted(required - set(data))
 if missing_req:
@@ -99,6 +118,20 @@ if again.get("desktopWidgetsSnapToGrid") is not True:
     sys.exit(1)
 if again.get("launcherRecents") != "smoke-app.desktop":
     print("launcherRecents round-trip mismatch", file=sys.stderr)
+    sys.exit(1)
+if again.get("workspaceMode") != data["workspaceMode"]:
+    print("workspaceMode round-trip mismatch", file=sys.stderr)
+    sys.exit(1)
+if again.get("focusActiveProfileId") != "sleep":
+    print("focusActiveProfileId round-trip mismatch", file=sys.stderr)
+    sys.exit(1)
+fp = again.get("focusProfiles") or []
+if not any(isinstance(p, dict) and p.get("id") == "smoke-focus" for p in fp):
+    print("focusProfiles stub missing after round-trip", file=sys.stderr)
+    sys.exit(1)
+ccl = again.get("controlCenterLayout") or {}
+if not isinstance(ccl, dict) or not (ccl.get("tiles") or {}).get("wifi"):
+    print("controlCenterLayout stub missing after round-trip", file=sys.stderr)
     sys.exit(1)
 dw = again.get("desktopWidgets") or []
 if not any(isinstance(w, dict) and w.get("id") == "smoke-dw-roundtrip" for w in dw):
