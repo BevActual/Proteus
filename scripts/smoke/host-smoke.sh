@@ -57,9 +57,21 @@ grep -q 'StatusHud' "${HSHELL}" || die "HostShell missing StatusHud"
 grep -q 'NotificationToast' "${HSHELL}" || die "HostShell missing NotificationToast"
 grep -q 'hostnameLabel\|SystemLoad.summaryLabel' "${HSHELL}" \
   || die "HostShell bar missing hostname/load"
-grep -q 'workloads\|separate app\|Headless' "${HOST_HOME}" \
-  || die "HostHome must state workloads/headless Out honesty"
+grep -q 'Workloads' "${HOST_HOME}" || die "HostHome missing Workloads glance"
+grep -q 'headless-no-QS\|full Host workloads' "${HOST_HOME}" \
+  || die "HostHome must state full workloads/headless Out honesty"
 ok "Phase 2 HostHome + HUD/toast"
+
+WL="${ROOT}/shell/shared/Workloads.qml"
+WL_PY="${ROOT}/shell/scripts/proteus-workloads.py"
+[[ -f "${WL}" ]] || die "missing Workloads.qml"
+[[ -x "${WL_PY}" ]] || die "proteus-workloads.py not executable"
+grep -q 'proteus-workloads.py' "${WL}" || die "Workloads.qml missing script path"
+wl_out="$(PROTEUS_WORKLOADS_FIXTURE=1 python3 "${WL_PY}")"
+echo "${wl_out}" | grep -q '"ok":true' || die "workloads fixture not ok: ${wl_out}"
+echo "${wl_out}" | grep -q 'proteus-guest' || die "workloads fixture missing sample VM"
+echo "${wl_out}" | grep -q '"fixture":true' || die "workloads fixture flag missing"
+ok "Workloads singleton + fixture probe"
 
 # Isolated Fact write host (stub qs + hyprctl)
 TMP="$(mktemp -d)"

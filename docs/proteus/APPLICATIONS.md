@@ -109,7 +109,9 @@ Example sketches:
   postures `desktop` (+ maybe compact on `phone` device class later).  
 - **Host workloads app** — requires `libvirt` or `containers`; posture `host`;
   separate from Settings (VM/container *setup* is not a Settings category);
-  works headless via CLI/API; GUI facet only when UI session exists.  
+  works headless via CLI/API; GUI facet only when UI session exists.
+  **Today:** HostHome ships a **thin read-only glance** (`Workloads` /
+  `proteus-workloads.py`); create/destroy UI and the full app stay Out.  
 - **Vitals glance** — requires `vitals`; device classes `watch` / band; no
   Hyprland needed.  
 - **Media / console player** — posture `console` or `desktop`; adapts to `remote` /

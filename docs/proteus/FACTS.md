@@ -51,6 +51,7 @@ facts: [`vm/guest/`](../../vm/guest/).
 | **Theme** | Chrome tokens from Config accent/font/mode | System facts |
 | **SystemInfo** | Read-only OS/kernel/hostname/QS/Hypr/tip + About copy summary | Privileged writes; hostname edit |
 | **SystemLoad** | About-active CPU/mem/swap/root storage/uptime from `/proc` + `statvfs` | Process lists; charts; always-on poll |
+| **Workloads** | HostHome thin VM/container glance via `proteus-workloads.py` (virsh · podman/docker) | Full workloads app; create/destroy; Settings virt |
 | **Weather** | Open-Meteo for stored place; respects `Config.weatherEnabled` mute | IP geolocation; fetch when muted |
 | **NetworkDiagnostics** | Diagnostics-active iface rates + calm bars · `ss` · firewall one-liner · route/DNS · ping; Wireshark escape | In-Settings packet decode; always-on promiscuous capture |
 | **MissionCenter** | Detect/open Mission Center (Activity Monitor escape) | Embedding a live dashboard in Settings |
@@ -89,7 +90,7 @@ shell/shared/
   Audio.qml Brightness.qml Hud.qml Power.qml DateTime.qml Weather.qml Displays.qml
   ShellState.qml Hardware.qml EnvGate.qml Keybinds.qml Notifications.qml LockLayoutZones.qml
   HyprProfile.qml SystemInfo.qml SystemLoad.qml MissionCenter.qml Accounts.qml
-  CalendarEvents.qml
+  CalendarEvents.qml Workloads.qml
   ActiveWindow.qml KeepAwake.qml LocalSend.qml NetworkDiagnostics.qml Packages.qml
   DockApps.qml Time.qml Permissions.qml PrivacyIndicators.qml DefaultApps.qml
   SystemServices.qml FocusMode.qml ControlCenterLayout.qml UniversalSearch.qml …
