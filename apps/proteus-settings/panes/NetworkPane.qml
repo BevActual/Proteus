@@ -9,8 +9,8 @@ import "../kit"
 // Page ids: network · network-machine · network-devices · network-wifi ·
 // network-bluetooth · network-localsend · network-tailscale · network-vpn ·
 // network-headscale · network-diagnostics.
-// OpenVPN cert wizard stays Out. Headscale admin thin In (remote API).
-// OpenVPN .ovpn import + optional user/pass drafts are In (thin wizard).
+// OpenVPN .ovpn import + optional user/pass + cert path attach thin In.
+// Headscale admin thin In (remote API). PKI / PKCS#11 / server install Out.
 ColumnLayout {
   id: root
   Layout.fillWidth: true
@@ -56,6 +56,10 @@ ColumnLayout {
   property string vpnOvpnPendingName: ""
   property string vpnOvpnPendingUser: ""
   property string vpnOvpnPendingPass: ""
+  property string vpnOvpnPendingCa: ""
+  property string vpnOvpnPendingCert: ""
+  property string vpnOvpnPendingKey: ""
+  property string vpnOvpnPendingTlsAuth: ""
 
   property bool tsAvailable: false
   property string tsState: ""
@@ -409,6 +413,10 @@ ColumnLayout {
     vpnOvpnPendingName = ""
     vpnOvpnPendingUser = ""
     vpnOvpnPendingPass = ""
+    vpnOvpnPendingCa = ""
+    vpnOvpnPendingCert = ""
+    vpnOvpnPendingKey = ""
+    vpnOvpnPendingTlsAuth = ""
     vpnImportHint = "Importing…"
     vpnImportProc.command = [
       "nmcli",
@@ -423,7 +431,7 @@ ColumnLayout {
     vpnImportProc.running = true
   }
 
-  function importOpenVpn(path, user, pass) {
+  function importOpenVpn(path, user, pass, ca, cert, key, tlsAuth) {
     const p = String(path || "").trim()
     if (!p.length || vpnBusy)
       return
@@ -432,6 +440,10 @@ ColumnLayout {
     vpnImportKind = "openvpn"
     vpnOvpnPendingUser = String(user || "").trim()
     vpnOvpnPendingPass = String(pass || "")
+    vpnOvpnPendingCa = String(ca || "").trim()
+    vpnOvpnPendingCert = String(cert || "").trim()
+    vpnOvpnPendingKey = String(key || "").trim()
+    vpnOvpnPendingTlsAuth = String(tlsAuth || "").trim()
     const base = p.split("/").pop() || ""
     vpnOvpnPendingName = base.replace(/\.ovpn$/i, "").replace(/\.conf$/i, "")
     vpnImportHint = "Importing OpenVPN…"
@@ -446,6 +458,59 @@ ColumnLayout {
     ]
     vpnImportProc.running = false
     vpnImportProc.running = true
+  }
+
+  function _ovpnHasPendingCerts() {
+    return !!(vpnOvpnPendingCa.length || vpnOvpnPendingCert.length
+              || vpnOvpnPendingKey.length || vpnOvpnPendingTlsAuth.length)
+  }
+
+  function _startOvpnCertApply(name) {
+    root.vpnImportHint = "Attaching certs…"
+    root.vpnOvpnPendingName = name
+    vpnOvpnCertProc.command = [
+      "python3", "-c",
+      "import subprocess,sys\n"
+      + "name,ca,cert,key,ta=sys.argv[1:6]\n"
+      + "bits=[]\n"
+      + "if ca: bits.append(f'ca={ca}')\n"
+      + "if cert: bits.append(f'cert={cert}')\n"
+      + "if key: bits.append(f'key={key}')\n"
+      + "if ta: bits.append(f'tls-auth={ta}')\n"
+      + "if not bits:\n"
+      + "  print('skip'); raise SystemExit(0)\n"
+      + "data=','.join(bits)\n"
+      + "r=subprocess.run(['nmcli','connection','modify',name,'+vpn.data',data],capture_output=True,text=True)\n"
+      + "if r.returncode!=0:\n"
+      + "  sys.stderr.write((r.stderr or r.stdout or 'vpn.data failed').strip()); sys.exit(r.returncode or 1)\n"
+      + "print('ok')\n",
+      name,
+      root.vpnOvpnPendingCa,
+      root.vpnOvpnPendingCert,
+      root.vpnOvpnPendingKey,
+      root.vpnOvpnPendingTlsAuth
+    ]
+    vpnOvpnCertProc.running = false
+    vpnOvpnCertProc.running = true
+  }
+
+  function applyOpenVpnCerts(name, ca, cert, key, tlsAuth) {
+    const n = String(name || "").trim()
+    if (!n.length || vpnBusy)
+      return
+    vpnBusy = true
+    vpnError = ""
+    vpnImportKind = "openvpn"
+    vpnOvpnPendingCa = String(ca || "").trim()
+    vpnOvpnPendingCert = String(cert || "").trim()
+    vpnOvpnPendingKey = String(key || "").trim()
+    vpnOvpnPendingTlsAuth = String(tlsAuth || "").trim()
+    if (!_ovpnHasPendingCerts()) {
+      vpnBusy = false
+      vpnError = "Pick at least one of CA / cert / key / tls-auth"
+      return
+    }
+    _startOvpnCertApply(n)
   }
 
   onActiveChanged: {
@@ -1161,6 +1226,10 @@ ColumnLayout {
         vpnOvpnCredProc.running = true
         return
       }
+      if (root.vpnImportKind === "openvpn" && root._ovpnHasPendingCerts() && name.length) {
+        root._startOvpnCertApply(name)
+        return
+      }
       root.vpnBusy = false
       root.vpnError = ""
       root.vpnImportHint = "Imported"
@@ -1178,17 +1247,52 @@ ColumnLayout {
       id: vpnOvpnCredErr
     }
     onExited: (exitCode, exitStatus) => {
-      root.vpnBusy = false
       root.vpnOvpnPendingPass = ""
       if (exitCode !== 0) {
+        root.vpnBusy = false
         const e = String(vpnOvpnCredErr.text || "").trim().split("\n").pop() || ""
         root.vpnError = e.length
             ? ("Imported, but credentials failed: " + e)
             : "Imported, but credentials failed — set them in NetworkManager"
         root.vpnImportHint = "Imported"
+        vpnImportFlash.restart()
+        root.vpnRefresh.restart()
+        return
+      }
+      if (root._ovpnHasPendingCerts() && root.vpnOvpnPendingName.length) {
+        root._startOvpnCertApply(root.vpnOvpnPendingName)
+        return
+      }
+      root.vpnBusy = false
+      root.vpnError = ""
+      root.vpnImportHint = "Imported · credentials set"
+      vpnImportFlash.restart()
+      root.vpnRefresh.restart()
+    }
+  }
+
+  Process {
+    id: vpnOvpnCertProc
+    command: ["true"]
+    running: false
+    stderr: StdioCollector {
+      id: vpnOvpnCertErr
+    }
+    onExited: (exitCode, exitStatus) => {
+      root.vpnBusy = false
+      root.vpnOvpnPendingCa = ""
+      root.vpnOvpnPendingCert = ""
+      root.vpnOvpnPendingKey = ""
+      root.vpnOvpnPendingTlsAuth = ""
+      if (exitCode !== 0) {
+        const e = String(vpnOvpnCertErr.text || "").trim().split("\n").pop() || ""
+        root.vpnError = e.length
+            ? ("Imported, but cert attach failed: " + e)
+            : "Imported, but cert attach failed — set paths in NetworkManager"
+        root.vpnImportHint = "Imported"
       } else {
         root.vpnError = ""
-        root.vpnImportHint = "Imported · credentials set"
+        root.vpnImportHint = "Imported · certs attached"
       }
       vpnImportFlash.restart()
       root.vpnRefresh.restart()
