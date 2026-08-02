@@ -346,8 +346,10 @@ Depth order for what’s left:
 *(Appearance hub + Date, time & weather locale/forecast shipped — manual time/RTC Out.)*
 *(About OS/kernel/hostname · load strip · Mission Center escape · Copy+Copied ·
 soft profile shipped — hard posture switch via proteus-posture / Beacon / CC (not About picker); no in-Settings live dashboard.)*
-*(Privacy & security hub · In use now · category grants · Flatpak overrides shipped —
-native OS sandbox / portal store write still Out.)*
+*(Privacy & security hub · In use now · category grants · Flatpak overrides ·
+Beacon/dock grant parity · Diagnostics deny → Network Diagnostics · smoke/install
+privacy harness shipped — native OS sandbox / portal store write still Out;
+fail-open until Permissions.ready held.)*
 
 Virt / container setup stays a **separate app**, not a Settings growth item.
 
