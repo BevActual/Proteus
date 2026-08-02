@@ -6,9 +6,10 @@ import QtQuick
 import QtQuick.Layouts
 import "../shared"
 import "desktop"
+import "host"
 
-// Host posture — lean ops chrome (Fact + hard flip). Same Settings spine;
-// no dock / desktop widgets. Return via CC Desktop tile or Beacon action.
+// Host posture — lean ops chrome (Fact + hard flip). Phase 2: HostHome glance
+// + HUD/toasts. Same Settings spine; no dock / desktop widgets.
 Scope {
   id: root
 
@@ -16,6 +17,9 @@ Scope {
     const v = Quickshell.env("PROTEUS_SKIP_SESSION_LOCK")
     return v === "1" || v === "true"
   }
+
+  readonly property bool homeWanted: !ShellState.sessionLocked && !ShellState.sessionStartLockPending
+      && !ShellState.controlCenterOpen && !ShellState.launcherOpen
 
   function runPosture(target) {
     const proot = String(Quickshell.env("PROTEUS_ROOT") || "/mnt/proteus")
@@ -35,7 +39,12 @@ Scope {
   Component.onCompleted: {
     ShellState.consoleSurfaceActive = false
     ShellState.hostSurfaceActive = true
+    SystemInfo.refresh()
+    SystemLoad.retain()
+    SystemLoad.refresh()
   }
+
+  Component.onDestruction: SystemLoad.release()
 
   GlobalShortcut {
     appid: "proteus"
@@ -167,7 +176,14 @@ Scope {
           }
 
           Text {
-            text: "Lean ops · same Settings spine"
+            text: SystemInfo.hostnameLabel
+            color: Theme.textDim
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeSm
+          }
+
+          Text {
+            text: SystemLoad.ready ? SystemLoad.summaryLabel : "Lean ops · same Settings spine"
             color: Theme.textMute
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSizeSm
@@ -237,6 +253,37 @@ Scope {
     PanelWindow {
       required property var modelData
       screen: modelData
+      visible: root.homeWanted
+      exclusionMode: ExclusionMode.Ignore
+      exclusiveZone: 0
+      color: "transparent"
+      anchors {
+        top: true
+        left: true
+        right: true
+        bottom: true
+      }
+
+      Component.onCompleted: {
+        if (WlrLayershell != null) {
+          WlrLayershell.namespace = "proteus-host-home"
+          WlrLayershell.layer = WlrLayer.Top
+        }
+      }
+
+      HostHome {
+        anchors.fill: parent
+        anchors.topMargin: 40
+      }
+    }
+  }
+
+  Variants {
+    model: Quickshell.screens
+
+    PanelWindow {
+      required property var modelData
+      screen: modelData
       visible: !ShellState.sessionLocked && !ShellState.sessionStartLockPending
           && (ShellState.controlCenterOpen || ShellState.launcherOpen)
       exclusionMode: ExclusionMode.Ignore
@@ -268,6 +315,100 @@ Scope {
     }
   }
 
+  Variants {
+    model: Quickshell.screens
+
+    PanelWindow {
+      id: toastWin
+      required property var modelData
+      screen: modelData
+
+      readonly property bool isFocused: {
+        const mon = Hyprland.monitorFor(modelData)
+        return mon ? mon.focused : (modelData === Quickshell.screens[0])
+      }
+      readonly property bool showToast: isFocused && Notifications.showToast && !ShellState.sessionLocked
+
+      visible: showToast
+      exclusionMode: ExclusionMode.Ignore
+      color: "transparent"
+
+      anchors {
+        top: true
+        left: true
+        right: true
+        bottom: true
+      }
+
+      Component.onCompleted: {
+        if (toastWin.WlrLayershell != null) {
+          toastWin.WlrLayershell.namespace = "proteus-host-toast"
+          toastWin.WlrLayershell.layer = WlrLayer.Overlay
+        }
+      }
+
+      NotificationToast {
+        id: toastLayer
+        anchors.fill: parent
+        visible: toastWin.showToast
+      }
+
+      mask: toastWin.showToast ? toastMask : emptyMask
+      Region {
+        id: toastMask
+        item: toastLayer.cardItem
+      }
+      Region {
+        id: emptyMask
+      }
+    }
+  }
+
+  Variants {
+    model: Quickshell.screens
+
+    PanelWindow {
+      id: hudWin
+      required property var modelData
+      screen: modelData
+
+      readonly property bool isFocused: {
+        const mon = Hyprland.monitorFor(modelData)
+        return mon ? mon.focused : (modelData === Quickshell.screens[0])
+      }
+
+      visible: !ShellState.sessionLocked && isFocused && Hud.hudVisible
+          && !ShellState.controlCenterOpen
+      exclusionMode: ExclusionMode.Ignore
+      color: "transparent"
+
+      anchors {
+        top: true
+        left: true
+        right: true
+        bottom: true
+      }
+
+      Component.onCompleted: {
+        if (hudWin.WlrLayershell != null) {
+          hudWin.WlrLayershell.namespace = "proteus-host-hud"
+          hudWin.WlrLayershell.layer = WlrLayer.Overlay
+        }
+      }
+
+      StatusHud {
+        id: hudLayer
+        anchors.fill: parent
+      }
+
+      mask: hudMask
+      Region {
+        id: hudMask
+        item: hudLayer.cardItem
+      }
+    }
+  }
+
   Timer {
     interval: 200
     running: true
@@ -278,5 +419,12 @@ Scope {
       else
         ShellState.sessionStartLockPending = false
     }
+  }
+
+  Timer {
+    interval: 8000
+    running: ShellState.hostSurfaceActive && !ShellState.sessionLocked
+    repeat: true
+    onTriggered: SystemLoad.refresh()
   }
 }
