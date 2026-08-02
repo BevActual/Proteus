@@ -298,9 +298,13 @@ ColumnLayout {
 
         SettingsFormRow {
           label: modelData.label
-          hint: root.fieldValue(modelData.bind).length
-              ? root.fieldValue(modelData.bind)
-              : (modelData.placeholder || "")
+          // Never mirror password binds into hint — secrets stay in the
+          // Password TextInput only (review #1596).
+          hint: modelData.password
+              ? (modelData.placeholder || "")
+              : (root.fieldValue(modelData.bind).length
+                  ? root.fieldValue(modelData.bind)
+                  : (modelData.placeholder || ""))
           showSeparator: true
         }
 

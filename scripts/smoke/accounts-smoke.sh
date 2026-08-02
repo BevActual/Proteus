@@ -44,6 +44,25 @@ grep -q 'Connect Nextcloud\|Connect IMAP\|Connect CalDAV\|Connect CardDAV\|Conne
   || die "AccountsProviderLeaf Microsoft/Exchange/Nextcloud/IMAP/CalDAV/CardDAV/Apple Connect UI"
 grep -q 'disconnectSeat\|Disconnect' "${LEAF}" || die "AccountsProviderLeaf disconnect UI"
 grep -q 'settings.json' "${LEAF}" || die "AccountsProviderLeaf vault honesty"
+# #1596 — password binds must not mirror live values into FormRow hint
+grep -q 'modelData.password' "${LEAF}" \
+  || die "AccountsProviderLeaf password hint gate (#1596)"
+python3 - "${LEAF}" <<'PY' || die "AccountsProviderLeaf password hints must not use fieldValue (#1596)"
+import sys
+from pathlib import Path
+text = Path(sys.argv[1]).read_text()
+idx = text.find("SettingsFormRow {\n          label: modelData.label")
+if idx < 0:
+    raise SystemExit("form-row block missing")
+chunk = text[idx:idx + 450]
+if "modelData.password" not in chunk:
+    raise SystemExit("password branch missing from hint")
+pw = chunk.find("modelData.password")
+fv = chunk.find("fieldValue(modelData.bind)")
+if fv >= 0 and (pw < 0 or fv < pw):
+    raise SystemExit("fieldValue before password gate in hint")
+print("ok")
+PY
 grep -q 'id: "accounts"' "${ROOT}/apps/proteus-settings/SettingsNav.qml" \
   || die "SettingsNav missing accounts hub"
 grep -q 'accountsChildren\|accounts-google' "${ROOT}/apps/proteus-settings/Settings.qml" \
