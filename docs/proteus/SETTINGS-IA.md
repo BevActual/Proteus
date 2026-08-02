@@ -357,6 +357,9 @@ fail-open until Permissions.ready held.)*
 *(Desktop catch-up: desktop-smoke · defaults/beacon-index install · Focus/CC/Spaces
 roundtrip · guest Desktop nav · Beacon Settings blurb · SETTINGS-IA §6 Focus/CC
 rows shipped — CC columns UI · Focus profile CRUD · Spaces multi-head depth Out.)*
+*(Beacon catch-up: beacon-smoke · index rebuild/search · FACTS cache path ·
+INSTALL helper honesty shipped — full-text content index · require fd/wtype ·
+Spotlight-class relevance Out.)*
 
 Virt / container setup stays a **separate app**, not a Settings growth item.
 
