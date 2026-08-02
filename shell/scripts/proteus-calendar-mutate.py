@@ -6,8 +6,9 @@ Writable:
   · OAuth — google · microsoft · exchange (Bearer; calendar.events / Calendars.ReadWrite)
 
 Thin UX: title + day (09:00–10:00 UTC slot) + optional recurrence
-(daily|weekly|monthly|none, no end) on create and whole-series update.
-No attendees · COUNT/UNTIL · this-vs-all · exceptions · scoped delete.
+(daily|weekly|monthly|none) + optional COUNT end (forever|count:2|5|10)
+on create and whole-series update.
+No attendees · UNTIL date · this-vs-all · exceptions · scoped delete.
 Stdout: one JSON object. Never logs passwords/tokens.
 """
 from __future__ import annotations
@@ -16,6 +17,7 @@ import argparse
 import base64
 import json
 import os
+import re
 import subprocess
 import sys
 import urllib.error
@@ -163,21 +165,76 @@ def _normalize_recurrence(raw: str) -> str:
     return ""
 
 
-def _rrule_line(recurrence: str) -> str:
+def _normalize_recurrence_end(raw: str) -> str:
+    """Return forever|count:N (N in 2,5,10) or forever for empty/invalid."""
+    v = (raw or "").strip().lower()
+    if v in ("", "forever", "none", "noend", "no-end", "∞"):
+        return "forever"
+    if v in ("2", "count:2", "2x", "×2"):
+        return "count:2"
+    if v in ("5", "count:5", "5x", "×5"):
+        return "count:5"
+    if v in ("10", "count:10", "10x", "×10"):
+        return "count:10"
+    m = re.fullmatch(r"count:(\d+)", v)
+    if m:
+        n = int(m.group(1))
+        if n in (2, 5, 10):
+            return f"count:{n}"
+    return "forever"
+
+
+def _count_from_end(end: str) -> int | None:
+    e = _normalize_recurrence_end(end)
+    if e.startswith("count:"):
+        try:
+            return int(e.split(":", 1)[1])
+        except ValueError:
+            return None
+    return None
+
+
+def _rrule_line(recurrence: str, recurrence_end: str = "forever") -> str:
     freq = {
         "daily": "DAILY",
         "weekly": "WEEKLY",
         "monthly": "MONTHLY",
     }.get(recurrence or "", "")
-    return f"RRULE:FREQ={freq}" if freq else ""
+    if not freq:
+        return ""
+    count = _count_from_end(recurrence_end)
+    if count:
+        return f"RRULE:FREQ={freq};COUNT={count}"
+    return f"RRULE:FREQ={freq}"
 
 
-def _graph_recurrence(recurrence: str, day: date) -> dict | None:
-    """Microsoft Graph recurrence (noEnd). Weekly needs daysOfWeek."""
+def _parse_rrule_line(line: str) -> tuple[str, str]:
+    """Return (freq, end) from an RRULE line; end forever|count:N."""
+    u = line.upper()
+    if "FREQ=DAILY" in u:
+        freq = "daily"
+    elif "FREQ=WEEKLY" in u:
+        freq = "weekly"
+    elif "FREQ=MONTHLY" in u:
+        freq = "monthly"
+    else:
+        freq = ""
+    end = "forever"
+    m = re.search(r"COUNT=(\d+)", line, re.I)
+    if m:
+        n = int(m.group(1))
+        if n > 0:
+            end = f"count:{n}"
+    return freq, end
+
+
+def _graph_recurrence(
+    recurrence: str, day: date, recurrence_end: str = "forever"
+) -> dict | None:
+    """Microsoft Graph recurrence (noEnd or numbered COUNT)."""
     if recurrence == "daily":
         pattern: dict = {"type": "daily", "interval": 1}
     elif recurrence == "weekly":
-        # Graph weekday names are lowercase English.
         names = (
             "monday",
             "tuesday",
@@ -200,24 +257,36 @@ def _graph_recurrence(recurrence: str, day: date) -> dict | None:
         }
     else:
         return None
-    return {
-        "pattern": pattern,
-        "range": {
+    count = _count_from_end(recurrence_end)
+    if count:
+        rng: dict = {
+            "type": "numbered",
+            "startDate": day.isoformat(),
+            "numberOfOccurrences": count,
+        }
+    else:
+        rng = {
             "type": "noEnd",
             "startDate": day.isoformat(),
-        },
-    }
+        }
+    return {"pattern": pattern, "range": rng}
 
 
-def _ics(uid: str, title: str, day: date, hours: int = 1, recurrence: str = "") -> str:
+def _ics(
+    uid: str,
+    title: str,
+    day: date,
+    hours: int = 1,
+    recurrence: str = "",
+    recurrence_end: str = "forever",
+) -> str:
     start = datetime(day.year, day.month, day.day, 9, 0, 0, tzinfo=timezone.utc)
     end = start + timedelta(hours=max(1, hours))
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     dtstart = start.strftime("%Y%m%dT%H%M%SZ")
     dtend = end.strftime("%Y%m%dT%H%M%SZ")
-    # Escape SUMMARY commas/semicolons lightly
     summary = title.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,")
-    rrule = _rrule_line(recurrence)
+    rrule = _rrule_line(recurrence, recurrence_end)
     rrule_block = f"{rrule}\r\n" if rrule else ""
     return (
         "BEGIN:VCALENDAR\r\n"
@@ -282,13 +351,19 @@ def _bearer(tok: dict) -> str:
 
 
 def _cmd_create_oauth(
-    provider: str, title: str, day: date, tok: dict, recurrence: str = ""
+    provider: str,
+    title: str,
+    day: date,
+    tok: dict,
+    recurrence: str = "",
+    recurrence_end: str = "forever",
 ) -> dict:
     access = _bearer(tok)
     if not access:
         return {"ok": False, "error": "empty access token", "action": "create", "provider": provider}
     start_iso, end_iso = _slot_times(day)
     recurrence = _normalize_recurrence(recurrence)
+    end_n = _normalize_recurrence_end(recurrence_end) if recurrence else "forever"
     if provider == "google":
         url = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
         payload = {
@@ -296,7 +371,7 @@ def _cmd_create_oauth(
             "start": {"dateTime": start_iso},
             "end": {"dateTime": end_iso},
         }
-        rrule = _rrule_line(recurrence)
+        rrule = _rrule_line(recurrence, end_n)
         if rrule:
             payload["recurrence"] = [rrule]
     else:
@@ -306,7 +381,7 @@ def _cmd_create_oauth(
             "start": {"dateTime": start_iso.replace("Z", ""), "timeZone": "UTC"},
             "end": {"dateTime": end_iso.replace("Z", ""), "timeZone": "UTC"},
         }
-        graph_r = _graph_recurrence(recurrence, day)
+        graph_r = _graph_recurrence(recurrence, day, end_n)
         if graph_r:
             payload["recurrence"] = graph_r
     status, data, err = _http_json(
@@ -340,6 +415,7 @@ def _cmd_create_oauth(
     }
     if recurrence:
         out["recurrence"] = recurrence
+        out["recurrenceEnd"] = end_n
     return out
 
 
@@ -351,6 +427,7 @@ def _cmd_update_oauth(
     uid: str,
     tok: dict,
     recurrence: str | None = None,
+    recurrence_end: str | None = None,
 ) -> dict:
     access = _bearer(tok)
     if not access:
@@ -370,6 +447,11 @@ def _cmd_update_oauth(
     start_iso, end_iso = _slot_times(day)
     touch_rec = recurrence is not None
     recurrence_n = _normalize_recurrence(recurrence or "") if touch_rec else ""
+    end_n = (
+        _normalize_recurrence_end(recurrence_end or "forever")
+        if touch_rec and recurrence_n
+        else "forever"
+    )
     if provider == "google":
         payload = {
             "summary": title,
@@ -378,7 +460,7 @@ def _cmd_update_oauth(
         }
         if touch_rec:
             payload["recurrence"] = (
-                [_rrule_line(recurrence_n)] if recurrence_n else []
+                [_rrule_line(recurrence_n, end_n)] if recurrence_n else []
             )
         method = "PUT"
     else:
@@ -388,7 +470,7 @@ def _cmd_update_oauth(
             "end": {"dateTime": end_iso.replace("Z", ""), "timeZone": "UTC"},
         }
         if touch_rec:
-            graphed = _graph_recurrence(recurrence_n, day)
+            graphed = _graph_recurrence(recurrence_n, day, end_n)
             payload["recurrence"] = graphed if graphed else None
         method = "PATCH"
     status, data, err = _http_json(
@@ -422,6 +504,7 @@ def _cmd_update_oauth(
     }
     if touch_rec and recurrence_n:
         out["recurrence"] = recurrence_n
+        out["recurrenceEnd"] = end_n
     return out
 
 
@@ -465,9 +548,16 @@ def _cmd_delete_oauth(provider: str, href: str, uid: str, tok: dict) -> dict:
     }
 
 
-def cmd_create(provider: str, title: str, day: date, recurrence: str = "") -> dict:
+def cmd_create(
+    provider: str,
+    title: str,
+    day: date,
+    recurrence: str = "",
+    recurrence_end: str = "forever",
+) -> dict:
     title = (title or "").strip() or "New event"
     recurrence = _normalize_recurrence(recurrence)
+    end_n = _normalize_recurrence_end(recurrence_end) if recurrence else "forever"
     if provider not in WRITABLE:
         return {
             "ok": False,
@@ -484,14 +574,16 @@ def cmd_create(provider: str, title: str, day: date, recurrence: str = "") -> di
             "action": "create",
         }
     if provider in OAUTH_WRITABLE:
-        return _cmd_create_oauth(provider, title, day, tok, recurrence=recurrence)
+        return _cmd_create_oauth(
+            provider, title, day, tok, recurrence=recurrence, recurrence_end=end_n
+        )
     cal_home, origin, user, password = _creds(provider, tok)
     cal_url, err = _first_calendar(cal_home, origin, user, password)
     if err or not cal_url:
         return {"ok": False, "error": err or "no calendar collection", "action": "create"}
     uid = str(uuid.uuid4())
     put_url = cal_url.rstrip("/") + f"/{uid}.ics"
-    body = _ics(uid, title, day, recurrence=recurrence).encode()
+    body = _ics(uid, title, day, recurrence=recurrence, recurrence_end=end_n).encode()
     req = urllib.request.Request(
         put_url,
         data=body,
@@ -531,6 +623,7 @@ def cmd_create(provider: str, title: str, day: date, recurrence: str = "") -> di
     }
     if recurrence:
         out["recurrence"] = recurrence
+        out["recurrenceEnd"] = end_n
     return out
 
 
@@ -549,16 +642,21 @@ def cmd_update(
     day: date,
     uid: str = "",
     recurrence: str | None = None,
+    recurrence_end: str | None = None,
 ) -> dict:
     """Overwrite an existing event (title + day + optional whole-series recurrence).
 
-    recurrence=None preserves prior RRULE on CalDAV (GET not performed — omit
-    means rewrite without RRULE only when explicitly none|daily|…).
+    recurrence=None preserves prior RRULE (incl. COUNT) on CalDAV via GET.
     """
     href = (href or "").strip()
     title = (title or "").strip() or "Untitled"
     touch_rec = recurrence is not None
     recurrence_n = _normalize_recurrence(recurrence or "") if touch_rec else ""
+    end_n = (
+        _normalize_recurrence_end(recurrence_end or "forever")
+        if touch_rec and recurrence_n
+        else "forever"
+    )
     if provider not in WRITABLE:
         return {
             "ok": False,
@@ -576,7 +674,14 @@ def cmd_update(
         }
     if provider in OAUTH_WRITABLE:
         return _cmd_update_oauth(
-            provider, href, title, day, uid, tok, recurrence=recurrence
+            provider,
+            href,
+            title,
+            day,
+            uid,
+            tok,
+            recurrence=recurrence,
+            recurrence_end=recurrence_end,
         )
     if not href.startswith("http"):
         return {"ok": False, "error": "href required (absolute event URL)", "action": "update"}
@@ -584,8 +689,9 @@ def cmd_update(
     event_uid = (uid or "").strip() or _uid_from_href(href)
     if not event_uid:
         return {"ok": False, "error": "uid required (or href basename .ics)", "action": "update"}
-    # When recurrence omitted, preserve existing RRULE via GET (best-effort).
+    # When recurrence omitted, preserve existing RRULE (+ COUNT) via GET.
     cal_rec = recurrence_n if touch_rec else ""
+    cal_end = end_n if touch_rec else "forever"
     if not touch_rec:
         try:
             get_req = urllib.request.Request(
@@ -597,16 +703,14 @@ def cmd_update(
                 existing = resp.read().decode("utf-8", errors="replace")
             for line in existing.splitlines():
                 if line.startswith("RRULE:") or line.startswith("RRULE;"):
-                    if "FREQ=DAILY" in line.upper():
-                        cal_rec = "daily"
-                    elif "FREQ=WEEKLY" in line.upper():
-                        cal_rec = "weekly"
-                    elif "FREQ=MONTHLY" in line.upper():
-                        cal_rec = "monthly"
+                    cal_rec, cal_end = _parse_rrule_line(line)
                     break
         except Exception:
             cal_rec = ""
-    body = _ics(event_uid, title, day, recurrence=cal_rec).encode()
+            cal_end = "forever"
+    body = _ics(
+        event_uid, title, day, recurrence=cal_rec, recurrence_end=cal_end
+    ).encode()
     req = urllib.request.Request(
         href,
         data=body,
@@ -645,8 +749,10 @@ def cmd_update(
     }
     if touch_rec and recurrence_n:
         out["recurrence"] = recurrence_n
+        out["recurrenceEnd"] = end_n
     elif not touch_rec and cal_rec:
         out["recurrence"] = cal_rec
+        out["recurrenceEnd"] = cal_end
     return out
 
 
@@ -730,7 +836,12 @@ def main() -> int:
     ap.add_argument(
         "--recurrence",
         default=None,
-        help="create/update: none|daily|weekly|monthly (whole series, no end)",
+        help="create/update: none|daily|weekly|monthly (whole series)",
+    )
+    ap.add_argument(
+        "--recurrence-end",
+        default=None,
+        help="create/update: forever|count:2|count:5|count:10 (COUNT presets)",
     )
     args = ap.parse_args()
 
@@ -741,6 +852,7 @@ def main() -> int:
             return 0
         if args.action == "create":
             rec = _normalize_recurrence(args.recurrence or "")
+            end = _normalize_recurrence_end(args.recurrence_end or "forever") if rec else "forever"
             payload = {
                 "ok": True,
                 "fixture": True,
@@ -754,6 +866,7 @@ def main() -> int:
             }
             if rec:
                 payload["recurrence"] = rec
+                payload["recurrenceEnd"] = end
             print(json.dumps(payload))
             return 0
         if args.action == "update":
@@ -775,6 +888,9 @@ def main() -> int:
                 rec = _normalize_recurrence(args.recurrence)
                 if rec:
                     payload["recurrence"] = rec
+                    payload["recurrenceEnd"] = _normalize_recurrence_end(
+                        args.recurrence_end or "forever"
+                    )
             print(json.dumps(payload))
             return 0
         print(
@@ -826,7 +942,11 @@ def main() -> int:
 
     if args.action == "create":
         result = cmd_create(
-            provider, args.title, day, recurrence=args.recurrence or ""
+            provider,
+            args.title,
+            day,
+            recurrence=args.recurrence or "",
+            recurrence_end=args.recurrence_end or "forever",
         )
     elif args.action == "update":
         result = cmd_update(
@@ -836,6 +956,7 @@ def main() -> int:
             day,
             args.uid,
             recurrence=args.recurrence,
+            recurrence_end=args.recurrence_end,
         )
     else:
         result = cmd_delete(provider, args.href, args.uid)
