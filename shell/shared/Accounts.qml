@@ -14,8 +14,15 @@ Singleton {
   property bool busy: false
   property string error: ""
   property bool googleClientConfigured: false
+  property bool microsoftClientConfigured: false
+  property bool nextcloudConnectable: true
   property var connectors: []
   property var seats: []
+
+  // Nextcloud form (Settings pane) — not persisted until Connect succeeds.
+  property string nextcloudUrl: ""
+  property string nextcloudUser: ""
+  property string nextcloudAppPassword: ""
 
   function _binCandidates() {
     return [
@@ -55,6 +62,29 @@ Singleton {
     connectProc.running = true
   }
 
+  function connectMicrosoft() {
+    root.busy = true
+    root.error = ""
+    connectProc.command = root._runCmd(["connect", "microsoft"])
+    connectProc.running = false
+    connectProc.running = true
+  }
+
+  function connectNextcloud() {
+    const url = String(root.nextcloudUrl || "").trim()
+    const user = String(root.nextcloudUser || "").trim()
+    const pass = String(root.nextcloudAppPassword || "").trim()
+    if (!url.length || !user.length || !pass.length) {
+      root.error = "Nextcloud needs instance URL, username, and app password"
+      return
+    }
+    root.busy = true
+    root.error = ""
+    connectProc.command = root._runCmd(["connect", "nextcloud", url, user, pass])
+    connectProc.running = false
+    connectProc.running = true
+  }
+
   function disconnectSeat(seatId) {
     if (!seatId || !String(seatId).length)
       return
@@ -82,6 +112,8 @@ Singleton {
       return
     }
     root.googleClientConfigured = !!obj.googleClientConfigured
+    root.microsoftClientConfigured = !!obj.microsoftClientConfigured
+    root.nextcloudConnectable = obj.nextcloudConnectable !== false
     root.connectors = obj.connectors || []
     root.seats = obj.seats || []
     root.error = ""
@@ -112,6 +144,8 @@ Singleton {
         const obj = root._parse(text)
         if (obj && obj.ok === false)
           root.error = String(obj.error || "connect failed")
+        else if (obj && obj.ok)
+          root.nextcloudAppPassword = ""
       }
     }
     stderr: StdioCollector {}

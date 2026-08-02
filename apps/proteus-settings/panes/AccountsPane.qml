@@ -1,10 +1,11 @@
 import Quickshell
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Online accounts: locked connector catalog + Google Connect when configured.
+// Online accounts: Google / Microsoft PKCE + Nextcloud app-password.
 // Tokens via proteus-accounts vault — never settings.json. Mail/Contacts apps Out.
 ColumnLayout {
   id: root
@@ -77,12 +78,17 @@ ColumnLayout {
           }
 
           Rectangle {
-            visible: modelData.id === "google" && modelData.status === "not_connected"
+            visible: (modelData.id === "google" || modelData.id === "microsoft")
+                && modelData.status === "not_connected"
             Layout.preferredHeight: 28
             Layout.preferredWidth: connectLabel.implicitWidth + 20
             radius: Theme.radiusPill - 8
             color: Accounts.busy ? Theme.bgHover : Theme.accent
-            opacity: Accounts.googleClientConfigured ? 1 : 0.55
+            opacity: {
+              if (modelData.id === "google")
+                return Accounts.googleClientConfigured ? 1 : 0.55
+              return Accounts.microsoftClientConfigured ? 1 : 0.55
+            }
             Text {
               id: connectLabel
               anchors.centerIn: parent
@@ -97,17 +103,27 @@ ColumnLayout {
               enabled: !Accounts.busy
               cursorShape: Qt.PointingHandCursor
               onClicked: {
-                if (!Accounts.googleClientConfigured) {
-                  Accounts.error = "Set PROTEUS_GOOGLE_OAUTH_CLIENT_ID or ~/.config/proteus/oauth-google-client-id"
-                  return
+                if (modelData.id === "google") {
+                  if (!Accounts.googleClientConfigured) {
+                    Accounts.error = "Set PROTEUS_GOOGLE_OAUTH_CLIENT_ID or ~/.config/proteus/oauth-google-client-id"
+                    return
+                  }
+                  Accounts.connectGoogle()
+                } else {
+                  if (!Accounts.microsoftClientConfigured) {
+                    Accounts.error = "Set PROTEUS_MICROSOFT_OAUTH_CLIENT_ID or ~/.config/proteus/oauth-microsoft-client-id"
+                    return
+                  }
+                  Accounts.connectMicrosoft()
                 }
-                Accounts.connectGoogle()
               }
             }
           }
 
           Rectangle {
-            visible: modelData.id === "google" && modelData.status === "connected"
+            visible: (modelData.id === "google" || modelData.id === "microsoft"
+                      || modelData.id === "nextcloud")
+                && modelData.status === "connected"
             Layout.preferredHeight: 28
             Layout.preferredWidth: discLabel.implicitWidth + 20
             radius: Theme.radiusPill - 8
@@ -137,12 +153,123 @@ ColumnLayout {
     }
   }
 
+  SettingsGroup {
+    title: "Nextcloud"
+    visible: {
+      if (!Accounts.ready)
+        return true
+      for (let i = 0; i < Accounts.connectors.length; i++) {
+        const c = Accounts.connectors[i]
+        if (c.id === "nextcloud" && c.status === "connected")
+          return false
+      }
+      return true
+    }
+
+    ColumnLayout {
+      Layout.fillWidth: true
+      spacing: Theme.spaceSm
+
+      Text {
+        Layout.fillWidth: true
+        Layout.maximumWidth: 520
+        text: "Create an app password under Nextcloud → Settings → Security, then connect. Tokens stay in the proteus-accounts vault (not settings.json)."
+        color: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: 11
+        wrapMode: Text.WordWrap
+      }
+
+      TextField {
+        Layout.fillWidth: true
+        Layout.maximumWidth: 520
+        placeholderText: "https://cloud.example"
+        text: Accounts.nextcloudUrl
+        onTextChanged: Accounts.nextcloudUrl = text
+        color: Theme.text
+        font.family: Theme.fontFamily
+        background: Rectangle {
+          radius: Theme.radiusSm
+          color: Theme.bgHover
+          border.width: 1
+          border.color: Theme.chromeBorder
+        }
+      }
+
+      TextField {
+        Layout.fillWidth: true
+        Layout.maximumWidth: 520
+        placeholderText: "Username"
+        text: Accounts.nextcloudUser
+        onTextChanged: Accounts.nextcloudUser = text
+        color: Theme.text
+        font.family: Theme.fontFamily
+        background: Rectangle {
+          radius: Theme.radiusSm
+          color: Theme.bgHover
+          border.width: 1
+          border.color: Theme.chromeBorder
+        }
+      }
+
+      TextField {
+        Layout.fillWidth: true
+        Layout.maximumWidth: 520
+        placeholderText: "App password"
+        echoMode: TextInput.Password
+        text: Accounts.nextcloudAppPassword
+        onTextChanged: Accounts.nextcloudAppPassword = text
+        color: Theme.text
+        font.family: Theme.fontFamily
+        background: Rectangle {
+          radius: Theme.radiusSm
+          color: Theme.bgHover
+          border.width: 1
+          border.color: Theme.chromeBorder
+        }
+      }
+
+      Rectangle {
+        Layout.preferredHeight: 32
+        Layout.preferredWidth: ncConnectLabel.implicitWidth + 24
+        radius: Theme.radiusPill - 8
+        color: Accounts.busy ? Theme.bgHover : Theme.accent
+        Text {
+          id: ncConnectLabel
+          anchors.centerIn: parent
+          text: Accounts.busy ? "…" : "Connect Nextcloud"
+          color: "#ffffff"
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSizeSm
+          font.weight: Font.Medium
+        }
+        MouseArea {
+          anchors.fill: parent
+          enabled: !Accounts.busy
+          cursorShape: Qt.PointingHandCursor
+          onClicked: Accounts.connectNextcloud()
+        }
+      }
+    }
+  }
+
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 520
-    text: Accounts.googleClientConfigured
-      ? "Fact: Google Connect uses system-browser PKCE; tokens stay in the proteus-accounts vault (not settings.json)."
-      : "Fact: Create a Google Cloud OAuth client (Desktop app), then put the client id in ~/.config/proteus/oauth-google-client-id (one line). Redirect uses http://127.0.0.1:<port>/callback (loopback)."
+    text: {
+      const bits = []
+      if (Accounts.googleClientConfigured)
+        bits.push("Google PKCE ready")
+      else
+        bits.push("Google: set ~/.config/proteus/oauth-google-client-id")
+      if (Accounts.microsoftClientConfigured)
+        bits.push("Microsoft PKCE ready")
+      else
+        bits.push("Microsoft: set ~/.config/proteus/oauth-microsoft-client-id (public client · loopback redirect)")
+      bits.push("Nextcloud: app password + instance URL")
+      bits.push("Vault tokens never enter settings.json")
+      return "Fact: " + bits.join(" · ")
+    }
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11
