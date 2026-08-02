@@ -56,6 +56,7 @@ REQUIRED=(
   Accounts.qml
   CalendarEvents.qml
   Workloads.qml
+  SpacesDisplays.qml
   Hud.qml
   Brightness.qml
   Packages.qml
