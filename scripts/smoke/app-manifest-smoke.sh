@@ -131,6 +131,19 @@ grep -q 'XDG_DATA_DIRS' "${ROOT}/shell/scripts/proteus-qs" \
   || die "proteus-qs must export XDG_DATA_DIRS for DesktopEntries"
 grep -q 'proteus-dock-activate' "${DOCK}" \
   || die "DockApps must use proteus-dock-activate for pin clicks"
+# #1599 — focusOrLaunch passes adapt env into dock-activate cold launches
+grep -q 'appAdaptLaunchEnv(entry)\|ctx.environment = adaptEnv' "${DOCK}" \
+  || die "DockApps.focusOrLaunch must pass adapt env to dock-activate (#1599)"
+DA="${ROOT}/shell/scripts/proteus-dock-activate"
+[[ -x "${DA}" ]] || die "proteus-dock-activate missing/executable"
+grep -q 'adapt_env_prefix\|PROTEUS_ADAPT_INPUT' "${DA}" \
+  || die "proteus-dock-activate must forward PROTEUS_ADAPT_* (#1599)"
+# #1600 — empty activewindow must not invent active via focusHistoryID
+if grep -q 'not active and fhid == 0\|not active and fhid==0' "${DA}"; then
+  die "proteus-dock-activate must not treat fhid==0 as active when activewindow empty (#1600)"
+fi
+grep -q 'Only trust hyprctl activewindow\|active and addr == active' "${DA}" \
+  || die "proteus-dock-activate must only mark active from activewindow address (#1600)"
 SS="${ROOT}/shell/shared/ShellState.qml"
 AE="${ROOT}/shell/shared/AdaptEnv.qml"
 SP="${ROOT}/apps/proteus-settings/panes/SystemPane.qml"

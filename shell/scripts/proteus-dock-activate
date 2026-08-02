@@ -65,8 +65,10 @@ for c in clients:
             fhid = int(c.get("focusHistoryID", 999))
         except Exception:
             fhid = 999
-        # activewindow can be Invalid/{} (layer-shell focus); fall back to fhid==0
-        is_act = "1" if (active and addr == active) or (not active and fhid == 0) else "0"
+        # Only trust hyprctl activewindow. Empty/Invalid (layer-shell focus)
+        # must not invent "active" via focusHistoryID==0 — that false-minimizes
+        # the dock target instead of raising it (#1600).
+        is_act = "1" if (active and addr == active) else "0"
         print(f"{addr}\t{ws}\t{mapped}\t{fhid}\t{is_act}")
 ' "${CLIENTS_JSON}" "${ACTIVE_JSON}")
 
@@ -94,10 +96,26 @@ focus_addr() {
   hyprctl dispatch focuswindow "address:${addr}" >/dev/null
 }
 
+# Forward PROTEUS_ADAPT_* from our env into compositor-side launches (#1599).
+adapt_env_prefix() {
+  local bits=()
+  local k
+  for k in PROTEUS_ADAPT_INPUT PROTEUS_ADAPT_NAV PROTEUS_ADAPT_PANES; do
+    if [[ -n "${!k:-}" ]]; then
+      bits+=("${k}=${!k}")
+    fi
+  done
+  if ((${#bits[@]})); then
+    printf 'env %s ' "${bits[*]}"
+  fi
+}
+
 launch_app() {
   # Compositor-side launch so Wayland/env match the session (not SSH).
+  local prefix
+  prefix="$(adapt_env_prefix)"
   if command -v gtk-launch >/dev/null 2>&1; then
-    hyprctl dispatch exec "gtk-launch ${ID}" >/dev/null && return 0
+    hyprctl dispatch exec "${prefix}gtk-launch ${ID}" >/dev/null && return 0
   fi
   local desk=""
   for d in \
@@ -111,17 +129,17 @@ launch_app() {
     fi
   done
   if [[ -n "${desk}" ]] && command -v gio >/dev/null 2>&1; then
-    hyprctl dispatch exec "gio launch ${desk}" >/dev/null && return 0
+    hyprctl dispatch exec "${prefix}gio launch ${desk}" >/dev/null && return 0
   fi
   # Last resort: first Exec token from the desktop file
   if [[ -n "${desk}" ]]; then
     local bin
     bin="$(grep -m1 '^Exec=' "${desk}" | sed 's/^Exec=//; s/ %[UuFfDdNnickvm]//g; s/ %%/ /g' | awk '{print $1}')"
     if [[ -n "${bin}" ]]; then
-      hyprctl dispatch exec "${bin}" >/dev/null && return 0
+      hyprctl dispatch exec "${prefix}${bin}" >/dev/null && return 0
     fi
   fi
-  hyprctl dispatch exec "${ID}" >/dev/null
+  hyprctl dispatch exec "${prefix}${ID}" >/dev/null
 }
 
 if ((${#LIVE[@]} == 0)); then

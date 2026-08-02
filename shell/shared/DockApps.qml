@@ -786,15 +786,25 @@ Singleton {
     }
 
     // hyprctl-backed helper — avoids QS stale toplevels (Chromium ghosts).
+    // Pass PROTEUS_ADAPT_* so cold launches match Beacon/launchEntry (#1599).
     const pinId = normalizeDesktopId(entry.desktopId || entry.id)
     if (!pinId.length) {
       root.launchEntry(entry)
       return
     }
+    let adaptEnv = ({})
+    try {
+      adaptEnv = EnvGate.appAdaptLaunchEnv(entry) || ({})
+    } catch (eAdapt) {
+      adaptEnv = ({})
+    }
     markLaunching(entry)
-    Quickshell.execDetached({
+    const ctx = ({
       command: [root.dockActivateHelper, pinId, String(entry.match || "")]
     })
+    if (Object.keys(adaptEnv).length)
+      ctx.environment = adaptEnv
+    Quickshell.execDetached(ctx)
   }
 
   // Last-resort launch when DesktopEntries is empty/racy (stripped session env)
