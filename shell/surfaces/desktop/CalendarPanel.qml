@@ -1033,7 +1033,7 @@ Item {
         }
       }
 
-      // Contacts glance — CardDAV address book (Online accounts)
+      // Contacts glance — CardDAV address book create/edit/delete thin
       Rectangle {
         Layout.fillWidth: true
         Layout.preferredHeight: contactsCol.implicitHeight + 20
@@ -1050,12 +1050,19 @@ Item {
           anchors.margins: 10
           spacing: 4
 
+          property string newContactName: ""
+          property string newContactEmail: ""
+          property string confirmDeleteHref: ""
+          property string editingHref: ""
+          property string editName: ""
+          property string editEmail: ""
+
           Text {
             Layout.fillWidth: true
             text: {
               const _r = ContactsGlance.rev
-              if (ContactsGlance.busy)
-                return "Loading contacts…"
+              if (ContactsGlance.busy || ContactsGlance.mutating)
+                return ContactsGlance.mutating ? "Updating…" : "Loading contacts…"
               if (ContactsGlance.hasContacts)
                 return "Contacts · " + ContactsGlance.contacts.length
               if (ContactsGlance.hasSeats)
@@ -1074,14 +1081,168 @@ Item {
               const list = ContactsGlance.contacts || []
               return list.slice(0, 3)
             }
-            Text {
+            ColumnLayout {
+              id: contactRow
               required property var modelData
               Layout.fillWidth: true
-              text: ContactsGlance.contactLabel(modelData)
-              color: Theme.textDim
-              font.family: Theme.fontFamily
-              font.pixelSize: 11
-              elide: Text.ElideRight
+              spacing: 4
+
+              readonly property string cHref: String(modelData.href || "")
+              readonly property bool isEditing: contactsCol.editingHref === cHref && cHref.length
+              readonly property bool isConfirmDelete: contactsCol.confirmDeleteHref === cHref
+                  && cHref.length
+
+              RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+                visible: !contactRow.isEditing
+
+                Text {
+                  Layout.fillWidth: true
+                  text: ContactsGlance.contactLabel(modelData)
+                  color: Theme.textDim
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  elide: Text.ElideRight
+                }
+
+                Text {
+                  visible: ContactsGlance.isMutable(modelData) && !contactRow.isConfirmDelete
+                  text: "Edit"
+                  color: Theme.accent
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -4
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                      contactsCol.confirmDeleteHref = ""
+                      contactsCol.editingHref = String(modelData.href || "")
+                      contactsCol.editName = String(modelData.name || "")
+                      contactsCol.editEmail = String(modelData.email || "")
+                    }
+                  }
+                }
+
+                Text {
+                  visible: ContactsGlance.isMutable(modelData) && !contactRow.isConfirmDelete
+                  text: "✕"
+                  color: Theme.textMute
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -4
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                      contactsCol.editingHref = ""
+                      contactsCol.confirmDeleteHref = String(modelData.href || "")
+                    }
+                  }
+                }
+
+                RowLayout {
+                  visible: ContactsGlance.isMutable(modelData) && contactRow.isConfirmDelete
+                  spacing: 6
+                  Text {
+                    text: "Cancel"
+                    color: Theme.textMute
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 11
+                    MouseArea {
+                      anchors.fill: parent
+                      anchors.margins: -4
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: contactsCol.confirmDeleteHref = ""
+                    }
+                  }
+                  Text {
+                    text: "Delete"
+                    color: Theme.danger
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 11
+                    MouseArea {
+                      anchors.fill: parent
+                      anchors.margins: -4
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: {
+                        ContactsGlance.deleteContact(modelData)
+                        contactsCol.confirmDeleteHref = ""
+                      }
+                    }
+                  }
+                }
+              }
+
+              ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 4
+                visible: contactRow.isEditing
+
+                TextField {
+                  Layout.fillWidth: true
+                  text: contactsCol.editName
+                  color: Theme.text
+                  placeholderText: "Name"
+                  placeholderTextColor: Theme.textMute
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  background: Item {}
+                  onTextChanged: contactsCol.editName = text
+                }
+
+                TextField {
+                  Layout.fillWidth: true
+                  text: contactsCol.editEmail
+                  color: Theme.text
+                  placeholderText: "Email"
+                  placeholderTextColor: Theme.textMute
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  background: Item {}
+                  onTextChanged: contactsCol.editEmail = text
+                  onAccepted: {
+                    if (ContactsGlance.updateContact(
+                          modelData, contactsCol.editName, contactsCol.editEmail))
+                      contactsCol.editingHref = ""
+                  }
+                }
+
+                RowLayout {
+                  Layout.fillWidth: true
+                  spacing: 6
+                  Text {
+                    text: "Save"
+                    color: Theme.accent
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 11
+                    font.weight: Font.DemiBold
+                    MouseArea {
+                      anchors.fill: parent
+                      anchors.margins: -4
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: {
+                        if (ContactsGlance.updateContact(
+                              modelData, contactsCol.editName, contactsCol.editEmail))
+                          contactsCol.editingHref = ""
+                      }
+                    }
+                  }
+                  Text {
+                    text: "Cancel"
+                    color: Theme.textMute
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 11
+                    MouseArea {
+                      anchors.fill: parent
+                      anchors.margins: -4
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: contactsCol.editingHref = ""
+                    }
+                  }
+                }
+              }
             }
           }
 
@@ -1089,7 +1250,7 @@ Item {
             Layout.fillWidth: true
             visible: {
               const _r = ContactsGlance.rev
-              return !!ContactsGlance.error.length && !ContactsGlance.hasContacts
+              return !!ContactsGlance.error.length
             }
             text: ContactsGlance.error
             color: Theme.danger
@@ -1098,10 +1259,77 @@ Item {
             wrapMode: Text.WordWrap
           }
 
+          ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 4
+            visible: {
+              const _r = ContactsGlance.rev
+              return ContactsGlance.canCreate
+            }
+
+            TextField {
+              Layout.fillWidth: true
+              placeholderText: "New contact name"
+              text: contactsCol.newContactName
+              color: Theme.text
+              placeholderTextColor: Theme.textMute
+              font.family: Theme.fontFamily
+              font.pixelSize: 11
+              background: Item {}
+              onTextChanged: contactsCol.newContactName = text
+            }
+
+            RowLayout {
+              Layout.fillWidth: true
+              spacing: 6
+
+              TextField {
+                Layout.fillWidth: true
+                placeholderText: "Email"
+                text: contactsCol.newContactEmail
+                color: Theme.text
+                placeholderTextColor: Theme.textMute
+                font.family: Theme.fontFamily
+                font.pixelSize: 11
+                background: Item {}
+                onTextChanged: contactsCol.newContactEmail = text
+                onAccepted: {
+                  if (ContactsGlance.createContact(
+                        contactsCol.newContactName, contactsCol.newContactEmail)) {
+                    contactsCol.newContactName = ""
+                    contactsCol.newContactEmail = ""
+                  }
+                }
+              }
+
+              Text {
+                text: "Add"
+                color: Theme.accent
+                font.family: Theme.fontFamily
+                font.pixelSize: 11
+                font.weight: Font.DemiBold
+                MouseArea {
+                  anchors.fill: parent
+                  anchors.margins: -6
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    if (ContactsGlance.createContact(
+                          contactsCol.newContactName, contactsCol.newContactEmail)) {
+                      contactsCol.newContactName = ""
+                      contactsCol.newContactEmail = ""
+                    }
+                  }
+                }
+              }
+            }
+          }
+
           Text {
             Layout.fillWidth: true
             text: {
               const _r = ContactsGlance.rev
+              if (ContactsGlance.canCreate)
+                return "CardDAV + Apple create/edit/delete In · name + email thin · contacts app Out"
               if (ContactsGlance.hasSeats)
                 return "CardDAV seat · Settings → Online accounts"
               return "Connect CardDAV in Settings → Online accounts"
