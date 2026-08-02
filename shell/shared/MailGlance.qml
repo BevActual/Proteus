@@ -6,7 +6,7 @@ import QtQuick
 
 // Online accounts → unread/recent mail for menu-bar CalendarPanel glance.
 // Fact: seats via proteus-accounts; fetch via proteus-mail-glance.py;
-// send via proteus-mail-send.py (To/Subject/Body + optional CC/BCC thin).
+// send via proteus-mail-send.py (To/Subject/Body + CC/BCC + one-file attach thin).
 Singleton {
   id: root
 
@@ -26,6 +26,7 @@ Singleton {
   property string composeBody: ""
   property string composeCc: ""
   property string composeBcc: ""
+  property string composeAttachPath: ""
 
   readonly property string script: Config.scriptsDir + "/proteus-mail-glance.py"
   readonly property string sendScript: Config.scriptsDir + "/proteus-mail-send.py"
@@ -58,7 +59,15 @@ Singleton {
     return f
   }
 
-  function sendMessage(toAddr, subject, body, ccAddr, bccAddr) {
+  function attachHint() {
+    const s = String(root.composeAttachPath || "")
+    if (!s.length)
+      return ""
+    const parts = s.split("/")
+    return parts.length > 2 ? ("…/" + parts.slice(-2).join("/")) : s
+  }
+
+  function sendMessage(toAddr, subject, body, ccAddr, bccAddr, attachPath) {
     if (!root.canSend || root.sending)
       return false
     const to = String(toAddr !== undefined ? toAddr : root.composeTo).trim()
@@ -66,6 +75,7 @@ Singleton {
     const bod = String(body !== undefined ? body : root.composeBody)
     const cc = String(ccAddr !== undefined ? ccAddr : root.composeCc).trim()
     const bcc = String(bccAddr !== undefined ? bccAddr : root.composeBcc).trim()
+    const att = String(attachPath !== undefined ? attachPath : root.composeAttachPath).trim()
     if (!to.length || !sub.length)
       return false
     root.sending = true
@@ -80,6 +90,8 @@ Singleton {
       args.push("--cc", cc)
     if (bcc.length)
       args.push("--bcc", bcc)
+    if (att.length)
+      args.push("--attach", att)
     sendProc.command = args
     sendProc.running = false
     sendProc.running = true
@@ -156,6 +168,7 @@ Singleton {
           root.composeBody = ""
           root.composeCc = ""
           root.composeBcc = ""
+          root.composeAttachPath = ""
           root.sendError = ""
           root.refresh()
         } catch (e) {
