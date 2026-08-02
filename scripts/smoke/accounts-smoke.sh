@@ -382,26 +382,66 @@ assert d.get("ok") is True and int(d.get("sendableSeats") or 0) >= 1
 ' || die "mail send providers fixture"
 ok "mail send fixtures"
 
-# Contacts glance consumer (#1419–#1420)
+# Contacts glance + CardDAV write thin (#1419–#1420 · #1616–#1620)
 CONTACTS="${ROOT}/shell/scripts/proteus-contacts-glance.py"
+CMUT="${ROOT}/shell/scripts/proteus-contacts-mutate.py"
 CG_QML="${ROOT}/shell/shared/ContactsGlance.qml"
 [[ -x "${CONTACTS}" ]] || die "proteus-contacts-glance.py not executable"
+[[ -x "${CMUT}" ]] || die "proteus-contacts-mutate.py not executable"
 [[ -f "${CG_QML}" ]] || die "missing ContactsGlance.qml"
 grep -q 'ContactsGlance' "${CP}" || die "CalendarPanel must use ContactsGlance"
 grep -q 'def fetch_carddav\|providers = ("carddav", "apple")' "${CONTACTS}" \
   || die "proteus-contacts-glance.py missing CardDAV/Apple fetch"
+grep -q 'mutableSeats\|"href"' "${CONTACTS}" \
+  || die "proteus-contacts-glance.py must emit href/mutableSeats"
+grep -q 'createContact\|updateContact\|deleteContact\|canCreate' "${CG_QML}" \
+  || die "ContactsGlance must expose create/update/delete + canCreate"
+grep -q 'ContactsGlance.createContact\|ContactsGlance.canCreate' "${CP}" \
+  || die "CalendarPanel must wire contacts create thin"
+grep -q 'ContactsGlance.updateContact\|ContactsGlance.deleteContact\|isMutable' "${CP}" \
+  || die "CalendarPanel must wire contacts edit/delete thin"
 grep -q 'proteus-contacts-glance.py' "${ROOT}/vm/install/apps.sh" \
   || die "apps.sh must install proteus-contacts-glance.py"
+grep -q 'proteus-contacts-mutate.py' "${ROOT}/vm/install/apps.sh" \
+  || die "apps.sh must install proteus-contacts-mutate.py"
 grep -q 'ContactsGlance.qml' "${ROOT}/scripts/smoke/layout-smoke.sh" \
   || die "layout-smoke requires ContactsGlance.qml"
-ok "contacts glance wiring"
+ok "contacts glance + write wiring"
 
 PROTEUS_CONTACTS_FIXTURE=1 python3 "${CONTACTS}" | python3 -c 'import json,sys
 d=json.load(sys.stdin)
 assert d.get("ok") is True
 assert isinstance(d.get("contacts"), list) and len(d["contacts"]) >= 1
+c=d["contacts"][0]
+assert c.get("href") and c.get("uid") and c.get("mutable") is True
+assert int(d.get("mutableSeats") or 0) >= 1
 ' || die "contacts fixture fetch"
 ok "contacts fixture"
+
+PROTEUS_CONTACTS_MUTATE_FIXTURE=1 python3 "${CMUT}" create --name "Smoke" --email "smoke@example.com" \
+  | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("ok") is True and d.get("action")=="create"
+assert d.get("href") and d.get("mutable") is True
+' || die "contacts mutate create fixture"
+PROTEUS_CONTACTS_MUTATE_FIXTURE=1 python3 "${CMUT}" update \
+  --href "https://cal.example/dav/addressbooks/alice/default/fixture-contact-uid.vcf" \
+  --uid fixture-contact-uid --name "Updated" --email "u@example.com" \
+  | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("ok") is True and d.get("action")=="update"
+' || die "contacts mutate update fixture"
+PROTEUS_CONTACTS_MUTATE_FIXTURE=1 python3 "${CMUT}" delete \
+  --href "https://cal.example/dav/addressbooks/alice/default/fixture-contact-uid.vcf" \
+  | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("ok") is True and d.get("action")=="delete"
+' || die "contacts mutate delete fixture"
+PROTEUS_CONTACTS_MUTATE_FIXTURE=1 python3 "${CMUT}" providers | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("ok") is True and "carddav" in (d.get("providers") or [])
+' || die "contacts mutate providers fixture"
+ok "contacts mutate fixtures"
 
 if [[ -n "${BIN}" ]]; then
   TMP2="$(mktemp -d)"
