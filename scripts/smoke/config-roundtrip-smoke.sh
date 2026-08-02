@@ -63,8 +63,13 @@ data["focusProfiles"] = [
     }
 ]
 data["controlCenterLayout"] = {
-    "tiles": {"wifi": {"visible": False}},
-    "order": ["wifi", "bluetooth"],
+    "version": 1,
+    "columns": 3,
+    "plates": ["sound", "display"],
+    "tiles": [
+        {"id": "wifi", "visible": False, "span": 1, "size": "md"},
+        {"id": "bluetooth", "visible": True, "span": 1, "size": "md"},
+    ],
 }
 widgets = list(data.get("desktopWidgets") or [])
 widgets.append({
@@ -130,8 +135,12 @@ if not any(isinstance(p, dict) and p.get("id") == "smoke-focus" for p in fp):
     print("focusProfiles stub missing after round-trip", file=sys.stderr)
     sys.exit(1)
 ccl = again.get("controlCenterLayout") or {}
-if not isinstance(ccl, dict) or not (ccl.get("tiles") or {}).get("wifi"):
-    print("controlCenterLayout stub missing after round-trip", file=sys.stderr)
+if not isinstance(ccl, dict) or ccl.get("columns") != 3:
+    print("controlCenterLayout columns missing after round-trip", file=sys.stderr)
+    sys.exit(1)
+tiles = ccl.get("tiles") or []
+if not any(isinstance(t, dict) and t.get("id") == "wifi" for t in tiles):
+    print("controlCenterLayout tiles stub missing after round-trip", file=sys.stderr)
     sys.exit(1)
 dw = again.get("desktopWidgets") or []
 if not any(isinstance(w, dict) and w.get("id") == "smoke-dw-roundtrip" for w in dw):
