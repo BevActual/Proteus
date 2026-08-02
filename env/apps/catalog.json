@@ -28,7 +28,18 @@
       "desktopIds": ["virt-manager", "virt-manager.desktop"],
       "match": "virt-manager|gnome-boxes",
       "requiresAny": ["libvirt", "containers"],
+      "postures": ["desktop", "host"],
+      "prefers": ["pointer"],
       "reason": "Needs virtualization"
+    },
+    {
+      "id": "steam",
+      "desktopIds": ["steam", "steam.desktop"],
+      "match": "\\bsteam\\b",
+      "requiresAny": ["display"],
+      "postures": ["desktop", "console"],
+      "prefers": ["gamepad", "pointer"],
+      "reason": "Needs a display"
     },
     {
       "id": "snapshot",

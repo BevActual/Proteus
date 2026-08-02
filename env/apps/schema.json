@@ -53,17 +53,17 @@
     "prefers": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Soft hints for shaping (v1 unused by EnvGate)."
+      "description": "Soft capability hints — Beacon subtitle + search boost; never blocks."
     },
     "postures": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Posture allow-list (v1 unused by EnvGate)."
+      "description": "Hard posture allow-list (SessionPosture). Empty = any posture."
     },
     "device_classes": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Optional device-class allow-list (v1 unused by EnvGate)."
+      "description": "Optional device-class allow-list (still unused by EnvGate)."
     }
   }
 }
