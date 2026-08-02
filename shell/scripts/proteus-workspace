@@ -14,7 +14,7 @@ MAX_LOGICAL=10
 SETTINGS="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/settings.json"
 
 usage() {
-  echo "Usage: proteus-workspace {goto|next|prev|move|selftest} [N] [--local|--synced] [--monitor NAME]" >&2
+  echo "Usage: proteus-workspace {goto|next|prev|move|status|ensure|selftest} [N] [--local|--synced] [--monitor NAME] [--fixture]" >&2
   exit 2
 }
 
@@ -37,8 +37,114 @@ selftest() {
   check "$(clamp_logical 0)" "1" "clamp low"
   check "$(clamp_logical 11)" "10" "clamp high"
   check "$(clamp_logical 7)" "7" "clamp mid"
+  # 2-head dogfood: bands exclusive; synced logical N → physical N and N+10
+  check "$(physical_of 5 0)" "5" "2head logical5@0"
+  check "$(physical_of 5 1)" "15" "2head logical5@1"
+  local b0_lo=1 b0_hi=10 b1_lo=11 b1_hi=20
+  check "${b0_hi}" "10" "band0 hi"
+  check "${b1_lo}" "11" "band1 lo"
+  [[ "${b0_hi}" -lt "${b1_lo}" ]] || {
+    echo "proteus-workspace selftest FAIL band overlap" >&2
+    fail=1
+  }
   [[ "${fail}" -eq 0 ]] || exit 1
   echo "proteus-workspace selftest: OK"
+}
+
+emit_status_fixture() {
+  python3 - <<'PY'
+import json
+print(json.dumps({
+    "ok": True,
+    "fixture": True,
+    "mode": "synced",
+    "monitorCount": 2,
+    "monitors": [
+        {"index": 0, "name": "HDMI-A-1", "focused": True,
+         "activeLogical": 1, "activePhysical": 1, "bandStart": 1, "bandEnd": 10},
+        {"index": 1, "name": "DP-1", "focused": False,
+         "activeLogical": 1, "activePhysical": 11, "bandStart": 11, "bandEnd": 20},
+    ],
+    "summary": "2 displays · synced · bands ×10",
+    "hint": "Fixture — plug a second display or use live hyprctl for real status",
+}, separators=(",", ":")))
+PY
+}
+
+emit_status() {
+  local mode
+  mode="$(read_mode)"
+  STRIDE="${STRIDE}" MAX_LOGICAL="${MAX_LOGICAL}" MODE="${mode}" python3 - <<'PY'
+import json, os, subprocess, sys
+stride = int(os.environ.get("STRIDE", "10"))
+mode = os.environ.get("MODE", "synced")
+try:
+    raw = subprocess.check_output(["hyprctl", "-j", "monitors"], text=True)
+    mons = json.loads(raw)
+except Exception as e:
+    print(json.dumps({"ok": False, "error": f"monitors: {e}"}))
+    sys.exit(0)
+mons.sort(key=lambda m: int(m.get("id", 0)))
+out = []
+for i, m in enumerate(mons):
+    aw = m.get("activeWorkspace") or {}
+    wid = int(aw.get("id") or 1)
+    logical = ((wid - 1) % stride) + 1 if wid >= 1 else 1
+    out.append({
+        "index": i,
+        "name": str(m.get("name") or ""),
+        "focused": bool(m.get("focused")),
+        "activeLogical": logical,
+        "activePhysical": wid,
+        "bandStart": 1 + i * stride,
+        "bandEnd": (i + 1) * stride,
+    })
+n = len(out)
+if n <= 0:
+    summary = "No displays"
+    hint = "Waiting for Hyprland monitors"
+elif n == 1:
+    summary = f"1 display · {mode} · single-head (bands ready for 2nd)"
+    hint = "Add a second display to dogfood synced / per-display Spaces"
+else:
+    summary = f"{n} displays · {mode} · bands ×{stride}"
+    hint = "Hotplug: proteus-workspace ensure rebinds logical bands per display"
+print(json.dumps({
+    "ok": True,
+    "fixture": False,
+    "mode": mode,
+    "monitorCount": n,
+    "monitors": out,
+    "summary": summary,
+    "hint": hint,
+}, separators=(",", ":")))
+PY
+}
+
+# Rebind each monitor onto its band's physical workspace for the current logical.
+# Thin hotplug helper — does not migrate windows across disconnect.
+ensure_bands() {
+  local rows restore="" batch="" i=0 name focused aw logical wid
+  while IFS=$'\t' read -r _id name focused aw; do
+    [[ -n "${name}" ]] || continue
+    if [[ "${focused}" == "1" ]]; then
+      restore="${name}"
+    fi
+    logical="$(logical_of "${aw}")"
+    wid="$(physical_of "${logical}" "${i}")"
+    batch+="dispatch moveworkspacetomonitor ${wid} ${name};"
+    batch+="dispatch focusmonitor ${name};"
+    batch+="dispatch workspace ${wid};"
+    i=$((i + 1))
+  done < <(monitor_rows)
+  if [[ -n "${restore}" ]]; then
+    batch+="dispatch focusmonitor ${restore};"
+  fi
+  if [[ "${i}" -eq 0 ]]; then
+    echo "proteus-workspace: ensure — no monitors" >&2
+    return 1
+  fi
+  dispatch_batch "${batch}"
 }
 
 need_hyprctl() {
@@ -226,11 +332,13 @@ main() {
     return 0
   fi
 
-  need_hyprctl
-
   local force=""
   local monitor=""
   local num=""
+  local fixture=0
+  if [[ "${PROTEUS_WORKSPACE_FIXTURE:-}" == "1" ]]; then
+    fixture=1
+  fi
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --local)
@@ -239,6 +347,10 @@ main() {
         ;;
       --synced)
         force="synced"
+        shift
+        ;;
+      --fixture)
+        fixture=1
         shift
         ;;
       --monitor)
@@ -263,6 +375,23 @@ main() {
         ;;
     esac
   done
+
+  if [[ "${cmd}" == "status" ]]; then
+    if [[ "${fixture}" -eq 1 ]]; then
+      emit_status_fixture
+    else
+      need_hyprctl
+      emit_status
+    fi
+    return 0
+  fi
+
+  need_hyprctl
+
+  if [[ "${cmd}" == "ensure" ]]; then
+    ensure_bands
+    return 0
+  fi
 
   local mode
   mode="$(read_mode)"
