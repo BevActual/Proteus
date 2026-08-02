@@ -114,7 +114,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Online accounts** (`accounts`) | Connector catalog + Google/Microsoft PKCE + Nextcloud app-password seats (`proteus-accounts` vault); calendar glance consumer; Apple/Exchange/… listed | `proteus-accounts` + `Accounts.qml` + `CalendarEvents` / `proteus-calendar-events.py` (mail/contacts apps Out) | `partial` |
 | **Date, time & weather** (`datetime`) | Live clock, searchable timezone + locale pickers, NTP, **Location** (place + units + 5-day forecast + Match TZ) | `timedatectl` / `localectl set-locale` / Open-Meteo | `shipped` |
 | **Notifications** (`notifications`) | Prefs: hard DND · jump to Focus · live list stays Control Center | `notificationsDnd` · FocusMode | `shipped` |
-| **Privacy & security** (`privacy`) | Hub → What leaves + weather mute + session; **In use now**; category leaves (Allow/Deny + per-app Allow/Ask/Deny); Flatpak overrides; portal PermissionStore sync; capture enforce | `permissions.json` · `proteus-permissions.py` · PrivacyIndicators · EnvGate grants · Flatpak override · portal + pactl/PW enforce | `partial` |
+| **Privacy & security** (`privacy`) | Hub → What leaves + weather mute + session; **In use now**; category leaves (Allow/Deny + per-app Allow/Ask/Deny); Flatpak overrides; portal PermissionStore sync; capture enforce (Deny); **Ask launch prompt** | `permissions.json` · `proteus-permissions.py` · PrivacyAsk · PrivacyIndicators · EnvGate · portal + pactl/PW enforce | `partial` |
 | **Software** (`packages`) | Hub → Updates; Repos / AUR / Flathub (Install\|Installed mode-safe, per-mode search, op narrative); AppImages; **Web apps** (URL → `proteus-web-*.desktop` via `proteus-webapp`, no polkit); Orphans — helper honesty when yay/paru/flatpak missing | `pacman` + `proteus-pkg` · yay/paru · flatpak + Flathub · local AppImages · `proteus-webapp` | `shipped` |
 | **About** (`system`) | OS/kernel/hostname · QS/Hypr · load/mem/storage · battery when present · Mission Center (Install… → Flathub · `io.missioncenter.MissionCenter`) · Check for updates → Software; hardware caps; **hard Session posture** (`SessionPosture` → `proteus-posture`, confirm) + soft Hyprland profile (`HyprProfile`); Copy + Copied | `SystemInfo` · `SystemLoad` · `MissionCenter` · `Power` · probe · `SessionPosture` · `HyprProfile` | `shipped` |
 
@@ -336,7 +336,7 @@ Depth order for what’s left:
 
 1. ~~Users depth~~ — greetd autologin write via `proteus-greetd` shipped; add-remove stays Out of Settings  
 2. ~~Online accounts depth~~ — Microsoft / Nextcloud connect shipped; ~~calendar glance consumer~~ shipped; Apple/Exchange/IMAP connectors + mail/contacts apps Out  
-3. ~~**Privacy native enforcement**~~ — portal PermissionStore sync + capture enforce shipped; full OS sandbox / Ask UI / fail-closed ready / v4l2 ACL Out  
+3. ~~**Privacy native enforcement**~~ — portal PermissionStore sync + capture enforce shipped; ~~**Ask UI**~~ launch prompt shipped; full OS sandbox / fail-closed ready / v4l2 ACL Out  
 4. **Network polish** — largely shipped (IPv4 on Devices · Diagnostics ss/firewall); Headscale admin / OpenVPN wizard stay Out  
 5. ~~**Peripherals** — touchpad / tablet~~ — Touchpad + Tablet leaves shipped; per-device `device {}` / active-area / pressure Out  
 6. **Software depth** — dependency graphs later; Snap stays Out (hub + six leaves + smoke matrix shipped)  
@@ -363,8 +363,8 @@ flip hard too; no in-Settings live dashboard.)*
 *(Privacy & security hub · In use now · category grants · Flatpak overrides ·
 portal PermissionStore sync · capture enforce · Beacon/dock grant parity ·
 Diagnostics deny → Network Diagnostics · smoke/install privacy harness shipped —
-full OS sandbox / Ask UI / fail-closed ready / v4l2 ACL still Out; fail-open
-until Permissions.ready held.)*
+~~Ask launch prompt~~ shipped; full OS sandbox / fail-closed ready / v4l2 ACL
+still Out; fail-open until Permissions.ready held.)*
 *(Desktop catch-up: desktop-smoke · defaults/beacon-index install · Focus/CC/Spaces
 roundtrip · guest Desktop nav · Beacon Settings blurb · SETTINGS-IA §6 Focus/CC
 rows shipped.)*

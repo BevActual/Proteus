@@ -350,11 +350,11 @@ def enforce_mic(data: dict) -> list[dict]:
         if idx < 0:
             continue
         desk = _resolve_desktop_id(str(row.get("name") or ""), str(row.get("binary") or ""))
-        # Category deny → mute everyone; else require resolved id with deny/ask.
+        # Category deny → mute everyone; per-app Deny only (Ask defers to prompt/portal).
         cat_deny = category_state(data, "microphone") == "deny"
         if desk:
             g = app_grant(data, desk, "microphone")
-            block = g != "allow"
+            block = g == "deny"
         else:
             block = cat_deny
         if not block:
@@ -398,7 +398,7 @@ def enforce_camera(data: dict) -> list[dict]:
         binary = str(props.get("application.process.binary") or "")
         desk = _resolve_desktop_id(app_name, binary)
         if desk:
-            block = app_grant(data, desk, "camera") != "allow"
+            block = app_grant(data, desk, "camera") == "deny"
         else:
             block = cat_deny
         if not block:
@@ -719,7 +719,10 @@ def main() -> int:
     p_ps = sub.add_parser("portal-sync", help="Sync store apps → portal PermissionStore")
     p_ps.add_argument("category", nargs="?", default="", help="optional: microphone|camera|screen")
 
-    sub.add_parser("enforce-capture", help="Mute/destroy active captures that violate Deny")
+    sub.add_parser(
+        "enforce-capture",
+        help="Mute/destroy active captures that violate Deny (Ask skipped)",
+    )
 
     args = ap.parse_args()
     dispatch = {

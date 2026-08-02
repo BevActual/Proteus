@@ -111,14 +111,29 @@ ok "app-manifest with permissions"
 
 grep -q 'permissionDeniedReason\|Permissions.granted' "${ROOT}/shell/shared/EnvGate.qml" \
   || die "EnvGate must honor Permissions.granted"
+grep -q 'isAsk\|appPrivacyAskCategory' "${ROOT}/shell/shared/EnvGate.qml" \
+  || die "EnvGate must distinguish Ask vs Deny"
+grep -q 'function isAsk\|grantSession' "${ROOT}/shell/shared/Permissions.qml" \
+  || die "Permissions must expose isAsk + session once-grant"
 ok "EnvGate grant gate"
 
 DOCK="${ROOT}/shell/shared/DockApps.qml"
-grep -q 'appPrivacyBlockPane\|appAvailable' "${DOCK}" \
-  || die "DockApps focusOrLaunch must consult EnvGate permission grants"
+ASK="${ROOT}/shell/shared/PrivacyAsk.qml"
+ASK_PANEL="${ROOT}/shell/surfaces/desktop/PrivacyAskPanel.qml"
+BEACON="${ROOT}/shell/surfaces/desktop/Beacon.qml"
+[[ -f "${ASK}" ]] || die "missing PrivacyAsk.qml"
+[[ -f "${ASK_PANEL}" ]] || die "missing PrivacyAskPanel.qml"
+grep -q 'appPrivacyAskCategory\|PrivacyAsk.promptLaunch' "${DOCK}" \
+  || die "DockApps must prompt on Ask"
 grep -q 'appPrivacyBlockPane' "${DOCK}" \
-  || die "DockApps must open Privacy leaf via appPrivacyBlockPane (Beacon parity)"
-ok "Dock grant gate"
+  || die "DockApps must open Privacy leaf via appPrivacyBlockPane on Deny"
+grep -q 'PrivacyAsk.promptLaunch\|appPrivacyAskCategory' "${BEACON}" \
+  || die "Beacon must prompt on Ask"
+grep -q 'Allow once\|Always Allow' "${ASK_PANEL}" \
+  || die "PrivacyAskPanel missing Allow once / Always Allow"
+grep -q 'PrivacyAsk' "${ROOT}/shell/surfaces/DesktopShell.qml" \
+  || die "DesktopShell must host PrivacyAskPanel"
+ok "Ask prompt + Dock/Beacon intercept"
 
 ND="${ROOT}/shell/shared/NetworkDiagnostics.qml"
 ND_LEAF="${ROOT}/apps/proteus-settings/panes/NetworkDiagnosticsLeaf.qml"
@@ -181,6 +196,10 @@ grep -q 'portal-sync\|SetPermission\|PermissionStore' "${HELPER}" \
   || die "helper missing portal PermissionStore bridge"
 grep -q 'enforce-capture\|set-source-output-mute' "${HELPER}" \
   || die "helper missing capture enforce"
+grep -qE 'g == "deny"|app_grant.*=.*deny' "${HELPER}" \
+  || die "enforce-capture must block Deny only (skip Ask)"
+grep -q 'Ask skipped' "${HELPER}" \
+  || die "enforce-capture help must note Ask skipped"
 grep -q 'enforce-capture' "${ROOT}/shell/shared/PrivacyIndicators.qml" \
   || die "PrivacyIndicators must periodic enforce-capture"
 grep -q 'PermissionStore\|capture enforce' "${CAT_LEAF}" "${PRIV_PANE}" \

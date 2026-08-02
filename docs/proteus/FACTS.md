@@ -23,7 +23,7 @@ before inventing a second store.
 |------|---------------|---------|
 | `~/.config/proteus/settings.json` | `Config.qml` FileView | Background, Widgets, Theme, Audio prefs, … |
 | `~/.config/proteus/keybinds.json` | `Keybinds.qml` | Hyprland bind generator |
-| `~/.config/proteus/permissions.json` | `proteus-permissions.py` / `Permissions.qml` (0600) | EnvGate grant gate, Privacy leaves, portal PermissionStore sync, capture enforce — **not** in settings.json; see [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md) |
+| `~/.config/proteus/permissions.json` | `proteus-permissions.py` / `Permissions.qml` (0600) | EnvGate grant gate, PrivacyAsk prompt, Privacy leaves, portal sync, capture enforce (Deny) — **not** in settings.json; see [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md) |
 | `~/.local/share/proteus/auth/pin` | `proteus-pin.py` / `check-unlock.py` via `proteus_auth.py` (0600) | LockSurface unlock PIN hash — **not** in settings.json; see [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md). Guest PATH: `apps.sh` installs the two CLIs; PAM service source `shell/pam/proteus-lock` (optional install → `login` fallback) |
 | `~/.cache/proteus/beacon-files.json` | `beacon-file-index.py` (rebuild/search) | Beacon Files home path cache — not in settings.json; fd preferred / walk fallback; stale after 5m |
 | `~/.config/proteus/hw-probe.json` | `proteus-hw-probe` / `Hardware.qml` cache | EnvGate, Settings About |
@@ -93,7 +93,7 @@ shell/shared/
   HyprProfile.qml SystemInfo.qml SystemLoad.qml MissionCenter.qml Accounts.qml
   CalendarEvents.qml Workloads.qml SpacesDisplays.qml
   ActiveWindow.qml KeepAwake.qml LocalSend.qml NetworkDiagnostics.qml Packages.qml
-  DockApps.qml Time.qml Permissions.qml PrivacyIndicators.qml DefaultApps.qml
+  DockApps.qml Time.qml Permissions.qml PrivacyAsk.qml PrivacyIndicators.qml DefaultApps.qml
   SystemServices.qml FocusMode.qml ControlCenterLayout.qml UniversalSearch.qml …
 apps/proteus-settings/
   kit/     # SettingsFormRow · Group · HubList · Segmented · StickyPaneLoader · Combo …
