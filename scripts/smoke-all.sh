@@ -19,6 +19,7 @@ run chrome-tokens-smoke.sh
 run software-reliability-smoke.sh
 run power-logind-smoke.sh
 run accounts-smoke.sh
+run users-smoke.sh
 run lock-pin-smoke.sh
 run permissions-smoke.sh
 run desktop-smoke.sh
