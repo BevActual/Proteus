@@ -14,33 +14,71 @@ PKG="${ROOT}/services/proteus-accounts"
 [[ -x "${ROOT}/vm/guest/install-proteus-accounts.sh" ]] || die "install-proteus-accounts.sh"
 
 grep -q 'proteus-accounts' "${ROOT}/shell/shared/Accounts.qml" || die "Accounts.qml cites CLI"
-grep -q 'connectGoogle\|disconnectSeat' "${ROOT}/shell/shared/Accounts.qml" \
-  || die "Accounts.qml connect/disconnect"
+grep -q 'connectGoogle\|connectMicrosoft\|connectNextcloud\|disconnectSeat' \
+  "${ROOT}/shell/shared/Accounts.qml" || die "Accounts.qml connect/disconnect APIs"
+grep -q 'microsoftClientConfigured' "${ROOT}/shell/shared/Accounts.qml" \
+  || die "Accounts.qml missing microsoftClientConfigured"
 grep -q 'Accounts\.' "${ROOT}/apps/proteus-settings/panes/AccountsPane.qml" \
   || die "AccountsPane uses Accounts façade"
 grep -q 'google\|Microsoft\|Nextcloud' "${ROOT}/apps/proteus-settings/panes/AccountsPane.qml" \
   || die "AccountsPane catalog labels"
+grep -q 'connectMicrosoft\|Connect Nextcloud' "${ROOT}/apps/proteus-settings/panes/AccountsPane.qml" \
+  || die "AccountsPane Microsoft/Nextcloud Connect UI"
 grep -q 'settings.json' "${ROOT}/apps/proteus-settings/panes/AccountsPane.qml" \
   || die "AccountsPane vault honesty"
 grep -q 'Accounts.qml' "${ROOT}/scripts/smoke/layout-smoke.sh" || die "layout-smoke requires Accounts.qml"
 
+grep -q 'connect microsoft\|connect_microsoft\|"microsoft"' "${PKG}/src/main.rs" \
+  || die "proteus-accounts missing microsoft connect"
+grep -q 'connect_nextcloud\|connect nextcloud' "${PKG}/src/main.rs" \
+  || die "proteus-accounts missing nextcloud connect"
+grep -q 'PROTEUS_MICROSOFT_OAUTH_CLIENT_ID\|oauth-microsoft-client-id' "${PKG}/src/main.rs" \
+  || die "proteus-accounts missing Microsoft client id path"
+grep -q 'v1_status: "connectable"' "${PKG}/src/main.rs" || die "catalog connectable markers"
+ok "sources + Settings wiring"
+
 BIN=""
-if [[ -x "${PKG}/bin/proteus-accounts" ]]; then
-  BIN="${PKG}/bin/proteus-accounts"
-elif [[ -x "${PKG}/target/release/proteus-accounts" ]]; then
+# Prefer freshly built release over possibly stale services/.../bin copy.
+if [[ -x "${PKG}/target/release/proteus-accounts" ]]; then
   BIN="${PKG}/target/release/proteus-accounts"
+elif [[ -x "${PKG}/bin/proteus-accounts" ]]; then
+  BIN="${PKG}/bin/proteus-accounts"
 fi
 if [[ -n "${BIN}" ]]; then
   out="$("${BIN}" smoke)"
   echo "${out}" | grep -q '"ok": true' || die "smoke JSON ok"
   echo "${out}" | grep -q '"secretsInSettingsJson": false' || die "secrets flag"
   echo "${out}" | grep -q '"catalogCount": 8' || die "catalog count 8"
+  echo "${out}" | grep -q '"nextcloudConnectable": true' || die "nextcloudConnectable"
   cat_out="$("${BIN}" catalog)"
   echo "${cat_out}" | grep -q '"id": "google"' || die "catalog google"
   echo "${cat_out}" | grep -q '"id": "microsoft"' || die "catalog microsoft"
   echo "${cat_out}" | grep -q '"id": "nextcloud"' || die "catalog nextcloud"
+  echo "${cat_out}" | grep -q '"v1Status": "connectable"' || die "catalog connectable status"
   st="$("${BIN}" status)"
   echo "${st}" | grep -q '"connectors"' || die "status connectors"
+  echo "${st}" | grep -q 'microsoftClientConfigured' || die "status microsoftClientConfigured"
+  # Usage / arg errors (no live OAuth)
+  set +e
+  "${BIN}" connect >/dev/null 2>&1
+  cec=$?
+  "${BIN}" connect nextcloud >/dev/null 2>&1
+  nec=$?
+  set -e
+  [[ "${cec}" -ne 0 ]] || die "connect without provider should fail"
+  [[ "${nec}" -ne 0 ]] || die "connect nextcloud without args should fail"
+  # Offline Nextcloud seat write (skip network verify)
+  TMP="$(mktemp -d)"
+  trap 'rm -rf "${TMP}"' RETURN
+  export HOME="${TMP}"
+  unset XDG_CONFIG_HOME XDG_DATA_HOME || true
+  export PROTEUS_ACCOUNTS_SKIP_VERIFY=1
+  nc_out="$("${BIN}" connect nextcloud "https://cloud.example" "alice" "app-pass-test")"
+  echo "${nc_out}" | grep -q '"ok": true' || die "nextcloud skip-verify connect"
+  echo "${nc_out}" | grep -q 'nextcloud' || die "nextcloud seat provider"
+  [[ -f "${HOME}/.config/proteus/accounts.json" ]] || die "accounts.json missing after nextcloud"
+  tok="$(find "${HOME}/.local/share/proteus/accounts/tokens" -name 'nextcloud-*.token.json' | head -1)"
+  [[ -n "${tok}" ]] || die "nextcloud token vault missing"
   ok "binary ${BIN}"
 else
   ok "binary not built yet (Cargo.toml + sources present)"
