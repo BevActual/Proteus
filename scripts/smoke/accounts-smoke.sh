@@ -352,6 +352,12 @@ grep -q 'proteus-mail-send.py' "${ROOT}/vm/install/apps.sh" \
   || die "apps.sh must install proteus-mail-send.py"
 grep -q 'def send_google\|def send_microsoft\|def send_smtp\|SENDABLE' "${MSEND}" \
   || die "proteus-mail-send.py missing provider send paths"
+grep -Eqe '--cc|--bcc|_parse_addrs|ccRecipients|bccRecipients' -- "${MSEND}" \
+  || die "proteus-mail-send.py missing CC/BCC"
+grep -Eqe 'composeCc|composeBcc|--cc|--bcc' -- "${MG_QML}" \
+  || die "MailGlance missing composeCc/composeBcc"
+grep -qiE 'placeholderText: "Cc"|placeholderText: "Bcc"|CC/BCC' "${CP}" \
+  || die "CalendarPanel missing Cc/Bcc fields"
 ok "mail compose wiring"
 
 PROTEUS_MAIL_SEND_FIXTURE=1 python3 "${MSEND}" send \
@@ -361,6 +367,15 @@ d=json.load(sys.stdin)
 assert d.get("ok") is True and d.get("action")=="send"
 assert d.get("to")=="smoke@example.com"
 ' || die "mail send fixture"
+PROTEUS_MAIL_SEND_FIXTURE=1 python3 "${MSEND}" send \
+  --to "smoke@example.com" --subject "Smoke" --body "hi" \
+  --cc "cc@example.com, other@example.com" --bcc "bcc@example.com" \
+  | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("ok") is True and d.get("action")=="send"
+assert d.get("cc")==["cc@example.com","other@example.com"]
+assert d.get("bcc")==["bcc@example.com"]
+' || die "mail send CC/BCC fixture"
 PROTEUS_MAIL_SEND_FIXTURE=1 python3 "${MSEND}" providers | python3 -c 'import json,sys
 d=json.load(sys.stdin)
 assert d.get("ok") is True and int(d.get("sendableSeats") or 0) >= 1
