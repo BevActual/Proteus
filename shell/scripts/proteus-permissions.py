@@ -4,13 +4,14 @@
 Store: ~/.config/proteus/permissions.json
 Activity: delegates to privacy-indicators.py (SoT for in-use).
 Flatpak: best-effort `flatpak override --user` for mappable categories.
-Portal: PermissionStore SetPermission for devices/microphone|camera (+ screen best-effort).
+Portal: PermissionStore SetPermission for devices/microphone|camera (+ screen best-effort);
+best-effort org.freedesktop.portal.Session.Close for screencast sessions on Deny/Ask.
 Capture: pactl mute denied mic source-outputs; PipeWire destroy denied camera
 and screencast-like streams (Deny + Ask; session Allow-once).
 
 Honesty: not a full OS sandbox (no AppArmor/v4l2 ACL). Screen kill is best-effort
-heuristic (portal attribution imperfect). QML fail-closes until Permissions.ready
-— this CLI always reads the on-disk store.
+(portal Session.Close + PW heuristic; attribution imperfect). QML fail-closes until
+Permissions.ready — this CLI always reads the on-disk store.
 """
 from __future__ import annotations
 
@@ -39,6 +40,10 @@ FLATPAK_MAPPABLE = frozenset({"microphone", "camera"})
 PORTAL_DEST = "org.freedesktop.impl.portal.PermissionStore"
 PORTAL_PATH = "/org/freedesktop/impl/portal/PermissionStore"
 PORTAL_IFACE = "org.freedesktop.impl.portal.PermissionStore"
+
+PORTAL_DESKTOP_DEST = "org.freedesktop.portal.Desktop"
+PORTAL_DESKTOP_PATH = "/org/freedesktop/portal/desktop"
+PORTAL_SESSION_IFACE = "org.freedesktop.portal.Session"
 
 # Category → PermissionStore (table, resource id)
 PORTAL_MAP = {
@@ -307,6 +312,181 @@ def sync_portal_store(data: dict | None = None, category: str | None = None) -> 
     }
 
 
+def _portal_desktop_available() -> bool:
+    code, _, _ = _run(
+        [
+            "gdbus",
+            "call",
+            "--session",
+            "--dest",
+            PORTAL_DESKTOP_DEST,
+            "--object-path",
+            PORTAL_DESKTOP_PATH,
+            "--method",
+            "org.freedesktop.DBus.Peer.Ping",
+        ],
+        timeout=2.0,
+    )
+    return code == 0
+
+
+def _list_portal_session_paths() -> list[str]:
+    """Best-effort list of portal Session object paths under Desktop."""
+    paths: list[str] = []
+    code, out, _ = _run(
+        ["busctl", "--user", "tree", PORTAL_DESKTOP_DEST], timeout=3.0
+    )
+    blob = out if code == 0 else ""
+    if not blob.strip():
+        code2, out2, _ = _run(
+            [
+                "gdbus",
+                "introspect",
+                "--session",
+                "--dest",
+                PORTAL_DESKTOP_DEST,
+                "--object-path",
+                PORTAL_DESKTOP_PATH,
+                "--recurse",
+            ],
+            timeout=4.0,
+        )
+        blob = out2 if code2 == 0 else ""
+    for line in blob.splitlines():
+        for tok in re.findall(
+            r"/org/freedesktop/portal/desktop/session/[^\s\"']+", line
+        ):
+            tok = tok.rstrip(".,;)}")
+            # Prefer leaf sessions (…/session/<sender>/<id>), skip bare …/session
+            parts = [p for p in tok.split("/") if p]
+            if len(parts) >= 6 and tok not in paths:
+                paths.append(tok)
+    return paths
+
+
+def _session_matches_app(path: str, app_id: str) -> bool:
+    if not app_id:
+        return False
+    p = path.lower()
+    a = normalize_app_id(app_id).lower()
+    if not a:
+        return False
+    if a in p:
+        return True
+    if a.replace(".", "_") in p:
+        return True
+    if a.replace(".", "-") in p:
+        return True
+    tail = a.rsplit(".", 1)[-1]
+    return bool(tail) and len(tail) >= 4 and tail in p
+
+
+def _portal_session_close(path: str) -> tuple[bool, str]:
+    code, out, err = _run(
+        [
+            "gdbus",
+            "call",
+            "--session",
+            "--dest",
+            PORTAL_DESKTOP_DEST,
+            "--object-path",
+            path,
+            "--method",
+            f"{PORTAL_SESSION_IFACE}.Close",
+        ],
+        timeout=3.0,
+    )
+    if code != 0:
+        return False, err or out or "Session.Close failed"
+    return True, "ok"
+
+
+def portal_close_screencast_sessions(
+    data: dict,
+    session_allows: set[str] | None = None,
+    *,
+    prefer_app: str = "",
+) -> list[dict]:
+    """Best-effort Session.Close for portal sessions when screen is Deny/Ask.
+
+    Category deny → close all discoverable sessions. Per-app Deny/Ask → close
+    sessions whose path matches the app id (heuristic). When prefer_app is set
+    and blocked, close matching sessions or all sessions if none match (helps
+    release restore tokens after an explicit store deny).
+    """
+    if os.environ.get("PROTEUS_PORTAL_SESSION_FIXTURE") == "1":
+        return [
+            {
+                "kind": "portalScreen",
+                "session": "/org/freedesktop/portal/desktop/session/fixture/u1",
+                "app": prefer_app or "fixture.app",
+                "closed": True,
+                "fixture": True,
+                "error": "",
+            }
+        ]
+
+    allows = session_allows if session_allows is not None else load_session_allows()
+    if not _portal_desktop_available():
+        return []
+
+    paths = _list_portal_session_paths()
+    if not paths:
+        return []
+
+    cat_deny = category_state(data, "screen") == "deny"
+    blocked_apps: list[str] = []
+    for aid in (data.get("apps") or {}):
+        if capture_should_block(data, aid, "screen", allows):
+            blocked_apps.append(aid)
+    pref = normalize_app_id(prefer_app)
+    if pref and capture_should_block(data, pref, "screen", allows) and pref not in blocked_apps:
+        blocked_apps.append(pref)
+
+    if not cat_deny and not blocked_apps:
+        return []
+
+    actions: list[dict] = []
+    matched_any = False
+    pending: list[tuple[str, str]] = []  # path, app label
+
+    for path in paths:
+        if cat_deny:
+            pending.append((path, ""))
+            continue
+        matched = ""
+        for aid in blocked_apps:
+            if _session_matches_app(path, aid):
+                matched = aid
+                break
+        if matched:
+            matched_any = True
+            pending.append((path, matched))
+
+    if (
+        not cat_deny
+        and not matched_any
+        and pref
+        and capture_should_block(data, pref, "screen", allows)
+    ):
+        # Explicit deny/ask for this app: release portal tokens best-effort.
+        pending = [(path, pref) for path in paths]
+
+    for path, app_label in pending:
+        ok, msg = _portal_session_close(path)
+        actions.append(
+            {
+                "kind": "portalScreen",
+                "session": path,
+                "app": app_label,
+                "closed": ok,
+                "error": "" if ok else msg,
+                "reason": "category-deny" if cat_deny and not app_label else "deny-or-ask",
+            }
+        )
+    return actions
+
+
 def _source_outputs() -> list[dict]:
     """Parse pactl list source-outputs → [{index, name, binary}]."""
     code, out, _ = _run(["pactl", "list", "source-outputs"], timeout=3.0)
@@ -554,6 +734,7 @@ def cmd_portal_sync(args: argparse.Namespace) -> int:
 def cmd_enforce_capture(_: argparse.Namespace) -> int:
     data = load_store()
     session = load_session_allows()
+    portal_scr = portal_close_screencast_sessions(data, session)
     mic = enforce_mic(data, session)
     cam = enforce_camera(data, session)
     scr = enforce_screen(data, session)
@@ -564,10 +745,12 @@ def cmd_enforce_capture(_: argparse.Namespace) -> int:
                 "microphone": mic,
                 "camera": cam,
                 "screen": scr,
+                "portalScreen": portal_scr,
                 "muted": sum(1 for a in mic if a.get("muted")),
                 "destroyed": sum(
                     1 for a in (cam + scr) if a.get("destroyed")
                 ),
+                "portalClosed": sum(1 for a in portal_scr if a.get("closed")),
             }
         )
     )
@@ -576,10 +759,14 @@ def cmd_enforce_capture(_: argparse.Namespace) -> int:
 
 def _after_store_mutate(data: dict, category: str | None = None) -> dict:
     portal = sync_portal_store(data, category=category if category in PORTAL_MAP else None)
+    portal_scr: list[dict] = []
+    if not category or category == "screen":
+        portal_scr = portal_close_screencast_sessions(data)
     enforce = {
         "microphone": enforce_mic(data) if (not category or category == "microphone") else [],
         "camera": enforce_camera(data) if (not category or category == "camera") else [],
         "screen": enforce_screen(data) if (not category or category == "screen") else [],
+        "portalScreen": portal_scr,
     }
     return {"portal": portal, "enforce": enforce}
 
@@ -621,10 +808,14 @@ def cmd_store_set_app(args: argparse.Namespace) -> int:
     apps[aid] = grants
     save_store(data)
     portal_one = sync_portal_for_app(data, aid, cat) if cat in PORTAL_MAP else {"synced": False}
+    portal_scr = (
+        portal_close_screencast_sessions(data, prefer_app=aid) if cat == "screen" else []
+    )
     enforce = {
         "microphone": enforce_mic(data) if cat == "microphone" else [],
         "camera": enforce_camera(data) if cat == "camera" else [],
         "screen": enforce_screen(data) if cat == "screen" else [],
+        "portalScreen": portal_scr,
     }
     print(
         json.dumps(
