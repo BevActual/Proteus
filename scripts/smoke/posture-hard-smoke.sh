@@ -309,4 +309,20 @@ grep -qE '^retroarch$' "${ROOT}/vm/install/proteus-console.packages" || die "ret
 grep -q 'consoleRecents' "${ROOT}/shell/shared/Config.qml" || die "Config missing consoleRecents"
 ok "webapp + Steam/Retro + consoleRecents"
 
+# Settings About hard-switch picker (soft HyprProfile stays soft)
+SP="${ROOT}/shell/shared/SessionPosture.qml"
+SYS="${ROOT}/apps/proteus-settings/panes/SystemPane.qml"
+[[ -f "${SP}" ]] || die "missing SessionPosture.qml"
+grep -q 'proteus-posture' "${SP}" || die "SessionPosture must invoke proteus-posture"
+grep -q 'confirmSwitch\|requestSwitch' "${SP}" || die "SessionPosture missing confirm path"
+grep -q 'hardHonesty' "${SP}" || die "SessionPosture missing hardHonesty"
+grep -q 'Session posture' "${SYS}" || die "SystemPane missing Session posture group"
+grep -q 'SessionPosture.requestSwitch\|SessionPosture.confirmSwitch' "${SYS}" \
+  || die "SystemPane missing SessionPosture wiring"
+grep -q 'Hyprland profile' "${SYS}" || die "SystemPane must keep soft Hyprland profile group"
+grep -q 'HyprProfile.set' "${SYS}" || die "SystemPane soft picker must still call HyprProfile.set"
+grep -q 'SessionPosture' "${ROOT}/shell/shared/SystemInfo.qml" \
+  || die "SystemInfo should include hard Session posture in copy"
+ok "Settings hard-switch posture picker"
+
 echo "posture-hard-smoke: OK"
