@@ -300,7 +300,7 @@ ColumnLayout {
     Text {
       Layout.fillWidth: true
       Layout.maximumWidth: 520
-      text: "App permissions gate adaptive apps and Flatpak overrides. Native capture is observed in In use now — not sandboxed."
+      text: "App permissions gate adaptive apps, Flatpak overrides, portal PermissionStore (mic/camera/screen), and best-effort capture enforce. Not a full OS sandbox — fail-open until Permissions.ready."
       color: Theme.textDim
       font.family: Theme.fontFamily
       font.pixelSize: 13

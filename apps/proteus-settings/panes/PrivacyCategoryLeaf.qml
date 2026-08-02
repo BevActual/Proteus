@@ -53,10 +53,13 @@ ColumnLayout {
       Layout.maximumWidth: 520
       text: {
         let t = root.categoryHint
-        if (categoryId === "microphone" || categoryId === "camera" || categoryId === "screen")
-          t += (t.length ? " · " : "") + "Native apps are observed, not sandboxed. Flatpak mic/camera use overrides when set."
+        if (categoryId === "microphone" || categoryId === "camera")
+          t += (t.length ? " · " : "")
+              + "Deny syncs portal PermissionStore + best-effort capture enforce (pactl mute / PW video destroy). "
+              + "Not a full OS sandbox. Flatpak also uses overrides."
         if (categoryId === "screen")
-          t += " Screen capture stays portal-prompted."
+          t += (t.length ? " · " : "")
+              + "Per-app Deny syncs portal screencast table when available; session restore tokens stay portal-side."
         if (categoryId === "location")
           t += " Deny mutes weather fetch; Allow does not auto-unmute."
         if (categoryId === "notifications")

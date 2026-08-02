@@ -4,8 +4,9 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// App permissions store + Flatpak helpers.
+// App permissions store + Flatpak + portal sync + capture enforce.
 // Fact: ~/.config/proteus/permissions.json · shell/scripts/proteus-permissions.py
+// store-set-* syncs portal PermissionStore and enforces active captures.
 Singleton {
   id: root
 

@@ -49,6 +49,18 @@ Singleton {
     onTriggered: root.refresh()
   }
 
+  // Best-effort capture enforce (mute/destroy denied streams) — store-set also enforces.
+  Timer {
+    interval: 5000
+    running: true
+    repeat: true
+    triggeredOnStart: false
+    onTriggered: {
+      enforceProc.running = false
+      enforceProc.running = true
+    }
+  }
+
   Process {
     id: probe
     command: ["python3", Config.scriptsDir + "/privacy-indicators.py"]
@@ -69,5 +81,10 @@ Singleton {
         }
       }
     }
+  }
+
+  Process {
+    id: enforceProc
+    command: ["python3", Config.scriptsDir + "/proteus-permissions.py", "enforce-capture"]
   }
 }
