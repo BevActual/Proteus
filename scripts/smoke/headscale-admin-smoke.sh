@@ -29,14 +29,20 @@ grep -q 'openHeadscaleAdmin' "${CFG}" || die "Config missing openHeadscaleAdmin"
 grep -q 'proteus-headscale.py' "${LEAF}" || die "leaf missing script path"
 grep -q 'expireNode\|enableNode\|Save API key\|vault' "${LEAF}" \
   || die "leaf missing admin actions"
-grep -qiE 'ACL|preauth|server install Out' "${LEAF}" \
-  || die "leaf must keep ACL/preauth/server install Out honesty"
+grep -q 'createUser\|Users\|user-create' "${LEAF}" \
+  || die "leaf missing Users group"
+grep -q 'checkPolicy\|savePolicy\|Policy\|policy-set' "${LEAF}" \
+  || die "leaf missing Policy group"
+grep -qiE 'preauth|structured ACL|server install Out' "${LEAF}" \
+  || die "leaf must keep preauth/structured ACL/server install Out honesty"
 grep -qiE 'Headscale admin → Network → Headscale|Cert wizard Out' "${VPN}" \
   || die "VPN leaf must point Headscale admin to Network → Headscale"
 ok "wiring"
 
 grep -q 'def cmd_nodes\|def cmd_expire\|/api/v1/node\|set-key' "${SCRIPT}" \
   || die "script missing API surface"
+grep -q 'def cmd_users\|def cmd_user_create\|def cmd_policy\|policy-check\|policy-set' "${SCRIPT}" \
+  || die "script missing users/policy API surface"
 grep -q 'PROTEUS_HEADSCALE_FIXTURE' "${SCRIPT}" || die "script missing fixture mode"
 grep -q 'proteus-headscale.py' "${ROOT}/vm/install/apps.sh" \
   || die "apps.sh must install proteus-headscale.py"
@@ -59,6 +65,29 @@ PROTEUS_HEADSCALE_FIXTURE=1 python3 "${SCRIPT}" enable 1 | python3 -c 'import js
 d=json.load(sys.stdin)
 assert d.get("ok") is True and d.get("action")=="enable"
 ' || die "enable fixture"
+PROTEUS_HEADSCALE_FIXTURE=1 python3 "${SCRIPT}" users | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("ok") is True and len(d.get("users") or []) >= 1
+assert d["users"][0].get("name")
+' || die "users fixture"
+PROTEUS_HEADSCALE_FIXTURE=1 python3 "${SCRIPT}" user-create smokeuser | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("ok") is True and d.get("action")=="user-create"
+assert (d.get("user") or {}).get("name")=="smokeuser"
+' || die "user-create fixture"
+PROTEUS_HEADSCALE_FIXTURE=1 python3 "${SCRIPT}" policy | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("ok") is True and "acls" in (d.get("policy") or "")
+assert d.get("writable") is True
+' || die "policy fixture"
+printf '%s' '{"acls":[]}' | PROTEUS_HEADSCALE_FIXTURE=1 python3 "${SCRIPT}" policy-check | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("ok") is True and d.get("action")=="policy-check"
+' || die "policy-check fixture"
+printf '%s' '{"acls":[]}' | PROTEUS_HEADSCALE_FIXTURE=1 python3 "${SCRIPT}" policy-set | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("ok") is True and d.get("action")=="policy-set"
+' || die "policy-set fixture"
 ok "fixtures"
 
 [[ $fail -eq 0 ]] || { echo "headscale-admin-smoke: FAILED" >&2; exit 1; }

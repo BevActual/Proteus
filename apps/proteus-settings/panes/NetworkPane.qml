@@ -10,7 +10,7 @@ import "../kit"
 // network-bluetooth · network-localsend · network-tailscale · network-vpn ·
 // network-headscale · network-diagnostics.
 // OpenVPN .ovpn import + optional user/pass + cert path attach thin In.
-// Headscale admin thin In (remote API). PKI / PKCS#11 / server install Out.
+// Headscale admin thin In (remote API · users · policy text). PKI / PKCS#11 / preauth / server install Out.
 ColumnLayout {
   id: root
   Layout.fillWidth: true
