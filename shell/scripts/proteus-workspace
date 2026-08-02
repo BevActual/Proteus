@@ -14,8 +14,31 @@ MAX_LOGICAL=10
 SETTINGS="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/settings.json"
 
 usage() {
-  echo "Usage: proteus-workspace {goto|next|prev|move} [N] [--local|--synced] [--monitor NAME]" >&2
+  echo "Usage: proteus-workspace {goto|next|prev|move|selftest} [N] [--local|--synced] [--monitor NAME]" >&2
   exit 2
+}
+
+# Band-math gate (no hyprctl). Used by spaces-smoke.
+selftest() {
+  local fail=0
+  check() {
+    local got="$1" want="$2" label="$3"
+    if [[ "${got}" != "${want}" ]]; then
+      echo "proteus-workspace selftest FAIL ${label}: got=${got} want=${want}" >&2
+      fail=1
+    fi
+  }
+  check "$(physical_of 1 0)" "1" "physical_of 1@0"
+  check "$(physical_of 3 1)" "13" "physical_of 3@1"
+  check "$(physical_of 10 2)" "30" "physical_of 10@2"
+  check "$(logical_of 1)" "1" "logical_of 1"
+  check "$(logical_of 13)" "3" "logical_of 13"
+  check "$(logical_of 30)" "10" "logical_of 30"
+  check "$(clamp_logical 0)" "1" "clamp low"
+  check "$(clamp_logical 11)" "10" "clamp high"
+  check "$(clamp_logical 7)" "7" "clamp mid"
+  [[ "${fail}" -eq 0 ]] || exit 1
+  echo "proteus-workspace selftest: OK"
 }
 
 need_hyprctl() {
@@ -193,11 +216,17 @@ move_to_logical() {
 }
 
 main() {
-  need_hyprctl
   [[ $# -ge 1 ]] || usage
 
   local cmd="$1"
   shift
+
+  if [[ "${cmd}" == "selftest" ]]; then
+    selftest
+    return 0
+  fi
+
+  need_hyprctl
 
   local force=""
   local monitor=""
