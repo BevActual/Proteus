@@ -48,6 +48,7 @@ REQUIRED=(
   ControlCenterLayout.qml
   LocalSend.qml
   HyprProfile.qml
+  SessionPosture.qml
   SystemInfo.qml
   SystemLoad.qml
   MissionCenter.qml
