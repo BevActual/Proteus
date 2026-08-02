@@ -108,6 +108,14 @@ grep -q 'guest-install.sh' "${ROOT}/docs/proteus/INSTALL.md" 2>/dev/null \
 [[ -x "${ROOT}/shell/scripts/privacy-indicators.py" ]] && ok shell/scripts/privacy-indicators.py || bad shell/scripts/privacy-indicators.py
 [[ -x "${ROOT}/shell/scripts/proteus-defaults.py" ]] && ok shell/scripts/proteus-defaults.py || bad shell/scripts/proteus-defaults.py
 [[ -x "${ROOT}/shell/scripts/beacon-file-index.py" ]] && ok shell/scripts/beacon-file-index.py || bad shell/scripts/beacon-file-index.py
+[[ -x "${ROOT}/shell/scripts/proteus-pin.py" ]] && ok shell/scripts/proteus-pin.py || bad shell/scripts/proteus-pin.py
+[[ -x "${ROOT}/shell/scripts/check-unlock.py" ]] && ok shell/scripts/check-unlock.py || bad shell/scripts/check-unlock.py
+[[ -f "${ROOT}/shell/scripts/proteus_auth.py" ]] && ok shell/scripts/proteus_auth.py || bad shell/scripts/proteus_auth.py
+[[ -f "${ROOT}/shell/pam/proteus-lock" ]] && ok shell/pam/proteus-lock || bad shell/pam/proteus-lock
+[[ -x "${ROOT}/vm/guest/install-lock-pam.sh" ]] && ok vm/guest/install-lock-pam.sh || bad vm/guest/install-lock-pam.sh
+grep -q 'proteus-pin.py' "${ROOT}/vm/install/apps.sh" && ok "apps.sh installs proteus-pin.py" || bad "apps.sh missing proteus-pin.py"
+grep -q 'check-unlock.py' "${ROOT}/vm/install/apps.sh" && ok "apps.sh installs check-unlock.py" || bad "apps.sh missing check-unlock.py"
+grep -q 'install-lock-pam' "${ROOT}/vm/install/apps.sh" && ok "apps.sh cites install-lock-pam" || bad "apps.sh missing install-lock-pam"
 if bash -n "${ROOT}/vm/guest/apply-console-kit.sh" 2>/dev/null; then
   ok "apply-console-kit.sh bash -n"
 else
@@ -157,6 +165,21 @@ if python3 -m py_compile "${ROOT}/shell/scripts/beacon-file-index.py" 2>/dev/nul
   ok "beacon-file-index.py py_compile"
 else
   bad "beacon-file-index.py (py_compile)"
+fi
+if python3 -m py_compile "${ROOT}/shell/scripts/proteus_auth.py" 2>/dev/null; then
+  ok "proteus_auth.py py_compile"
+else
+  bad "proteus_auth.py (py_compile)"
+fi
+if python3 -m py_compile "${ROOT}/shell/scripts/proteus-pin.py" 2>/dev/null; then
+  ok "proteus-pin.py py_compile"
+else
+  bad "proteus-pin.py (py_compile)"
+fi
+if python3 -m py_compile "${ROOT}/shell/scripts/check-unlock.py" 2>/dev/null; then
+  ok "check-unlock.py py_compile"
+else
+  bad "check-unlock.py (py_compile)"
 fi
 [[ -f "${ROOT}/env/hypr/profiles/host.conf" ]] && ok env/hypr/profiles/host.conf || bad env/hypr/profiles/host.conf
 [[ -f "${ROOT}/env/hypr/profiles/home.conf" ]] && ok env/hypr/profiles/home.conf || bad env/hypr/profiles/home.conf
