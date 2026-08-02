@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+# proteus-console-session — Console Gamescope nested-session policy (Phase 2).
+# Fact: ~/.config/proteus/console-session-mode  →  seat | gamescope
+# Does NOT replace Hyprland with Gamescope as the sole compositor.
+# Usage:
+#   proteus-console-session status
+#   proteus-console-session set-mode seat|gamescope
+#   proteus-console-session resolve-flags   # prints gamescope argv extras (or empty)
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FACT_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus"
+FACT="${FACT_DIR}/console-session-mode"
+CAPS="${HERE}/proteus-console-capabilities"
+if [[ ! -x "${CAPS}" ]]; then
+  CAPS="$(command -v proteus-console-capabilities || true)"
+fi
+
+usage() {
+  echo "usage: $0 status|set-mode|resolve-flags [args…]" >&2
+  echo "       $0 set-mode seat|gamescope" >&2
+  exit 2
+}
+
+read_mode() {
+  local m="seat"
+  if [[ -f "${FACT}" ]]; then
+    m="$(tr -d '[:space:]' <"${FACT}" || true)"
+  fi
+  case "${m}" in
+    seat|gamescope) printf '%s' "${m}" ;;
+    *) printf 'seat' ;;
+  esac
+}
+
+caps_json() {
+  if [[ -x "${CAPS}" ]]; then
+    "${CAPS}" 2>/dev/null || echo '{}'
+  else
+    echo '{}'
+  fi
+}
+
+monitor_size() {
+  # Best-effort focused monitor WxH from hyprctl; empty if unavailable.
+  python3 - <<'PY' 2>/dev/null || true
+import json, subprocess, sys
+try:
+    mons = json.loads(subprocess.check_output(["hyprctl", "monitors", "-j"], text=True, timeout=2))
+except Exception:
+    sys.exit(0)
+if not isinstance(mons, list) or not mons:
+    sys.exit(0)
+focused = next((m for m in mons if m.get("focused")), mons[0])
+w = int(focused.get("width") or 0)
+h = int(focused.get("height") or 0)
+if w > 0 and h > 0:
+    print(f"{w}x{h}")
+PY
+}
+
+cmd_status() {
+  local mode usable effective
+  mode="$(read_mode)"
+  usable=false
+  if echo "$(caps_json)" | grep -q '"gamescopeUsable": true'; then
+    usable=true
+  fi
+  effective="seat"
+  if [[ "${mode}" == "gamescope" && "${usable}" == "true" ]]; then
+    effective="gamescope"
+  fi
+  python3 - <<PY
+import json
+print(json.dumps({
+    "ok": True,
+    "mode": "${mode}",
+    "effective": "${effective}",
+    "gamescopeUsable": "${usable}" == "true",
+    "fact": "${FACT}",
+    "replacesHyprland": False,
+    "hint": "gamescope mode wraps game seats nested; Hyprland remains the session compositor",
+}))
+PY
+}
+
+cmd_set_mode() {
+  local m="${1:-}"
+  case "${m}" in
+    seat|gamescope) ;;
+    *)
+      echo '{"ok":false,"error":"mode must be seat|gamescope"}'
+      exit 1
+      ;;
+  esac
+  mkdir -p "${FACT_DIR}"
+  printf '%s\n' "${m}" >"${FACT}"
+  python3 - <<PY
+import json
+print(json.dumps({"ok": True, "mode": "${m}", "fact": "${FACT}"}))
+PY
+}
+
+cmd_resolve_flags() {
+  # stdout: space-separated gamescope flags (no binary name). Empty if seat mode
+  # or gamescope not usable — caller still may pass --gamescope for per-title.
+  local mode effective size
+  mode="$(read_mode)"
+  effective="seat"
+  if [[ "${mode}" == "gamescope" ]] && echo "$(caps_json)" | grep -q '"gamescopeUsable": true'; then
+    effective="gamescope"
+  fi
+  if [[ "${effective}" != "gamescope" ]]; then
+    exit 0
+  fi
+  size="$(monitor_size)"
+  # Nested session hardening: fullscreen + grab cursor; optional fixed size.
+  # Keep flags conservative — older gamescope builds lack some Steam Deck switches.
+  if [[ -n "${size}" ]]; then
+    local w="${size%x*}"
+    local h="${size#*x}"
+    printf -- '-W %s -H %s -f --force-grab-cursor\n' "${w}" "${h}"
+  else
+    printf -- '-f --force-grab-cursor\n'
+  fi
+}
+
+[[ $# -ge 1 ]] || usage
+case "$1" in
+  status) cmd_status ;;
+  set-mode)
+    shift
+    [[ $# -ge 1 ]] || usage
+    cmd_set_mode "$1"
+    ;;
+  resolve-flags) cmd_resolve_flags ;;
+  -h|--help|help) usage ;;
+  *) usage ;;
+esac
