@@ -9,12 +9,18 @@ Commands:
   nodes                  — list nodes (GET /api/v1/node)
   expire <node-id>       — expire now (POST …/expire)
   enable <node-id>       — clear expiry (POST …/expire {"disableExpiry": true})
+  users                  — list users (GET /api/v1/user)
+  user-create <name>     — create user (POST /api/v1/user)
+  policy                 — get ACL HuJSON (GET /api/v1/policy)
+  policy-check           — validate policy from stdin (POST /api/v1/policy/check)
+  policy-set             — save policy from stdin (PUT /api/v1/policy; DB mode)
   set-key                — read API key from stdin; vault 0600
   clear-key              — remove vault key
   key-status             — whether a key is stored (never prints the key)
 
 Stdout: one JSON object. Never logs the API key.
-Honesty: ACL/policy · user CRUD · preauth keys · DNS/routes · server install Out.
+Honesty: users list/create + policy HuJSON text In; preauth · rename/delete ·
+structured ACL editor · MagicDNS · tags/routes · server install Out.
 """
 from __future__ import annotations
 
@@ -261,6 +267,264 @@ def cmd_nodes() -> dict:
     return {"ok": True, "nodes": nodes, "url": url}
 
 
+def _normalize_user(u: dict) -> dict:
+    if not isinstance(u, dict):
+        return {}
+    uid = u.get("id")
+    if uid is None:
+        uid = u.get("ID") or ""
+    name = u.get("name") or u.get("Name") or ""
+    display = u.get("displayName") or u.get("display_name") or name
+    email = u.get("email") or u.get("Email") or ""
+    return {
+        "id": str(uid),
+        "name": str(name),
+        "displayName": str(display or ""),
+        "email": str(email or ""),
+    }
+
+
+def _auth_headers(key: str) -> dict:
+    return {
+        "Authorization": f"Bearer {key}",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+
+
+def _policy_writable_from_error(err: str) -> tuple[bool, str]:
+    low = (err or "").lower().replace(" ", "")
+    if (
+        "disabled" in low
+        or "policyupdateisdisabled" in low
+        or ("file" in low and "mode" in low)
+    ):
+        return False, "policy.mode is file — edit on server or switch to db to Save from Settings"
+    return True, ""
+
+
+def cmd_users() -> dict:
+    if os.environ.get("PROTEUS_HEADSCALE_FIXTURE") == "1":
+        return {
+            "ok": True,
+            "fixture": True,
+            "users": [
+                {
+                    "id": "1",
+                    "name": "alice",
+                    "displayName": "Alice",
+                    "email": "alice@example.com",
+                },
+                {
+                    "id": "2",
+                    "name": "bob",
+                    "displayName": "Bob",
+                    "email": "",
+                },
+            ],
+        }
+    url = _admin_url()
+    key = _read_key()
+    if not url:
+        return {"ok": False, "error": "admin URL not set", "users": []}
+    if not key:
+        return {"ok": False, "error": "API key not set", "users": []}
+    status, data, err = _http(
+        "GET",
+        f"{url}/api/v1/user",
+        headers={"Authorization": f"Bearer {key}", "Accept": "application/json"},
+    )
+    if status != 200 or data is None:
+        return {
+            "ok": False,
+            "error": err or f"users HTTP {status}",
+            "users": [],
+        }
+    raw = []
+    if isinstance(data, dict):
+        raw = data.get("users") or data.get("Users") or data.get("user") or []
+        if isinstance(raw, dict):
+            raw = [raw]
+    elif isinstance(data, list):
+        raw = data
+    users = [_normalize_user(u) for u in raw if isinstance(u, dict)]
+    users = [u for u in users if u.get("id") or u.get("name")]
+    return {"ok": True, "users": users, "url": url}
+
+
+def cmd_user_create(name: str) -> dict:
+    name = (name or "").strip()
+    if os.environ.get("PROTEUS_HEADSCALE_FIXTURE") == "1":
+        if not name:
+            return {"ok": False, "error": "name required", "action": "user-create"}
+        return {
+            "ok": True,
+            "fixture": True,
+            "action": "user-create",
+            "user": {
+                "id": "9",
+                "name": name,
+                "displayName": name,
+                "email": "",
+            },
+        }
+    url = _admin_url()
+    key = _read_key()
+    if not url:
+        return {"ok": False, "error": "admin URL not set", "action": "user-create"}
+    if not key:
+        return {"ok": False, "error": "API key not set", "action": "user-create"}
+    if not name:
+        return {"ok": False, "error": "name required", "action": "user-create"}
+    status, data, err = _http(
+        "POST",
+        f"{url}/api/v1/user",
+        headers=_auth_headers(key),
+        body=json.dumps({"name": name}).encode(),
+    )
+    if status not in (200, 201):
+        return {
+            "ok": False,
+            "error": err or f"user-create HTTP {status}",
+            "action": "user-create",
+        }
+    user = {}
+    if isinstance(data, dict):
+        user = _normalize_user(data.get("user") if isinstance(data.get("user"), dict) else data)
+    return {"ok": True, "action": "user-create", "user": user}
+
+
+def cmd_policy() -> dict:
+    if os.environ.get("PROTEUS_HEADSCALE_FIXTURE") == "1":
+        return {
+            "ok": True,
+            "fixture": True,
+            "policy": '{\n  // fixture HuJSON\n  "acls": [{"action": "accept", "src": ["*"], "dst": ["*:*"]}]\n}\n',
+            "updatedAt": "2026-08-02T00:00:00Z",
+            "writable": True,
+            "mode": "db",
+            "hint": "",
+        }
+    url = _admin_url()
+    key = _read_key()
+    if not url:
+        return {"ok": False, "error": "admin URL not set"}
+    if not key:
+        return {"ok": False, "error": "API key not set"}
+    status, data, err = _http(
+        "GET",
+        f"{url}/api/v1/policy",
+        headers={"Authorization": f"Bearer {key}", "Accept": "application/json"},
+    )
+    if status != 200 or not isinstance(data, dict):
+        return {"ok": False, "error": err or f"policy HTTP {status}"}
+    policy = data.get("policy")
+    if policy is None:
+        policy = data.get("Policy") or ""
+    return {
+        "ok": True,
+        "policy": str(policy),
+        "updatedAt": str(data.get("updatedAt") or data.get("updated_at") or ""),
+        "writable": True,
+        "mode": "",
+        "hint": "",
+        "url": url,
+    }
+
+
+def cmd_policy_check(policy_text: str) -> dict:
+    if os.environ.get("PROTEUS_HEADSCALE_FIXTURE") == "1":
+        text = (policy_text or "").strip()
+        if not text:
+            return {"ok": False, "error": "empty policy", "action": "policy-check"}
+        if "bad-fixture" in text:
+            return {
+                "ok": False,
+                "error": "fixture: invalid policy",
+                "action": "policy-check",
+            }
+        return {"ok": True, "fixture": True, "action": "policy-check", "valid": True}
+    url = _admin_url()
+    key = _read_key()
+    if not url:
+        return {"ok": False, "error": "admin URL not set", "action": "policy-check"}
+    if not key:
+        return {"ok": False, "error": "API key not set", "action": "policy-check"}
+    status, data, err = _http(
+        "POST",
+        f"{url}/api/v1/policy/check",
+        headers=_auth_headers(key),
+        body=json.dumps({"policy": policy_text}).encode(),
+    )
+    if status not in (200, 201):
+        return {
+            "ok": False,
+            "error": err or f"policy-check HTTP {status}",
+            "action": "policy-check",
+        }
+    return {
+        "ok": True,
+        "action": "policy-check",
+        "valid": True,
+        "result": data if isinstance(data, dict) else {},
+    }
+
+
+def cmd_policy_set(policy_text: str) -> dict:
+    if os.environ.get("PROTEUS_HEADSCALE_FIXTURE") == "1":
+        text = (policy_text or "").strip()
+        if not text:
+            return {"ok": False, "error": "empty policy", "action": "policy-set"}
+        if "file-mode-fixture" in text:
+            return {
+                "ok": False,
+                "error": "ErrPolicyUpdateIsDisabled",
+                "action": "policy-set",
+                "writable": False,
+                "hint": "policy.mode is file — edit on server or switch to db to Save from Settings",
+            }
+        return {
+            "ok": True,
+            "fixture": True,
+            "action": "policy-set",
+            "writable": True,
+            "policy": policy_text,
+        }
+    url = _admin_url()
+    key = _read_key()
+    if not url:
+        return {"ok": False, "error": "admin URL not set", "action": "policy-set"}
+    if not key:
+        return {"ok": False, "error": "API key not set", "action": "policy-set"}
+    status, data, err = _http(
+        "PUT",
+        f"{url}/api/v1/policy",
+        headers=_auth_headers(key),
+        body=json.dumps({"policy": policy_text}).encode(),
+    )
+    if status not in (200, 201):
+        writable, hint = _policy_writable_from_error(err or "")
+        return {
+            "ok": False,
+            "error": err or f"policy-set HTTP {status}",
+            "action": "policy-set",
+            "writable": writable,
+            **({"hint": hint} if hint else {}),
+        }
+    return {
+        "ok": True,
+        "action": "policy-set",
+        "writable": True,
+        "updatedAt": str(
+            (data or {}).get("updatedAt")
+            if isinstance(data, dict)
+            else ""
+        )
+        or "",
+        "policy": str((data or {}).get("policy") if isinstance(data, dict) else policy_text),
+    }
+
+
 def cmd_expire(node_id: str, *, enable: bool = False) -> dict:
     if os.environ.get("PROTEUS_HEADSCALE_FIXTURE") == "1":
         return {
@@ -327,6 +591,14 @@ def main() -> int:
     p_en = sub.add_parser("enable")
     p_en.add_argument("node_id")
 
+    sub.add_parser("users")
+    p_uc = sub.add_parser("user-create")
+    p_uc.add_argument("name")
+
+    sub.add_parser("policy")
+    sub.add_parser("policy-check")
+    sub.add_parser("policy-set")
+
     args = ap.parse_args()
     if args.cmd == "status":
         return _out(cmd_status())
@@ -344,6 +616,16 @@ def main() -> int:
         return _out(cmd_expire(args.node_id, enable=False))
     if args.cmd == "enable":
         return _out(cmd_expire(args.node_id, enable=True))
+    if args.cmd == "users":
+        return _out(cmd_users())
+    if args.cmd == "user-create":
+        return _out(cmd_user_create(args.name))
+    if args.cmd == "policy":
+        return _out(cmd_policy())
+    if args.cmd == "policy-check":
+        return _out(cmd_policy_check(sys.stdin.read()))
+    if args.cmd == "policy-set":
+        return _out(cmd_policy_set(sys.stdin.read()))
     return _out({"ok": False, "error": "unknown command"})
 
 
