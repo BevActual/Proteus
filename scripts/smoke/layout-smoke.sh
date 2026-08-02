@@ -60,6 +60,10 @@ REQUIRED=(
   Time.qml
   ActiveWindow.qml
   UniversalSearch.qml
+  Permissions.qml
+  PrivacyIndicators.qml
+  DefaultApps.qml
+  SystemServices.qml
 )
 
 for f in "${REQUIRED[@]}"; do

@@ -50,6 +50,18 @@ python3 "${HELPER}" store-set-category microphone deny >/dev/null
 python3 "${HELPER}" store-set-app org.gnome.Snapshot camera deny >/dev/null
 python3 "${HELPER}" store-set-app firefox microphone ask >/dev/null
 
+# Reload via store-get must reflect mutators (not stale defaults).
+reload="$(python3 "${HELPER}" store-get)"
+echo "${reload}" | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("ok") is True
+assert d.get("categories",{}).get("microphone")=="deny"
+apps=d.get("apps") or {}
+assert (apps.get("org.gnome.Snapshot") or {}).get("camera")=="deny"
+assert (apps.get("firefox") or {}).get("microphone")=="ask"
+' || die "store-get reload after store-set-*"
+ok "store-get reload"
+
 g1="$(python3 "${HELPER}" granted org.gnome.Snapshot camera)"
 echo "${g1}" | grep -q '"granted": false' || die "snapshot camera deny → not granted"
 g2="$(python3 "${HELPER}" granted firefox microphone)"
@@ -71,6 +83,27 @@ ok "activity probe shape"
 fp="$(python3 "${HELPER}" flatpak-list)"
 echo "${fp}" | grep -q '"ok": true' || die "flatpak-list ok"
 ok "flatpak-list"
+
+# flatpak-set always persists store; Flatpak override applied only when flatpak exists.
+# Use a synthetic ref so we never touch a real install; SKIP override assert if no flatpak.
+fp_set="$(python3 "${HELPER}" flatpak-set org.proteus.SmokeProbe camera deny 2>/dev/null || true)"
+if echo "${fp_set}" | grep -q '"ok": true'; then
+  fp_reload="$(python3 "${HELPER}" store-get)"
+  echo "${fp_reload}" | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+apps=d.get("apps") or {}
+assert (apps.get("org.proteus.SmokeProbe") or {}).get("camera")=="deny"
+' || die "flatpak-set store persist"
+  ok "flatpak-set store round-trip"
+elif ! command -v flatpak >/dev/null 2>&1; then
+  # Helper returns ok:false when flatpak missing — still require store-only path documented.
+  python3 "${HELPER}" store-set-app org.proteus.SmokeProbe camera deny >/dev/null
+  echo "$(python3 "${HELPER}" store-get)" | grep -q 'org.proteus.SmokeProbe' \
+    || die "store-set-app fallback when flatpak absent"
+  ok "flatpak-set SKIP (no flatpak; store-set-app covered)"
+else
+  die "flatpak-set failed unexpectedly: ${fp_set}"
+fi
 
 # Manifest permissions field accepted
 "${ROOT}/scripts/smoke/app-manifest-smoke.sh" >/dev/null || die "app-manifest-smoke"

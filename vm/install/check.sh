@@ -104,6 +104,8 @@ grep -q 'guest-install.sh' "${ROOT}/docs/proteus/INSTALL.md" 2>/dev/null \
 [[ -x "${ROOT}/shell/scripts/proteus-console-seat" ]] && ok shell/scripts/proteus-console-seat || bad shell/scripts/proteus-console-seat
 [[ -x "${ROOT}/shell/scripts/proteus-workspace" ]] && ok shell/scripts/proteus-workspace || bad shell/scripts/proteus-workspace
 [[ -x "${ROOT}/shell/scripts/proteus-console-capabilities" ]] && ok shell/scripts/proteus-console-capabilities || bad shell/scripts/proteus-console-capabilities
+[[ -x "${ROOT}/shell/scripts/proteus-permissions.py" ]] && ok shell/scripts/proteus-permissions.py || bad shell/scripts/proteus-permissions.py
+[[ -x "${ROOT}/shell/scripts/privacy-indicators.py" ]] && ok shell/scripts/privacy-indicators.py || bad shell/scripts/privacy-indicators.py
 if bash -n "${ROOT}/vm/guest/apply-console-kit.sh" 2>/dev/null; then
   ok "apply-console-kit.sh bash -n"
 else
@@ -128,6 +130,21 @@ if bash -n "${ROOT}/shell/scripts/proteus-console-capabilities" 2>/dev/null; the
   ok "proteus-console-capabilities bash -n"
 else
   bad "proteus-console-capabilities (bash -n)"
+fi
+if python3 -m py_compile "${ROOT}/shell/scripts/proteus-permissions.py" 2>/dev/null; then
+  ok "proteus-permissions.py py_compile"
+else
+  bad "proteus-permissions.py (py_compile)"
+fi
+if python3 -m py_compile "${ROOT}/shell/scripts/privacy-indicators.py" 2>/dev/null; then
+  ok "privacy-indicators.py py_compile"
+else
+  bad "privacy-indicators.py (py_compile)"
+fi
+if python3 "${ROOT}/shell/scripts/proteus-permissions.py" --help >/dev/null 2>&1; then
+  ok "proteus-permissions.py --help"
+else
+  bad "proteus-permissions.py (--help)"
 fi
 [[ -f "${ROOT}/env/hypr/profiles/host.conf" ]] && ok env/hypr/profiles/host.conf || bad env/hypr/profiles/host.conf
 [[ -f "${ROOT}/env/hypr/profiles/home.conf" ]] && ok env/hypr/profiles/home.conf || bad env/hypr/profiles/home.conf
