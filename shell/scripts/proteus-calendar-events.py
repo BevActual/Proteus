@@ -11,13 +11,15 @@ Uses `proteus-accounts token` (refresh when needed). Providers:
 Stdout: one JSON object. Never logs access tokens.
 Honesty: glance consumer — create/update/delete via proteus-calendar-mutate.py
 (CalDAV + Google/MS/Exchange; create/edit may include daily/weekly/monthly RRULE
-on the whole series). COUNT/UNTIL / this-vs-all / attendees / exceptions Out.
++ COUNT end presets on the whole series). UNTIL / this-vs-all / attendees /
+exceptions Out.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import urllib.error
@@ -49,31 +51,56 @@ def _normalize_rrule_freq(raw: str) -> str:
     return ""
 
 
-def _recurrence_from_google_item(item: dict) -> str:
+def _recurrence_end_from_rrule(raw: str) -> str:
+    """Return forever|count:N from RRULE text."""
+    m = re.search(r"COUNT=(\d+)", raw or "", re.I)
+    if m:
+        n = int(m.group(1))
+        if n > 0:
+            return f"count:{n}"
+    return "forever"
+
+
+def _recurrence_from_google_item(item: dict) -> tuple[str, str]:
     for line in item.get("recurrence") or []:
         if not isinstance(line, str):
             continue
         r = _normalize_rrule_freq(line)
         if r:
-            return r
-    return ""
+            return r, _recurrence_end_from_rrule(line)
+    return "", "forever"
 
 
-def _recurrence_from_graph_item(item: dict) -> str:
+def _recurrence_from_graph_item(item: dict) -> tuple[str, str]:
     rec = item.get("recurrence") or {}
     if not isinstance(rec, dict):
-        return ""
+        return "", "forever"
     pattern = rec.get("pattern") or {}
     if not isinstance(pattern, dict):
-        return ""
-    return _normalize_rrule_freq(str(pattern.get("type") or ""))
+        return "", "forever"
+    freq = _normalize_rrule_freq(str(pattern.get("type") or ""))
+    if not freq:
+        return "", "forever"
+    rng = rec.get("range") or {}
+    end = "forever"
+    if isinstance(rng, dict) and str(rng.get("type") or "").lower() == "numbered":
+        try:
+            n = int(rng.get("numberOfOccurrences") or 0)
+            if n > 0:
+                end = f"count:{n}"
+        except (TypeError, ValueError):
+            pass
+    return freq, end
 
 
-def _recurrence_from_ics(cal_data: str) -> str:
+def _recurrence_from_ics(cal_data: str) -> tuple[str, str]:
     for line in (cal_data or "").splitlines():
         if line.startswith("RRULE:") or line.startswith("RRULE;"):
-            return _normalize_rrule_freq(line)
-    return ""
+            freq = _normalize_rrule_freq(line)
+            if freq:
+                return freq, _recurrence_end_from_rrule(line)
+            return "", "forever"
+    return "", "forever"
 
 
 def _run(cmd: list[str], timeout: float = 20.0) -> tuple[int, str, str]:
@@ -164,7 +191,7 @@ def fetch_google(access: str, day: date) -> tuple[list[dict], str]:
     if status != 200 or not isinstance(data, dict):
         return [], err or f"google HTTP {status}"
     # Expanded instances omit RRULE — pull masters for unique series ids (cap 5).
-    master_rec: dict[str, str] = {}
+    master_rec: dict[str, tuple[str, str]] = {}
     masters_needed: list[str] = []
     items = [i for i in (data.get("items") or []) if isinstance(i, dict)]
     for item in items:
@@ -188,9 +215,11 @@ def fetch_google(access: str, day: date) -> tuple[list[dict], str]:
         all_day = "date" in st and "dateTime" not in st
         eid = str(item.get("id") or "")
         series_id = str(item.get("recurringEventId") or "").strip() or eid
-        recurrence = _recurrence_from_google_item(item) or master_rec.get(
-            str(item.get("recurringEventId") or "").strip(), ""
-        )
+        recurrence, recurrence_end = _recurrence_from_google_item(item)
+        if not recurrence:
+            recurrence, recurrence_end = master_rec.get(
+                str(item.get("recurringEventId") or "").strip(), ("", "forever")
+            )
         mutate_id = series_id
         out.append(
             {
@@ -203,6 +232,7 @@ def fetch_google(access: str, day: date) -> tuple[list[dict], str]:
                 "provider": "google",
                 "mutable": bool(mutate_id),
                 "recurrence": recurrence,
+                "recurrenceEnd": recurrence_end if recurrence else "forever",
                 "href": (
                     f"https://www.googleapis.com/calendar/v3/calendars/primary/events/"
                     f"{urllib.parse.quote(mutate_id, safe='')}"
@@ -236,11 +266,11 @@ def fetch_microsoft(access: str, day: date) -> tuple[list[dict], str]:
     )
     if status != 200 or not isinstance(data, dict):
         return [], err or f"microsoft HTTP {status}"
-    master_rec: dict[str, str] = {}
+    master_rec: dict[str, tuple[str, str]] = {}
     items = [i for i in (data.get("value") or []) if isinstance(i, dict)]
     for item in items:
         mid = str(item.get("seriesMasterId") or "").strip()
-        if mid and mid not in master_rec and not _recurrence_from_graph_item(item):
+        if mid and mid not in master_rec and not _recurrence_from_graph_item(item)[0]:
             murl = (
                 f"https://graph.microsoft.com/v1.0/me/events/"
                 f"{urllib.parse.quote(mid, safe='')}?$select=id,recurrence"
@@ -262,9 +292,11 @@ def fetch_microsoft(access: str, day: date) -> tuple[list[dict], str]:
         en = item.get("end") or {}
         eid = str(item.get("id") or "")
         series_id = str(item.get("seriesMasterId") or "").strip() or eid
-        recurrence = _recurrence_from_graph_item(item) or master_rec.get(
-            str(item.get("seriesMasterId") or "").strip(), ""
-        )
+        recurrence, recurrence_end = _recurrence_from_graph_item(item)
+        if not recurrence:
+            recurrence, recurrence_end = master_rec.get(
+                str(item.get("seriesMasterId") or "").strip(), ("", "forever")
+            )
         mutate_id = series_id
         out.append(
             {
@@ -277,6 +309,7 @@ def fetch_microsoft(access: str, day: date) -> tuple[list[dict], str]:
                 "provider": "microsoft",
                 "mutable": bool(mutate_id),
                 "recurrence": recurrence,
+                "recurrenceEnd": recurrence_end if recurrence else "forever",
                 "href": (
                     f"https://graph.microsoft.com/v1.0/me/events/"
                     f"{urllib.parse.quote(mutate_id, safe='')}"
@@ -422,7 +455,7 @@ def _fetch_caldav_home(
                         start_ev = line.split(":", 1)[-1].strip()
                     if line.startswith("UID:") or line.startswith("UID;"):
                         uid = line.split(":", 1)[-1].strip()
-                recurrence = _recurrence_from_ics(cal_data)
+                recurrence, recurrence_end = _recurrence_from_ics(cal_data)
                 if ev_href.startswith("http"):
                     abs_href = ev_href
                 else:
@@ -439,6 +472,7 @@ def _fetch_caldav_home(
                         "provider": provider,
                         "mutable": True,
                         "recurrence": recurrence,
+                        "recurrenceEnd": recurrence_end if recurrence else "forever",
                         "href": abs_href,
                     }
                 )
@@ -456,7 +490,7 @@ def _fetch_caldav_home(
                         start_ev = line.split(":", 1)[-1].strip()
                     if line.startswith("UID:") or line.startswith("UID;"):
                         uid = line.split(":", 1)[-1].strip()
-                recurrence = _recurrence_from_ics("BEGIN:VEVENT\n" + block)
+                recurrence, recurrence_end = _recurrence_from_ics("BEGIN:VEVENT\n" + block)
                 events.append(
                     {
                         "id": uid,
@@ -468,6 +502,7 @@ def _fetch_caldav_home(
                         "provider": provider,
                         "mutable": bool(uid),
                         "recurrence": recurrence,
+                        "recurrenceEnd": recurrence_end if recurrence else "forever",
                         "href": "",
                     }
                 )
@@ -527,6 +562,7 @@ def main() -> int:
                             "provider": "caldav",
                             "mutable": True,
                             "recurrence": "daily",
+                            "recurrenceEnd": "count:5",
                             "href": "https://cal.example/dav/calendars/alice/personal/fixture-uid-1.ics",
                         }
                     ],
