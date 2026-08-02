@@ -28,6 +28,7 @@ run hw-probe-smoke.sh
 run install-smoke.sh
 run session-smoke.sh
 run posture-hard-smoke.sh
+run console-smoke.sh
 run qs-version-smoke.sh
 
 # Guest: always attempt (skips if SSH down unless PROTEUS_GUEST=1)
