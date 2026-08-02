@@ -411,7 +411,7 @@ assert d.get("ok") is True and int(d.get("sendableSeats") or 0) >= 1
 ' || die "mail send providers fixture"
 ok "mail send fixtures"
 
-# Contacts glance + CardDAV write thin (#1419–#1420 · #1616–#1620)
+# Contacts glance + CardDAV/Apple + Google/MS write thin (#1419–#1420 · #1616–#1620 · #1636–#1640)
 CONTACTS="${ROOT}/shell/scripts/proteus-contacts-glance.py"
 CMUT="${ROOT}/shell/scripts/proteus-contacts-mutate.py"
 CG_QML="${ROOT}/shell/shared/ContactsGlance.qml"
@@ -419,8 +419,14 @@ CG_QML="${ROOT}/shell/shared/ContactsGlance.qml"
 [[ -x "${CMUT}" ]] || die "proteus-contacts-mutate.py not executable"
 [[ -f "${CG_QML}" ]] || die "missing ContactsGlance.qml"
 grep -q 'ContactsGlance' "${CP}" || die "CalendarPanel must use ContactsGlance"
-grep -q 'def fetch_carddav\|providers = ("carddav", "apple")' "${CONTACTS}" \
-  || die "proteus-contacts-glance.py missing CardDAV/Apple fetch"
+grep -q 'def fetch_carddav\|def fetch_google\|def fetch_microsoft' "${CONTACTS}" \
+  || die "proteus-contacts-glance.py missing CardDAV/OAuth fetch"
+grep -q 'google.*microsoft.*exchange\|"google", "microsoft", "exchange"' "${CONTACTS}" \
+  || die "proteus-contacts-glance.py must include google/microsoft/exchange providers"
+grep -q 'OAUTH_WRITABLE\|"google", "microsoft", "exchange"' "${CMUT}" \
+  || die "proteus-contacts-mutate.py missing OAUTH_WRITABLE"
+grep -q 'auth/contacts\|Contacts.ReadWrite' "${PKG}/src/main.rs" \
+  || die "proteus-accounts must request contacts scopes"
 grep -q 'mutableSeats\|"href"' "${CONTACTS}" \
   || die "proteus-contacts-glance.py must emit href/mutableSeats"
 grep -q 'createContact\|updateContact\|deleteContact\|canCreate' "${CG_QML}" \
@@ -429,6 +435,8 @@ grep -q 'ContactsGlance.createContact\|ContactsGlance.canCreate' "${CP}" \
   || die "CalendarPanel must wire contacts create thin"
 grep -q 'ContactsGlance.updateContact\|ContactsGlance.deleteContact\|isMutable' "${CP}" \
   || die "CalendarPanel must wire contacts edit/delete thin"
+grep -q 'Google/MS/Exchange\|google/MS/Exchange' "${CP}" \
+  || die "CalendarPanel contacts footer must mention Google/MS/Exchange write"
 grep -q 'proteus-contacts-glance.py' "${ROOT}/vm/install/apps.sh" \
   || die "apps.sh must install proteus-contacts-glance.py"
 grep -q 'proteus-contacts-mutate.py' "${ROOT}/vm/install/apps.sh" \
@@ -469,7 +477,15 @@ assert d.get("ok") is True and d.get("action")=="delete"
 PROTEUS_CONTACTS_MUTATE_FIXTURE=1 python3 "${CMUT}" providers | python3 -c 'import json,sys
 d=json.load(sys.stdin)
 assert d.get("ok") is True and "carddav" in (d.get("providers") or [])
+assert "google" in (d.get("providers") or [])
 ' || die "contacts mutate providers fixture"
+PROTEUS_CONTACTS_MUTATE_FIXTURE=1 python3 "${CMUT}" create \
+  --provider google --name "G Smoke" --email "g@example.com" \
+  | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("ok") is True and d.get("provider")=="google"
+assert "people.googleapis.com" in (d.get("href") or "")
+' || die "contacts mutate google create fixture"
 ok "contacts mutate fixtures"
 
 if [[ -n "${BIN}" ]]; then
