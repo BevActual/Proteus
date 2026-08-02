@@ -79,7 +79,7 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 | Theme tokens | `shipped` — space/radius scale + accent/font from Config; company lock [CHROME.md](./CHROME.md) |
 | Themed controls (`ThemeSlider` / `ThemeSwitch`) | `shipped` — shared accent Slider/Switch wrappers (`shell/shared/`) used by all Settings panes, Control Center Sound plate, and lock clock HUD; stock Controls variants smoke-banned (`chrome-tokens-smoke`) |
 | Shared package layout (flat + helpers) | `shipped` — Config/Background ownership split; Settings `kit/`; guest dogfood OK |
-| Smoke suite (`scripts/smoke/*-smoke.sh`) | `shipped` — layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · accounts · audio-mix-serve · hw-probe · install · session · qs-version; optional `qs-guest` (incl. Customize + widgets IPC) + `software-guest` via `smoke-all` / `PROTEUS_GUEST=1` |
+| Smoke suite (`scripts/smoke/*-smoke.sh`) | `shipped` — layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · accounts · lock-pin · permissions · audio-mix-serve · hw-probe · install · session · posture-hard · qs-version; optional `qs-guest` (incl. Customize + widgets IPC) + `software-guest` via `smoke-all` / `PROTEUS_GUEST=1` |
 
 ---
 
@@ -181,7 +181,7 @@ from the slim top chrome.
 | `bash /mnt/proteus/vm/guest/install-desktop-conf.sh` | `proteus-general.conf` + `proteus-monitors.conf` + sources |
 | `bash /mnt/proteus/vm/guest/install-lock-pam.sh` | `/etc/pam.d/proteus-lock` (falls back to `login` if absent) |
 | `./scripts/run-nested.sh` | Nested Hyprland on host |
-| `./scripts/smoke-all.sh` | Host smokes (layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · accounts · audio-mix-serve · hw-probe · install · session · qs-version); guest `qs-guest` + `software-guest` if SSH or `PROTEUS_GUEST=1` |
+| `./scripts/smoke-all.sh` | Host smokes (layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · accounts · lock-pin · permissions · audio-mix-serve · hw-probe · install · session · posture-hard · qs-version); guest `qs-guest` + `software-guest` if SSH or `PROTEUS_GUEST=1` |
 | `./scripts/smoke/layout-smoke.sh` | Flat `shell/shared/` + Settings `kit/` structure |
 | `./scripts/smoke/widget-layout-resolve-smoke.sh` | Widget free/snap resolve capped + flush/no-overlap geometry stress |
 | `./scripts/smoke/ipc-contract-smoke.sh` | Smoke `qs ipc call` sites ⊆ shell/Settings `IpcHandler` methods |
@@ -192,10 +192,13 @@ from the slim top chrome.
 | `./scripts/smoke/software-reliability-smoke.sh` | Host static checks — all six Software leaves + hub helper honesty + op narrative / leafUi |
 | `./scripts/smoke/power-logind-smoke.sh` | Host static checks for `proteus-logind` + Power.qml wiring |
 | `./scripts/smoke/accounts-smoke.sh` | Host static checks for `proteus-accounts` + Online accounts wiring |
+| `./scripts/smoke/lock-pin-smoke.sh` | Host static checks for unlock PIN hash store + `check-unlock.py` / `proteus-pin.py` wiring (no PAM) |
+| `./scripts/smoke/permissions-smoke.sh` | Host static checks for `permissions.json` store + Privacy leaves + EnvGate grant gate |
 | `./scripts/smoke/audio-mix-serve-smoke.sh` | Host checks for `proteus-audio-mix` dump/serve + Audio.qml wiring |
 | `./scripts/smoke/hw-probe-smoke.sh` | Wave A probe JSON (device_class + capabilities) |
 | `./scripts/smoke/install-smoke.sh` | Overlay installer tree check (stages incl. console · package roster split · repair preset · provision status · INSTALL.md) |
 | `./scripts/smoke/session-smoke.sh` | Host gate for `proteus-session` contract + `proteus.desktop` |
+| `./scripts/smoke/posture-hard-smoke.sh` | Host static checks for hard `proteus-posture` + console profile rename (no live compositor flip) |
 | `./scripts/smoke/qs-version-smoke.sh` | Record QS version policy (no IgnorePkg); checks `qs-guest-smoke` upgrade path |
 | `./scripts/smoke/qs-guest-smoke.sh` | Guest cold-start `SHELL_OK` / `SETTINGS_OK` + record `quickshell` version + polkit agent + nav deep link + Beacon + calendar + Customize/widgets IPC (add/move/snap/remove worldclock probe) |
 | `./scripts/smoke/software-guest-smoke.sh` | Guest Software dogfood (browse/inventory + Flatpak install/remove; yay\|paru; pacman mutator if passwordless sudo); in `smoke-all` (SKIP unless SSH / `PROTEUS_GUEST=1`) |
