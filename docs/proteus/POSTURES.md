@@ -86,7 +86,7 @@ Compositor engines: [COMPOSITOR.md](./COMPOSITOR.md).
 | Posture | Job | Chrome / engines | Status |
 |---------|-----|------------------|--------|
 | **desktop** | Create / windowed work (desk + laptop) | Full shell (bar, dock, Beacon); Hyprland tiling backend | `partial` — primary spine |
-| **console** | Lean-back consume + play (TV, film, games) | Sparse ConsoleShell — tvOS-style shelf Home (cinematic Featured tracks focus, curated shelves, Library = full catalog), lean sheets; Hyprland kiosk + **supervised seat** (`proteus-console-seat`); **per-title Gamescope** when Vulkan usable; Guide / Super+Home | `partial` — Phase 1 seat/capabilities shipped; full Gamescope *session* later |
+| **console** | Lean-back consume + play (TV, film, games) | Sparse ConsoleShell — tvOS-style shelf Home (cinematic Featured tracks focus, curated shelves, Library = full catalog), lean sheets; Hyprland kiosk + **supervised seat** (`proteus-console-seat`); **per-title Gamescope** when Vulkan usable; Guide / Super+Home | `partial` — Phase 1 seat/capabilities + console-smoke / INSTALL honesty shipped; full Gamescope *session* later |
 | **host** | Operate the box (VMs, containers, services, updates) | Default lean/headless; **UI on demand** (local or remote) — not a DE clone; little/no creative chrome | `planned` (hypr stub: `host.conf`) |
 
 **Naming:** **Console** is the locked product name for lean-back. Legacy docs /
