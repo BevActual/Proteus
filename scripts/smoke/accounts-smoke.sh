@@ -241,14 +241,20 @@ grep -q 'def fetch_caldav\|providers = ("google", "microsoft", "exchange", "next
 grep -q 'mutable\|href' "${CAL}" || die "calendar fetch must emit mutable/href"
 grep -qiE 'Google/MS create|CalDAV \+ Google/MS|mail compose thin In' "${CP}" \
   || die "CalendarPanel must state Google/MS write In + mail compose thin In"
-grep -qiE 'recurrence thin create In|newEventRepeat|cycleRepeat' "${CP}" \
-  || die "CalendarPanel must expose recurrence thin create"
+grep -qiE 'recurrence thin create\+edit In|editEventRepeat|cycleEditRepeat' "${CP}" \
+  || die "CalendarPanel must expose recurrence thin create+edit"
+grep -q 'newEventRepeat\|cycleRepeat' "${CP}" \
+  || die "CalendarPanel must expose create recurrence cycler"
 grep -q 'google.*microsoft.*exchange\|OAUTH_WRITABLE' "${MUT}" \
   || die "mutate must list Google/MS/Exchange writable"
-grep -q '_normalize_recurrence\|_--recurrence\|_RRULE:FREQ\|_graph_recurrence' "${MUT}" \
+grep -q '_normalize_recurrence\|--recurrence\|RRULE:FREQ\|_graph_recurrence' "${MUT}" \
   || die "mutate must support create recurrence"
-grep -q 'createEvent(title, dayIso, recurrence)\|recurrence' "${ROOT}/shell/shared/CalendarEvents.qml" \
+grep -q 'createEvent(title, dayIso, recurrence)\|recurrence' "${CE_QML}" \
   || die "CalendarEvents.createEvent must accept recurrence"
+grep -q 'updateEvent(ev, title, dayIso, recurrence)\|seriesId' "${CE_QML}" \
+  || die "CalendarEvents.updateEvent must accept recurrence / seriesId"
+grep -q '_recurrence_from_ics\|seriesId\|recurringEventId\|seriesMasterId' "${CAL}" \
+  || die "calendar fetch must emit recurrence / seriesId"
 grep -q 'calendar.events\|Calendars.ReadWrite' "${PKG}/src/main.rs" \
   || die "accounts catalog/scopes must advertise write"
 ok "calendar glance + CRUD wiring"
@@ -260,6 +266,8 @@ assert isinstance(d.get("events"), list) and len(d["events"]) >= 1
 ev=d["events"][0]
 assert ev.get("mutable") is True
 assert "href" in ev and ev["href"]
+assert ev.get("recurrence") == "daily"
+assert ev.get("seriesId")
 assert d.get("mutableSeats", 0) >= 1
 ' || die "calendar fixture fetch"
 ok "calendar fixture"
@@ -285,6 +293,14 @@ d=json.load(sys.stdin)
 assert d.get("ok") is True and d.get("action")=="update"
 assert d.get("title")=="Renamed" and d.get("mutable") is True
 ' || die "calendar mutate update fixture"
+PROTEUS_CALENDAR_MUTATE_FIXTURE=1 python3 "${MUT}" update \
+  --href "https://cal.example/dav/calendars/alice/personal/fixture-uid-1.ics" \
+  --title "Renamed" --date 2026-08-02 --recurrence weekly \
+  | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("ok") is True and d.get("action")=="update"
+assert d.get("recurrence")=="weekly"
+' || die "calendar mutate update recurrence fixture"
 PROTEUS_CALENDAR_MUTATE_FIXTURE=1 python3 "${MUT}" delete \
   --href "https://cal.example/dav/calendars/alice/personal/fixture-uid-1.ics" \
   | python3 -c 'import json,sys
