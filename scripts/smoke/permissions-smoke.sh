@@ -80,5 +80,12 @@ grep -q 'permissionDeniedReason\|Permissions.granted' "${ROOT}/shell/shared/EnvG
   || die "EnvGate must honor Permissions.granted"
 ok "EnvGate grant gate"
 
+DOCK="${ROOT}/shell/shared/DockApps.qml"
+grep -q 'appPrivacyBlockPane\|appAvailable' "${DOCK}" \
+  || die "DockApps focusOrLaunch must consult EnvGate permission grants"
+grep -q 'appPrivacyBlockPane' "${DOCK}" \
+  || die "DockApps must open Privacy leaf via appPrivacyBlockPane (Beacon parity)"
+ok "Dock grant gate"
+
 [[ $fail -eq 0 ]] || { echo "permissions-smoke: FAILED" >&2; exit 1; }
 echo "permissions-smoke: OK"
