@@ -193,7 +193,7 @@ terminal, workspaces, etc. (`env/hypr/proteus-keybinds.conf` template).
 Desktop: click sidebar → heading **Desktop** + sub-settings list, then leaf
 pages via `kit/StickyPaneLoader` (`DesktopGapsLeaf`, `DesktopChromeLeaf`,
 `DesktopMotionLeaf`, `DesktopDockLeaf`, `DesktopSpacesLeaf`, `DesktopDefaultsLeaf`,
-`DesktopLauncherLeaf`).
+`DesktopFocusLeaf`, `DesktopControlCenterLeaf`, `DesktopLauncherLeaf`).
 
 | Sub-setting | Role |
 |-------------|------|
@@ -203,8 +203,9 @@ pages via `kit/StickyPaneLoader` (`DesktopGapsLeaf`, `DesktopChromeLeaf`,
 | Dock & menu bar | Show/hide/monitor/size FormRows; Advanced → `proteus-general.conf` |
 | Spaces | Displays share Spaces (`workspaceMode` synced \| perDisplay); Super+Ctrl+N always this display; bands via `proteus-workspace` |
 | Default apps | Browser / Files / Images / Music / Video / PDF / Text / Archives / Mail / Calendar via `proteus-defaults.py` + `xdg-mime`; mimeapps.list escape |
-| Beacon | Universal Apps (+ Windows · Privacy · **focus-cycle** Action); Files index; Clipboard `wtype`; tags / clear recents |
 | Focus | Soft quiet profiles (Work/Sleep/Personal); allowlist · keywords · schedule · critical breakthrough; CC menu + Desktop → Focus leaf |
+| Control Center | Plates + tile visibility/size/span/order + reset (`ControlCenterLayout`); **columns 2\|3 schema only — UI Out** |
+| Beacon | Universal Apps (+ Windows · Privacy · **focus-cycle** Action); Files index (`beacon-file-index`); Clipboard `wtype`; tags / clear recents |
 
 | Pane | Live apply | On-disk fragment | Guest seed |
 |------|------------|------------------|----------|
@@ -350,6 +351,9 @@ soft profile shipped — hard posture switch via proteus-posture / Beacon / CC (
 Beacon/dock grant parity · Diagnostics deny → Network Diagnostics · smoke/install
 privacy harness shipped — native OS sandbox / portal store write still Out;
 fail-open until Permissions.ready held.)*
+*(Desktop catch-up: desktop-smoke · defaults/beacon-index install · Focus/CC/Spaces
+roundtrip · guest Desktop nav · Beacon Settings blurb · SETTINGS-IA §6 Focus/CC
+rows shipped — CC columns UI · Focus profile CRUD · Spaces multi-head depth Out.)*
 
 Virt / container setup stays a **separate app**, not a Settings growth item.
 
