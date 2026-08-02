@@ -74,6 +74,10 @@ Singleton {
   property string flatpakHint: ""
   property bool flatpakLoading: false
 
+  // Ephemeral Allow-once for this session (not persisted). Key: "appId\tcat".
+  property var sessionAllow: ({})
+  property int sessionRev: 0
+
   readonly property string script: Config.scriptsDir + "/proteus-permissions.py"
   readonly property string storePath: Quickshell.env("HOME") + "/.config/proteus/permissions.json"
 
@@ -84,6 +88,30 @@ Singleton {
     if (s.endsWith(".desktop"))
       s = s.slice(0, -8)
     return s
+  }
+
+  function sessionKey(appId, cat) {
+    return normalizeAppId(appId) + "\t" + String(cat || "")
+  }
+
+  function grantSession(appId, cat) {
+    const k = sessionKey(appId, cat)
+    if (!k.length || k.charAt(0) === "\t")
+      return
+    const next = Object.assign({}, root.sessionAllow)
+    next[k] = true
+    root.sessionAllow = next
+    root.sessionRev++
+  }
+
+  function clearSessionGrant(appId, cat) {
+    const k = sessionKey(appId, cat)
+    if (!root.sessionAllow[k])
+      return
+    const next = Object.assign({}, root.sessionAllow)
+    delete next[k]
+    root.sessionAllow = next
+    root.sessionRev++
   }
 
   function categoryState(cat) {
@@ -101,9 +129,22 @@ Singleton {
     return categoryState(c)
   }
 
-  // Adaptive enforcement: allow only (ask/deny → false). Fail-open until ready.
+  // True when store says ask and this session has not Allow-once'd.
+  function isAsk(appId, cat) {
+    if (!root.ready)
+      return false
+    const _s = root.sessionRev
+    if (root.sessionAllow[sessionKey(appId, cat)])
+      return false
+    return appGrant(appId, cat) === "ask"
+  }
+
+  // Adaptive enforcement: allow or session once-grant. Fail-open until ready.
   function granted(appId, cat) {
     if (!root.ready)
+      return true
+    const _s = root.sessionRev
+    if (root.sessionAllow[sessionKey(appId, cat)])
       return true
     return appGrant(appId, cat) === "allow"
   }

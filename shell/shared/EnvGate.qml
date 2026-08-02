@@ -778,6 +778,8 @@ Singleton {
       if (!cat.length)
         continue
       try {
+        if (Permissions.isAsk(id, cat))
+          return "Privacy · Ask · " + Permissions.categoryLabel(cat)
         if (!Permissions.granted(id, cat))
           return "Blocked by Privacy · " + Permissions.categoryLabel(cat)
       } catch (e2) {
@@ -787,7 +789,35 @@ Singleton {
     return ""
   }
 
-  // Pane id for the first denied privacy category (e.g. privacy-camera), or "".
+  // First category with Ask (launch → PrivacyAsk prompt), or "".
+  function appPrivacyAskCategory(entry) {
+    const rule = ruleForApp(entry)
+    const perms = (rule && rule.permissions) ? rule.permissions : []
+    if (!perms.length)
+      return ""
+    try {
+      if (!Permissions.ready)
+        return ""
+    } catch (e) {
+      return ""
+    }
+    const id = entry && entry.id ? entry.id : ""
+    for (let i = 0; i < perms.length; i++) {
+      const cat = String(perms[i] || "")
+      if (!cat.length)
+        continue
+      try {
+        if (Permissions.isAsk(id, cat))
+          return cat
+      } catch (e2) {
+        return ""
+      }
+    }
+    return ""
+  }
+
+  // Pane id for the first hard-Deny privacy category (e.g. privacy-camera), or "".
+  // Ask uses PrivacyAsk prompt — not Settings redirect.
   function appPrivacyBlockPane(entry) {
     const rule = ruleForApp(entry)
     const perms = (rule && rule.permissions) ? rule.permissions : []
@@ -805,6 +835,8 @@ Singleton {
       if (!cat.length)
         continue
       try {
+        if (Permissions.isAsk(id, cat))
+          continue
         if (!Permissions.granted(id, cat))
           return "privacy-" + cat
       } catch (e2) {
