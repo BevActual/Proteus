@@ -90,6 +90,14 @@ Item {
       label: "Mouse"
     },
     {
+      key: "peripherals-touchpad",
+      label: "Touchpad"
+    },
+    {
+      key: "peripherals-tablet",
+      label: "Tablet"
+    },
+    {
       key: "peripherals-gamepads",
       label: "Gamepads"
     }
@@ -578,6 +586,14 @@ Item {
             StickyPaneLoader {
               want: root.page === "peripherals-mouse"
               source: "panes/MousePane.qml"
+            }
+            StickyPaneLoader {
+              want: root.page === "peripherals-touchpad"
+              source: "panes/TouchpadPane.qml"
+            }
+            StickyPaneLoader {
+              want: root.page === "peripherals-tablet"
+              source: "panes/TabletPane.qml"
             }
             StickyPaneLoader {
               want: root.page === "peripherals-gamepads"
