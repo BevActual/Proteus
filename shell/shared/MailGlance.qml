@@ -6,7 +6,7 @@ import QtQuick
 
 // Online accounts → unread/recent mail for menu-bar CalendarPanel glance.
 // Fact: seats via proteus-accounts; fetch via proteus-mail-glance.py;
-// send via proteus-mail-send.py (To/Subject/Body thin).
+// send via proteus-mail-send.py (To/Subject/Body + optional CC/BCC thin).
 Singleton {
   id: root
 
@@ -24,6 +24,8 @@ Singleton {
   property string composeTo: ""
   property string composeSubject: ""
   property string composeBody: ""
+  property string composeCc: ""
+  property string composeBcc: ""
 
   readonly property string script: Config.scriptsDir + "/proteus-mail-glance.py"
   readonly property string sendScript: Config.scriptsDir + "/proteus-mail-send.py"
@@ -56,22 +58,29 @@ Singleton {
     return f
   }
 
-  function sendMessage(toAddr, subject, body) {
+  function sendMessage(toAddr, subject, body, ccAddr, bccAddr) {
     if (!root.canSend || root.sending)
       return false
     const to = String(toAddr !== undefined ? toAddr : root.composeTo).trim()
     const sub = String(subject !== undefined ? subject : root.composeSubject).trim()
     const bod = String(body !== undefined ? body : root.composeBody)
+    const cc = String(ccAddr !== undefined ? ccAddr : root.composeCc).trim()
+    const bcc = String(bccAddr !== undefined ? bccAddr : root.composeBcc).trim()
     if (!to.length || !sub.length)
       return false
     root.sending = true
     root.sendError = ""
-    sendProc.command = [
+    const args = [
       "python3", root.sendScript, "send",
       "--to", to,
       "--subject", sub,
       "--body", bod
     ]
+    if (cc.length)
+      args.push("--cc", cc)
+    if (bcc.length)
+      args.push("--bcc", bcc)
+    sendProc.command = args
     sendProc.running = false
     sendProc.running = true
     return true
@@ -145,6 +154,8 @@ Singleton {
           root.composeTo = ""
           root.composeSubject = ""
           root.composeBody = ""
+          root.composeCc = ""
+          root.composeBcc = ""
           root.sendError = ""
           root.refresh()
         } catch (e) {
