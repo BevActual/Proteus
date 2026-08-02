@@ -57,9 +57,9 @@ ColumnLayout {
       return "OAuth tokens in ~/.local/share/proteus/accounts/ — not settings.json"
     const n = Accounts.seats ? Accounts.seats.length : 0
     if (n <= 0)
-      return "No seats · tokens stay out of settings.json"
+      return "No seats · calendar glance idle · tokens stay out of settings.json"
     return n + (n === 1 ? " seat" : " seats")
-        + " · tokens under ~/.local/share/proteus/accounts/"
+        + " · calendar fetch when glance opens · vault under ~/.local/share/proteus/accounts/"
   }
 
   readonly property string weatherLeaveHint: {

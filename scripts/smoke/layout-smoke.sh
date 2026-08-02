@@ -54,6 +54,7 @@ REQUIRED=(
   MissionCenter.qml
   NetworkDiagnostics.qml
   Accounts.qml
+  CalendarEvents.qml
   Hud.qml
   Brightness.qml
   Packages.qml

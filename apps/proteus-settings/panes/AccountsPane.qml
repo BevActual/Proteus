@@ -22,7 +22,7 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 520
-    text: "Provider seats for future adaptive apps. Proteus does not invent mail, contacts, or cloud apps here — Connect only stores identity seats."
+    text: "Provider seats power the menu-bar calendar glance (today’s events). Google/Microsoft need calendar scopes — reconnect older seats. Mail/contacts apps stay Out."
     color: Theme.textDim
     font.family: Theme.fontFamily
     font.pixelSize: Theme.fontSizeSm

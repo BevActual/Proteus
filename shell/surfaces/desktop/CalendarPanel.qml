@@ -16,6 +16,24 @@ Item {
 
   visible: stillVisible
 
+  onOpenStateChanged: {
+    if (openState)
+      CalendarEvents.refreshForDate(root.selectedDate)
+  }
+
+  onSelectedDayChanged: {
+    if (openState)
+      CalendarEvents.refreshForDate(root.selectedDate)
+  }
+  onSelectedMonthChanged: {
+    if (openState)
+      CalendarEvents.refreshForDate(root.selectedDate)
+  }
+  onSelectedYearChanged: {
+    if (openState)
+      CalendarEvents.refreshForDate(root.selectedDate)
+  }
+
   Behavior on openProgress {
     NumberAnimation {
       duration: 200
@@ -377,7 +395,7 @@ Item {
         }
       }
 
-      // Selected-day glance — stays in the dropdown; full app for events
+      // Selected-day glance — Online accounts seats (read-only) + full app handoff
       Rectangle {
         Layout.fillWidth: true
         implicitHeight: selCol.implicitHeight + 12
@@ -396,20 +414,73 @@ Item {
 
           Text {
             Layout.fillWidth: true
-            text: root.selectedIsToday
-                ? "No events in this glance"
-                : ("Selected · " + Qt.formatDate(root.selectedDate, "MMM d"))
+            text: {
+              const _r = CalendarEvents.rev
+              if (CalendarEvents.busy)
+                return "Loading events…"
+              if (CalendarEvents.hasEvents)
+                return (root.selectedIsToday ? "Today" : Qt.formatDate(root.selectedDate, "MMM d"))
+                    + " · " + CalendarEvents.events.length
+                    + (CalendarEvents.events.length === 1 ? " event" : " events")
+              if (CalendarEvents.hasSeats)
+                return root.selectedIsToday
+                    ? "No events today"
+                    : ("No events · " + Qt.formatDate(root.selectedDate, "MMM d"))
+              return root.selectedIsToday
+                  ? "No events in this glance"
+                  : ("Selected · " + Qt.formatDate(root.selectedDate, "MMM d"))
+            }
             color: Theme.text
             font.family: Theme.fontFamily
             font.pixelSize: 12
             font.weight: Font.Medium
           }
 
+          Repeater {
+            model: {
+              const _r = CalendarEvents.rev
+              const list = CalendarEvents.events || []
+              return list.slice(0, 5)
+            }
+            Text {
+              required property var modelData
+              Layout.fillWidth: true
+              text: {
+                const t = CalendarEvents.timeLabel(modelData)
+                return (t.length ? (t + " · ") : "") + String(modelData.title || "")
+              }
+              color: Theme.textDim
+              font.family: Theme.fontFamily
+              font.pixelSize: 11
+              elide: Text.ElideRight
+            }
+          }
+
           Text {
             Layout.fillWidth: true
-            text: ShellState.calendarAppAvailable
-                ? "Open in Calendar for events, reminders, and editing"
-                : "Install gnome-calendar for events and reminders"
+            visible: {
+              const _r = CalendarEvents.rev
+              return !!CalendarEvents.error.length && !CalendarEvents.hasEvents
+            }
+            text: CalendarEvents.error
+            color: Theme.danger
+            font.family: Theme.fontFamily
+            font.pixelSize: 11
+            wrapMode: Text.WordWrap
+          }
+
+          Text {
+            Layout.fillWidth: true
+            text: {
+              const _r = CalendarEvents.rev
+              if (CalendarEvents.hasSeats)
+                return ShellState.calendarAppAvailable
+                    ? "Open in Calendar for editing · seats from Online accounts"
+                    : "Connect seats in Settings → Online accounts"
+              return ShellState.calendarAppAvailable
+                  ? "Open in Calendar for events, reminders, and editing"
+                  : "Install gnome-calendar · or connect Online accounts"
+            }
             color: Theme.textDim
             font.family: Theme.fontFamily
             font.pixelSize: 11
