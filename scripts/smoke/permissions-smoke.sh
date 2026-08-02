@@ -158,5 +158,34 @@ print("catalog ok")
 PY
 ok "EnvGate catalog vs CURRENT"
 
+# Native enforcement v1 — portal sync + capture enforce commands
+python3 "${HELPER}" portal-sync >/dev/null \
+  || die "portal-sync must exit 0 (graceful when portal absent)"
+psync="$(python3 "${HELPER}" portal-sync microphone)"
+echo "${psync}" | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("ok") is True
+assert "portalAvailable" in d
+' || die "portal-sync JSON shape"
+ok "portal-sync"
+
+enf="$(python3 "${HELPER}" enforce-capture)"
+echo "${enf}" | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("ok") is True
+assert "microphone" in d and "camera" in d
+' || die "enforce-capture JSON shape"
+ok "enforce-capture"
+
+grep -q 'portal-sync\|SetPermission\|PermissionStore' "${HELPER}" \
+  || die "helper missing portal PermissionStore bridge"
+grep -q 'enforce-capture\|set-source-output-mute' "${HELPER}" \
+  || die "helper missing capture enforce"
+grep -q 'enforce-capture' "${ROOT}/shell/shared/PrivacyIndicators.qml" \
+  || die "PrivacyIndicators must periodic enforce-capture"
+grep -q 'PermissionStore\|capture enforce' "${CAT_LEAF}" "${PRIV_PANE}" \
+  || die "Privacy UI missing native enforcement honesty"
+ok "native enforcement wiring"
+
 [[ $fail -eq 0 ]] || { echo "permissions-smoke: FAILED" >&2; exit 1; }
 echo "permissions-smoke: OK"
