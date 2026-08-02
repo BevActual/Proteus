@@ -21,6 +21,7 @@ run power-logind-smoke.sh
 run accounts-smoke.sh
 run lock-pin-smoke.sh
 run permissions-smoke.sh
+run desktop-smoke.sh
 run audio-mix-serve-smoke.sh
 run hw-probe-smoke.sh
 run install-smoke.sh

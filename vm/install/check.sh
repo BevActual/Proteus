@@ -106,6 +106,8 @@ grep -q 'guest-install.sh' "${ROOT}/docs/proteus/INSTALL.md" 2>/dev/null \
 [[ -x "${ROOT}/shell/scripts/proteus-console-capabilities" ]] && ok shell/scripts/proteus-console-capabilities || bad shell/scripts/proteus-console-capabilities
 [[ -x "${ROOT}/shell/scripts/proteus-permissions.py" ]] && ok shell/scripts/proteus-permissions.py || bad shell/scripts/proteus-permissions.py
 [[ -x "${ROOT}/shell/scripts/privacy-indicators.py" ]] && ok shell/scripts/privacy-indicators.py || bad shell/scripts/privacy-indicators.py
+[[ -x "${ROOT}/shell/scripts/proteus-defaults.py" ]] && ok shell/scripts/proteus-defaults.py || bad shell/scripts/proteus-defaults.py
+[[ -x "${ROOT}/shell/scripts/beacon-file-index.py" ]] && ok shell/scripts/beacon-file-index.py || bad shell/scripts/beacon-file-index.py
 if bash -n "${ROOT}/vm/guest/apply-console-kit.sh" 2>/dev/null; then
   ok "apply-console-kit.sh bash -n"
 else
@@ -145,6 +147,16 @@ if python3 "${ROOT}/shell/scripts/proteus-permissions.py" --help >/dev/null 2>&1
   ok "proteus-permissions.py --help"
 else
   bad "proteus-permissions.py (--help)"
+fi
+if python3 -m py_compile "${ROOT}/shell/scripts/proteus-defaults.py" 2>/dev/null; then
+  ok "proteus-defaults.py py_compile"
+else
+  bad "proteus-defaults.py (py_compile)"
+fi
+if python3 -m py_compile "${ROOT}/shell/scripts/beacon-file-index.py" 2>/dev/null; then
+  ok "beacon-file-index.py py_compile"
+else
+  bad "beacon-file-index.py (py_compile)"
 fi
 [[ -f "${ROOT}/env/hypr/profiles/host.conf" ]] && ok env/hypr/profiles/host.conf || bad env/hypr/profiles/host.conf
 [[ -f "${ROOT}/env/hypr/profiles/home.conf" ]] && ok env/hypr/profiles/home.conf || bad env/hypr/profiles/home.conf

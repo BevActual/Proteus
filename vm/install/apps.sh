@@ -23,7 +23,8 @@ SCRIPTS="${PROTEUS_ROOT}/shell/scripts"
 for s in proteus-screenshot proteus-clipboard proteus-colorpick proteus-terminal \
          proteus-workspace \
          proteus-console-launch proteus-console-seat proteus-console-capabilities \
-         proteus-permissions.py privacy-indicators.py; do
+         proteus-permissions.py privacy-indicators.py \
+         proteus-defaults.py beacon-file-index.py; do
   proteus_install_helper "${SCRIPTS}/${s}"
 done
 
