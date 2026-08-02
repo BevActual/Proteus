@@ -148,6 +148,8 @@ from the slim top chrome.
 |------|------|
 | `~/.config/proteus/settings.json` | Theme/desktop prefs (Config.qml FileView); wallpaper keys; `lockWidgets[]`, `desktopWidgets[]`, `notificationsDnd` — behaviour in Background / Widgets / Audio / … |
 | `~/.config/proteus/keybinds.json` | Shortcut overrides |
+| `~/.config/proteus/permissions.json` | App permission categories + per-app Allow/Ask/Deny (0600; `proteus-permissions.py` / `Permissions.qml`) — not in settings.json; [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md) |
+| `~/.local/share/proteus/auth/pin` | Lock-screen unlock PIN hash (0600; `proteus-pin.py` / `check-unlock.py`) — not in settings.json; [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md) |
 | `~/.config/proteus/hw-probe.json` | Cached Wave A hardware probe |
 | `~/.config/hypr/proteus-keybinds.conf` | Generated Hyprland binds (sourced) |
 | `~/.config/hypr/proteus-general.conf` | Gaps, borders, rounding, animations (sourced) |
