@@ -55,6 +55,7 @@ REQUIRED=(
   NetworkDiagnostics.qml
   Accounts.qml
   CalendarEvents.qml
+  Workloads.qml
   Hud.qml
   Brightness.qml
   Packages.qml
