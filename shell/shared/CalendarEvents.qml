@@ -91,21 +91,24 @@ Singleton {
     return true
   }
 
-  function updateEvent(ev, title, dayIso) {
+  function updateEvent(ev, title, dayIso, recurrence) {
     if (!root.isMutable(ev) || root.mutating)
       return false
     const t = String(title || "").trim()
     if (!t.length)
       return false
     const d = String(dayIso || root.dateIso || "").trim()
+    const r = String(recurrence || "none").trim().toLowerCase()
     root.mutating = true
     root.error = ""
+    const seriesUid = String(ev.seriesId || ev.id || ev.uid || "")
     const args = [
       "python3", root.mutateScript, "update",
       "--provider", String(ev.provider || ""),
       "--href", String(ev.href || ""),
-      "--uid", String(ev.id || ev.uid || ""),
-      "--title", t
+      "--uid", seriesUid,
+      "--title", t,
+      "--recurrence", r.length ? r : "none"
     ]
     if (d.length)
       args.push("--date", d)

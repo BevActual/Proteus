@@ -416,11 +416,12 @@ Item {
           spacing: 4
 
           property string newEventTitle: ""
-          // Create-only thin recurrence: none|daily|weekly|monthly
+          // Thin recurrence (create + whole-series edit): none|daily|weekly|monthly
           property string newEventRepeat: "none"
           property string confirmDeleteHref: ""
           property string editingHref: ""
           property string editTitle: ""
+          property string editEventRepeat: "none"
 
           readonly property var repeatCycle: ["none", "daily", "weekly", "monthly"]
           function repeatLabel(v) {
@@ -436,6 +437,10 @@ Item {
           function cycleRepeat() {
             const i = selCol.repeatCycle.indexOf(selCol.newEventRepeat)
             selCol.newEventRepeat = selCol.repeatCycle[(i < 0 ? 0 : i + 1) % selCol.repeatCycle.length]
+          }
+          function cycleEditRepeat() {
+            const i = selCol.repeatCycle.indexOf(selCol.editEventRepeat)
+            selCol.editEventRepeat = selCol.repeatCycle[(i < 0 ? 0 : i + 1) % selCol.repeatCycle.length]
           }
 
           Text {
@@ -510,6 +515,9 @@ Item {
                       selCol.confirmDeleteHref = ""
                       selCol.editingHref = String(modelData.href || "")
                       selCol.editTitle = String(modelData.title || "")
+                      const r = String(modelData.recurrence || "").toLowerCase()
+                      selCol.editEventRepeat = (r === "daily" || r === "weekly" || r === "monthly")
+                          ? r : "none"
                     }
                   }
                 }
@@ -583,8 +591,24 @@ Item {
                     const y = root.selectedDate.getFullYear()
                     const m = ("0" + (root.selectedDate.getMonth() + 1)).slice(-2)
                     const d = ("0" + root.selectedDate.getDate()).slice(-2)
-                    if (CalendarEvents.updateEvent(modelData, selCol.editTitle, y + "-" + m + "-" + d))
+                    if (CalendarEvents.updateEvent(
+                          modelData, selCol.editTitle, y + "-" + m + "-" + d,
+                          selCol.editEventRepeat))
                       selCol.editingHref = ""
+                  }
+                }
+
+                Text {
+                  text: selCol.repeatLabel(selCol.editEventRepeat)
+                  color: Theme.textDim
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  font.weight: Font.Medium
+                  MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -4
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: selCol.cycleEditRepeat()
                   }
                 }
 
@@ -602,7 +626,9 @@ Item {
                       const y = root.selectedDate.getFullYear()
                       const m = ("0" + (root.selectedDate.getMonth() + 1)).slice(-2)
                       const d = ("0" + root.selectedDate.getDate()).slice(-2)
-                      if (CalendarEvents.updateEvent(modelData, selCol.editTitle, y + "-" + m + "-" + d))
+                      if (CalendarEvents.updateEvent(
+                            modelData, selCol.editTitle, y + "-" + m + "-" + d,
+                            selCol.editEventRepeat))
                         selCol.editingHref = ""
                     }
                   }
@@ -706,7 +732,7 @@ Item {
             text: {
               const _r = CalendarEvents.rev
               if (CalendarEvents.canCreate)
-                return "CalDAV + Google/MS create/edit/delete In · recurrence thin create In · mail compose thin In · Open Calendar for full editing"
+                return "CalDAV + Google/MS create/edit/delete In · recurrence thin create+edit In · mail compose thin In · Open Calendar for full editing"
               if (CalendarEvents.hasSeats)
                 return ShellState.calendarAppAvailable
                     ? "Open in Calendar for editing · CalDAV seats enable glance create/edit/delete"
