@@ -223,16 +223,25 @@ ColumnLayout {
     }
 
     // OAuth seats age out of new scopes (calendar + mail) — re-run PKCE.
+    // Same client-id readiness as Connect (#1597).
     SettingsFormRow {
       visible: root.isOauth
       label: Accounts.busy ? "Reconnecting…" : "Reconnect"
-      hint: "Re-run sign-in to refresh scopes"
+      hint: root.oauthReady
+          ? "Re-run sign-in to refresh scopes"
+          : (spec ? spec.setupHint : "OAuth client id required")
       showSeparator: false
-      interactive: !Accounts.busy
+      interactive: !Accounts.busy && root.oauthReady
       onActivated: root.runConnect()
       Text {
-        text: Accounts.busy ? "…" : "Reconnect"
-        color: Theme.accent
+        text: {
+          if (Accounts.busy)
+            return "…"
+          if (!root.oauthReady)
+            return "Set up"
+          return "Reconnect"
+        }
+        color: root.oauthReady ? Theme.accent : Theme.textMute
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSizeSm
         font.weight: Font.Medium
