@@ -18,19 +18,19 @@ ColumnLayout {
     google: {
       label: "Google",
       oauth: true,
-      description: "Google PKCE powers calendar, mail, and contacts glances. Needs calendar + mail scopes — reconnect older seats. Tokens stay in the proteus-accounts vault (not settings.json).",
+      description: "Google PKCE powers calendar, mail, and contacts glances + thin write. Needs calendar + mail + contacts scopes — reconnect older seats. Tokens stay in the proteus-accounts vault (not settings.json).",
       setupHint: "Set PROTEUS_GOOGLE_OAUTH_CLIENT_ID or ~/.config/proteus/oauth-google-client-id, then Connect."
     },
     microsoft: {
       label: "Microsoft",
       oauth: true,
-      description: "Microsoft personal PKCE (same Graph client as Exchange work/school). Powers calendar + mail glances. Tokens stay in the proteus-accounts vault (not settings.json).",
+      description: "Microsoft personal PKCE (same Graph client as Exchange work/school). Powers calendar + mail + contacts glances and thin write. Reconnect if seat predates Contacts.ReadWrite. Tokens stay in the proteus-accounts vault (not settings.json).",
       setupHint: "Set PROTEUS_MICROSOFT_OAUTH_CLIENT_ID or ~/.config/proteus/oauth-microsoft-client-id (public client · loopback redirect)."
     },
     exchange: {
       label: "Exchange",
       oauth: true,
-      description: "Work/school Microsoft 365 via the same PKCE client as Microsoft (not EWS). Powers calendar + mail glances. Tokens stay in the proteus-accounts vault (not settings.json).",
+      description: "Work/school Microsoft 365 via the same PKCE client as Microsoft (not EWS). Powers calendar + mail + contacts glances and thin write. Reconnect if seat predates Contacts.ReadWrite. Tokens stay in the proteus-accounts vault (not settings.json).",
       setupHint: "Set PROTEUS_MICROSOFT_OAUTH_CLIENT_ID or ~/.config/proteus/oauth-microsoft-client-id (Exchange uses the same client)."
     },
     nextcloud: {

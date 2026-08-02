@@ -1464,10 +1464,10 @@ Item {
             text: {
               const _r = ContactsGlance.rev
               if (ContactsGlance.canCreate)
-                return "CardDAV + Apple create/edit/delete In · name + email thin · contacts app Out"
+                return "CardDAV/Apple + Google/MS/Exchange create/edit/delete In · name + email thin · contacts app Out"
               if (ContactsGlance.hasSeats)
-                return "CardDAV seat · Settings → Online accounts"
-              return "Connect CardDAV in Settings → Online accounts"
+                return "Contacts seat · reconnect Google/MS for contacts scope if write unavailable · Settings → Online accounts"
+              return "Connect CardDAV or Google/MS in Settings → Online accounts"
             }
             color: Theme.textDim
             font.family: Theme.fontFamily
