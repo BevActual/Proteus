@@ -120,7 +120,7 @@ Locked product set: [POSTURES.md](./POSTURES.md).
 | Posture | Status |
 |---------|--------|
 | desktop | `partial` — primary focus spine |
-| console | `partial` — layered ConsoleShell + hard `proteus-posture` (posture flip skips cold-boot re-lock + workspace hygiene); **tvOS-style shelf Home** — pinned cinematic Featured (tracks focused card), one active shelf (others peek/dim), curated lean-back Apps (not desktop dump) + Web/Games/Media + Jump Back In; **Library** = full DesktopEntries catalog; Search = Shortcuts + typed catalog; cards/hero without category chips (shelf titles); **Phase 1 seat:** `proteus-console-seat` + `proteus-console-capabilities` (supervised map→fullscreen, Gamescope only when Vulkan usable / skip in QEMU); Theme accent/icons; Media lean sheet + Details; Jump ✕ remove; CC/HUD/toasts; pad Menu/Open/Details; Guide long-hold → exit; cold-boot lock; `apply-console-kit.sh`; **Phase 2** Gamescope *session* later |
+| console | `partial` — layered ConsoleShell + hard `proteus-posture` (posture flip skips cold-boot re-lock + workspace hygiene); **tvOS-style shelf Home** — pinned cinematic Featured (tracks focused card), one active shelf (others peek/dim), curated lean-back Apps (not desktop dump) + Web/Games/Media + Jump Back In; **Library** = full DesktopEntries catalog; Search = Shortcuts + typed catalog; cards/hero without category chips (shelf titles); **Phase 1 seat:** `proteus-console-seat` + `proteus-console-capabilities` (supervised map→fullscreen, Gamescope only when Vulkan usable / skip in QEMU); **Phase 2 nested session:** `proteus-console-session` Fact (`seat`\|`gamescope`) + launch adaptive flags + ConsoleBar toggle when usable — **does not** replace Hyprland as sole compositor; Theme accent/icons; Media lean sheet + Details; Jump ✕ remove; CC/HUD/toasts; pad Menu/Open/Details; Guide long-hold → exit; cold-boot lock; `apply-console-kit.sh` |
 | host | `partial` — lean `HostShell` + hard `proteus-posture host` (Fact + profile + chrome restart; skip cold-boot re-lock); **Phase 2 HostHome** ops glance (hostname · SystemLoad) + Settings quick actions · Terminal · Mission Center; StatusHud/toasts; bar load; enter via Beacon/CC Host tile / `Super+Shift+H`; return Desktop; same Settings spine; **no** workloads/VM app / headless-no-QS yet |
 | home · wearable · xr · vehicle | `parked` — thesis only; not in proof order |
 
@@ -136,10 +136,12 @@ product flip).
 Console dogfood (guest): `sudo bash /mnt/proteus/vm/guest/apply-console-kit.sh`
 then `proteus-posture console` (or `/mnt/proteus/vm/guest/proteus-posture` if
 `/usr/local` is stale). Titles launch via `proteus-console-seat` →
-`proteus-console-launch` (VM bare kiosk; Gamescope when Vulkan usable). Check
-`chrome state.surface === console` and `proteus-console-seat.log`. Home is
-tvOS-inspired shelves + full-bleed Featured; Library/Search are destinations
-from the slim top chrome.
+`proteus-console-launch` (VM bare kiosk; Gamescope when Vulkan usable). Session
+mode Fact `~/.config/proteus/console-session-mode` (`seat` default · `gamescope`
+nested wraps with `-W/-H -f --force-grab-cursor` when usable). Toggle from
+ConsoleBar when `gamescopeUsable`. Check `chrome state.surface === console` and
+`proteus-console-seat.log`. Home is tvOS-inspired shelves + full-bleed Featured;
+Library/Search are destinations from the slim top chrome.
 
 ---
 
@@ -235,7 +237,7 @@ Install path SoT (three layers, knobs, repair, failures): [INSTALL.md](./INSTALL
 
 ## 8. Not yet
 
-- Host workloads/VM app · headless-no-QS · auto-resolver; console Gamescope *session* hardening
+- Host workloads/VM app · headless-no-QS · auto-resolver; Hyprland→Gamescope sole compositor (nested session Fact shipped)
 - Soft hypr profile reload sold as posture (use `proteus-posture` for console/host)
 - Parked postures (home / wearable / xr / vehicle) before focus three are proven  
 - Snap / dependency graphs in Software  

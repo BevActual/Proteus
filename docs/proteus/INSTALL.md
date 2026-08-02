@@ -66,9 +66,12 @@ proteus-console-seat --expect-class steam -- steam -gamepadui
 ```
 
 Phase 1 = supervised seats + capabilities probe (Gamescope only when
-`gamescopeUsable`; QEMU/VirGL typically bare kiosk). **Phase 2** Gamescope
-*session* is Out. Pad passthrough (`PROTEUS_VM_PAD=auto`), Steam/RetroArch
-specifics, and VM audio/GL caveats live in [vm/README.md](../../vm/README.md).
+`gamescopeUsable`; QEMU/VirGL typically bare kiosk). **Phase 2** = nested
+session Fact via `proteus-console-session` (`seat`\|`gamescope`) + launch
+adaptive flags + ConsoleBar toggle — still nested under Hyprland (sole
+Gamescope compositor Out). Pad passthrough (`PROTEUS_VM_PAD=auto`),
+Steam/RetroArch specifics, and VM audio/GL caveats live in
+[vm/README.md](../../vm/README.md).
 
 ## Honesty / expectations
 

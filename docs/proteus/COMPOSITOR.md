@@ -208,7 +208,7 @@ compositor chrome for that unit.
 | Settings → keybinds → hypr conf | `shipped` |
 | Settings → gaps/borders via hyprctl | `shipped` — incl. `resize_on_border` (floating edge/corner resize) + accent focus ring (active accent / inactive transparent) + ⌘+drag `bindm` window move |
 | Per-posture hypr profiles | `partial` — desktop + console + host lean + home stub + soft `set-hypr-profile.sh` + Settings About picker |
-| Console hard switch | `partial` — proteus-posture + ConsoleShell + console.conf + per-title Gamescope; posture flip skips cold-boot re-lock; full Gamescope session later |
+| Console hard switch | `partial` — proteus-posture + ConsoleShell + console.conf + per-title Gamescope + nested session Fact (`proteus-console-session`); posture flip skips cold-boot re-lock; Hyprland→Gamescope sole compositor still Out |
 | Host hard switch | `partial` — proteus-posture host + HostShell/HostHome + host.conf; workloads/headless later |
 | QS respawn / crash policy | `shipped` — `proteus-qs` flock/backoff/`--restart` (restart waits for prior flock — avoids blank chrome-less sessions) + orphan reap (lock fd closed for the child); wallpaper runner `proteus-bg` = crash-respawn wrapper + in-shell 15s watchdog; optional `proteus-qs.service` user unit (hypr exec-once still default); version recorded in smoke (IgnorePkg/ISO pin Out) |
 | Capability resolver | `planned` |
