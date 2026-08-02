@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """Send a thin plain-text mail for Proteus Online accounts seats.
 
-Writable:
-  · OAuth — google (gmail.send) · microsoft / exchange (Mail.Send)
-  · IMAP / Apple — SMTP derived from IMAP host (STARTTLS :587)
+Writable seats: google · microsoft · exchange · imap · apple (SMTP).
 
-Thin UX: To + Subject + Body only. No CC/BCC · attachments · HTML · drafts ·
-reply/forward. Stdout: one JSON object. Never logs passwords/tokens.
+Thin UX: To + Subject + Body + optional CC/BCC (comma-separated).
+No attachments · HTML · drafts · reply.
+Stdout: one JSON object. Never logs passwords/tokens.
 """
 from __future__ import annotations
 
@@ -24,9 +23,7 @@ import urllib.request
 from email.utils import formataddr, formatdate, make_msgid
 from pathlib import Path
 
-OAUTH_SENDABLE = ("google", "microsoft", "exchange")
-SMTP_SENDABLE = ("imap", "apple")
-SENDABLE = OAUTH_SENDABLE + SMTP_SENDABLE
+SENDABLE = ("google", "microsoft", "exchange", "imap", "apple")
 
 
 def _run(cmd: list[str], timeout: float = 20.0) -> tuple[int, str, str]:
@@ -75,6 +72,16 @@ def _token(provider: str) -> dict | None:
         return {"ok": False, "error": str(e), "provider": provider}
 
 
+def _parse_addrs(raw: str) -> list[str]:
+    """Split comma-separated addresses; keep only strings with '@'."""
+    out: list[str] = []
+    for part in (raw or "").replace(";", ",").split(","):
+        a = part.strip()
+        if a and "@" in a:
+            out.append(a)
+    return out
+
+
 def _http_json(
     url: str,
     headers: dict,
@@ -82,10 +89,9 @@ def _http_json(
     method: str = "GET",
     timeout: float = 20.0,
 ) -> tuple[int, dict | list | None, str]:
-    data = None
+    data = None if body is None else json.dumps(body).encode()
     hdrs = dict(headers)
     if body is not None:
-        data = json.dumps(body).encode("utf-8")
         hdrs.setdefault("Content-Type", "application/json")
     req = urllib.request.Request(url, data=data, headers=hdrs, method=method)
     try:
@@ -110,10 +116,16 @@ def _rfc2822(
     to_addr: str,
     subject: str,
     body: str,
+    cc: list[str] | None = None,
+    bcc: list[str] | None = None,
 ) -> bytes:
     msg = email.message.EmailMessage()
     msg["From"] = from_addr
     msg["To"] = to_addr
+    if cc:
+        msg["Cc"] = ", ".join(cc)
+    if bcc:
+        msg["Bcc"] = ", ".join(bcc)
     msg["Subject"] = subject
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = make_msgid()
@@ -125,8 +137,25 @@ def _b64url(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
 
 
-def send_google(access: str, from_addr: str, to_addr: str, subject: str, body: str) -> dict:
-    raw = _b64url(_rfc2822(from_addr=from_addr, to_addr=to_addr, subject=subject, body=body))
+def send_google(
+    access: str,
+    from_addr: str,
+    to_addr: str,
+    subject: str,
+    body: str,
+    cc: list[str] | None = None,
+    bcc: list[str] | None = None,
+) -> dict:
+    raw = _b64url(
+        _rfc2822(
+            from_addr=from_addr,
+            to_addr=to_addr,
+            subject=subject,
+            body=body,
+            cc=cc,
+            bcc=bcc,
+        )
+    )
     status, data, err = _http_json(
         "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
         {"Authorization": f"Bearer {access}"},
@@ -134,13 +163,18 @@ def send_google(access: str, from_addr: str, to_addr: str, subject: str, body: s
         method="POST",
     )
     if status in (200, 202) and isinstance(data, dict):
-        return {
+        out = {
             "ok": True,
             "provider": "google",
             "id": str(data.get("id") or ""),
             "to": to_addr,
             "subject": subject,
         }
+        if cc:
+            out["cc"] = cc
+        if bcc:
+            out["bcc"] = bcc
+        return out
     return {
         "ok": False,
         "error": f"gmail send HTTP {status}: {err or data}",
@@ -149,30 +183,46 @@ def send_google(access: str, from_addr: str, to_addr: str, subject: str, body: s
 
 
 def send_microsoft(
-    access: str, to_addr: str, subject: str, body: str, provider: str = "microsoft"
+    access: str,
+    to_addr: str,
+    subject: str,
+    body: str,
+    provider: str = "microsoft",
+    cc: list[str] | None = None,
+    bcc: list[str] | None = None,
 ) -> dict:
-    payload = {
-        "message": {
-            "subject": subject,
-            "body": {"contentType": "Text", "content": body or ""},
-            "toRecipients": [{"emailAddress": {"address": to_addr}}],
-        },
-        "saveToSentItems": True,
+    message: dict = {
+        "subject": subject,
+        "body": {"contentType": "Text", "content": body or ""},
+        "toRecipients": [{"emailAddress": {"address": to_addr}}],
     }
+    if cc:
+        message["ccRecipients"] = [
+            {"emailAddress": {"address": a}} for a in cc
+        ]
+    if bcc:
+        message["bccRecipients"] = [
+            {"emailAddress": {"address": a}} for a in bcc
+        ]
+    payload = {"message": message, "saveToSentItems": True}
     status, data, err = _http_json(
         "https://graph.microsoft.com/v1.0/me/sendMail",
         {"Authorization": f"Bearer {access}"},
         body=payload,
         method="POST",
     )
-    # Graph sendMail returns 202 Accepted with empty body on success.
     if status in (200, 202):
-        return {
+        out = {
             "ok": True,
             "provider": provider,
             "to": to_addr,
             "subject": subject,
         }
+        if cc:
+            out["cc"] = cc
+        if bcc:
+            out["bcc"] = bcc
+        return out
     return {
         "ok": False,
         "error": f"{provider} sendMail HTTP {status}: {err or data}",
@@ -206,6 +256,8 @@ def send_smtp(
     to_addr: str,
     subject: str,
     body: str,
+    cc: list[str] | None = None,
+    bcc: list[str] | None = None,
 ) -> dict:
     user = str(tok.get("username") or tok.get("email") or "").strip()
     password = str(tok.get("accessToken") or "")
@@ -215,21 +267,34 @@ def send_smtp(
     if not smtp_host:
         return {"ok": False, "error": f"{provider} SMTP host unknown", "provider": provider}
     from_addr = user if "@" in user else formataddr(("", user))
-    raw = _rfc2822(from_addr=from_addr, to_addr=to_addr, subject=subject, body=body)
+    raw = _rfc2822(
+        from_addr=from_addr,
+        to_addr=to_addr,
+        subject=subject,
+        body=body,
+        cc=cc,
+        bcc=bcc,
+    )
+    envelope = [to_addr] + list(cc or []) + list(bcc or [])
     try:
         with smtplib.SMTP(smtp_host, smtp_port, timeout=20) as smtp:
             smtp.ehlo()
             smtp.starttls()
             smtp.ehlo()
             smtp.login(user, password)
-            smtp.sendmail(user, [to_addr], raw)
-        return {
+            smtp.sendmail(user, envelope, raw)
+        out = {
             "ok": True,
             "provider": provider,
             "to": to_addr,
             "subject": subject,
             "via": f"{smtp_host}:{smtp_port}",
         }
+        if cc:
+            out["cc"] = cc
+        if bcc:
+            out["bcc"] = bcc
+        return out
     except Exception as e:
         return {"ok": False, "error": f"{provider} SMTP: {e}", "provider": provider}
 
@@ -268,23 +333,37 @@ def list_providers() -> dict:
     }
 
 
-def send_mail(to_addr: str, subject: str, body: str, provider: str = "") -> dict:
+def send_mail(
+    to_addr: str,
+    subject: str,
+    body: str,
+    provider: str = "",
+    cc: str = "",
+    bcc: str = "",
+) -> dict:
     to_addr = (to_addr or "").strip()
     subject = (subject or "").strip()
     body = body or ""
+    cc_list = _parse_addrs(cc)
+    bcc_list = _parse_addrs(bcc)
     if not to_addr or "@" not in to_addr:
         return {"ok": False, "error": "To address required"}
     if not subject:
         return {"ok": False, "error": "Subject required"}
 
     if os.environ.get("PROTEUS_MAIL_SEND_FIXTURE") == "1":
-        return {
+        out = {
             "ok": True,
             "action": "send",
             "provider": provider or "fixture",
             "to": to_addr,
             "subject": subject,
         }
+        if cc_list:
+            out["cc"] = cc_list
+        if bcc_list:
+            out["bcc"] = bcc_list
+        return out
 
     order = [provider] if provider in SENDABLE else list(SENDABLE)
     last_err = "no sendable seat"
@@ -297,11 +376,29 @@ def send_mail(to_addr: str, subject: str, body: str, provider: str = "") -> dict
         access = str(tok.get("accessToken") or "")
         from_addr = str(tok.get("email") or tok.get("username") or "").strip()
         if prov == "google":
-            result = send_google(access, from_addr or "me", to_addr, subject, body)
+            result = send_google(
+                access,
+                from_addr or "me",
+                to_addr,
+                subject,
+                body,
+                cc=cc_list,
+                bcc=bcc_list,
+            )
         elif prov in ("microsoft", "exchange"):
-            result = send_microsoft(access, to_addr, subject, body, provider=prov)
+            result = send_microsoft(
+                access,
+                to_addr,
+                subject,
+                body,
+                provider=prov,
+                cc=cc_list,
+                bcc=bcc_list,
+            )
         else:
-            result = send_smtp(prov, tok, to_addr, subject, body)
+            result = send_smtp(
+                prov, tok, to_addr, subject, body, cc=cc_list, bcc=bcc_list
+            )
         if result.get("ok"):
             result["action"] = "send"
             return result
@@ -319,6 +416,8 @@ def main() -> int:
     p_send.add_argument("--to", required=True)
     p_send.add_argument("--subject", required=True)
     p_send.add_argument("--body", default="")
+    p_send.add_argument("--cc", default="", help="comma-separated CC addresses")
+    p_send.add_argument("--bcc", default="", help="comma-separated BCC addresses")
     p_send.add_argument("--provider", default="")
 
     sub.add_parser("providers", help="list sendable providers / seats")
@@ -335,6 +434,8 @@ def main() -> int:
                     args.subject,
                     args.body,
                     provider=str(args.provider or ""),
+                    cc=str(args.cc or ""),
+                    bcc=str(args.bcc or ""),
                 )
             )
         )
