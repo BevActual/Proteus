@@ -133,6 +133,15 @@ else
   echo "note: skipped proteus-logind (build release on host first)"
 fi
 
+# Privileged greetd autologin writer (polkit) — Settings → Users
+if [[ -x "${ROOT}/services/proteus-greetd/bin/proteus-greetd" ]] \
+  || [[ -x "${ROOT}/services/proteus-greetd/target/release/proteus-greetd" ]] \
+  || command -v cargo >/dev/null 2>&1; then
+  bash "${ROOT}/vm/guest/install-proteus-greetd.sh"
+else
+  echo "note: skipped proteus-greetd (build release on host first)"
+fi
+
 # Online accounts seats (user-scoped; no polkit)
 if [[ -x "${ROOT}/services/proteus-accounts/bin/proteus-accounts" ]] \
   || [[ -x "${ROOT}/services/proteus-accounts/target/release/proteus-accounts" ]] \

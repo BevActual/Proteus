@@ -1,0 +1,18 @@
+[package]
+name = "proteus-greetd"
+version = "0.1.0"
+edition = "2021"
+description = "Privileged greetd config writer for Proteus Settings (pkexec)"
+license = "MIT"
+
+[[bin]]
+name = "proteus-greetd"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = "1"
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1
