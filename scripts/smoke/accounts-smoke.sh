@@ -91,6 +91,52 @@ if grep -q 'oauth.*settings.json\|settings.json.*refresh_token' \
 fi
 ok "no OAuth secrets in settings.json schema"
 
+# Calendar glance consumer (#1322–#1324)
+CAL="${ROOT}/shell/scripts/proteus-calendar-events.py"
+CE_QML="${ROOT}/shell/shared/CalendarEvents.qml"
+CP="${ROOT}/shell/surfaces/desktop/CalendarPanel.qml"
+[[ -x "${CAL}" ]] || die "proteus-calendar-events.py not executable"
+[[ -f "${CE_QML}" ]] || die "missing CalendarEvents.qml"
+grep -q 'CalendarEvents' "${CP}" || die "CalendarPanel must use CalendarEvents"
+grep -q 'calendar.readonly\|Calendars.Read' "${PKG}/src/main.rs" \
+  || die "proteus-accounts missing calendar scopes"
+grep -q 'fn cmd_token\|"token"' "${PKG}/src/main.rs" || die "proteus-accounts missing token command"
+grep -q 'proteus-calendar-events.py' "${ROOT}/vm/install/apps.sh" \
+  || die "apps.sh must install proteus-calendar-events.py"
+grep -q 'CalendarEvents.qml' "${ROOT}/scripts/smoke/layout-smoke.sh" \
+  || die "layout-smoke requires CalendarEvents.qml"
+ok "calendar glance wiring"
+
+PROTEUS_CALENDAR_FIXTURE=1 python3 "${CAL}" | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("ok") is True
+assert isinstance(d.get("events"), list) and len(d["events"]) >= 1
+' || die "calendar fixture fetch"
+ok "calendar fixture"
+
+if [[ -n "${BIN}" ]]; then
+  TMP2="$(mktemp -d)"
+  export HOME="${TMP2}"
+  unset XDG_CONFIG_HOME XDG_DATA_HOME || true
+  export PROTEUS_ACCOUNTS_SKIP_VERIFY=1
+  "${BIN}" connect nextcloud "https://cloud.example" "bob" "tok-pass" >/dev/null
+  tok_out="$("${BIN}" token nextcloud)"
+  echo "${tok_out}" | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("ok") is True
+assert d.get("provider")=="nextcloud"
+assert d.get("accessToken")=="tok-pass"
+assert "refresh_token" not in d and "refreshToken" not in d
+' || die "token nextcloud JSON"
+  set +e
+  "${BIN}" token nosuch >/dev/null 2>&1
+  tec=$?
+  set -e
+  [[ "${tec}" -ne 0 ]] || die "token unknown seat should fail"
+  rm -rf "${TMP2}"
+  ok "token command"
+fi
+
 if [[ "${fail}" -ne 0 ]]; then
   exit 1
 fi

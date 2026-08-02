@@ -111,7 +111,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse, Touchpad, Tablet, Gamepads (Guide Facts) | keybinds + input hyprctl (`mouse*` · `touchpad*` · `tablet*`) + `gamepadsGuide*` | `shipped` |
 | **Power** (`power`) | Power mode segmented (PPD); battery (UPower); idle / lid FormRows via `proteus-logind` drop-in + conf escape | `powerprofilesctl` / UPower / `proteus-logind` | `shipped` |
 | **Users** (`users`) | Session Lock/Logout + confirm Reboot/Shutdown; lock screen PIN set/change/clear; current user (GECOS/home) + other local users read-only; Online accounts jump; greetd status + autologin write + conf escape | `Config.session` · `proteus-pin.py` · id/getent · `proteus-greetd` (pkexec `[initial_session]`) | `shipped` |
-| **Online accounts** (`accounts`) | Connector catalog + Google/Microsoft PKCE + Nextcloud app-password seats (`proteus-accounts` vault); Apple/Exchange/… listed | `proteus-accounts` + `Accounts.qml` (mail/contacts apps Out) | `partial` |
+| **Online accounts** (`accounts`) | Connector catalog + Google/Microsoft PKCE + Nextcloud app-password seats (`proteus-accounts` vault); calendar glance consumer; Apple/Exchange/… listed | `proteus-accounts` + `Accounts.qml` + `CalendarEvents` / `proteus-calendar-events.py` (mail/contacts apps Out) | `partial` |
 | **Date, time & weather** (`datetime`) | Live clock, searchable timezone + locale pickers, NTP, **Location** (place + units + 5-day forecast + Match TZ) | `timedatectl` / `localectl set-locale` / Open-Meteo | `shipped` |
 | **Notifications** (`notifications`) | Prefs: hard DND · jump to Focus · live list stays Control Center | `notificationsDnd` · FocusMode | `shipped` |
 | **Privacy & security** (`privacy`) | Hub → What leaves + weather mute + session; **In use now**; category leaves (Allow/Deny + per-app Allow/Ask/Deny); Flatpak overrides; portal PermissionStore sync; capture enforce | `permissions.json` · `proteus-permissions.py` · PrivacyIndicators · EnvGate grants · Flatpak override · portal + pactl/PW enforce | `partial` |
@@ -325,7 +325,8 @@ locale set + 5-day forecast + Match TZ shipped; manual time / RTC writers Out.
 **Power** mode (PPD) + logind writer shipped; charge-threshold / TLP stay Out.
 
 **Online accounts** seats are `partial` — catalog + Google/Microsoft PKCE +
-Nextcloud app-password when configured; mail/contacts/Drive **apps** stay Out.
+Nextcloud app-password when configured; **calendar glance** (menu-bar today
+events) consumes seats; mail/contacts/Drive **apps** stay Out.
 **Privacy & security** ships transparency + weather mute + session + **permissions
 store** (adaptive EnvGate + Flatpak overrides; native capture observed, not
 sandboxed). **Users** session/greeter status shipped (add-remove + writing greeter
@@ -334,7 +335,7 @@ prefs stay Out).
 Depth order for what’s left:
 
 1. ~~Users depth~~ — greetd autologin write via `proteus-greetd` shipped; add-remove stays Out of Settings  
-2. ~~Online accounts depth~~ — Microsoft / Nextcloud connect shipped; Apple/Exchange/IMAP/CalDAV/CardDAV + consumers stay Out  
+2. ~~Online accounts depth~~ — Microsoft / Nextcloud connect shipped; ~~calendar glance consumer~~ shipped; Apple/Exchange/IMAP connectors + mail/contacts apps Out  
 3. ~~**Privacy native enforcement**~~ — portal PermissionStore sync + capture enforce shipped; full OS sandbox / Ask UI / fail-closed ready / v4l2 ACL Out  
 4. **Network polish** — largely shipped (IPv4 on Devices · Diagnostics ss/firewall); Headscale admin / OpenVPN wizard stay Out  
 5. ~~**Peripherals** — touchpad / tablet~~ — Touchpad + Tablet leaves shipped; per-device `device {}` / active-area / pressure Out  

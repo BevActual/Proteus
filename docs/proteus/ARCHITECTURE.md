@@ -97,6 +97,7 @@ Mobius gates; implementation later).
 | `Hardware.qml` | Wave A: cache-first; shell live-probes (+ deferred refresh); Settings QS cache-only (`isSettingsApp`) → caps / device class |
 | `Keybinds.qml` | Catalog + overrides → `proteus-keybinds.conf` |
 | `ShellState.qml` | Beacon / open Settings / hardware mirrors |
+| `CalendarEvents.qml` | Online accounts → today’s events for CalendarPanel glance |
 | `SessionPosture.qml` | Hard session posture Fact + `proteus-posture` (About confirm picker) |
 | `HyprProfile.qml` | Soft hypr profile pointer (`media` ≡ console); About soft picker — not a hard posture switch |
 | `SystemInfo.qml` · `SystemLoad.qml` | About OS/kernel/QS/Hypr facts + About-active load strip |

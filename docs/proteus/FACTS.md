@@ -55,7 +55,7 @@ facts: [`vm/guest/`](../../vm/guest/).
 | **NetworkDiagnostics** | Diagnostics-active iface rates + calm bars · `ss` · firewall one-liner · route/DNS · ping; Wireshark escape | In-Settings packet decode; always-on promiscuous capture |
 | **MissionCenter** | Detect/open Mission Center (Activity Monitor escape) | Embedding a live dashboard in Settings |
 | **Audio** (graph escape) | Detect/open `qpwgraph` (or already-installed `helvum`); Install… → Repos · `qpwgraph` only | Embedding a full PipeWire patchbay in Settings |
-| **Accounts** | Online accounts catalog + Google/Microsoft PKCE + Nextcloud app-password seats via `proteus-accounts` | OAuth secrets in `settings.json`; inventing mail/contacts apps |
+| **Accounts** | Online accounts catalog + Google/Microsoft PKCE + Nextcloud app-password seats via `proteus-accounts`; calendar glance via `proteus-calendar-events.py` | OAuth secrets in `settings.json`; inventing mail/contacts apps |
 
 **Why flat `shell/shared/`:** Quickshell directory imports + `property alias`
 across singletons in *subdirectories* (or via `qmldir`) hit load-order cycles.
@@ -89,6 +89,7 @@ shell/shared/
   Audio.qml Brightness.qml Hud.qml Power.qml DateTime.qml Weather.qml Displays.qml
   ShellState.qml Hardware.qml EnvGate.qml Keybinds.qml Notifications.qml LockLayoutZones.qml
   HyprProfile.qml SystemInfo.qml SystemLoad.qml MissionCenter.qml Accounts.qml
+  CalendarEvents.qml
   ActiveWindow.qml KeepAwake.qml LocalSend.qml NetworkDiagnostics.qml Packages.qml
   DockApps.qml Time.qml Permissions.qml PrivacyIndicators.qml DefaultApps.qml
   SystemServices.qml FocusMode.qml ControlCenterLayout.qml UniversalSearch.qml …
