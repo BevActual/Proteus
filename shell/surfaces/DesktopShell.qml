@@ -594,8 +594,10 @@ Scope {
       // Gate on sessionStartLockPending so toasts/CC/calendar cannot peek
       // before cold-boot auto-lock (bar/dock already do this).
       visible: !ShellState.sessionLocked && !ShellState.sessionStartLockPending
-          && (hostsControlCenter || (!ShellState.controlCenterOpen && isFocused))
-          && (ccView.stillVisible || calView.stillVisible || wxView.stillVisible || showToast)
+          && (hostsControlCenter || (!ShellState.controlCenterOpen && isFocused)
+              || PrivacyAsk.visible)
+          && (ccView.stillVisible || calView.stillVisible || wxView.stillVisible
+              || showToast || PrivacyAsk.visible)
       exclusionMode: ExclusionMode.Ignore
       color: "transparent"
 
@@ -631,12 +633,18 @@ Scope {
       NotificationToast {
         id: toastLayer
         anchors.fill: parent
-        visible: ccWin.showToast
+        visible: ccWin.showToast && !PrivacyAsk.visible
       }
 
-      // Full input while CC / calendar / weather is open; toast-only shows
+      PrivacyAskPanel {
+        id: askLayer
+        anchors.fill: parent
+      }
+
+      // Full input while CC / calendar / weather / Ask is open; toast-only shows
       // click-through except the card; during exit animations click-through.
       mask: ShellState.controlCenterOpen || ShellState.calendarOpen || ShellState.weatherOpen
+          || PrivacyAsk.visible
           ? null
           : (showToast ? toastMask : emptyMask)
 
