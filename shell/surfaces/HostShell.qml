@@ -92,13 +92,23 @@ Scope {
   }
 
   WlSessionLock {
+    id: sessionLock
     locked: ShellState.sessionLocked
 
     WlSessionLockSurface {
+      // Opaque base — match DesktopShell (transparent lock surfaces are flaky)
+      color: "#000000"
       LockSurface {
-        lock: parent
-        screen: parent.screen
+        anchors.fill: parent
+        onUnlocked: ShellState.unlockSession()
       }
+    }
+  }
+
+  Connections {
+    target: ShellState
+    function onSessionLockedChanged() {
+      sessionLock.locked = ShellState.sessionLocked
     }
   }
 

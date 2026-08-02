@@ -16,11 +16,6 @@ Item {
 
   visible: stillVisible
 
-  onOpenStateChanged: {
-    if (openState)
-      CalendarEvents.refreshForDate(root.selectedDate)
-  }
-
   onSelectedDayChanged: {
     if (openState)
       CalendarEvents.refreshForDate(root.selectedDate)
@@ -153,6 +148,7 @@ Item {
     openProgress = openState ? 1 : 0
     if (openState) {
       goToday()
+      CalendarEvents.refreshForDate(root.selectedDate)
       forceActiveFocus()
     }
   }
