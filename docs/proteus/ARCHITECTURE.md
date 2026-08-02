@@ -99,6 +99,7 @@ Mobius gates; implementation later).
 | `ShellState.qml` | Beacon / open Settings / hardware mirrors |
 | `CalendarEvents.qml` | Online accounts → today’s events for CalendarPanel glance |
 | `Workloads.qml` | HostHome thin VM/container glance (`proteus-workloads.py`) |
+| `SpacesDisplays.qml` | Multi-head Spaces status + hotplug ensure (`proteus-workspace`) |
 | `SessionPosture.qml` | Hard session posture Fact + `proteus-posture` (About confirm picker) |
 | `HyprProfile.qml` | Soft hypr profile pointer (`media` ≡ console); About soft picker — not a hard posture switch |
 | `SystemInfo.qml` · `SystemLoad.qml` | About OS/kernel/QS/Hypr facts + About-active load strip |

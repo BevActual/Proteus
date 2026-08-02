@@ -206,7 +206,7 @@ pages via `kit/StickyPaneLoader` (`DesktopGapsLeaf`, `DesktopChromeLeaf`,
 | Borders & rounding | Border size + window rounding FormRows; live hypr |
 | Motion | Window animations switch |
 | Dock & menu bar | Show/hide/monitor/size FormRows; Advanced → `proteus-general.conf` |
-| Spaces | Displays share Spaces (`workspaceMode` synced \| perDisplay); Super+**1–6** keyboard (+ Super+Ctrl+N local); strip/wheel Spaces **1–10**; bands via `proteus-workspace`; spaces-smoke |
+| Spaces | Displays share Spaces (`workspaceMode` synced \| perDisplay); Super+**1–6** keyboard (+ Super+Ctrl+N local); strip/wheel Spaces **1–10**; bands via `proteus-workspace`; multi-head `status`/`ensure` + SpacesDisplays honesty; spaces-smoke |
 | Default apps | Browser / Files / Images / Music / Video / PDF / Text / Archives / Mail / Calendar via `proteus-defaults.py` + `xdg-mime`; mimeapps.list escape |
 | Focus | Soft quiet profiles (seed Work/Sleep/Personal + **add/rename/delete**); allowlist · keywords · schedule · critical; combo picker when >3; CC menu + Desktop → Focus leaf |
 | Control Center | Plates + tile visibility/size/span/order + **columns 2\|3** + reset (`ControlCenterLayout`); Settings → Desktop → Control Center |
@@ -368,9 +368,10 @@ until Permissions.ready held.)*
 *(Desktop catch-up: desktop-smoke · defaults/beacon-index install · Focus/CC/Spaces
 roundtrip · guest Desktop nav · Beacon Settings blurb · SETTINGS-IA §6 Focus/CC
 rows shipped.)*
-*(Spaces catch-up: spaces-smoke · band selftest · guest Spaces nav · 1–6 vs 1–10
-honesty shipped — 2-head VM dogfood · hotplug migration · named Spaces ·
-Super+7–10 binds Out; Spaces row stays `partial` until multi-head dogfood.)*
+*(Spaces catch-up + multi-head dogfood: spaces-smoke · band selftest · status
+fixture · ensure hotplug rebind · SpacesDisplays leaf honesty · guest Spaces
+nav · 1–6 vs 1–10 shipped — named Spaces · Super+7–10 · disconnect window
+migration Out; Spaces row stays `partial` until live 2-head is routine.)*
 *(Focus profile CRUD: FocusMode add/rename/delete · DesktopFocusLeaf UI · combo
 at >3 · focus-smoke · CONFIG-SCHEMA profile object shipped — duplicate/reorder /
 CC inline CRUD Out.)*
