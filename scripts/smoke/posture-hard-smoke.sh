@@ -76,6 +76,13 @@ got="$(tr -d '[:space:]' <"${HOME}/.config/proteus/posture")"
 [[ "${got}" == "desktop" ]] || die "expected Fact desktop, got '${got}'"
 ok "Fact write desktop"
 
+# host Fact (host.conf stub must exist for set-hypr-profile)
+printf '# stub\n' >"${FAKE_ROOT}/env/hypr/profiles/host.conf"
+bash "${FAKE_ROOT}/vm/guest/proteus-posture" host || true
+got="$(tr -d '[:space:]' <"${HOME}/.config/proteus/posture")"
+[[ "${got}" == "host" ]] || die "expected Fact host, got '${got}'"
+ok "Fact write host"
+
 # Pointer migration media → console
 printf 'source = ~/.config/hypr/profiles/media.conf\n' >"${HOME}/.config/hypr/proteus-profile.conf"
 printf '# legacy\n' >"${HOME}/.config/hypr/profiles/media.conf"
@@ -95,7 +102,7 @@ RESOLVED="$(
       PROTEUS_SURFACE="$(tr -d "[:space:]" <"${_posture_file}" || true)"
     fi
     case "${PROTEUS_SURFACE:-}" in
-      desktop|console|couch|phone|vr|watch) ;;
+      desktop|console|couch|host|phone|vr|watch) ;;
       *) PROTEUS_SURFACE=desktop ;;
     esac
     [[ "${PROTEUS_SURFACE}" == "couch" ]] && PROTEUS_SURFACE=console
@@ -104,6 +111,24 @@ RESOLVED="$(
 )"
 [[ "${RESOLVED}" == "console" ]] || die "boot persistence resolved '${RESOLVED}' not console"
 ok "boot persistence from Fact"
+
+printf 'host\n' >"${HOME}/.config/proteus/posture"
+RESOLVED_HOST="$(
+  bash -c '
+    unset PROTEUS_SURFACE || true
+    _posture_file="${HOME}/.config/proteus/posture"
+    if [[ -z "${PROTEUS_SURFACE:-}" && -f "${_posture_file}" ]]; then
+      PROTEUS_SURFACE="$(tr -d "[:space:]" <"${_posture_file}" || true)"
+    fi
+    case "${PROTEUS_SURFACE:-}" in
+      desktop|console|couch|host|phone|vr|watch) ;;
+      *) PROTEUS_SURFACE=desktop ;;
+    esac
+    printf "%s" "${PROTEUS_SURFACE}"
+  '
+)"
+[[ "${RESOLVED_HOST}" == "host" ]] || die "boot persistence resolved '${RESOLVED_HOST}' not host"
+ok "boot persistence host Fact"
 
 if command -v gamescope >/dev/null 2>&1; then
   ok "gamescope present"
@@ -118,7 +143,10 @@ ok "Config gamepads keys"
 grep -q 'ConsoleShell' "${ROOT}/shell/shell.qml" || die "shell.qml missing ConsoleShell"
 [[ -f "${ROOT}/shell/surfaces/ConsoleShell.qml" ]] || die "ConsoleShell.qml missing"
 [[ ! -f "${ROOT}/shell/surfaces/CouchShell.qml" ]] || die "CouchShell.qml should be removed"
-ok "console surface loader"
+grep -q 'HostShell' "${ROOT}/shell/shell.qml" || die "shell.qml missing HostShell"
+[[ -f "${ROOT}/shell/surfaces/HostShell.qml" ]] || die "HostShell.qml missing"
+grep -q 'case "host"' "${ROOT}/shell/shell.qml" || die "shell.qml missing host case"
+ok "console + host surface loader"
 
 LAUNCH="${ROOT}/shell/scripts/proteus-console-launch"
 SEAT="${ROOT}/shell/scripts/proteus-console-seat"
