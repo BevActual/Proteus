@@ -19,7 +19,8 @@ Item {
   readonly property bool stillVisible: openState || openProgress > 0.001
   // Pad focus: volume | focus | posture | glance | lock | shot | settings
   property int padIndex: 0
-  readonly property string postureSlot: ShellState.consoleSurfaceActive ? "desktop" : "console"
+  readonly property string postureSlot: (ShellState.consoleSurfaceActive
+      || ShellState.hostSurfaceActive) ? "desktop" : "console"
   readonly property var padSlots: ["volume", "focus", postureSlot, "glance", "lock", "shot", "settings"]
   property bool shotMenuOpen: false
 
@@ -150,8 +151,11 @@ Item {
 
   readonly property real panelW: Math.min(360, parent.width - 24)
   readonly property bool consoleChrome: ShellState.consoleSurfaceActive
-  // Console bar is Theme.barHeight + 8; desktop menu bar is Theme.barHeight.
-  readonly property int panelTopMargin: root.consoleChrome ? (Theme.barHeight + 18) : (Theme.barHeight + 10)
+  readonly property bool hostChrome: ShellState.hostSurfaceActive
+  // Console bar is Theme.barHeight + 8; host bar is 40; desktop menu bar is Theme.barHeight.
+  readonly property int panelTopMargin: root.consoleChrome
+      ? (Theme.barHeight + 18)
+      : (root.hostChrome ? 50 : (Theme.barHeight + 10))
 
   Rectangle {
     anchors.fill: parent

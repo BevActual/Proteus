@@ -33,11 +33,19 @@ QtObject {
       destructive: false
     },
     {
+      id: "enter-host",
+      name: "Enter Host",
+      subtitle: "Action · proteus-posture host",
+      icon: "computer",
+      keywords: "host ops server lean posture hard switch",
+      destructive: false
+    },
+    {
       id: "enter-desktop",
       name: "Return to Desktop",
       subtitle: "Action · proteus-posture desktop",
       icon: "user-desktop",
-      keywords: "desktop desk posture hard switch exit console",
+      keywords: "desktop desk posture hard switch exit console host",
       destructive: false
     },
     {
@@ -245,13 +253,14 @@ QtObject {
   function runPosture(target) {
     const proot = String(Quickshell.env("PROTEUS_ROOT") || "/mnt/proteus")
     const t = String(target || "desktop")
+    // Prefer live tree (dogfood) over stale /usr/local.
     Quickshell.execDetached({
       command: [
         "bash", "-lc",
-        "if command -v proteus-posture >/dev/null 2>&1; then "
+        "P=" + proot + "/vm/guest/proteus-posture; "
+            + "if [[ -x \"$P\" ]]; then setsid \"$P\" " + t + " >/dev/null 2>&1 & "
+            + "elif command -v proteus-posture >/dev/null 2>&1; then "
             + "setsid proteus-posture " + t + " >/dev/null 2>&1 & "
-            + "else "
-            + "setsid " + proot + "/vm/guest/proteus-posture " + t + " >/dev/null 2>&1 & "
             + "fi"
       ]
     })
@@ -278,6 +287,8 @@ QtObject {
       Config.session("shutdown")
     else if (id === "enter-console")
       root.runPosture("console")
+    else if (id === "enter-host")
+      root.runPosture("host")
     else if (id === "enter-desktop")
       root.runPosture("desktop")
     else if (id === "settings")
@@ -377,7 +388,10 @@ QtObject {
         continue
       if (a.id === "enter-console" && ShellState.consoleSurfaceActive)
         continue
-      if (a.id === "enter-desktop" && !ShellState.consoleSurfaceActive)
+      if (a.id === "enter-host" && ShellState.hostSurfaceActive)
+        continue
+      if (a.id === "enter-desktop"
+          && !ShellState.consoleSurfaceActive && !ShellState.hostSurfaceActive)
         continue
       const hay = (String(a.name || "") + " " + String(a.keywords || "")).toLowerCase()
       const score = root.scoreQuery(hay, q)

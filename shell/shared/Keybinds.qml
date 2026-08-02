@@ -84,6 +84,15 @@ Singleton {
       arg: "proteus-posture console"
     },
     {
+      id: "enter-host",
+      category: "Session",
+      label: "Enter Host",
+      mods: "SUPER SHIFT",
+      key: "H",
+      dispatcher: "exec",
+      arg: "proteus-posture host"
+    },
+    {
       id: "console-nav",
       category: "Session",
       label: "Console navigation / switcher",

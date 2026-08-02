@@ -32,6 +32,7 @@ Singleton {
     { id: "appearance", kind: "tile", defaultSpan: 1, defaultSize: "md", label: "Appearance" },
     { id: "awake", kind: "tile", defaultSpan: 1, defaultSize: "md", label: "Keep Awake" },
     { id: "console", kind: "tile", defaultSpan: 2, defaultSize: "md", label: "Console" },
+    { id: "host", kind: "tile", defaultSpan: 2, defaultSize: "md", label: "Host" },
     { id: "desktop", kind: "tile", defaultSpan: 2, defaultSize: "md", label: "Desktop" }
   ]
 
@@ -49,6 +50,7 @@ Singleton {
         { id: "appearance", visible: true, span: 1, size: "md" },
         { id: "awake", visible: true, span: 1, size: "md" },
         { id: "console", visible: true, span: 2, size: "md" },
+        { id: "host", visible: true, span: 2, size: "md" },
         { id: "desktop", visible: true, span: 2, size: "md" }
       ]
     }

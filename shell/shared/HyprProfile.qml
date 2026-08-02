@@ -39,13 +39,15 @@ Singleton {
 
   readonly property string activeProfileLabel: root.profileLabel(root.activeProfile)
 
-  readonly property string softHonesty: "Soft Hyprland window-rule profile — not a hard posture switch (use proteus-posture / Enter Console)."
+  readonly property string softHonesty: "Soft Hyprland window-rule profile — not a hard posture switch (use proteus-posture / Enter Console · Enter Host)."
 
   readonly property string activeDetail: {
     if (!root.activeProfile.length)
       return ""
     if (root.activeProfile === "console")
       return "Console profile: fullscreen apps. Hard flip: proteus-posture console."
+    if (root.activeProfile === "host")
+      return "Host profile: lean ops rules. Hard flip: proteus-posture host."
     if (root.activeProfile === "home")
       return "Home is parked — stub profile only."
     return ""

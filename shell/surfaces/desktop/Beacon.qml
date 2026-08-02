@@ -889,7 +889,10 @@ Item {
             continue
           if (a.id === "enter-console" && ShellState.consoleSurfaceActive)
             continue
-          if (a.id === "enter-desktop" && !ShellState.consoleSurfaceActive)
+          if (a.id === "enter-host" && ShellState.hostSurfaceActive)
+            continue
+          if (a.id === "enter-desktop"
+              && !ShellState.consoleSurfaceActive && !ShellState.hostSurfaceActive)
             continue
           const hay = (String(a.name || "") + " " + String(a.keywords || "")).toLowerCase()
           const score = root.scoreQuery(hay, q)

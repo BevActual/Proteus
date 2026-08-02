@@ -1260,7 +1260,7 @@ ColumnLayout {
               trailing: "›"
             })
           } else if (id === "console") {
-            if (ShellState.consoleSurfaceActive)
+            if (ShellState.consoleSurfaceActive || ShellState.hostSurfaceActive)
               continue
             pushTile({
               id: "console",
@@ -1272,8 +1272,21 @@ ColumnLayout {
               trailing: "›",
               forceSpan: 2
             })
+          } else if (id === "host") {
+            if (ShellState.consoleSurfaceActive || ShellState.hostSurfaceActive)
+              continue
+            pushTile({
+              id: "host",
+              glyph: "⬡",
+              title: "Host",
+              subtitle: "Hard switch · lean ops",
+              accent: false,
+              interactive: true,
+              trailing: "›",
+              forceSpan: 2
+            })
           } else if (id === "desktop") {
-            if (!ShellState.consoleSurfaceActive)
+            if (!ShellState.consoleSurfaceActive && !ShellState.hostSurfaceActive)
               continue
             pushTile({
               id: "desktop",
@@ -1440,14 +1453,21 @@ ColumnLayout {
                 awakePopup.close()
               else
                 awakePopup.open()
-            } else if (modelData.id === "console") {
+            } else if (modelData.id === "console"
+                || modelData.id === "host"
+                || modelData.id === "desktop") {
               ShellState.closeControlCenter()
               const proot = String(Quickshell.env("PROTEUS_ROOT") || "/mnt/proteus")
+              const t = String(modelData.id)
+              // Prefer live tree; never `A && B & || C` (bash syntax error).
               Quickshell.execDetached({
                 command: [
                   "bash", "-lc",
-                  "command -v proteus-posture >/dev/null && setsid proteus-posture console >/dev/null 2>&1 & "
-                      + "|| setsid " + proot + "/vm/guest/proteus-posture console >/dev/null 2>&1 &"
+                  "P=" + proot + "/vm/guest/proteus-posture; "
+                      + "if [[ -x \"$P\" ]]; then setsid \"$P\" " + t + " >/dev/null 2>&1 & "
+                      + "elif command -v proteus-posture >/dev/null 2>&1; then "
+                      + "setsid proteus-posture " + t + " >/dev/null 2>&1 & "
+                      + "fi"
                 ]
               })
             }
