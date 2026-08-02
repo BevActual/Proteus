@@ -29,6 +29,10 @@ Item {
     return root.rootDir + "/shell/scripts/proteus-console-capabilities"
   }
 
+  readonly property string sessionBin: {
+    return root.rootDir + "/shell/scripts/proteus-console-session"
+  }
+
   readonly property string sampleLoop: root.rootDir + "/shell/assets/sample-loop.mp4"
 
   property bool hasBrowser: false
@@ -40,6 +44,9 @@ Item {
   property bool hasSteam: false
   property bool hasRetroarch: false
   property string browserBin: "chromium"
+  // Phase 2 session Fact — seat | gamescope (nested; does not replace Hyprland)
+  property string sessionMode: "seat"
+  property string sessionEffective: "seat"
 
   property string statusHint: ""
   property string pendingLaunchTitle: ""
@@ -232,11 +239,36 @@ Item {
   }
 
   function seatMetaSuffix() {
+    if (root.sessionEffective === "gamescope")
+      return " · session · gamescope"
     if (root.hasGamescope)
       return " · gamescope"
     if (root.isVm)
       return " · bare · kiosk"
     return " · bare"
+  }
+
+  function toggleSessionMode() {
+    if (!root.hasGamescope) {
+      statusHint = "Gamescope session needs Vulkan (unavailable here)"
+      return
+    }
+    const next = root.sessionMode === "gamescope" ? "seat" : "gamescope"
+    Quickshell.execDetached({
+      command: [
+        "bash", "-lc",
+        "export PATH=\"" + root.rootDir
+            + "/shell/scripts:$HOME/.local/bin:/usr/local/bin:$PATH\"; "
+            + "'" + root.sessionBin.replace(/'/g, "'\\''") + "' set-mode " + next
+            + " >/dev/null 2>&1; true"
+      ]
+    })
+    root.sessionMode = next
+    root.sessionEffective = (next === "gamescope" && root.hasGamescope) ? "gamescope" : "seat"
+    statusHint = next === "gamescope"
+        ? "Gamescope session on — nested wraps for game seats (Hyprland stays)"
+        : "Seat mode — per-title Gamescope when usable"
+    root.refreshAvailability()
   }
 
   function seatSteam() {
@@ -606,6 +638,8 @@ Item {
         root.isVm = !!caps.isVm
         root.hasSteam = !!caps.steam
         root.hasRetroarch = !!caps.retroarch
+        root.sessionMode = (caps.sessionMode === "gamescope") ? "gamescope" : "seat"
+        root.sessionEffective = (caps.sessionEffective === "gamescope") ? "gamescope" : "seat"
       }
     }
   }

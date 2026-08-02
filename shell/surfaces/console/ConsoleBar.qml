@@ -10,9 +10,14 @@ Item {
   property string tab: "home" // home | library | search
   // focusedSlot: 0 home, 1 library, 2 search, 3 cc
   property int focusedSlot: -1
+  // Phase 2 Gamescope nested-session toggle (visible when Vulkan usable)
+  property bool sessionToggleVisible: false
+  property string sessionMode: "seat" // seat | gamescope
+  property string sessionEffective: "seat"
 
   signal tabSelected(string id)
   signal controlCenterRequested()
+  signal sessionToggleRequested()
 
   readonly property int barTextStyle: Theme.menuBarNeedsLegibility ? Text.Outline : Text.Normal
   readonly property color barTextStyleColor: Theme.light
@@ -149,6 +154,39 @@ Item {
     }
 
     Item { Layout.fillWidth: true }
+
+    Rectangle {
+      visible: root.sessionToggleVisible
+      Layout.alignment: Qt.AlignVCenter
+      Layout.preferredHeight: 28
+      Layout.preferredWidth: sessionLabel.implicitWidth + 16
+      radius: 14
+      color: sessionMa.containsMouse
+          ? Theme.chromeHover
+          : (root.sessionEffective === "gamescope" ? Theme.chromeAccentSoft : "transparent")
+      border.width: 1
+      border.color: root.sessionEffective === "gamescope" ? Theme.accent : Theme.chromeBorder
+
+      Text {
+        id: sessionLabel
+        anchors.centerIn: parent
+        text: root.sessionEffective === "gamescope" ? "Gamescope" : "Seat"
+        color: root.sessionEffective === "gamescope" ? Theme.accent : Theme.textDim
+        font.family: Theme.fontFamily
+        font.pixelSize: 10
+        font.weight: Font.DemiBold
+        style: root.barTextStyle
+        styleColor: root.barTextStyleColor
+      }
+
+      MouseArea {
+        id: sessionMa
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.sessionToggleRequested()
+      }
+    }
 
     Rectangle {
       Layout.alignment: Qt.AlignVCenter

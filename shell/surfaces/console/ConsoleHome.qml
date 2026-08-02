@@ -679,8 +679,12 @@ Item {
       Layout.fillWidth: true
       tab: root.tab
       focusedSlot: root.focusZone === "chrome" ? root.barSlot : -1
+      sessionToggleVisible: library.hasGamescope
+      sessionMode: library.sessionMode
+      sessionEffective: library.sessionEffective
       onTabSelected: id => root.selectDestination(id)
       onControlCenterRequested: ShellState.toggleControlCenter()
+      onSessionToggleRequested: library.toggleSessionMode()
     }
 
     Item {
