@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
-"""Fetch a few contacts for Proteus Online accounts CardDAV / Apple seats.
+"""Fetch a few contacts for Proteus Online accounts seats.
 
-Uses `proteus-accounts token carddav` and `token apple`. Best-effort
-addressbook-query REPORT (Apple via carddavUrl).
-
+CardDAV/Apple (Basic) + Google People + Microsoft/Exchange Graph.
 Stdout: one JSON object. Never logs access tokens.
-Honesty: glance consumer — CardDAV/Apple write via proteus-contacts-mutate.py;
-not a contacts app.
+Honesty: glance consumer — write via proteus-contacts-mutate.py; not a contacts app.
 """
 from __future__ import annotations
 
@@ -22,7 +19,9 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-WRITABLE = ("carddav", "apple")
+CARDDAV_WRITABLE = ("carddav", "apple")
+OAUTH_WRITABLE = ("google", "microsoft", "exchange")
+WRITABLE = CARDDAV_WRITABLE + OAUTH_WRITABLE
 
 
 def _run(cmd: list[str], timeout: float = 20.0) -> tuple[int, str, str]:
@@ -77,7 +76,34 @@ def _uid_from_href(href: str) -> str:
     for ext in (".vcf", ".vcard"):
         if base.lower().endswith(ext):
             base = base[: -len(ext)]
+    if "/people/" in path:
+        idx = path.find("/people/")
+        return path[idx + 1 :].lstrip("/")
     return base.strip()
+
+
+def _http_json(
+    url: str,
+    headers: dict,
+    method: str = "GET",
+    body: bytes | None = None,
+    timeout: float = 15.0,
+) -> tuple[int, dict | list | None, str]:
+    req = urllib.request.Request(url, data=body, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8", errors="replace")
+            if not raw.strip():
+                return resp.status, {}, ""
+            return resp.status, json.loads(raw), ""
+    except urllib.error.HTTPError as e:
+        try:
+            err_body = e.read().decode("utf-8", errors="replace")
+        except Exception:
+            err_body = str(e)
+        return e.code, None, err_body[:300]
+    except Exception as e:
+        return 0, None, str(e)
 
 
 def _parse_vcard_fields(
@@ -230,6 +256,110 @@ def fetch_carddav(
     return contacts[:limit], ""
 
 
+def fetch_google(access: str, limit: int) -> tuple[list[dict], str]:
+    q = urllib.parse.urlencode(
+        {
+            "personFields": "names,emailAddresses",
+            "pageSize": str(max(1, min(20, limit))),
+        }
+    )
+    url = f"https://people.googleapis.com/v1/people/me/connections?{q}"
+    status, data, err = _http_json(
+        url, {"Authorization": f"Bearer {access}", "Accept": "application/json"}
+    )
+    if status != 200 or not isinstance(data, dict):
+        hint = " reconnect for contacts scope" if status == 403 else ""
+        return [], (err or f"google HTTP {status}") + hint
+    out = []
+    for item in data.get("connections") or []:
+        if not isinstance(item, dict):
+            continue
+        rn = str(item.get("resourceName") or "").strip()
+        if not rn:
+            continue
+        name = ""
+        for n in item.get("names") or []:
+            if isinstance(n, dict):
+                name = str(
+                    n.get("displayName")
+                    or n.get("unstructuredName")
+                    or n.get("givenName")
+                    or ""
+                ).strip()
+                if name:
+                    break
+        email = ""
+        for e in item.get("emailAddresses") or []:
+            if isinstance(e, dict):
+                email = str(e.get("value") or "").strip()
+                if email:
+                    break
+        href = f"https://people.googleapis.com/v1/{rn}"
+        out.append(
+            {
+                "id": rn,
+                "uid": rn,
+                "name": name or "(No name)",
+                "email": email,
+                "provider": "google",
+                "mutable": True,
+                "href": href,
+            }
+        )
+        if len(out) >= limit:
+            break
+    return out, ""
+
+
+def fetch_microsoft(access: str, limit: int, provider: str = "microsoft") -> tuple[list[dict], str]:
+    q = urllib.parse.urlencode(
+        {
+            "$top": str(max(1, min(20, limit))),
+            "$select": "id,displayName,givenName,emailAddresses",
+        }
+    )
+    url = f"https://graph.microsoft.com/v1.0/me/contacts?{q}"
+    status, data, err = _http_json(
+        url, {"Authorization": f"Bearer {access}", "Accept": "application/json"}
+    )
+    if status != 200 or not isinstance(data, dict):
+        hint = " reconnect for Contacts.ReadWrite" if status == 403 else ""
+        return [], (err or f"{provider} HTTP {status}") + hint
+    out = []
+    for item in data.get("value") or []:
+        if not isinstance(item, dict):
+            continue
+        cid = str(item.get("id") or "").strip()
+        if not cid:
+            continue
+        name = str(item.get("displayName") or item.get("givenName") or "").strip()
+        email = ""
+        for e in item.get("emailAddresses") or []:
+            if isinstance(e, dict):
+                email = str(e.get("address") or "").strip()
+                if email:
+                    break
+        href = f"https://graph.microsoft.com/v1.0/me/contacts/{urllib.parse.quote(cid, safe='')}"
+        out.append(
+            {
+                "id": cid,
+                "uid": cid,
+                "name": name or "(No name)",
+                "email": email,
+                "provider": provider,
+                "mutable": True,
+                "href": href,
+            }
+        )
+        if len(out) >= limit:
+            break
+    return out, ""
+
+
+def fetch_exchange(access: str, limit: int) -> tuple[list[dict], str]:
+    return fetch_microsoft(access, limit, provider="exchange")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Proteus contacts glance fetch")
     ap.add_argument("--limit", type=int, default=5)
@@ -250,17 +380,26 @@ def main() -> int:
                             "provider": "carddav",
                             "mutable": True,
                             "href": "https://cal.example/dav/addressbooks/alice/default/fixture-contact-uid.vcf",
-                        }
+                        },
+                        {
+                            "id": "people/c-fixture",
+                            "uid": "people/c-fixture",
+                            "name": "Fixture Google",
+                            "email": "g@example.com",
+                            "provider": "google",
+                            "mutable": True,
+                            "href": "https://people.googleapis.com/v1/people/c-fixture",
+                        },
                     ],
-                    "seats": 1,
-                    "mutableSeats": 1,
+                    "seats": 2,
+                    "mutableSeats": 2,
                     "errors": [],
                 }
             )
         )
         return 0
 
-    providers = ("carddav", "apple")
+    providers = ("carddav", "apple", "google", "microsoft", "exchange")
     errors: list[str] = []
     contacts: list[dict] = []
     seats = 0
@@ -275,17 +414,24 @@ def main() -> int:
         seats += 1
         if prov in WRITABLE:
             mutable_seats += 1
-        if prov == "apple":
-            base = str(tok.get("carddavUrl") or tok.get("baseUrl") or "")
+        if prov in ("carddav", "apple"):
+            if prov == "apple":
+                base = str(tok.get("carddavUrl") or tok.get("baseUrl") or "")
+            else:
+                base = str(tok.get("baseUrl") or "")
+            ev, err = fetch_carddav(
+                base,
+                str(tok.get("username") or tok.get("email") or ""),
+                str(tok.get("accessToken") or ""),
+                limit,
+                provider=prov,
+            )
+        elif prov == "google":
+            ev, err = fetch_google(str(tok.get("accessToken") or ""), limit)
+        elif prov == "microsoft":
+            ev, err = fetch_microsoft(str(tok.get("accessToken") or ""), limit)
         else:
-            base = str(tok.get("baseUrl") or "")
-        ev, err = fetch_carddav(
-            base,
-            str(tok.get("username") or tok.get("email") or ""),
-            str(tok.get("accessToken") or ""),
-            limit,
-            provider=prov,
-        )
+            ev, err = fetch_exchange(str(tok.get("accessToken") or ""), limit)
         if err:
             errors.append(f"{prov}: {err}")
         contacts.extend(ev)

@@ -20,16 +20,17 @@ use url::Url;
 
 const GOOGLE_AUTH: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN: &str = "https://oauth2.googleapis.com/token";
-// Calendar events write + mail metadata/send for menu-bar glance (reconnect older seats).
+// Calendar/mail/contacts write for menu-bar glances (reconnect older seats).
 const GOOGLE_SCOPES: &str = "openid email profile \
 https://www.googleapis.com/auth/calendar.events \
 https://www.googleapis.com/auth/gmail.metadata \
-https://www.googleapis.com/auth/gmail.send";
+https://www.googleapis.com/auth/gmail.send \
+https://www.googleapis.com/auth/contacts";
 
 const MS_AUTH: &str = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
 const MS_TOKEN: &str = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
 const MS_SCOPES: &str =
-    "openid profile email offline_access User.Read Calendars.ReadWrite Mail.ReadBasic Mail.Send";
+    "openid profile email offline_access User.Read Calendars.ReadWrite Mail.ReadBasic Mail.Send Contacts.ReadWrite";
 
 #[derive(Clone, Serialize, Deserialize)]
 struct CatalogEntry {
@@ -117,14 +118,14 @@ fn catalog() -> Vec<CatalogEntry> {
             label: "Google".into(),
             connect_kind: "oauth_pkce".into(),
             v1_status: "connectable".into(),
-            hint: "Sign in with Google (calendar.events · gmail.metadata · gmail.send) — reconnect if seat predates write/send scopes".into(),
+            hint: "Sign in with Google (calendar.events · gmail.metadata · gmail.send · contacts) — reconnect if seat predates write/send/contacts scopes".into(),
         },
         CatalogEntry {
             id: "microsoft".into(),
             label: "Microsoft".into(),
             connect_kind: "oauth_pkce".into(),
             v1_status: "connectable".into(),
-            hint: "Sign in with Microsoft (Calendars.ReadWrite · Mail.ReadBasic · Mail.Send) — reconnect if seat predates write/send scopes".into(),
+            hint: "Sign in with Microsoft (Calendars.ReadWrite · Mail.ReadBasic · Mail.Send · Contacts.ReadWrite) — reconnect if seat predates write/send/contacts scopes".into(),
         },
         CatalogEntry {
             id: "nextcloud".into(),
@@ -145,7 +146,7 @@ fn catalog() -> Vec<CatalogEntry> {
             label: "Exchange / Outlook".into(),
             connect_kind: "oauth_pkce".into(),
             v1_status: "connectable".into(),
-            hint: "Work / school Microsoft 365 — same PKCE client as Microsoft (Calendars.ReadWrite · Mail.ReadBasic · Mail.Send); not EWS/NTLM".into(),
+            hint: "Work / school Microsoft 365 — same PKCE client as Microsoft (Calendars.ReadWrite · Mail.ReadBasic · Mail.Send · Contacts.ReadWrite); not EWS/NTLM".into(),
         },
         CatalogEntry {
             id: "imap".into(),

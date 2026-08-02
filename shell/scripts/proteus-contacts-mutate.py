@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Create / update / delete CardDAV contacts for Proteus Online accounts seats.
+"""Create / update / delete contacts for Proteus Online accounts seats.
 
-Writable: carddav · apple (Basic auth via proteus-accounts token).
+Writable: carddav · apple (Basic auth) · google · microsoft · exchange (OAuth).
 
-Thin UX: display name + one email. No photos · groups · full vCard · OAuth
-People APIs. Stdout: one JSON object. Never logs passwords/tokens.
+Thin UX: display name + one email. No photos · groups · full vCard.
+Stdout: one JSON object. Never logs passwords/tokens.
 """
 from __future__ import annotations
 
@@ -21,7 +21,9 @@ import uuid
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-WRITABLE = ("carddav", "apple")
+CARDDAV_WRITABLE = ("carddav", "apple")
+OAUTH_WRITABLE = ("google", "microsoft", "exchange")
+WRITABLE = CARDDAV_WRITABLE + OAUTH_WRITABLE
 
 
 def _run(cmd: list[str], timeout: float = 20.0) -> tuple[int, str, str]:
@@ -149,7 +151,258 @@ def _uid_from_href(href: str) -> str:
     for ext in (".vcf", ".vcard"):
         if base.lower().endswith(ext):
             base = base[: -len(ext)]
+    # Google People: /v1/people/cXXX → people/cXXX
+    if "/people/" in path:
+        idx = path.find("/people/")
+        return path[idx + 1 :].lstrip("/")  # people/cXXX
     return base.strip()
+
+
+def _bearer(tok: dict) -> str:
+    return str(tok.get("accessToken") or "")
+
+
+def _http_json(
+    url: str,
+    headers: dict,
+    method: str = "GET",
+    body: bytes | None = None,
+    timeout: float = 15.0,
+) -> tuple[int, dict | list | None, str]:
+    req = urllib.request.Request(url, data=body, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8", errors="replace")
+            if not raw.strip():
+                return resp.status, {}, ""
+            return resp.status, json.loads(raw), ""
+    except urllib.error.HTTPError as e:
+        try:
+            err_body = e.read().decode("utf-8", errors="replace")
+        except Exception:
+            err_body = str(e)
+        return e.code, None, err_body[:300]
+    except Exception as e:
+        return 0, None, str(e)
+
+
+def _oauth_contact_href(provider: str, contact_id: str) -> str:
+    cid = str(contact_id or "").strip()
+    if provider == "google":
+        rn = cid if cid.startswith("people/") else f"people/{cid}"
+        return f"https://people.googleapis.com/v1/{rn}"
+    eid = urllib.parse.quote(cid, safe="")
+    return f"https://graph.microsoft.com/v1.0/me/contacts/{eid}"
+
+
+def _oauth_resource_id(provider: str, href: str, uid: str) -> str:
+    uid = (uid or "").strip()
+    href = (href or "").strip()
+    if provider == "google":
+        if uid.startswith("people/"):
+            return uid
+        if "people.googleapis.com" in href:
+            path = urllib.parse.urlparse(href).path
+            if "/people/" in path:
+                return path[path.find("/people/") + 1 :]
+        if uid:
+            return uid if uid.startswith("people/") else f"people/{uid}"
+        return ""
+    if uid:
+        return uid
+    if href.startswith("http"):
+        return href.rstrip("/").rsplit("/", 1)[-1]
+    return ""
+
+
+def _cmd_create_oauth(provider: str, name: str, email: str, tok: dict) -> dict:
+    access = _bearer(tok)
+    if not access:
+        return {
+            "ok": False,
+            "error": "empty access token",
+            "action": "create",
+            "provider": provider,
+        }
+    headers = {
+        "Authorization": f"Bearer {access}",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+    if provider == "google":
+        url = "https://people.googleapis.com/v1/people:createContact"
+        payload: dict = {
+            "names": [{"givenName": name, "unstructuredName": name}],
+        }
+        if email:
+            payload["emailAddresses"] = [{"value": email}]
+    else:
+        url = "https://graph.microsoft.com/v1.0/me/contacts"
+        payload = {"displayName": name}
+        if email:
+            payload["emailAddresses"] = [{"address": email, "name": name}]
+    status, data, err = _http_json(
+        url, headers, method="POST", body=json.dumps(payload).encode()
+    )
+    if status not in (200, 201) or not isinstance(data, dict):
+        hint = ""
+        if status == 403:
+            hint = "reconnect seat for contacts scope"
+        return {
+            "ok": False,
+            "error": err or f"create HTTP {status}",
+            "action": "create",
+            "provider": provider,
+            **({"hint": hint} if hint else {}),
+        }
+    if provider == "google":
+        cid = str(data.get("resourceName") or "")
+    else:
+        cid = str(data.get("id") or "")
+    return {
+        "ok": True,
+        "action": "create",
+        "provider": provider,
+        "id": cid,
+        "uid": cid,
+        "href": _oauth_contact_href(provider, cid) if cid else "",
+        "name": name,
+        "email": email,
+        "status": status,
+        "mutable": True,
+    }
+
+
+def _cmd_update_oauth(
+    provider: str, href: str, name: str, email: str, uid: str, tok: dict
+) -> dict:
+    access = _bearer(tok)
+    if not access:
+        return {
+            "ok": False,
+            "error": "empty access token",
+            "action": "update",
+            "provider": provider,
+        }
+    cid = _oauth_resource_id(provider, href, uid)
+    if not cid:
+        return {"ok": False, "error": "href or uid required", "action": "update"}
+    headers = {
+        "Authorization": f"Bearer {access}",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+    if provider == "google":
+        get_url = f"https://people.googleapis.com/v1/{cid}?personFields=names,emailAddresses"
+        st0, cur, err0 = _http_json(get_url, headers)
+        if st0 != 200 or not isinstance(cur, dict):
+            return {
+                "ok": False,
+                "error": err0 or f"get HTTP {st0}",
+                "action": "update",
+                "provider": provider,
+            }
+        etag = str(cur.get("etag") or "")
+        url = (
+            f"https://people.googleapis.com/v1/{cid}:updateContact"
+            "?updatePersonFields=names,emailAddresses"
+        )
+        payload: dict = {
+            "names": [{"givenName": name, "unstructuredName": name}],
+            "emailAddresses": [{"value": email}] if email else [],
+        }
+        if etag:
+            payload["etag"] = etag
+        method = "PATCH"
+    else:
+        url = _oauth_contact_href(provider, cid)
+        payload = {"displayName": name}
+        if email:
+            payload["emailAddresses"] = [{"address": email, "name": name}]
+        else:
+            payload["emailAddresses"] = []
+        method = "PATCH"
+    status, data, err = _http_json(
+        url, headers, method=method, body=json.dumps(payload).encode()
+    )
+    if status not in (200, 201) or not isinstance(data, dict):
+        hint = ""
+        if status == 403:
+            hint = "reconnect seat for contacts scope"
+        return {
+            "ok": False,
+            "error": err or f"update HTTP {status}",
+            "action": "update",
+            "provider": provider,
+            **({"hint": hint} if hint else {}),
+        }
+    out_id = (
+        str(data.get("resourceName") or cid)
+        if provider == "google"
+        else str(data.get("id") or cid)
+    )
+    return {
+        "ok": True,
+        "action": "update",
+        "provider": provider,
+        "id": out_id,
+        "uid": out_id,
+        "href": _oauth_contact_href(provider, out_id),
+        "name": name,
+        "email": email,
+        "status": status,
+        "mutable": True,
+    }
+
+
+def _cmd_delete_oauth(provider: str, href: str, uid: str, tok: dict) -> dict:
+    access = _bearer(tok)
+    if not access:
+        return {
+            "ok": False,
+            "error": "empty access token",
+            "action": "delete",
+            "provider": provider,
+        }
+    cid = _oauth_resource_id(provider, href, uid)
+    if not cid:
+        return {"ok": False, "error": "href or uid required", "action": "delete"}
+    if provider == "google":
+        url = f"https://people.googleapis.com/v1/{cid}:deleteContact"
+    else:
+        url = _oauth_contact_href(provider, cid)
+    status, _data, err = _http_json(
+        url,
+        {"Authorization": f"Bearer {access}", "Accept": "application/json"},
+        method="DELETE",
+    )
+    if status in (200, 204):
+        return {
+            "ok": True,
+            "action": "delete",
+            "provider": provider,
+            "href": _oauth_contact_href(provider, cid),
+            "status": status,
+        }
+    if status == 404:
+        return {
+            "ok": True,
+            "action": "delete",
+            "provider": provider,
+            "href": _oauth_contact_href(provider, cid),
+            "status": 404,
+            "hint": "already gone",
+        }
+    hint = ""
+    if status == 403:
+        hint = "reconnect seat for contacts scope"
+    return {
+        "ok": False,
+        "error": err or f"delete HTTP {status}",
+        "action": "delete",
+        "provider": provider,
+        **({"hint": hint} if hint else {}),
+    }
 
 
 def cmd_create(provider: str, name: str, email: str) -> dict:
@@ -166,6 +419,8 @@ def cmd_create(provider: str, name: str, email: str) -> dict:
             "error": str(tok.get("error") or f"no {provider} seat"),
             "action": "create",
         }
+    if provider in OAUTH_WRITABLE:
+        return _cmd_create_oauth(provider, name, email, tok)
     home, user, password = _creds(provider, tok)
     book, err = _first_addressbook(home, user, password)
     if err or not book:
@@ -221,8 +476,6 @@ def cmd_update(
     email = (email or "").strip()
     if provider not in WRITABLE:
         return {"ok": False, "error": f"provider {provider} is read-only", "action": "update"}
-    if not href.startswith("http"):
-        return {"ok": False, "error": "href required", "action": "update"}
     tok = _token(provider)
     if tok is None:
         return {"ok": False, "error": "proteus-accounts not installed", "action": "update"}
@@ -232,6 +485,10 @@ def cmd_update(
             "error": str(tok.get("error") or f"no {provider} seat"),
             "action": "update",
         }
+    if provider in OAUTH_WRITABLE:
+        return _cmd_update_oauth(provider, href, name, email, uid, tok)
+    if not href.startswith("http"):
+        return {"ok": False, "error": "href required", "action": "update"}
     _home, user, password = _creds(provider, tok)
     event_uid = (uid or "").strip() or _uid_from_href(href)
     if not event_uid:
@@ -276,12 +533,10 @@ def cmd_update(
     }
 
 
-def cmd_delete(provider: str, href: str) -> dict:
+def cmd_delete(provider: str, href: str, uid: str = "") -> dict:
     href = (href or "").strip()
     if provider not in WRITABLE:
         return {"ok": False, "error": f"provider {provider} is read-only", "action": "delete"}
-    if not href.startswith("http"):
-        return {"ok": False, "error": "href required", "action": "delete"}
     tok = _token(provider)
     if tok is None:
         return {"ok": False, "error": "proteus-accounts not installed", "action": "delete"}
@@ -291,6 +546,10 @@ def cmd_delete(provider: str, href: str) -> dict:
             "error": str(tok.get("error") or f"no {provider} seat"),
             "action": "delete",
         }
+    if provider in OAUTH_WRITABLE:
+        return _cmd_delete_oauth(provider, href, uid, tok)
+    if not href.startswith("http"):
+        return {"ok": False, "error": "href required", "action": "delete"}
     _home, user, password = _creds(provider, tok)
     req = urllib.request.Request(
         href,
@@ -332,7 +591,7 @@ def cmd_delete(provider: str, href: str) -> dict:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Proteus contacts mutate (CardDAV)")
+    ap = argparse.ArgumentParser(description="Proteus contacts mutate")
     ap.add_argument("action", choices=("create", "update", "delete", "providers"))
     ap.add_argument("--provider", default="")
     ap.add_argument("--name", default="Untitled")
@@ -342,20 +601,40 @@ def main() -> int:
     args = ap.parse_args()
 
     if os.environ.get("PROTEUS_CONTACTS_MUTATE_FIXTURE") == "1":
+        prov = (args.provider or "carddav").strip().lower() or "carddav"
         if args.action == "providers":
-            print(json.dumps({"ok": True, "fixture": True, "providers": ["carddav"]}))
+            print(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "fixture": True,
+                        "providers": ["carddav", "google", "microsoft"],
+                    }
+                )
+            )
             return 0
         if args.action == "create":
+            if prov in OAUTH_WRITABLE:
+                href = _oauth_contact_href(
+                    prov, "people/c-fixture" if prov == "google" else "fixture-ms-id"
+                )
+                uid = "people/c-fixture" if prov == "google" else "fixture-ms-id"
+            else:
+                uid = "fixture-contact-uid"
+                href = (
+                    "https://cal.example/dav/addressbooks/alice/default/"
+                    "fixture-contact-uid.vcf"
+                )
             print(
                 json.dumps(
                     {
                         "ok": True,
                         "fixture": True,
                         "action": "create",
-                        "provider": args.provider or "carddav",
-                        "id": "fixture-contact-uid",
-                        "uid": "fixture-contact-uid",
-                        "href": "https://cal.example/dav/addressbooks/alice/default/fixture-contact-uid.vcf",
+                        "provider": prov,
+                        "id": uid,
+                        "uid": uid,
+                        "href": href,
                         "name": (args.name or "Untitled").strip() or "Untitled",
                         "email": (args.email or "").strip(),
                         "mutable": True,
@@ -364,17 +643,27 @@ def main() -> int:
             )
             return 0
         if args.action == "update":
-            href = args.href or (
-                "https://cal.example/dav/addressbooks/alice/default/fixture-contact-uid.vcf"
-            )
+            if prov in OAUTH_WRITABLE:
+                href = args.href or _oauth_contact_href(
+                    prov, args.uid or ("people/c-fixture" if prov == "google" else "fixture-ms-id")
+                )
+                uid = args.uid or _uid_from_href(href) or (
+                    "people/c-fixture" if prov == "google" else "fixture-ms-id"
+                )
+            else:
+                href = args.href or (
+                    "https://cal.example/dav/addressbooks/alice/default/"
+                    "fixture-contact-uid.vcf"
+                )
+                uid = args.uid or _uid_from_href(href) or "fixture-contact-uid"
             print(
                 json.dumps(
                     {
                         "ok": True,
                         "fixture": True,
                         "action": "update",
-                        "provider": args.provider or "carddav",
-                        "id": args.uid or _uid_from_href(href) or "fixture-contact-uid",
+                        "provider": prov,
+                        "id": uid,
                         "href": href,
                         "name": (args.name or "Updated").strip() or "Updated",
                         "email": (args.email or "").strip(),
@@ -389,9 +678,13 @@ def main() -> int:
                     "ok": True,
                     "fixture": True,
                     "action": "delete",
-                    "provider": args.provider or "carddav",
+                    "provider": prov,
                     "href": args.href
-                    or "https://cal.example/dav/addressbooks/alice/default/fixture-contact-uid.vcf",
+                    or (
+                        _oauth_contact_href(prov, "people/c-fixture")
+                        if prov == "google"
+                        else "https://cal.example/dav/addressbooks/alice/default/fixture-contact-uid.vcf"
+                    ),
                 }
             )
         )
@@ -421,7 +714,7 @@ def main() -> int:
             json.dumps(
                 {
                     "ok": False,
-                    "error": "no writable CardDAV/Apple seat",
+                    "error": "no writable CardDAV/Apple/Google/MS contacts seat",
                     "action": args.action,
                 }
             )
@@ -433,7 +726,7 @@ def main() -> int:
     elif args.action == "update":
         result = cmd_update(provider, args.href, args.name, args.email, args.uid)
     else:
-        result = cmd_delete(provider, args.href)
+        result = cmd_delete(provider, args.href, args.uid)
     print(json.dumps(result))
     return 0 if result.get("ok") else 1
 
