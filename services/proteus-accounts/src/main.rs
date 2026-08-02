@@ -22,6 +22,10 @@ const GOOGLE_AUTH: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN: &str = "https://oauth2.googleapis.com/token";
 const GOOGLE_SCOPES: &str = "openid email profile";
 
+const MS_AUTH: &str = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
+const MS_TOKEN: &str = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
+const MS_SCOPES: &str = "openid profile email offline_access User.Read";
+
 #[derive(Clone, Serialize, Deserialize)]
 struct CatalogEntry {
     id: String,
@@ -40,6 +44,8 @@ struct Seat {
     label: String,
     #[serde(default)]
     email: String,
+    #[serde(default, rename = "baseUrl")]
+    base_url: String,
     connected_at: u64,
 }
 
@@ -57,6 +63,13 @@ struct TokenBlob {
     expires_at: u64,
     #[serde(default)]
     id_token: String,
+    /// Nextcloud instance URL (app-password seats); empty for OAuth providers.
+    #[serde(default, rename = "baseUrl")]
+    base_url: String,
+    #[serde(default)]
+    username: String,
+    #[serde(default)]
+    kind: String,
 }
 
 fn usage() -> ! {
@@ -65,7 +78,9 @@ fn usage() -> ! {
          catalog              — JSON connector catalog\n\
          status               — catalog + seats (no secrets)\n\
          list                 — connected seats only\n\
-         connect <provider>   — google (PKCE); needs PROTEUS_GOOGLE_OAUTH_CLIENT_ID\n\
+         connect google       — Google PKCE (PROTEUS_GOOGLE_OAUTH_CLIENT_ID)\n\
+         connect microsoft    — Microsoft PKCE (PROTEUS_MICROSOFT_OAUTH_CLIENT_ID)\n\
+         connect nextcloud <base-url> <user> <app-password>\n\
          disconnect <seat-id> — remove seat + token vault entry\n\
          smoke                — static self-check JSON"
     );
@@ -85,15 +100,15 @@ fn catalog() -> Vec<CatalogEntry> {
             id: "microsoft".into(),
             label: "Microsoft".into(),
             connect_kind: "oauth_pkce".into(),
-            v1_status: "listed".into(),
-            hint: "Entra / MSA — connect later".into(),
+            v1_status: "connectable".into(),
+            hint: "Sign in with Microsoft (Entra / MSA · openid · profile · email)".into(),
         },
         CatalogEntry {
             id: "nextcloud".into(),
             label: "Nextcloud".into(),
-            connect_kind: "oauth_or_app_password".into(),
-            v1_status: "listed".into(),
-            hint: "Self-hosted instance — connect later".into(),
+            connect_kind: "app_password".into(),
+            v1_status: "connectable".into(),
+            hint: "Self-hosted instance · app password (Settings → Security)".into(),
         },
         CatalogEntry {
             id: "apple".into(),
@@ -222,24 +237,38 @@ fn pkce_challenge(verifier: &str) -> String {
     URL_SAFE_NO_PAD.encode(hasher.finalize())
 }
 
-fn google_client_id() -> Result<String, String> {
-    if let Ok(v) = env::var("PROTEUS_GOOGLE_OAUTH_CLIENT_ID") {
+fn oauth_client_id(env_key: &str, file_name: &str, label: &str) -> Result<String, String> {
+    if let Ok(v) = env::var(env_key) {
         let t = v.trim().to_string();
         if !t.is_empty() {
             return Ok(t);
         }
     }
-    let p = xdg_config().join("proteus/oauth-google-client-id");
+    let p = xdg_config().join("proteus").join(file_name);
     if let Ok(s) = fs::read_to_string(p) {
         let t = s.trim().to_string();
         if !t.is_empty() {
             return Ok(t);
         }
     }
-    Err(
-        "Google client id missing — set PROTEUS_GOOGLE_OAUTH_CLIENT_ID or \
-         ~/.config/proteus/oauth-google-client-id"
-            .into(),
+    Err(format!(
+        "{label} client id missing — set {env_key} or ~/.config/proteus/{file_name}"
+    ))
+}
+
+fn google_client_id() -> Result<String, String> {
+    oauth_client_id(
+        "PROTEUS_GOOGLE_OAUTH_CLIENT_ID",
+        "oauth-google-client-id",
+        "Google",
+    )
+}
+
+fn microsoft_client_id() -> Result<String, String> {
+    oauth_client_id(
+        "PROTEUS_MICROSOFT_OAUTH_CLIENT_ID",
+        "oauth-microsoft-client-id",
+        "Microsoft",
     )
 }
 
@@ -362,6 +391,61 @@ fn exchange_google_token(
         refresh_token: refresh,
         expires_at: now_secs().saturating_add(expires_in),
         id_token,
+        base_url: String::new(),
+        username: String::new(),
+        kind: "oauth_pkce".into(),
+    })
+}
+
+fn exchange_oauth_token(
+    token_url: &str,
+    client_id: &str,
+    code: &str,
+    redirect_uri: &str,
+    verifier: &str,
+) -> Result<TokenBlob, String> {
+    let form = [
+        ("code", code),
+        ("client_id", client_id),
+        ("redirect_uri", redirect_uri),
+        ("grant_type", "authorization_code"),
+        ("code_verifier", verifier),
+    ];
+    let resp = ureq::post(token_url)
+        .set("Content-Type", "application/x-www-form-urlencoded")
+        .send_form(&form)
+        .map_err(|e| format!("token exchange: {e}"))?;
+    let body: Value = resp.into_json().map_err(|e| format!("token json: {e}"))?;
+    if let Some(err) = body.get("error") {
+        return Err(format!(
+            "token error: {err} {}",
+            body.get("error_description").unwrap_or(&Value::Null)
+        ));
+    }
+    let access = body
+        .get("access_token")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "missing access_token".to_string())?
+        .to_string();
+    let refresh = body
+        .get("refresh_token")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let id_token = body
+        .get("id_token")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let expires_in = body.get("expires_in").and_then(|v| v.as_u64()).unwrap_or(3600);
+    Ok(TokenBlob {
+        access_token: access,
+        refresh_token: refresh,
+        expires_at: now_secs().saturating_add(expires_in),
+        id_token,
+        base_url: String::new(),
+        username: String::new(),
+        kind: "oauth_pkce".into(),
     })
 }
 
@@ -383,10 +467,46 @@ fn email_from_id_token(id_token: &str) -> String {
     let Ok(v) = serde_json::from_slice::<Value>(&bytes) else {
         return String::new();
     };
-    v.get("email")
-        .and_then(|e| e.as_str())
-        .unwrap_or("")
-        .to_string()
+    for key in ["email", "preferred_username", "upn"] {
+        if let Some(e) = v.get(key).and_then(|e| e.as_str()) {
+            if !e.is_empty() {
+                return e.to_string();
+            }
+        }
+    }
+    String::new()
+}
+
+fn replace_provider_seat(
+    provider: &str,
+    seat: Seat,
+    blob: &TokenBlob,
+) -> Result<Value, String> {
+    save_token(&seat.id, blob)?;
+    let mut idx = load_index();
+    let old: Vec<_> = idx
+        .seats
+        .iter()
+        .filter(|s| s.provider == provider)
+        .map(|s| s.id.clone())
+        .collect();
+    for id in &old {
+        clear_token(id);
+    }
+    idx.seats.retain(|s| s.provider != provider);
+    let out = json!({
+        "ok": true,
+        "seat": {
+            "id": seat.id,
+            "provider": seat.provider,
+            "label": seat.label,
+            "email": seat.email,
+            "baseUrl": seat.base_url,
+        }
+    });
+    idx.seats.push(seat);
+    save_index(&idx)?;
+    Ok(out)
 }
 
 fn connect_google() -> Result<Value, String> {
@@ -425,38 +545,158 @@ fn connect_google() -> Result<Value, String> {
         email.clone()
     };
     let seat_id = format!("google-{}", now_secs());
-    save_token(&seat_id, &blob)?;
+    replace_provider_seat(
+        "google",
+        Seat {
+            id: seat_id,
+            provider: "google".into(),
+            label,
+            email,
+            base_url: String::new(),
+            connected_at: now_secs(),
+        },
+        &blob,
+    )
+}
 
-    let mut idx = load_index();
-    // Replace prior google seats (one Google identity seat for v1).
-    let old: Vec<_> = idx
-        .seats
-        .iter()
-        .filter(|s| s.provider == "google")
-        .map(|s| s.id.clone())
-        .collect();
-    for id in &old {
-        clear_token(id);
+fn connect_microsoft() -> Result<Value, String> {
+    let client_id = microsoft_client_id()?;
+    let listener = TcpListener::bind("127.0.0.1:0").map_err(|e| e.to_string())?;
+    let port = listener.local_addr().map_err(|e| e.to_string())?.port();
+    let redirect = format!("http://127.0.0.1:{port}/callback");
+    let verifier = b64url_rand(32);
+    let challenge = pkce_challenge(&verifier);
+    let state = b64url_rand(16);
+
+    let mut auth = Url::parse(MS_AUTH).map_err(|e| e.to_string())?;
+    {
+        let mut q = auth.query_pairs_mut();
+        q.append_pair("client_id", &client_id);
+        q.append_pair("redirect_uri", &redirect);
+        q.append_pair("response_type", "code");
+        q.append_pair("scope", MS_SCOPES);
+        q.append_pair("state", &state);
+        q.append_pair("code_challenge", &challenge);
+        q.append_pair("code_challenge_method", "S256");
+        q.append_pair("prompt", "select_account");
     }
-    idx.seats.retain(|s| s.provider != "google");
-    idx.seats.push(Seat {
-        id: seat_id.clone(),
-        provider: "google".into(),
-        label: label.clone(),
-        email: email.clone(),
-        connected_at: now_secs(),
-    });
-    save_index(&idx)?;
 
-    Ok(json!({
-        "ok": true,
-        "seat": {
-            "id": seat_id,
-            "provider": "google",
-            "label": label,
-            "email": email,
-        }
-    }))
+    eprintln!("Opening browser for Microsoft sign-in…");
+    eprintln!("If nothing opens, visit:\n  {}", auth.as_str());
+    let _ = open_browser(auth.as_str());
+
+    let code = wait_oauth_code(&listener, &state)?;
+    let blob = exchange_oauth_token(MS_TOKEN, &client_id, &code, &redirect, &verifier)?;
+    let email = email_from_id_token(&blob.id_token);
+    let label = if email.is_empty() {
+        "Microsoft".to_string()
+    } else {
+        email.clone()
+    };
+    let seat_id = format!("microsoft-{}", now_secs());
+    replace_provider_seat(
+        "microsoft",
+        Seat {
+            id: seat_id,
+            provider: "microsoft".into(),
+            label,
+            email,
+            base_url: String::new(),
+            connected_at: now_secs(),
+        },
+        &blob,
+    )
+}
+
+fn normalize_nextcloud_base(raw: &str) -> Result<String, String> {
+    let t = raw.trim().trim_end_matches('/').to_string();
+    if t.is_empty() {
+        return Err("nextcloud base URL required".into());
+    }
+    let url = Url::parse(&t).map_err(|e| format!("invalid nextcloud URL: {e}"))?;
+    match url.scheme() {
+        "http" | "https" => {}
+        other => return Err(format!("nextcloud URL scheme must be http(s), got {other}")),
+    }
+    if url.host_str().unwrap_or("").is_empty() {
+        return Err("nextcloud URL missing host".into());
+    }
+    Ok(t)
+}
+
+fn basic_auth_header(user: &str, pass: &str) -> String {
+    format!("Basic {}", B64.encode(format!("{user}:{pass}")))
+}
+
+fn verify_nextcloud(base: &str, user: &str, pass: &str) -> Result<(), String> {
+    if env::var("PROTEUS_ACCOUNTS_SKIP_VERIFY")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+    {
+        return Ok(());
+    }
+    let status_url = format!("{base}/status.php");
+    let status = ureq::get(&status_url)
+        .timeout(std::time::Duration::from_secs(12))
+        .call()
+        .map_err(|e| format!("nextcloud status.php unreachable: {e}"))?;
+    if !(200..300).contains(&status.status()) {
+        return Err(format!(
+            "nextcloud status.php HTTP {}",
+            status.status()
+        ));
+    }
+    let ocs = format!("{base}/ocs/v2.php/cloud/user");
+    let resp = ureq::get(&ocs)
+        .timeout(std::time::Duration::from_secs(12))
+        .set("OCS-APIRequest", "true")
+        .set("Accept", "application/json")
+        .set("Authorization", &basic_auth_header(user, pass))
+        .call()
+        .map_err(|e| format!("nextcloud auth failed: {e}"))?;
+    if !(200..300).contains(&resp.status()) {
+        return Err(format!(
+            "nextcloud app-password rejected (HTTP {})",
+            resp.status()
+        ));
+    }
+    Ok(())
+}
+
+fn connect_nextcloud(base_url: &str, username: &str, app_password: &str) -> Result<Value, String> {
+    let base = normalize_nextcloud_base(base_url)?;
+    let user = username.trim().to_string();
+    let pass = app_password.trim().to_string();
+    if user.is_empty() {
+        return Err("nextcloud username required".into());
+    }
+    if pass.is_empty() {
+        return Err("nextcloud app password required".into());
+    }
+    verify_nextcloud(&base, &user, &pass)?;
+    let label = format!("{user}@{base}");
+    let seat_id = format!("nextcloud-{}", now_secs());
+    let blob = TokenBlob {
+        access_token: pass,
+        refresh_token: String::new(),
+        expires_at: 0,
+        id_token: String::new(),
+        base_url: base.clone(),
+        username: user.clone(),
+        kind: "app_password".into(),
+    };
+    replace_provider_seat(
+        "nextcloud",
+        Seat {
+            id: seat_id,
+            provider: "nextcloud".into(),
+            label,
+            email: user,
+            base_url: base,
+            connected_at: now_secs(),
+        },
+        &blob,
+    )
 }
 
 fn disconnect_seat(seat_id: &str) -> Result<Value, String> {
@@ -502,9 +742,12 @@ fn status_json() -> Value {
         })
         .collect();
     let google_ready = google_client_id().is_ok();
+    let microsoft_ready = microsoft_client_id().is_ok();
     json!({
         "ok": true,
         "googleClientConfigured": google_ready,
+        "microsoftClientConfigured": microsoft_ready,
+        "nextcloudConnectable": true,
         "connectors": rows,
         "seats": seats,
     })
@@ -518,6 +761,8 @@ fn smoke_json() -> Value {
         "indexPath": index_path().display().to_string(),
         "vaultDir": vault.display().to_string(),
         "googleClientConfigured": google_client_id().is_ok(),
+        "microsoftClientConfigured": microsoft_client_id().is_ok(),
+        "nextcloudConnectable": true,
         "secretsInSettingsJson": false,
     })
 }
@@ -542,7 +787,22 @@ fn main() -> ExitCode {
             let provider = args.next().unwrap_or_default();
             match provider.as_str() {
                 "google" => connect_google(),
-                "" => Err("connect requires provider (google)".into()),
+                "microsoft" => connect_microsoft(),
+                "nextcloud" => {
+                    let base = args.next().unwrap_or_default();
+                    let user = args.next().unwrap_or_default();
+                    let pass = args.next().unwrap_or_default();
+                    if base.is_empty() || user.is_empty() || pass.is_empty() {
+                        Err(
+                            "connect nextcloud requires <base-url> <user> <app-password>".into(),
+                        )
+                    } else {
+                        connect_nextcloud(&base, &user, &pass)
+                    }
+                }
+                "" => Err(
+                    "connect requires provider (google|microsoft|nextcloud)".into(),
+                ),
                 other => Err(format!("provider not connectable in v1: {other}")),
             }
         }
@@ -580,7 +840,26 @@ mod tests {
         assert!(ids.contains(&"google".into()));
         assert!(ids.contains(&"microsoft".into()));
         assert!(ids.contains(&"nextcloud".into()));
-        assert_eq!(catalog().iter().find(|c| c.id == "google").unwrap().v1_status, "connectable");
+        assert_eq!(
+            catalog().iter().find(|c| c.id == "google").unwrap().v1_status,
+            "connectable"
+        );
+        assert_eq!(
+            catalog()
+                .iter()
+                .find(|c| c.id == "microsoft")
+                .unwrap()
+                .v1_status,
+            "connectable"
+        );
+        assert_eq!(
+            catalog()
+                .iter()
+                .find(|c| c.id == "nextcloud")
+                .unwrap()
+                .v1_status,
+            "connectable"
+        );
     }
 
     #[test]
@@ -588,5 +867,15 @@ mod tests {
         let c = pkce_challenge("test-verifier-value-0123456789");
         assert!(!c.is_empty());
         assert_eq!(c, pkce_challenge("test-verifier-value-0123456789"));
+    }
+
+    #[test]
+    fn nextcloud_url_normalizes() {
+        assert_eq!(
+            normalize_nextcloud_base("https://cloud.example/").unwrap(),
+            "https://cloud.example"
+        );
+        assert!(normalize_nextcloud_base("ftp://x").is_err());
+        assert!(normalize_nextcloud_base("").is_err());
     }
 }
