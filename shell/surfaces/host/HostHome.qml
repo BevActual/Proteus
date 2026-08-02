@@ -3,7 +3,8 @@ import QtQuick
 import QtQuick.Layouts
 import "../../shared"
 
-// Host ops home — calm glance + Settings spine shortcuts (not a workloads app).
+// Host ops home — calm glance + Settings spine shortcuts.
+// Thin VM/container glance via Workloads; full workloads app stays Out.
 Item {
   id: root
   anchors.fill: parent
@@ -15,8 +16,11 @@ Item {
       SystemInfo.refresh()
       SystemLoad.retain()
       SystemLoad.refresh()
+      Workloads.retain()
+      Workloads.refresh()
     } else {
       SystemLoad.release()
+      Workloads.release()
     }
   }
 
@@ -25,10 +29,15 @@ Item {
       SystemInfo.refresh()
       SystemLoad.retain()
       SystemLoad.refresh()
+      Workloads.retain()
+      Workloads.refresh()
     }
   }
 
-  Component.onDestruction: SystemLoad.release()
+  Component.onDestruction: {
+    SystemLoad.release()
+    Workloads.release()
+  }
 
   function openTerminal() {
     Quickshell.execDetached({
@@ -124,6 +133,64 @@ Item {
         font.pixelSize: Theme.fontSizeSm
         wrapMode: Text.WordWrap
       }
+
+      Text {
+        Layout.fillWidth: true
+        text: Workloads.summaryLabel
+        color: Theme.textDim
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+        wrapMode: Text.WordWrap
+      }
+
+      ColumnLayout {
+        Layout.fillWidth: true
+        spacing: 2
+        visible: Workloads.domains.length > 0 || Workloads.containers.length > 0
+
+        Repeater {
+          model: Workloads.domains.slice(0, 4)
+
+          Text {
+            required property var modelData
+            Layout.fillWidth: true
+            text: "VM · " + String(modelData.name || "—")
+                + " · " + String(modelData.state || "")
+            color: Theme.textMute
+            font.family: Theme.fontFamily
+            font.pixelSize: 11
+            elide: Text.ElideRight
+          }
+        }
+
+        Repeater {
+          model: Workloads.containers.slice(0, 4)
+
+          Text {
+            required property var modelData
+            Layout.fillWidth: true
+            text: (Workloads.containerEngine || "ctr") + " · "
+                + String(modelData.name || "—")
+                + (modelData.status ? " · " + String(modelData.status) : "")
+            color: Theme.textMute
+            font.family: Theme.fontFamily
+            font.pixelSize: 11
+            elide: Text.ElideRight
+          }
+        }
+      }
+
+      Text {
+        Layout.fillWidth: true
+        visible: Workloads.hint.length > 0
+            && Workloads.domains.length === 0
+            && Workloads.containers.length === 0
+        text: Workloads.hint
+        color: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: 11
+        wrapMode: Text.WordWrap
+      }
     }
 
     GridLayout {
@@ -180,7 +247,7 @@ Item {
 
     Text {
       Layout.fillWidth: true
-      text: "Fact: Host ops home reuses Settings — VM/container setup stays a separate app later. Headless-no-QS Out."
+      text: "Fact: thin VM/container glance only — full Host workloads app · create/destroy · Settings virt · headless-no-QS Out."
       color: Theme.textMute
       font.family: Theme.fontFamily
       font.pixelSize: 11
