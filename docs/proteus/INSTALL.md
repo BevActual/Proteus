@@ -53,17 +53,22 @@ which the `console` stage enables).
 
 ## Console dogfood after the overlay
 
-The `console` stage installs the seat kit (`proteus-console-seat`,
-`proteus-console-capabilities`, `proteus-console-launch` on PATH — symlinked to
-the live tree when `PROTEUS_ROOT=/mnt/proteus`) and seeds `console.conf`. Then:
+The `console` stage (and the earlier `apps` stage) put the seat kit on PATH —
+`proteus-console-seat`, `proteus-console-capabilities`, `proteus-console-launch`
+(symlinked to the live tree when `PROTEUS_ROOT=/mnt/proteus`) — and seeds
+`console.conf`. Then:
 
 ```bash
 proteus-posture console          # hard flip (fact + hypr profile + chrome restart)
 proteus-console-seat --expect-class steam -- steam -gamepadui
+# seat map/fullscreen trail:
+#   tail -f /run/user/$UID/proteus-console-seat.log
 ```
 
-Pad passthrough (`PROTEUS_VM_PAD=auto`), Steam/RetroArch specifics, and VM
-audio/GL caveats live in [vm/README.md](../../vm/README.md).
+Phase 1 = supervised seats + capabilities probe (Gamescope only when
+`gamescopeUsable`; QEMU/VirGL typically bare kiosk). **Phase 2** Gamescope
+*session* is Out. Pad passthrough (`PROTEUS_VM_PAD=auto`), Steam/RetroArch
+specifics, and VM audio/GL caveats live in [vm/README.md](../../vm/README.md).
 
 ## Honesty / expectations
 

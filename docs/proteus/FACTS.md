@@ -32,6 +32,7 @@ before inventing a second store.
 | `~/.config/hypr/proteus-monitors.conf` | `Displays.qml` | Hyprland |
 | `~/.config/hypr/proteus-profile.conf` | `set-hypr-profile.sh` / `HyprProfile.qml` / `proteus-posture` / seed | Hyprland `source =` → `profiles/*.conf` |
 | `~/.config/proteus/posture` | `proteus-posture` | Hard-switch Fact (`desktop` \| `console`); boot / `proteus-qs` when `PROTEUS_SURFACE` unset; mid-session flips also set env `PROTEUS_SKIP_SESSION_LOCK=1` |
+| `/run/user/$UID/proteus-console-seat.log` | `proteus-console-seat` | Console Phase 1 seat map/fullscreen trail (runtime; not settings.json) |
 | `~/.config/hypr/profiles/*.conf` | seed / manual / Settings soft picker | Active soft profile via pointer |
 | `~/.local/share/proteus/backgrounds/` | Background daily/album flows | `proteus-bg` / wallpaper runner |
 | `~/.config/systemd/user/proteus-qs.service` | `install-proteus-qs-user-unit.sh` (opt-in) | `systemctl --user` · alternative to hypr `exec-once` |
