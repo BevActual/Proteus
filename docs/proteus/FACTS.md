@@ -68,7 +68,7 @@ directory**. Name helpers clearly (`BackgroundDaily.qml`, `ConfigHypr.qml`, …)
 |------|-------|------|
 | Preference / chrome state | QML (`shell/shared/…`) | One Config schema; façades mutate via FileView or thin helpers |
 | Read-only discovery | Python OK (`services/proteus-hw-probe`) | JSON out; no privileged write |
-| Privileged mutation | Rust CLI (`services/proteus-pkg`, `services/proteus-logind`, …) + polkit | Settings proposes → confirm → helper |
+| Privileged mutation | Rust CLI (`services/proteus-pkg`, `services/proteus-logind`, `services/proteus-greetd`, …) + polkit | Settings proposes → confirm → helper |
 | Online accounts seats | Rust CLI `services/proteus-accounts` (user vault; no polkit) | Tokens outside `settings.json`; PKCE browser connect |
 | Hot-path read (mixer) | Rust resident `proteus-audio-mix serve` (+ Python fallback) | Dump+peaks while Apps/Mixer open |
 | Power mode (PPD) | `powerprofilesctl` / `power-profiles-daemon` (session polkit) | Eco = `power-saver`; no Proteus helper |

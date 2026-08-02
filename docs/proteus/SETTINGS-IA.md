@@ -110,7 +110,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Network** (`network`) | Category → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN — password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG import | hostnamectl / nmcli / bluetoothctl / localsend / tailscale / `NetworkDiagnostics` | `shipped` |
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse, Gamepads (Guide Facts); later touchpad / tablet | keybinds + input hyprctl + `gamepadsGuide*` | `shipped` |
 | **Power** (`power`) | Power mode segmented (PPD); battery (UPower); idle / lid FormRows via `proteus-logind` drop-in + conf escape | `powerprofilesctl` / UPower / `proteus-logind` | `shipped` |
-| **Users** (`users`) | Session Lock/Logout + confirm Reboot/Shutdown; lock screen PIN set/change/clear; current user (GECOS/home) + other local users read-only; Online accounts jump; greetd status + conf escape | `Config.session` · `proteus-pin.py` (hash under `~/.local/share/proteus/auth/`) · id/getent · greetd/`/etc/greetd/config.toml` | `shipped` |
+| **Users** (`users`) | Session Lock/Logout + confirm Reboot/Shutdown; lock screen PIN set/change/clear; current user (GECOS/home) + other local users read-only; Online accounts jump; greetd status + autologin write + conf escape | `Config.session` · `proteus-pin.py` · id/getent · `proteus-greetd` (pkexec `[initial_session]`) | `shipped` |
 | **Online accounts** (`accounts`) | Connector catalog + Google/Microsoft PKCE + Nextcloud app-password seats (`proteus-accounts` vault); Apple/Exchange/… listed | `proteus-accounts` + `Accounts.qml` (mail/contacts apps Out) | `partial` |
 | **Date, time & weather** (`datetime`) | Live clock, searchable timezone + locale pickers, NTP, **Location** (place + units + 5-day forecast + Match TZ) | `timedatectl` / `localectl set-locale` / Open-Meteo | `shipped` |
 | **Notifications** (`notifications`) | Prefs: hard DND · jump to Focus · live list stays Control Center | `notificationsDnd` · FocusMode | `shipped` |
@@ -328,7 +328,7 @@ prefs stay Out).
 
 Depth order for what’s left:
 
-1. **Users depth** — write greeter/autologin prefs; add-remove stays Out of Settings  
+1. ~~Users depth~~ — greetd autologin write via `proteus-greetd` shipped; add-remove stays Out of Settings  
 2. ~~Online accounts depth~~ — Microsoft / Nextcloud connect shipped; Apple/Exchange/IMAP/CalDAV/CardDAV + consumers stay Out  
 3. **Privacy native enforcement** — PipeWire/v4l2 policy / portal store write stay Out  
 4. **Network polish** — largely shipped (IPv4 on Devices · Diagnostics ss/firewall); Headscale admin / OpenVPN wizard stay Out  
@@ -342,6 +342,8 @@ Depth order for what’s left:
 *(Network depth: password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG import shipped — Headscale admin / OpenVPN wizard Out.)*
 *(Control Center notifications + QS depth shipped — Settings Notifications prefs pane shipped; live list stays CC.)*
 *(Users session + greetd status shipped — writing greeter prefs / useradd stay Out.)*
+*(Users depth: proteus-greetd pkexec `[initial_session]` autologin toggle + users-smoke
+shipped — greetd restart mid-session · tuigreet theme · useradd stay Out.)*
 *(Users polish: Reboot/Shutdown confirm · GECOS/home · Online accounts jump · lock screen PIN shipped.)*
 *(Lock PIN catch-up: apps/check harness · lock-pin-smoke install/PAM source ·
 INSTALL/FACTS honesty shipped — biometrics · greetd PIN · require proteus-lock
