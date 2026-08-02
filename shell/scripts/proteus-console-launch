@@ -110,12 +110,26 @@ gamescope_usable() {
   return 0
 }
 
+# Phase 2: session mode may supply adaptive gamescope flags (size + grab).
+SESSION="${HERE}/proteus-console-session"
+if [[ ! -x "${SESSION}" ]]; then
+  SESSION="$(command -v proteus-console-session || true)"
+fi
+
 if [[ "${USE_GAMESCOPE}" -eq 1 ]]; then
   if gamescope_usable; then
-    if ((${#ENV_ARGS[@]})); then
-      exec env "${ENV_ARGS[@]}" gamescope -f -- "$@"
+    GS_FLAGS=(-f)
+    if [[ -x "${SESSION}" ]]; then
+      EXTRA="$("${SESSION}" resolve-flags 2>/dev/null || true)"
+      if [[ -n "${EXTRA}" ]]; then
+        # shellcheck disable=SC2206
+        GS_FLAGS=(${EXTRA})
+      fi
     fi
-    exec gamescope -f -- "$@"
+    if ((${#ENV_ARGS[@]})); then
+      exec env "${ENV_ARGS[@]}" gamescope "${GS_FLAGS[@]}" -- "$@"
+    fi
+    exec gamescope "${GS_FLAGS[@]}" -- "$@"
   else
     echo "proteus-console-launch: gamescope unavailable (no Vulkan / VM) — running bare" >&2
   fi

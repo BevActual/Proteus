@@ -74,6 +74,20 @@ PY
   pad=1
 fi
 
+MODE="seat"
+FACT="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/console-session-mode"
+if [[ -f "${FACT}" ]]; then
+  MODE="$(tr -d '[:space:]' <"${FACT}" || true)"
+fi
+case "${MODE}" in
+  seat|gamescope) ;;
+  *) MODE=seat ;;
+esac
+EFFECTIVE="seat"
+if [[ "${MODE}" == "gamescope" && "${gamescope_usable}" -eq 1 ]]; then
+  EFFECTIVE="gamescope"
+fi
+
 python3 - <<PY
 import json
 print(json.dumps({
@@ -84,5 +98,8 @@ print(json.dumps({
     "steam": bool(${steam}),
     "retroarch": bool(${retroarch}),
     "pad": bool(${pad}),
+    "sessionMode": "${MODE}",
+    "sessionEffective": "${EFFECTIVE}",
+    "replacesHyprland": False,
 }))
 PY
