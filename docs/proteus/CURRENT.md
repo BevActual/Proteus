@@ -74,7 +74,7 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 | Lock screen (`Super+L`, PAM + `WlSessionLock`) | `shipped` — Customize mode, zone layout, applets; cold boot auto-lock **with no desktop peek** (bar/dock/widgets **and** Beacon/CC/calendar/toasts/HUD gate on `sessionStartLockPending`; overlay toggles blocked while pending; held until first unlock — only the wallpaper maps beneath the lock); wake-up keystroke is kept for password mode (PIN digits already were); attempt cooldown after 3 misses; optional **unlock PIN** (numpad + keyboard digits, auto-submit; password still works) — PIN pad vertically centered above applets, strip widgets hide while PIN is up, layout reserve keeps tiles out of the auth band; via `check-unlock.py` + hashed `~/.local/share/proteus/auth/pin`; **console** reuses the same `LockSurface` / PAM+PIN path (`ConsoleShell` hosts `WlSessionLock`) |
 | Global shortcuts (Beacon, settings, lock) | `shipped` |
 | Hardware probe at session start (`Hardware.qml`) | `shipped` — Wave A |
-| Env gate (Beacon / Settings / dock) | `shipped` — `EnvGate.qml` (+ `env/apps` manifests); app icon resolve + Proteus brand marks |
+| Env gate (Beacon / Settings / dock) | `shipped` — `EnvGate.qml` (+ `env/apps` manifests); **postures** hard allow-list · **prefers** soft hint/boost; app icon resolve + Proteus brand marks |
 | Chrome design lock (`CHROME.md`) | `shipped` — principles + token tables + Settings patterns; sibling export `env/chrome/` `shipped` |
 | Theme tokens | `shipped` — space/radius scale + accent/font from Config; company lock [CHROME.md](./CHROME.md) |
 | Themed controls (`ThemeSlider` / `ThemeSwitch`) | `shipped` — shared accent Slider/Switch wrappers (`shell/shared/`) used by all Settings panes, Control Center Sound plate, and lock clock HUD; stock Controls variants smoke-banned (`chrome-tokens-smoke`) |
@@ -193,7 +193,7 @@ Library/Search are destinations from the slim top chrome.
 | `./scripts/smoke/ipc-contract-smoke.sh` | Smoke `qs ipc call` sites ⊆ shell/Settings `IpcHandler` methods |
 | `./scripts/smoke/config-roundtrip-smoke.sh` | Mutate `settings.minimal.json` prefs; still ⊆ Config keys + JSON round-trip |
 | `./scripts/smoke/config-schema-smoke.sh` | Config FileView keys ↔ `tests/fixtures/settings.minimal.json` |
-| `./scripts/smoke/app-manifest-smoke.sh` | `env/apps` schema + catalog gate |
+| `./scripts/smoke/app-manifest-smoke.sh` | `env/apps` schema + catalog + EnvGate postures/prefers wiring |
 | `./scripts/smoke/chrome-tokens-smoke.sh` | `env/chrome` tokens JSON/CSS + ThemeSlider/ThemeSwitch stock-ban |
 | `./scripts/smoke/software-reliability-smoke.sh` | Host static checks — all six Software leaves + hub helper honesty + op narrative / leafUi |
 | `./scripts/smoke/power-logind-smoke.sh` | Host static checks for `proteus-logind` + Power.qml wiring |
@@ -228,7 +228,7 @@ Install path SoT (three layers, knobs, repair, failures): [INSTALL.md](./INSTALL
 |------|-----|-------------|
 | Stack split (QML / Tauri / Rust) | [STACK.md](./STACK.md) | Settings+shell = QML; no Tauri apps yet |
 | Hyprland as backend + QS limits | [COMPOSITOR.md](./COMPOSITOR.md) | Desktop Hyprland `shipped`; console + host hard switches `partial` (ConsoleShell/HostShell + proteus-posture skip re-lock + profiles); home parked |
-| Adaptive apps / environment contract | [APPLICATIONS.md](./APPLICATIONS.md) | `partial` — `env/apps` manifests + EnvGate prefer; postures unused |
+| Adaptive apps / environment contract | [APPLICATIONS.md](./APPLICATIONS.md) | `partial` — `env/apps` manifests + EnvGate requires/postures/prefers; device_classes Out |
 | Hardware module catalog | [HARDWARE.md](./HARDWARE.md) | Wave A probe + `Hardware.qml` session load |
 | Capability / posture resolver | [POSTURES.md](./POSTURES.md) | Probe → caps in shell; posture still stub |
 | Chrome language (company reference) | [CHROME.md](./CHROME.md) | `Theme.qml` + Settings `kit/` + `env/chrome/` export `shipped`; Rowena retarget `partial` |
@@ -245,7 +245,7 @@ Install path SoT (three layers, knobs, repair, failures): [INSTALL.md](./INSTALL
 - pacman IgnorePkg / ISO QS version pin (record + smoke only today)  
 - First-party Tauri app under `apps/`  
 - More Rust helper CLIs under `services/` (Wave A probe is Python; `proteus-pkg` + `proteus-logind` mutators + `proteus-audio-mix` resident dump/peaks shipped; mixer mutations still Python)  
-- Posture / prefers / device_classes enforcement on manifests (schema only today)  
+- device_classes / adapts enforcement on manifests (postures + prefers shipped)  
 - ISO / installer productization (dogfood overlay in `vm/install/` is enough for now; path documented in [INSTALL.md](./INSTALL.md))  
 - Rowena (and other sibling) CSS retarget onto `--proteus-*` export  
 

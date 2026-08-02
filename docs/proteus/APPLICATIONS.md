@@ -85,9 +85,9 @@ Likewise: a **TV** is a device class that often runs **console** posture; a
 ## 3. App contract
 
 `partial` — Wave A manifests ship under `env/apps/`; EnvGate enforces
-`requires` / `requiresAny` when a desktop entry matches. `prefers` /
-`postures` / `device_classes` / `adapts` remain docs-forward (schema allows;
-gating ignores).
+`requires` / `requiresAny` / **`postures`** (hard vs SessionPosture) when a
+desktop entry matches; **`prefers`** is soft (Beacon hint + search boost).
+`device_classes` / `adapts` remain docs-forward (schema allows; gating ignores).
 
 Each app declares a contract (manifest / metadata):
 
@@ -95,8 +95,8 @@ Each app declares a contract (manifest / metadata):
 |-------|---------|
 | **requires** | Capabilities that must be present or the app doesn’t offer itself |
 | **requiresAny** | At least one of these capabilities must be present |
-| **prefers** | Soft hints (larger display, pointer, …) for layout defaults |
-| **postures** | Where it is allowed or primary (`host`, `console`, `desktop`, …) |
+| **prefers** | Soft capability hints — Beacon subtitle + ranking boost (never blocks) |
+| **postures** | Hard allow-list vs session posture (`desktop` · `console` · `host`; empty = any) |
 | **device_classes** | Optional allow/deny (e.g. vitals UI on `watch` / `phone` only) |
 | **adapts** | Which UI facets change (nav density, input, panes) |
 
@@ -187,8 +187,8 @@ adaptive app can honor the contract.
 | Item | Status |
 |------|--------|
 | Environment tuple (docs) | `planned` / locked in prose |
-| App capability manifest | `partial` — `env/apps/` schema + catalog; EnvGate load |
-| Beacon filtering by contract | `partial` — manifest match + heuristic fallback |
+| App capability manifest | `partial` — `env/apps/` schema + catalog; EnvGate load + postures/prefers |
+| Beacon filtering by contract | `partial` — manifest match + heuristic fallback + prefers boost |
 | DesktopEntries launcher | `shipped` (desktop) |
 | Console lean seats | `partial` — Browser / Media / Terminal / Steam / RetroArch / Desktop via `proteus-console-launch`; Jump Back In = `consoleRecents`; Library/Search = DesktopEntries (+ Games tag); Web apps from Software leaf |
 
