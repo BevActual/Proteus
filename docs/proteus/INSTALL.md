@@ -82,6 +82,10 @@ audio/GL caveats live in [vm/README.md](../../vm/README.md).
   `settings.json`. Optional PAM service `proteus-lock` is installed from
   `shell/pam/proteus-lock` via `vm/guest/install-lock-pam.sh`; if that step
   skips (no `system-auth`), the lock falls back to the `login` PAM stack.
+- **Beacon Files index** — `apps` stage puts `beacon-file-index.py` on PATH.
+  Cache: `~/.cache/proteus/beacon-files.json` (fd preferred, `os.walk`
+  fallback; depth ≤5). `fd` / `wtype` are optional — without `wtype`,
+  clipboard paste is copy-only.
 
 ## Failure table
 
