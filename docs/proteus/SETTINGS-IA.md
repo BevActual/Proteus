@@ -201,7 +201,7 @@ pages via `kit/StickyPaneLoader` (`DesktopGapsLeaf`, `DesktopChromeLeaf`,
 | Borders & rounding | Border size + window rounding FormRows; live hypr |
 | Motion | Window animations switch |
 | Dock & menu bar | Show/hide/monitor/size FormRows; Advanced → `proteus-general.conf` |
-| Spaces | Displays share Spaces (`workspaceMode` synced \| perDisplay); Super+Ctrl+N always this display; bands via `proteus-workspace` |
+| Spaces | Displays share Spaces (`workspaceMode` synced \| perDisplay); Super+**1–6** keyboard (+ Super+Ctrl+N local); strip/wheel Spaces **1–10**; bands via `proteus-workspace`; spaces-smoke |
 | Default apps | Browser / Files / Images / Music / Video / PDF / Text / Archives / Mail / Calendar via `proteus-defaults.py` + `xdg-mime`; mimeapps.list escape |
 | Focus | Soft quiet profiles (Work/Sleep/Personal); allowlist · keywords · schedule · critical breakthrough; CC menu + Desktop → Focus leaf |
 | Control Center | Plates + tile visibility/size/span/order + reset (`ControlCenterLayout`); **columns 2\|3 schema only — UI Out** |
@@ -356,7 +356,10 @@ privacy harness shipped — native OS sandbox / portal store write still Out;
 fail-open until Permissions.ready held.)*
 *(Desktop catch-up: desktop-smoke · defaults/beacon-index install · Focus/CC/Spaces
 roundtrip · guest Desktop nav · Beacon Settings blurb · SETTINGS-IA §6 Focus/CC
-rows shipped — CC columns UI · Focus profile CRUD · Spaces multi-head depth Out.)*
+rows shipped — CC columns UI · Focus profile CRUD Out.)*
+*(Spaces catch-up: spaces-smoke · band selftest · guest Spaces nav · 1–6 vs 1–10
+honesty shipped — 2-head VM dogfood · hotplug migration · named Spaces ·
+Super+7–10 binds Out; Spaces row stays `partial` until multi-head dogfood.)*
 *(Beacon catch-up: beacon-smoke · index rebuild/search · FACTS cache path ·
 INSTALL helper honesty shipped — full-text content index · require fd/wtype ·
 Spotlight-class relevance Out.)*
