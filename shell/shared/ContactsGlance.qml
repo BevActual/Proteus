@@ -5,8 +5,9 @@ import Quickshell.Io
 import QtQuick
 
 // Online accounts → contacts for menu-bar CalendarPanel glance.
-// Fact: CardDAV seats via proteus-accounts; fetch via proteus-contacts-glance.py.
-// Create/update/delete via proteus-contacts-mutate.py (CardDAV + Apple Basic auth).
+// Fact: CardDAV/Apple + Google/MS/Exchange seats via proteus-accounts;
+// fetch via proteus-contacts-glance.py; mutate via proteus-contacts-mutate.py
+// (CardDAV/Apple Basic + People/Graph OAuth · name + one email thin).
 Singleton {
   id: root
 
@@ -99,7 +100,8 @@ Singleton {
     mutateProc.command = [
       "python3", root.mutateScript, "delete",
       "--provider", String(c.provider || ""),
-      "--href", String(c.href || "")
+      "--href", String(c.href || ""),
+      "--uid", String(c.uid || c.id || "")
     ]
     mutateProc.running = false
     mutateProc.running = true
