@@ -199,6 +199,13 @@ Singleton {
     root.writeLayout(lay)
   }
 
+  function setColumns(n) {
+    const lay = root.resolvedLayout()
+    const cols = Number(n) === 3 ? 3 : 2
+    lay.columns = cols
+    root.writeLayout(lay)
+  }
+
   function moveTile(id, delta) {
     const lay = root.resolvedLayout()
     const tiles = lay.tiles.slice()
