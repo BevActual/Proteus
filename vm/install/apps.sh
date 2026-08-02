@@ -25,6 +25,7 @@ for s in proteus-screenshot proteus-clipboard proteus-colorpick proteus-terminal
          proteus-console-launch proteus-console-seat proteus-console-capabilities \
          proteus-console-session \
          proteus-permissions.py privacy-indicators.py \
+         proteus-calendar-events.py \
          proteus-defaults.py beacon-file-index.py \
          proteus-pin.py check-unlock.py; do
   proteus_install_helper "${SCRIPTS}/${s}"
