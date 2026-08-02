@@ -358,6 +358,12 @@ grep -Eqe 'composeCc|composeBcc|--cc|--bcc' -- "${MG_QML}" \
   || die "MailGlance missing composeCc/composeBcc"
 grep -qiE 'placeholderText: "Cc"|placeholderText: "Bcc"|CC/BCC' "${CP}" \
   || die "CalendarPanel missing Cc/Bcc fields"
+grep -Eqe '--attach|add_attachment|fileAttachment|ATTACH_MAX' -- "${MSEND}" \
+  || die "proteus-mail-send.py missing attachment send"
+grep -Eqe 'composeAttachPath|--attach|attachHint' -- "${MG_QML}" \
+  || die "MailGlance missing composeAttachPath"
+grep -qiE 'FileDialog|mailAttachDialog|one-file attach|Attach' "${CP}" \
+  || die "CalendarPanel missing Attach FileDialog"
 ok "mail compose wiring"
 
 PROTEUS_MAIL_SEND_FIXTURE=1 python3 "${MSEND}" send \
@@ -376,6 +382,14 @@ assert d.get("ok") is True and d.get("action")=="send"
 assert d.get("cc")==["cc@example.com","other@example.com"]
 assert d.get("bcc")==["bcc@example.com"]
 ' || die "mail send CC/BCC fixture"
+PROTEUS_MAIL_SEND_FIXTURE=1 python3 "${MSEND}" send \
+  --to "smoke@example.com" --subject "Smoke" --body "hi" \
+  --attach "/tmp/fixture-attach.bin" \
+  | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("ok") is True and d.get("action")=="send"
+assert d.get("attachment")=="fixture-attach.bin"
+' || die "mail send attach fixture"
 PROTEUS_MAIL_SEND_FIXTURE=1 python3 "${MSEND}" providers | python3 -c 'import json,sys
 d=json.load(sys.stdin)
 assert d.get("ok") is True and int(d.get("sendableSeats") or 0) >= 1
