@@ -25,7 +25,10 @@ for s in proteus-screenshot proteus-clipboard proteus-colorpick proteus-terminal
          proteus-console-launch proteus-console-seat proteus-console-capabilities \
          proteus-console-session \
          proteus-permissions.py privacy-indicators.py \
-         proteus-calendar-events.py proteus-workloads.py \
+         proteus-calendar-events.py proteus-calendar-mutate.py \
+         proteus-mail-glance.py proteus-mail-send.py proteus-contacts-glance.py \
+         proteus-headscale.py \
+         proteus-workloads.py \
          proteus-defaults.py beacon-file-index.py \
          proteus-pin.py check-unlock.py; do
   proteus_install_helper "${SCRIPTS}/${s}"
@@ -37,6 +40,7 @@ for s in proteus-posture proteus-guide set-hypr-profile.sh; do
 done
 
 proteus_root bash "${GUEST}/install-settings-app.sh"
+proteus_root bash "${GUEST}/install-workloads-app.sh"
 # Idempotent: refresh NoDisplay stubs even if Settings install was a no-op
 proteus_root bash "${GUEST}/hide-system-apps.sh"
 proteus_root bash "${GUEST}/install-proteus-qs-user-unit.sh" || {

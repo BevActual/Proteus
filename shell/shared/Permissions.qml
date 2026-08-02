@@ -74,14 +74,22 @@ Singleton {
   property string flatpakHint: ""
   property bool flatpakLoading: false
 
-  // Ephemeral Allow-once for this session (not persisted). Key: "appId\tcat".
+  // Ephemeral Allow-once for this session (not in permissions.json). Key: "appId\tcat".
+  // Mirrored to XDG_RUNTIME_DIR/proteus/permissions-session.json for capture enforce.
   property var sessionAllow: ({})
   property int sessionRev: 0
 
   readonly property string script: Config.scriptsDir + "/proteus-permissions.py"
   readonly property string storePath: Quickshell.env("HOME") + "/.config/proteus/permissions.json"
+  readonly property string sessionPath: {
+    const rt = Quickshell.env("XDG_RUNTIME_DIR")
+    if (rt && String(rt).length)
+      return String(rt) + "/proteus/permissions-session.json"
+    return Quickshell.env("HOME") + "/.local/state/proteus/permissions-session.json"
+  }
 
-  readonly property bool diagnosticsAllowed: categoryState("diagnostics") === "allow"
+  // Fail-closed until store ready — Diagnostics probes stay off until load.
+  readonly property bool diagnosticsAllowed: root.ready && categoryState("diagnostics") === "allow"
 
   function normalizeAppId(id) {
     let s = String(id || "").trim()
@@ -94,6 +102,26 @@ Singleton {
     return normalizeAppId(appId) + "\t" + String(cat || "")
   }
 
+  function syncSessionFile() {
+    const keys = Object.keys(root.sessionAllow || {})
+    const grants = []
+    for (let i = 0; i < keys.length; i++) {
+      if (root.sessionAllow[keys[i]])
+        grants.push(keys[i])
+    }
+    const payload = JSON.stringify({ version: 1, grants: grants })
+    sessionWriteProc.command = [
+      "python3", "-c",
+      "import json,os,pathlib,sys\n"
+          + "p=pathlib.Path(sys.argv[1]); p.parent.mkdir(parents=True, exist_ok=True)\n"
+          + "p.write_text(sys.argv[2], encoding='utf-8'); os.chmod(p, 0o600)\n",
+      root.sessionPath,
+      payload
+    ]
+    sessionWriteProc.running = false
+    sessionWriteProc.running = true
+  }
+
   function grantSession(appId, cat) {
     const k = sessionKey(appId, cat)
     if (!k.length || k.charAt(0) === "\t")
@@ -102,6 +130,7 @@ Singleton {
     next[k] = true
     root.sessionAllow = next
     root.sessionRev++
+    root.syncSessionFile()
   }
 
   function clearSessionGrant(appId, cat) {
@@ -112,6 +141,7 @@ Singleton {
     delete next[k]
     root.sessionAllow = next
     root.sessionRev++
+    root.syncSessionFile()
   }
 
   function categoryState(cat) {
@@ -139,10 +169,10 @@ Singleton {
     return appGrant(appId, cat) === "ask"
   }
 
-  // Adaptive enforcement: allow or session once-grant. Fail-open until ready.
+  // Adaptive enforcement: allow or session once-grant. Fail-closed until ready.
   function granted(appId, cat) {
     if (!root.ready)
-      return true
+      return false
     const _s = root.sessionRev
     if (root.sessionAllow[sessionKey(appId, cat)])
       return true
@@ -437,6 +467,11 @@ Singleton {
         root.refreshFlatpak()
       }
     }
+  }
+
+  Process {
+    id: sessionWriteProc
+    command: ["true"]
   }
 
   Component.onCompleted: {

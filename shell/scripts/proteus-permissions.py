@@ -5,10 +5,12 @@ Store: ~/.config/proteus/permissions.json
 Activity: delegates to privacy-indicators.py (SoT for in-use).
 Flatpak: best-effort `flatpak override --user` for mappable categories.
 Portal: PermissionStore SetPermission for devices/microphone|camera (+ screen best-effort).
-Capture: pactl mute denied mic source-outputs; PipeWire destroy denied video streams.
+Capture: pactl mute denied mic source-outputs; PipeWire destroy denied camera
+and screencast-like streams (Deny + Ask; session Allow-once).
 
-Honesty: not a full OS sandbox (no AppArmor/v4l2 ACL). Fail-open until store ready
-is a QML concern — this CLI always reads the on-disk store.
+Honesty: not a full OS sandbox (no AppArmor/v4l2 ACL). Screen kill is best-effort
+heuristic (portal attribution imperfect). QML fail-closes until Permissions.ready
+— this CLI always reads the on-disk store.
 """
 from __future__ import annotations
 
@@ -48,6 +50,31 @@ PORTAL_MAP = {
 
 def store_path() -> Path:
     return Path.home() / ".config" / "proteus" / "permissions.json"
+
+
+def session_path() -> Path:
+    """Ephemeral Allow-once grants written by Permissions.qml (not the durable store)."""
+    runtime = os.environ.get("XDG_RUNTIME_DIR", "").strip()
+    if runtime:
+        return Path(runtime) / "proteus" / "permissions-session.json"
+    return Path.home() / ".local" / "state" / "proteus" / "permissions-session.json"
+
+
+def load_session_allows() -> set[str]:
+    """Keys 'appId\\tcategory' from session file."""
+    path = session_path()
+    if not path.is_file():
+        return set()
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return set()
+    out: set[str] = set()
+    for item in raw.get("grants") or []:
+        s = str(item or "").strip()
+        if "\t" in s:
+            out.add(s)
+    return out
 
 
 def _run(cmd: list[str], timeout: float = 8.0) -> tuple[int, str, str]:
@@ -343,21 +370,36 @@ def _resolve_desktop_id(app_name: str, binary: str) -> str:
     return ""
 
 
-def enforce_mic(data: dict) -> list[dict]:
+def capture_should_block(
+    data: dict,
+    desk: str,
+    category: str,
+    session_allows: set[str] | None = None,
+) -> bool:
+    """Active capture enforce: Deny + Ask block; Allow / session once-grant pass.
+
+    Mid-session Ask dialog (PrivacyAsk.promptCapture) + session file lets
+    Allow once skip mute/destroy. Unknown desktop id: category Deny only.
+    """
+    if desk:
+        key = f"{normalize_app_id(desk)}\t{category}"
+        allows = session_allows if session_allows is not None else load_session_allows()
+        if key in allows:
+            return False
+        return app_grant(data, desk, category) in ("deny", "ask")
+    return category_state(data, category) == "deny"
+
+
+def enforce_mic(data: dict, session_allows: set[str] | None = None) -> list[dict]:
     actions = []
+    allows = session_allows if session_allows is not None else load_session_allows()
     for row in _source_outputs():
         idx = int(row.get("index", -1))
         if idx < 0:
             continue
         desk = _resolve_desktop_id(str(row.get("name") or ""), str(row.get("binary") or ""))
-        # Category deny → mute everyone; per-app Deny only (Ask defers to prompt/portal).
-        cat_deny = category_state(data, "microphone") == "deny"
-        if desk:
-            g = app_grant(data, desk, "microphone")
-            block = g == "deny"
-        else:
-            block = cat_deny
-        if not block:
+        # Category deny → mute everyone; per-app Deny + Ask mute active captures.
+        if not capture_should_block(data, desk, "microphone", allows):
             continue
         code, _, err = _run(["pactl", "set-source-output-mute", str(idx), "1"], timeout=2.0)
         actions.append(
@@ -367,14 +409,16 @@ def enforce_mic(data: dict) -> list[dict]:
                 "app": desk or str(row.get("binary") or row.get("name") or ""),
                 "muted": code == 0,
                 "error": err if code else "",
+                "reason": app_grant(data, desk, "microphone") if desk else "category-deny",
             }
         )
     return actions
 
 
-def enforce_camera(data: dict) -> list[dict]:
-    """Best-effort: destroy running PipeWire Stream/Input/Video nodes for denied apps."""
+def enforce_camera(data: dict, session_allows: set[str] | None = None) -> list[dict]:
+    """Best-effort: destroy running PipeWire Stream/Input/Video nodes for Deny/Ask apps."""
     actions = []
+    allows = session_allows if session_allows is not None else load_session_allows()
     code, raw, _ = _run(["pw-dump"], timeout=3.0)
     if code != 0 or not raw.strip():
         return actions
@@ -384,7 +428,6 @@ def enforce_camera(data: dict) -> list[dict]:
         return actions
     if not isinstance(dump, list):
         return actions
-    cat_deny = category_state(data, "camera") == "deny"
     for obj in dump:
         info = obj.get("info") or {}
         props = info.get("props") or {}
@@ -397,11 +440,7 @@ def enforce_camera(data: dict) -> list[dict]:
         app_name = str(props.get("application.name") or props.get("node.name") or "")
         binary = str(props.get("application.process.binary") or "")
         desk = _resolve_desktop_id(app_name, binary)
-        if desk:
-            block = app_grant(data, desk, "camera") == "deny"
-        else:
-            block = cat_deny
-        if not block:
+        if not capture_should_block(data, desk, "camera", allows):
             continue
         nid = obj.get("id")
         if nid is None:
@@ -414,6 +453,91 @@ def enforce_camera(data: dict) -> list[dict]:
                 "app": desk or binary or app_name,
                 "destroyed": c2 == 0,
                 "error": err if c2 else "",
+                "reason": app_grant(data, desk, "camera") if desk else "category-deny",
+            }
+        )
+    return actions
+
+
+_SCREEN_TOKENS = (
+    "xdg-desktop-portal",
+    "screencast",
+    "screen share",
+    "screen-share",
+    "hyprland-share",
+    "wf-recorder",
+    "obs",
+    "screencopy",
+    "xdp",
+    "portal",
+)
+
+
+def _is_screencast_node(props: dict) -> bool:
+    """Match privacy-indicators.screen_apps heuristics (token + video/stream/source)."""
+    blob = " ".join(
+        str(props.get(k) or "")
+        for k in (
+            "media.class",
+            "node.name",
+            "node.description",
+            "application.name",
+            "application.process.binary",
+        )
+    ).lower()
+    mc = str(props.get("media.class") or "")
+    hit = any(t in blob for t in _SCREEN_TOKENS) and (
+        "video" in blob or "stream" in blob or "source" in blob
+    )
+    hit = hit or (
+        mc == "Stream/Input/Video"
+        and ("xdp" in blob or "portal" in blob or "screencopy" in blob)
+    )
+    return hit
+
+
+def enforce_screen(data: dict, session_allows: set[str] | None = None) -> list[dict]:
+    """Best-effort: destroy running PipeWire screencast-like nodes for Deny/Ask apps."""
+    actions = []
+    allows = session_allows if session_allows is not None else load_session_allows()
+    code, raw, _ = _run(["pw-dump"], timeout=3.0)
+    if code != 0 or not raw.strip():
+        return actions
+    try:
+        dump = json.loads(raw)
+    except Exception:
+        return actions
+    if not isinstance(dump, list):
+        return actions
+    for obj in dump:
+        info = obj.get("info") or {}
+        props = info.get("props") or {}
+        state = str(info.get("state") or "").lower()
+        if state != "running":
+            continue
+        if not _is_screencast_node(props):
+            continue
+        app_name = str(props.get("application.name") or props.get("node.name") or "")
+        binary = str(props.get("application.process.binary") or "")
+        if not app_name and not binary:
+            app_name = str(
+                props.get("node.description") or props.get("node.name") or "Screen capture"
+            )
+        desk = _resolve_desktop_id(app_name, binary)
+        if not capture_should_block(data, desk, "screen", allows):
+            continue
+        nid = obj.get("id")
+        if nid is None:
+            continue
+        c2, _, err = _run(["pw-cli", "destroy", str(nid)], timeout=2.0)
+        actions.append(
+            {
+                "kind": "screen",
+                "node": nid,
+                "app": desk or binary or app_name,
+                "destroyed": c2 == 0,
+                "error": err if c2 else "",
+                "reason": app_grant(data, desk, "screen") if desk else "category-deny",
             }
         )
     return actions
@@ -429,16 +553,21 @@ def cmd_portal_sync(args: argparse.Namespace) -> int:
 
 def cmd_enforce_capture(_: argparse.Namespace) -> int:
     data = load_store()
-    mic = enforce_mic(data)
-    cam = enforce_camera(data)
+    session = load_session_allows()
+    mic = enforce_mic(data, session)
+    cam = enforce_camera(data, session)
+    scr = enforce_screen(data, session)
     print(
         json.dumps(
             {
                 "ok": True,
                 "microphone": mic,
                 "camera": cam,
+                "screen": scr,
                 "muted": sum(1 for a in mic if a.get("muted")),
-                "destroyed": sum(1 for a in cam if a.get("destroyed")),
+                "destroyed": sum(
+                    1 for a in (cam + scr) if a.get("destroyed")
+                ),
             }
         )
     )
@@ -450,6 +579,7 @@ def _after_store_mutate(data: dict, category: str | None = None) -> dict:
     enforce = {
         "microphone": enforce_mic(data) if (not category or category == "microphone") else [],
         "camera": enforce_camera(data) if (not category or category == "camera") else [],
+        "screen": enforce_screen(data) if (not category or category == "screen") else [],
     }
     return {"portal": portal, "enforce": enforce}
 
@@ -494,6 +624,7 @@ def cmd_store_set_app(args: argparse.Namespace) -> int:
     enforce = {
         "microphone": enforce_mic(data) if cat == "microphone" else [],
         "camera": enforce_camera(data) if cat == "camera" else [],
+        "screen": enforce_screen(data) if cat == "screen" else [],
     }
     print(
         json.dumps(
@@ -650,6 +781,7 @@ def cmd_flatpak_set(args: argparse.Namespace) -> int:
     enforce = {
         "microphone": enforce_mic(data) if cat == "microphone" else [],
         "camera": enforce_camera(data) if cat == "camera" else [],
+        "screen": enforce_screen(data) if cat == "screen" else [],
     }
     print(
         json.dumps(
@@ -721,7 +853,7 @@ def main() -> int:
 
     sub.add_parser(
         "enforce-capture",
-        help="Mute/destroy active captures that violate Deny (Ask skipped)",
+        help="Mute/destroy active mic/camera/screen captures that violate Deny or Ask",
     )
 
     args = ap.parse_args()

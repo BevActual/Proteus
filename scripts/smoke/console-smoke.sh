@@ -18,12 +18,13 @@ LIB="${ROOT}/shell/surfaces/console/ConsoleLibrary.qml"
 APPS="${ROOT}/vm/install/apps.sh"
 CONSOLE="${ROOT}/vm/install/console.sh"
 APPLY="${ROOT}/vm/guest/apply-console-kit.sh"
+DOGFOOD="${ROOT}/vm/guest/dogfood-console.sh"
 
 for f in "${SEAT}" "${CAPS}" "${LAUNCH}" "${SESSION}" "${SHELF}" "${LEAN}" \
-         "${HOME_QML}" "${BAR}" "${LIB}" "${APPS}" "${CONSOLE}" "${APPLY}"; do
+         "${HOME_QML}" "${BAR}" "${LIB}" "${APPS}" "${CONSOLE}" "${APPLY}" "${DOGFOOD}"; do
   [[ -e "${f}" ]] || die "missing ${f#${ROOT}/}"
 done
-[[ -x "${SEAT}" && -x "${CAPS}" && -x "${LAUNCH}" && -x "${SESSION}" && -x "${APPLY}" ]] \
+[[ -x "${SEAT}" && -x "${CAPS}" && -x "${LAUNCH}" && -x "${SESSION}" && -x "${APPLY}" && -x "${DOGFOOD}" ]] \
   || die "console helpers must be executable"
 ok "files present"
 
@@ -45,8 +46,13 @@ grep -q 'proteus-console-capabilities' "${APPS}" \
 grep -q 'proteus-console-launch' "${APPS}" || die "apps.sh must install proteus-console-launch"
 grep -q 'proteus-console-session' "${APPS}" || die "apps.sh must install proteus-console-session"
 grep -q 'proteus-console-session' "${APPLY}" || die "apply-console-kit must install session"
+grep -q 'install-console-software' "${APPLY}" || die "apply-console-kit must cite full package path"
+grep -q 'dogfood-console' "${APPLY}" || die "apply-console-kit must tip dogfood-console"
 grep -q 'apply-console-kit' "${CONSOLE}" || die "console.sh must apply console kit"
 grep -q 'proteus-console.packages' "${CONSOLE}" || die "console.sh must use proteus-console.packages"
+grep -q 'install-console-software\|console stage' "${LIB}" \
+  || die "ConsoleLibrary seatMissing must cite install-console-software"
+bash -n "${DOGFOOD}" || die "dogfood-console.sh bash -n"
 ok "install wiring"
 
 CAPS_JSON="$("${CAPS}" 2>/dev/null || true)"

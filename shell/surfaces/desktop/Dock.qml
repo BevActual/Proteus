@@ -504,10 +504,14 @@ Item {
         return
       }
       // Empty shelf / background click exits edit mode (iOS Done-ish).
+      // Icon click in edit mode also exits, then launches — stuck edit mode
+      // was a common "dock apps won't open" failure after a long-press.
       if (root.editMode) {
-        if (i < 0)
+        if (i < 0) {
           root.exitEditMode()
-        return
+          return
+        }
+        root.exitEditMode()
       }
       if (i < 0)
         return

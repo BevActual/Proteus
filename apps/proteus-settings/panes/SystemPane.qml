@@ -89,6 +89,48 @@ ColumnLayout {
     }
 
     SettingsFormRow {
+      label: "Launch adapt profile"
+      hint: AdaptEnv.present
+          ? AdaptEnv.hint
+          : "No PROTEUS_ADAPT_* here — launch Settings from Dock/Beacon to inject"
+      showSeparator: true
+    }
+
+    SettingsFormRow {
+      label: "Focus pane density"
+      hint: FocusMode.active
+          ? "Minimal — Settings hides Appearance/Software/…; Desktop → Focus · Privacy · Users · About stay"
+          : "Full — all Settings hubs (Focus off)"
+      showSeparator: true
+    }
+
+    SettingsFormRow {
+      label: "Remote input"
+      hint: {
+        if (Hardware.remoteFromProbe)
+          return "Present via probe (CEC / IR / lirc / Bluetooth HID)"
+        if (Hardware.has("remote") && Hardware.remoteProbeStub)
+          return "Present via PROTEUS_REMOTE_PROBE stub (no CEC/IR/BT HID on this machine)"
+        return "Off — plug CEC/IR/BT remote or set PROTEUS_REMOTE_PROBE=1 to dogfood adapts.input remote"
+      }
+      showSeparator: true
+    }
+
+    SettingsFormRow {
+      label: "Virtualization"
+      hint: "Thin hub — Workloads jump · engines · headless"
+      showSeparator: true
+      interactive: true
+      onActivated: root.requestGo("virtualization")
+      Text {
+        text: "Virtualization ›"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+      }
+    }
+
+    SettingsFormRow {
       label: "Desktop environment"
       hint: "Hyprland · Quickshell"
       showSeparator: true

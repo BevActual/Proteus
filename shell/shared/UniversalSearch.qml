@@ -355,7 +355,7 @@ QtObject {
     const idx = EnvGate.settingsSearchIndex || []
     for (let i = 0; i < idx.length; i++) {
       const p = idx[i]
-      const ok = EnvGate.paneAvailable(p.hubId)
+      const ok = EnvGate.paneAvailable(p.id)
       if (!ok && !showUnavailable)
         continue
       const label = String(p.label).toLowerCase()

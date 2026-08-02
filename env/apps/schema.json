@@ -63,7 +63,38 @@
     "device_classes": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Optional device-class allow-list (still unused by EnvGate)."
+      "description": "Hard device-class allow-list (Hardware.deviceClass). Empty = any class."
+    },
+    "adapts": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "UI-shaping hints (EnvGate profile + Beacon hint + PROTEUS_ADAPT_* launch env). Never blocks availability.",
+      "properties": {
+        "input": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["pointer", "touch", "gamepad", "remote"]
+          },
+          "description": "Preferred input modes; resolver picks first present via Hardware.has (remote: CEC/IR/lirc or Bluetooth HID probe or PROTEUS_REMOTE_PROBE stub)."
+        },
+        "nav": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["dense", "sparse"]
+          },
+          "description": "Nav density facets; resolver uses console→sparse else dense when listed."
+        },
+        "panes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["full", "minimal"]
+          },
+          "description": "Pane density facets; EnvGate resolves via FocusMode.paneDensity (soft hint + launch env for apps; Settings hard-hides non-allowlisted panes when minimal)."
+        }
+      }
     }
   }
 }

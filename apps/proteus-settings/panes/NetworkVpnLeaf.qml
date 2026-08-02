@@ -5,12 +5,16 @@ import QtQuick.Dialogs
 import "../shared"
 import "../kit"
 
-// Leaf UI for NetworkPane — VPN up/down + WireGuard import.
+// Leaf UI for NetworkPane — VPN up/down + WireGuard / OpenVPN import.
 ColumnLayout {
   id: root
   property Item host
   width: parent ? parent.width : implicitWidth
   spacing: Theme.spaceMd
+
+  // Ephemeral OpenVPN auth drafts — never written to settings.json
+  property string ovpnUserDraft: ""
+  property string ovpnPassDraft: ""
 
   function vpnHint(conn) {
     if (!conn)
@@ -47,6 +51,20 @@ ColumnLayout {
     }
   }
 
+  FileDialog {
+    id: ovpnDialog
+    title: "Import OpenVPN config"
+    nameFilters: ["OpenVPN (*.ovpn *.conf)", "All files (*)"]
+    onAccepted: {
+      if (!host)
+        return
+      host.importOpenVpn(
+            root.localPathFromUrl(selectedFile),
+            root.ovpnUserDraft,
+            root.ovpnPassDraft)
+    }
+  }
+
   SettingsGroup {
     title: "VPN"
 
@@ -70,7 +88,7 @@ ColumnLayout {
       label: "Profiles"
       hint: host && host.vpnStatus.length
           ? host.vpnStatus
-          : "No VPN profiles yet — import WireGuard or use NetworkManager"
+          : "No VPN profiles yet — import WireGuard / OpenVPN or use NetworkManager"
       showSeparator: true
     }
 
@@ -116,8 +134,91 @@ ColumnLayout {
     }
 
     SettingsFormRow {
+      label: "OpenVPN username"
+      hint: root.ovpnUserDraft.length
+          ? root.ovpnUserDraft
+          : "Optional — applied after .ovpn import (never in settings.json)"
+      showSeparator: true
+    }
+
+    Item {
+      Layout.fillWidth: true
+      Layout.preferredHeight: 44
+      Rectangle {
+        anchors.fill: parent
+        anchors.leftMargin: Theme.spaceMd
+        anchors.rightMargin: Theme.spaceMd
+        anchors.topMargin: Theme.spaceXs
+        anchors.bottomMargin: Theme.spaceSm
+        radius: Theme.radiusMd
+        color: Theme.bgHover
+        border.width: 1
+        border.color: ovpnUser.activeFocus ? Theme.accent : Theme.border
+        TextInput {
+          id: ovpnUser
+          anchors.fill: parent
+          anchors.leftMargin: 10
+          anchors.rightMargin: 10
+          color: Theme.text
+          font.family: Theme.fontFamily
+          font.pixelSize: 13
+          text: root.ovpnUserDraft
+          onTextChanged: root.ovpnUserDraft = text
+        }
+      }
+    }
+
+    SettingsFormRow {
+      label: "OpenVPN password"
+      hint: "Optional — session only"
+      showSeparator: true
+    }
+
+    Item {
+      Layout.fillWidth: true
+      Layout.preferredHeight: 44
+      Rectangle {
+        anchors.fill: parent
+        anchors.leftMargin: Theme.spaceMd
+        anchors.rightMargin: Theme.spaceMd
+        anchors.topMargin: Theme.spaceXs
+        anchors.bottomMargin: Theme.spaceSm
+        radius: Theme.radiusMd
+        color: Theme.bgHover
+        border.width: 1
+        border.color: ovpnPass.activeFocus ? Theme.accent : Theme.border
+        TextInput {
+          id: ovpnPass
+          anchors.fill: parent
+          anchors.leftMargin: 10
+          anchors.rightMargin: 10
+          color: Theme.text
+          font.family: Theme.fontFamily
+          font.pixelSize: 13
+          echoMode: TextInput.Password
+          text: root.ovpnPassDraft
+          onTextChanged: root.ovpnPassDraft = text
+        }
+      }
+    }
+
+    SettingsFormRow {
+      label: "Import OpenVPN…"
+      hint: "nmcli connection import type openvpn · needs networkmanager-openvpn"
+      showSeparator: true
+      interactive: host && !host.vpnBusy
+      onActivated: ovpnDialog.open()
+      Text {
+        text: host && host.vpnBusy ? "…" : "Choose…"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+
+    SettingsFormRow {
       label: "Open NetworkManager"
-      hint: "OpenVPN · edit profiles · advanced"
+      hint: "Certs · advanced edit · PKCS#11"
       showSeparator: false
       interactive: true
       onActivated: Config.openNetworkEditor()
@@ -133,7 +234,7 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Fact: nmcli connection up/down · WireGuard import. OpenVPN create stays in NetworkManager."
+    text: "Fact: nmcli connection up/down · WireGuard + OpenVPN import (.ovpn). Optional OpenVPN user/pass are session-only. Cert wizard Out · Headscale admin → Network → Headscale."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11

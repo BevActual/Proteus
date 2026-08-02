@@ -85,9 +85,18 @@ Likewise: a **TV** is a device class that often runs **console** posture; a
 ## 3. App contract
 
 `partial` — Wave A manifests ship under `env/apps/`; EnvGate enforces
-`requires` / `requiresAny` / **`postures`** (hard vs SessionPosture) when a
-desktop entry matches; **`prefers`** is soft (Beacon hint + search boost).
-`device_classes` / `adapts` remain docs-forward (schema allows; gating ignores).
+`requires` / `requiresAny` / **`postures`** (hard vs SessionPosture) /
+**`device_classes`** (hard vs `Hardware.deviceClass`) when a desktop entry
+matches; **`prefers`** is soft (Beacon hint + search boost); **`adapts`** is
+soft shaping (`appAdaptProfile` / Beacon hint / **`PROTEUS_ADAPT_*` launch env** —
+never blocks apps). EnvGate resolves `input` + `nav` + **`panes`** (via
+`FocusMode.paneDensity`) and Dock/Beacon inject `PROTEUS_ADAPT_INPUT` /
+`PROTEUS_ADAPT_NAV` / `PROTEUS_ADAPT_PANES` when launching. When panes resolve
+to **minimal** (Focus on), Settings **hard-hides** non-allowlisted hubs/leaves
+(Desktop→Focus · Privacy · Users · Notifications · About stay). `input: remote`
+resolves via `Hardware.has("remote")` — probe CEC/IR/lirc / Bluetooth HID
+remote-like names or soft stub `PROTEUS_REMOTE_PROBE=1`. Settings About reads
+launch env via `AdaptEnv.qml` (soft display — first-party consumer wedge).
 
 Each app declares a contract (manifest / metadata):
 
@@ -97,8 +106,8 @@ Each app declares a contract (manifest / metadata):
 | **requiresAny** | At least one of these capabilities must be present |
 | **prefers** | Soft capability hints — Beacon subtitle + ranking boost (never blocks) |
 | **postures** | Hard allow-list vs session posture (`desktop` · `console` · `host`; empty = any) |
-| **device_classes** | Optional allow/deny (e.g. vitals UI on `watch` / `phone` only) |
-| **adapts** | Which UI facets change (nav density, input, panes) |
+| **device_classes** | Hard allow-list vs Wave A class (`desktop` · `laptop` · `tablet` · `phone` · `server`; empty = any) |
+| **adapts** | Soft UI-shaping for apps; EnvGate resolves `input` + `nav` + `panes` (Focus on → minimal); launch injects `PROTEUS_ADAPT_*`; Settings hard-hides panes when minimal |
 
 On disk: `env/apps/schema.json` + `env/apps/catalog.json`. EnvGate loads the
 catalog at session start (`catalogPath` via `shellRoot/../env/apps/…`).
@@ -110,10 +119,11 @@ Example sketches:
 - **Host workloads app** — requires `libvirt` or `containers`; posture `host`;
   separate from Settings (VM/container *setup* is not a Settings category);
   works headless via CLI/API; GUI facet only when UI session exists.
-  **Today:** HostHome ships a **thin read-only glance** (`Workloads` /
-  `proteus-workloads.py`); create/destroy UI and the full app stay Out.  
-- **Vitals glance** — requires `vitals`; device classes `watch` / band; no
-  Hyprland needed.  
+  **Today:** HostHome glance + QML app (`apps/proteus-workloads` · catalog
+  `proteus-workloads`) with start/stop/kill/create/destroy; Settings virt ·
+  Settings virt · headless-no-QS stay Out.  
+- **Vitals glance** — requires `vitals`; `device_classes: ["watch","phone"]`
+  (catalog example; blocks on desktop/laptop VM); no Hyprland needed.  
 - **Media / console player** — posture `console` or `desktop`; adapts to `remote` /
   `gamepad` / `touch`.
 
@@ -187,8 +197,8 @@ adaptive app can honor the contract.
 | Item | Status |
 |------|--------|
 | Environment tuple (docs) | `planned` / locked in prose |
-| App capability manifest | `partial` — `env/apps/` schema + catalog; EnvGate load + postures/prefers |
-| Beacon filtering by contract | `partial` — manifest match + heuristic fallback + prefers boost |
+| App capability manifest | `partial` — `env/apps/` schema + catalog; EnvGate load + postures/prefers/device_classes/adapts + launch env |
+| Beacon filtering by contract | `partial` — manifest match + heuristic fallback + prefers boost + adapts hint + Dock/Beacon/`openSettings` `PROTEUS_ADAPT_*` + Settings About `AdaptEnv` |
 | DesktopEntries launcher | `shipped` (desktop) |
 | Console lean seats | `partial` — Browser / Media / Terminal / Steam / RetroArch / Desktop via `proteus-console-launch`; Jump Back In = `consoleRecents`; Library/Search = DesktopEntries (+ Games tag); Web apps from Software leaf |
 

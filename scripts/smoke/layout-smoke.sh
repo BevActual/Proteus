@@ -55,8 +55,12 @@ REQUIRED=(
   NetworkDiagnostics.qml
   Accounts.qml
   CalendarEvents.qml
+  MailGlance.qml
+  ContactsGlance.qml
+  AdaptEnv.qml
   Workloads.qml
   SpacesDisplays.qml
+  SpacesNames.qml
   PrivacyAsk.qml
   Hud.qml
   Brightness.qml

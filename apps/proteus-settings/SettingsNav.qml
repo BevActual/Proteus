@@ -47,6 +47,10 @@ Singleton {
     {
       id: "privacy",
       label: "Privacy & security"
+    },
+    {
+      id: "accounts",
+      label: "Online accounts"
     }
   ]
 

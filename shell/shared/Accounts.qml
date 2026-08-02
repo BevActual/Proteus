@@ -16,6 +16,11 @@ Singleton {
   property bool googleClientConfigured: false
   property bool microsoftClientConfigured: false
   property bool nextcloudConnectable: true
+  property bool imapConnectable: true
+  property bool caldavConnectable: true
+  property bool carddavConnectable: true
+  property bool appleConnectable: true
+  property bool exchangeConnectable: false
   property var connectors: []
   property var seats: []
 
@@ -23,6 +28,26 @@ Singleton {
   property string nextcloudUrl: ""
   property string nextcloudUser: ""
   property string nextcloudAppPassword: ""
+
+  // IMAP form (Settings pane) — not persisted until Connect succeeds.
+  property string imapHost: ""
+  property string imapPort: "993"
+  property string imapUser: ""
+  property string imapPassword: ""
+
+  // CalDAV form (Settings pane) — not persisted until Connect succeeds.
+  property string caldavUrl: ""
+  property string caldavUser: ""
+  property string caldavPassword: ""
+
+  // CardDAV form (Settings pane) — not persisted until Connect succeeds.
+  property string carddavUrl: ""
+  property string carddavUser: ""
+  property string carddavPassword: ""
+
+  // Apple / iCloud form — Apple ID + app-specific password (not OAuth).
+  property string appleId: ""
+  property string appleAppPassword: ""
 
   function _binCandidates() {
     return [
@@ -70,6 +95,14 @@ Singleton {
     connectProc.running = true
   }
 
+  function connectExchange() {
+    root.busy = true
+    root.error = ""
+    connectProc.command = root._runCmd(["connect", "exchange"])
+    connectProc.running = false
+    connectProc.running = true
+  }
+
   function connectNextcloud() {
     const url = String(root.nextcloudUrl || "").trim()
     const user = String(root.nextcloudUser || "").trim()
@@ -81,6 +114,66 @@ Singleton {
     root.busy = true
     root.error = ""
     connectProc.command = root._runCmd(["connect", "nextcloud", url, user, pass])
+    connectProc.running = false
+    connectProc.running = true
+  }
+
+  function connectImap() {
+    const host = String(root.imapHost || "").trim()
+    const port = String(root.imapPort || "993").trim() || "993"
+    const user = String(root.imapUser || "").trim()
+    const pass = String(root.imapPassword || "").trim()
+    if (!host.length || !user.length || !pass.length) {
+      root.error = "IMAP needs host, username, and password"
+      return
+    }
+    root.busy = true
+    root.error = ""
+    connectProc.command = root._runCmd(["connect", "imap", host, port, user, pass])
+    connectProc.running = false
+    connectProc.running = true
+  }
+
+  function connectCaldav() {
+    const url = String(root.caldavUrl || "").trim()
+    const user = String(root.caldavUser || "").trim()
+    const pass = String(root.caldavPassword || "").trim()
+    if (!url.length || !user.length || !pass.length) {
+      root.error = "CalDAV needs calendar home URL, username, and password"
+      return
+    }
+    root.busy = true
+    root.error = ""
+    connectProc.command = root._runCmd(["connect", "caldav", url, user, pass])
+    connectProc.running = false
+    connectProc.running = true
+  }
+
+  function connectCarddav() {
+    const url = String(root.carddavUrl || "").trim()
+    const user = String(root.carddavUser || "").trim()
+    const pass = String(root.carddavPassword || "").trim()
+    if (!url.length || !user.length || !pass.length) {
+      root.error = "CardDAV needs address-book home URL, username, and password"
+      return
+    }
+    root.busy = true
+    root.error = ""
+    connectProc.command = root._runCmd(["connect", "carddav", url, user, pass])
+    connectProc.running = false
+    connectProc.running = true
+  }
+
+  function connectApple() {
+    const user = String(root.appleId || "").trim()
+    const pass = String(root.appleAppPassword || "").trim()
+    if (!user.length || !pass.length) {
+      root.error = "Apple needs Apple ID email and an app-specific password"
+      return
+    }
+    root.busy = true
+    root.error = ""
+    connectProc.command = root._runCmd(["connect", "apple", user, pass])
     connectProc.running = false
     connectProc.running = true
   }
@@ -114,6 +207,13 @@ Singleton {
     root.googleClientConfigured = !!obj.googleClientConfigured
     root.microsoftClientConfigured = !!obj.microsoftClientConfigured
     root.nextcloudConnectable = obj.nextcloudConnectable !== false
+    root.imapConnectable = obj.imapConnectable !== false
+    root.caldavConnectable = obj.caldavConnectable !== false
+    root.carddavConnectable = obj.carddavConnectable !== false
+    root.appleConnectable = obj.appleConnectable !== false
+    root.exchangeConnectable = obj.exchangeConnectable !== undefined
+        ? !!obj.exchangeConnectable
+        : !!obj.microsoftClientConfigured
     root.connectors = obj.connectors || []
     root.seats = obj.seats || []
     root.error = ""
@@ -144,8 +244,13 @@ Singleton {
         const obj = root._parse(text)
         if (obj && obj.ok === false)
           root.error = String(obj.error || "connect failed")
-        else if (obj && obj.ok)
+        else if (obj && obj.ok) {
           root.nextcloudAppPassword = ""
+          root.imapPassword = ""
+          root.caldavPassword = ""
+          root.carddavPassword = ""
+          root.appleAppPassword = ""
+        }
       }
     }
     stderr: StdioCollector {}

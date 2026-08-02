@@ -98,9 +98,11 @@ Mobius gates; implementation later).
 | `Keybinds.qml` | Catalog + overrides → `proteus-keybinds.conf` |
 | `ShellState.qml` | Beacon / open Settings / hardware mirrors |
 | `CalendarEvents.qml` | Online accounts → today’s events for CalendarPanel glance |
-| `Workloads.qml` | HostHome thin VM/container glance (`proteus-workloads.py`) |
+| `MailGlance.qml` | Online accounts → unread/recent mail for CalendarPanel glance |
+| `Workloads.qml` | HostHome glance + thin `proteus-workloads` app (`proteus-workloads.py`) |
 | `SpacesDisplays.qml` | Multi-head Spaces status + hotplug ensure (`proteus-workspace`) |
-| `PrivacyAsk.qml` | Launch-time Ask prompt (Allow once / Always Allow / Deny) |
+| `SpacesNames.qml` | Named Spaces labels (`workspaceNames` → strip + `apply-names`) |
+| `PrivacyAsk.qml` | Ask prompt — launch + mid-session mic/camera/screen (Allow once / Always Allow / Deny) |
 | `SessionPosture.qml` | Hard session posture Fact + `proteus-posture` (About confirm picker) |
 | `HyprProfile.qml` | Soft hypr profile pointer (`media` ≡ console); About soft picker — not a hard posture switch |
 | `SystemInfo.qml` · `SystemLoad.qml` | About OS/kernel/QS/Hypr facts + About-active load strip |
@@ -146,6 +148,7 @@ On-disk facts: [FACTS.md](./FACTS.md) · key groups: [CONFIG-SCHEMA.md](./CONFIG
 
 `services/proteus-pkg` — privileged pacman mutator (pkexec + polkit) for Settings Software.
 `services/proteus-logind` — privileged logind drop-in writer (pkexec + polkit) for Settings Power.
+`services/proteus-battery-threshold` — privileged sysfs charge_control_* writer (pkexec + polkit) for Settings Power Charge limits.
 `services/proteus-audio-mix` — session-scoped resident dump+peaks for Sound Mixer (no polkit; mutations still `audio-mix.py`).
 `services/proteus-accounts` — user-scoped online-accounts vault + Google PKCE (no polkit; tokens outside `settings.json`).
 Optional later: more Rust CLIs (`proteus-net`, etc.) so QML stays thin

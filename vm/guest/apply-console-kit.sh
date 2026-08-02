@@ -84,9 +84,24 @@ command -v proteus-posture >/dev/null && echo "  proteus-posture: $(command -v p
 command -v proteus-console-launch >/dev/null && echo "  proteus-console-launch: $(command -v proteus-console-launch)" || echo "  proteus-console-launch: MISSING"
 command -v proteus-console-seat >/dev/null && echo "  proteus-console-seat: $(command -v proteus-console-seat)" || echo "  proteus-console-seat: MISSING"
 command -v proteus-console-capabilities >/dev/null && echo "  proteus-console-capabilities: $(command -v proteus-console-capabilities)" || echo "  proteus-console-capabilities: MISSING"
+command -v proteus-console-session >/dev/null && echo "  proteus-console-session: $(command -v proteus-console-session)" || echo "  proteus-console-session: MISSING"
 command -v proteus-guide >/dev/null && echo "  proteus-guide: $(command -v proteus-guide)" || echo "  proteus-guide: MISSING"
 command -v proteus-webapp >/dev/null && echo "  proteus-webapp: $(command -v proteus-webapp)" || echo "  proteus-webapp: MISSING"
 command -v steam >/dev/null && echo "  steam: $(command -v steam)" || echo "  steam: MISSING"
 command -v retroarch >/dev/null && echo "  retroarch: $(command -v retroarch)" || echo "  retroarch: MISSING"
+# Honesty: this script is helpers + best-effort pkgs — not the full console stage.
+missing_pkgs=0
+command -v steam >/dev/null 2>&1 || missing_pkgs=1
+command -v retroarch >/dev/null 2>&1 || missing_pkgs=1
+if [[ "${PROTEUS_SKIP_CONSOLE_PACKAGES:-0}" == "1" ]]; then
+  echo "  kit mode: helpers/seed only (console stage owns packages)"
+elif [[ "${missing_pkgs}" -eq 1 ]]; then
+  echo "  kit mode: helpers OK; Steam/RetroArch/cores incomplete"
+  echo "  full packages: sudo bash ${ROOT}/vm/guest/install-console-software.sh"
+  echo "                 (or overlay PROTEUS_INSTALL_ONLY=console — enables multilib)"
+else
+  echo "  kit mode: helpers + Steam/RetroArch present (cores/udev via console stage)"
+fi
 echo "==> apply-console-kit done"
-echo "    Enter console: proteus-posture console"
+echo "    Enter console: bash ${ROOT}/vm/guest/dogfood-console.sh"
+echo "                or: proteus-posture console"

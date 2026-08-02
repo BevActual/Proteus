@@ -17,7 +17,11 @@ grep -q 'function addProfile' "${FM}" || die "FocusMode missing addProfile"
 grep -q 'function renameProfile' "${FM}" || die "FocusMode missing renameProfile"
 grep -q 'function deleteProfile' "${FM}" || die "FocusMode missing deleteProfile"
 grep -q 'uniqueProfileId\|slugifyProfileId' "${FM}" || die "FocusMode missing id helpers"
-ok "FocusMode CRUD API"
+grep -q 'paneDensity' "${FM}" || die "FocusMode missing paneDensity signal"
+grep -q 'minimal\|full' "${FM}" || die "FocusMode paneDensity must use full|minimal"
+grep -q 'Hard-hides\|paneAvailable' "${FM}" \
+  || die "FocusMode must document Settings hard pane hide"
+ok "FocusMode CRUD API + paneDensity"
 
 grep -q 'FocusMode.addProfile' "${LEAF}" || die "DesktopFocusLeaf must call addProfile"
 grep -q 'FocusMode.renameProfile' "${LEAF}" || die "DesktopFocusLeaf must call renameProfile"

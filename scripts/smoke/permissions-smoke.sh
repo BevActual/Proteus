@@ -115,7 +115,18 @@ grep -q 'isAsk\|appPrivacyAskCategory' "${ROOT}/shell/shared/EnvGate.qml" \
   || die "EnvGate must distinguish Ask vs Deny"
 grep -q 'function isAsk\|grantSession' "${ROOT}/shell/shared/Permissions.qml" \
   || die "Permissions must expose isAsk + session once-grant"
-ok "EnvGate grant gate"
+grep -q 'Fail-closed until ready\|fail-closed until ready' "${ROOT}/shell/shared/Permissions.qml" \
+  || die "Permissions.granted must fail-closed until ready"
+grep -q 'Permissions loading\|Fail-closed until Permissions' "${ROOT}/shell/shared/EnvGate.qml" \
+  || die "EnvGate must block privacy-gated apps while Permissions not ready"
+grep -q 'diagnosticsAllowed: root.ready\|ready && categoryState("diagnostics")' \
+  "${ROOT}/shell/shared/Permissions.qml" \
+  || die "diagnosticsAllowed must fail-closed until ready"
+grep -q 'fail-closed until Permissions\|return false' "${ROOT}/shell/shared/NetworkDiagnostics.qml" \
+  || die "NetworkDiagnostics must fail-closed when Permissions missing/not ready"
+grep -q 'fail-closed until Permissions.ready' "${PRIV_PANE}" \
+  || die "PrivacyPane honesty must say fail-closed"
+ok "EnvGate grant gate + fail-closed"
 
 DOCK="${ROOT}/shell/shared/DockApps.qml"
 ASK="${ROOT}/shell/shared/PrivacyAsk.qml"
@@ -129,11 +140,32 @@ grep -q 'appPrivacyBlockPane' "${DOCK}" \
   || die "DockApps must open Privacy leaf via appPrivacyBlockPane on Deny"
 grep -q 'PrivacyAsk.promptLaunch\|appPrivacyAskCategory' "${BEACON}" \
   || die "Beacon must prompt on Ask"
+grep -q 'function promptCapture\|promptCapture' "${ASK}" \
+  || die "PrivacyAsk must expose promptCapture for mid-session"
+grep -q 'mode === "capture"\|isCapture\|mid-session' "${ASK}" \
+  || die "PrivacyAsk must distinguish capture mode"
+grep -q 'promptCapture\|maybePromptCapture' "${ROOT}/shell/shared/PrivacyIndicators.qml" \
+  || die "PrivacyIndicators must trigger mid-session Ask"
+grep -q 'kind !== "camera" && kind !== "screen"\|kind !== "screen"' \
+  "${ROOT}/shell/shared/PrivacyIndicators.qml" \
+  || die "PrivacyIndicators mid-session Ask must include screen"
+grep -q 'cat !== "camera" && cat !== "screen"\|cat !== "screen"' "${ASK}" \
+  || die "PrivacyAsk.promptCapture must accept screen"
+grep -q 'mic/camera/screen' "${ASK}" \
+  || die "PrivacyAsk honesty must mention mic/camera/screen mid-session"
+grep -q 'PrivacyAsk.visible' "${ROOT}/shell/shared/PrivacyIndicators.qml" \
+  || die "PrivacyIndicators must pause enforce while Ask open"
+grep -q 'syncSessionFile\|permissions-session.json' "${ROOT}/shell/shared/Permissions.qml" \
+  || die "Permissions must sync session file for enforce"
+grep -q 'load_session_allows\|session_path\|permissions-session' "${HELPER}" \
+  || die "proteus-permissions must honor session Allow-once file"
 grep -q 'Allow once\|Always Allow' "${ASK_PANEL}" \
   || die "PrivacyAskPanel missing Allow once / Always Allow"
+grep -q 'isCapture\|is using' "${ASK_PANEL}" \
+  || die "PrivacyAskPanel must adapt copy for mid-session"
 grep -q 'PrivacyAsk' "${ROOT}/shell/surfaces/DesktopShell.qml" \
   || die "DesktopShell must host PrivacyAskPanel"
-ok "Ask prompt + Dock/Beacon intercept"
+ok "Ask prompt + Dock/Beacon + mid-session intercept"
 
 ND="${ROOT}/shell/shared/NetworkDiagnostics.qml"
 ND_LEAF="${ROOT}/apps/proteus-settings/panes/NetworkDiagnosticsLeaf.qml"
@@ -162,7 +194,8 @@ assert len(ids) == len(statuses), (ids, statuses)
 m = dict(zip(ids, statuses))
 shipped = {
     "style", "desktop", "displays", "sound", "network", "peripherals",
-    "power", "users", "datetime", "notifications", "packages", "system",
+    "power", "users", "datetime", "notifications", "packages",
+    "virtualization", "system",
 }
 partial_ok = {"privacy", "accounts"}
 for i in shipped:
@@ -188,7 +221,7 @@ enf="$(python3 "${HELPER}" enforce-capture)"
 echo "${enf}" | python3 -c 'import json,sys
 d=json.load(sys.stdin)
 assert d.get("ok") is True
-assert "microphone" in d and "camera" in d
+assert "microphone" in d and "camera" in d and "screen" in d
 ' || die "enforce-capture JSON shape"
 ok "enforce-capture"
 
@@ -196,15 +229,50 @@ grep -q 'portal-sync\|SetPermission\|PermissionStore' "${HELPER}" \
   || die "helper missing portal PermissionStore bridge"
 grep -q 'enforce-capture\|set-source-output-mute' "${HELPER}" \
   || die "helper missing capture enforce"
-grep -qE 'g == "deny"|app_grant.*=.*deny' "${HELPER}" \
-  || die "enforce-capture must block Deny only (skip Ask)"
+grep -q 'def enforce_screen\|_is_screencast_node' "${HELPER}" \
+  || die "helper missing enforce_screen for screencast kill"
+grep -q 'def capture_should_block\|in ("deny", "ask")' "${HELPER}" \
+  || die "enforce-capture must block Deny + Ask"
+grep -q 'Deny or Ask\|deny", "ask"' "${HELPER}" \
+  || die "enforce-capture help/docs must note Ask enforce"
 grep -q 'Ask skipped' "${HELPER}" \
-  || die "enforce-capture help must note Ask skipped"
+  && die "enforce-capture must not still say Ask skipped"
 grep -q 'enforce-capture' "${ROOT}/shell/shared/PrivacyIndicators.qml" \
   || die "PrivacyIndicators must periodic enforce-capture"
-grep -q 'PermissionStore\|capture enforce' "${CAT_LEAF}" "${PRIV_PANE}" \
+grep -q 'PermissionStore\|capture enforce\|Deny/Ask\|Deny + Ask' "${CAT_LEAF}" "${PRIV_PANE}" \
   || die "Privacy UI missing native enforcement honesty"
-ok "native enforcement wiring"
+# Offline: Ask grant must count as capture block; Allow must not.
+TMPASK="$(mktemp -d)"
+(
+  export HOME="${TMPASK}"
+  python3 "${HELPER}" store-set-app org.proteus.AskProbe microphone ask >/dev/null
+  python3 "${HELPER}" store-set-app org.proteus.AllowProbe camera allow >/dev/null
+  python3 "${HELPER}" store-set-app org.proteus.ScreenAsk screen ask >/dev/null
+  python3 "${HELPER}" store-set-app org.proteus.ScreenAllow screen allow >/dev/null
+  python3 - "${HELPER}" <<'PY' || exit 1
+import importlib.util, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location("pp", p)
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+data = m.load_store()
+assert m.capture_should_block(data, "org.proteus.AskProbe", "microphone") is True
+assert m.capture_should_block(data, "org.proteus.AllowProbe", "camera") is False
+assert m.capture_should_block(data, "org.proteus.AskProbe", "camera") is False
+assert m.capture_should_block(data, "org.proteus.ScreenAsk", "screen") is True
+assert m.capture_should_block(data, "org.proteus.ScreenAllow", "screen") is False
+# Session Allow-once bypasses Ask block (mid-session dialog path).
+sess = {"org.proteus.AskProbe\tmicrophone", "org.proteus.ScreenAsk\tscreen"}
+assert m.capture_should_block(data, "org.proteus.AskProbe", "microphone", sess) is False
+assert m.capture_should_block(data, "org.proteus.AskProbe", "microphone", set()) is True
+assert m.capture_should_block(data, "org.proteus.ScreenAsk", "screen", sess) is False
+assert m.capture_should_block(data, "org.proteus.ScreenAsk", "screen", set()) is True
+print("capture_should_block ok")
+PY
+) || die "capture_should_block Ask/Allow offline"
+rm -rf "${TMPASK}"
+ok "native enforcement wiring + Ask capture block"
 
 [[ $fail -eq 0 ]] || { echo "permissions-smoke: FAILED" >&2; exit 1; }
 echo "permissions-smoke: OK"

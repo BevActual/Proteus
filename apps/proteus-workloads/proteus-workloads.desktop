@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Proteus Workloads
+Comment=Read-only VM and container inventory for Proteus Host
+Exec=/usr/local/bin/proteus-workloads
+Icon=proteus
+Terminal=false
+Type=Application
+Categories=System;Monitor;
+StartupNotify=true
+StartupWMClass=quickshell

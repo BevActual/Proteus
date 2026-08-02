@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # proteus-posture — hard posture switch (desktop ↔ console ↔ host).
-# Usage: proteus-posture desktop|console|host
+# Usage: proteus-posture desktop|console|host [--headless|--chrome]
 # Writes ~/.config/proteus/posture, flips hypr profile pointer, restarts chrome.
+# Host --headless: host-chrome=none Fact + stop QS (headless-no-QS).
+# Host --chrome: host-chrome=full + restart QS (UI on demand).
 # Soft-only profile reload: set-hypr-profile.sh (not this helper).
 set -euo pipefail
 
@@ -18,9 +20,34 @@ else
 fi
 export PROTEUS_ROOT="${ROOT}"
 
+usage() {
+  echo "usage: $0 desktop|console|host [--headless|--chrome]" >&2
+  exit 2
+}
+
 TARGET="${1:-}"
+[[ -n "${TARGET}" ]] || usage
+shift
+HOST_CHROME_FLAG=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --headless|headless)
+      HOST_CHROME_FLAG=none
+      shift
+      ;;
+    --chrome|chrome|--ui)
+      HOST_CHROME_FLAG=full
+      shift
+      ;;
+    *)
+      usage
+      ;;
+  esac
+done
+
 CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus"
 FACT="${CONFIG_DIR}/posture"
+HOST_CHROME_FACT="${CONFIG_DIR}/host-chrome"
 SHELL_DIR="${ROOT}/shell"
 if [[ -x "${HERE}/proteus-qs" ]]; then
   QS="${HERE}/proteus-qs"
@@ -38,12 +65,11 @@ else
   GUIDE="${ROOT}/vm/guest/proteus-guide"
 fi
 
-usage() {
-  echo "usage: $0 desktop|console|host" >&2
-  exit 2
-}
-
 [[ "${TARGET}" == "desktop" || "${TARGET}" == "console" || "${TARGET}" == "host" ]] || usage
+if [[ -n "${HOST_CHROME_FLAG}" && "${TARGET}" != "host" ]]; then
+  echo "proteus-posture: --headless/--chrome only apply to host" >&2
+  exit 2
+fi
 
 mkdir -p "${CONFIG_DIR}"
 
@@ -55,6 +81,21 @@ log() {
 
 write_fact() {
   printf '%s\n' "$1" >"${FACT}"
+}
+
+write_host_chrome() {
+  printf '%s\n' "$1" >"${HOST_CHROME_FACT}"
+}
+
+read_host_chrome() {
+  local v="full"
+  if [[ -f "${HOST_CHROME_FACT}" ]]; then
+    v="$(tr -d '[:space:]' <"${HOST_CHROME_FACT}" || true)"
+  fi
+  case "${v}" in
+    none|off|0|headless) echo none ;;
+    *) echo full ;;
+  esac
 }
 
 stop_guide() {
@@ -84,6 +125,29 @@ set_profile() {
   fi
 }
 
+# Host-scoped product apps (separate Quickshell processes) must not linger after
+# leaving host — chrome restart does not tear them down.
+close_host_product_apps() {
+  command -v hyprctl >/dev/null 2>&1 || return 0
+  python3 - <<'PY' 2>/dev/null || true
+import json, subprocess
+HOST_TITLES = ("Proteus Workloads",)
+try:
+    clients = json.loads(subprocess.check_output(["hyprctl", "clients", "-j"], text=True, timeout=3))
+except Exception:
+    raise SystemExit(0)
+for c in clients:
+    title = str(c.get("title") or "")
+    addr = str(c.get("address") or "")
+    if not addr:
+        continue
+    if title in HOST_TITLES or title.startswith("Proteus Workloads"):
+        subprocess.run(["hyprctl", "dispatch", "closewindow", f"address:{addr}"],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+PY
+  log "closed host product apps (Workloads)"
+}
+
 # SteamOS-like one-thing-on-screen: close non-chrome clients when entering console.
 console_workspace_hygiene() {
   command -v hyprctl >/dev/null 2>&1 || return 0
@@ -93,6 +157,8 @@ console_workspace_hygiene() {
   elif command -v proteus-console-seat >/dev/null 2>&1; then
     proteus-console-seat stop >/dev/null 2>&1 || true
   fi
+  # Workloads is quickshell-class — close before the skip-all-quickshell pass.
+  close_host_product_apps
   python3 - <<'PY' 2>/dev/null || true
 import json, subprocess
 try:
@@ -133,6 +199,17 @@ restart_chrome() {
     "${QS}" --restart "${SHELL_DIR}" >/dev/null 2>&1 &
 }
 
+stop_chrome() {
+  if [[ ! -x "${QS}" ]]; then
+    echo "proteus-posture: proteus-qs not found at ${QS}" >&2
+    exit 1
+  fi
+  export PROTEUS_ROOT="${PROTEUS_ROOT:-${ROOT}}"
+  # Detached stop — caller may be inside Quickshell.
+  setsid env PROTEUS_ROOT="${PROTEUS_ROOT}" \
+    "${QS}" --stop "${SHELL_DIR}" >/dev/null 2>&1 &
+}
+
 case "${TARGET}" in
   console)
     if ! command -v gamescope >/dev/null 2>&1; then
@@ -152,6 +229,7 @@ case "${TARGET}" in
     write_fact desktop
     log "Fact → desktop (${FACT})"
     set_profile desktop
+    close_host_product_apps
     restart_chrome desktop
     # Keep guide on desktop for CC / Beacon / lock pad grammar
     sleep 0.8
@@ -166,9 +244,20 @@ case "${TARGET}" in
     if [[ -x "${ROOT}/shell/scripts/proteus-console-seat" ]]; then
       "${ROOT}/shell/scripts/proteus-console-seat" stop >/dev/null 2>&1 || true
     fi
-    restart_chrome host
-    sleep 0.8
-    start_guide
-    log "entered host"
+    if [[ -n "${HOST_CHROME_FLAG}" ]]; then
+      write_host_chrome "${HOST_CHROME_FLAG}"
+      log "host-chrome → ${HOST_CHROME_FLAG} (${HOST_CHROME_FACT})"
+    fi
+    chrome_mode="$(read_host_chrome)"
+    if [[ "${chrome_mode}" == "none" ]]; then
+      stop_guide
+      stop_chrome
+      log "entered host (headless-no-QS — proteus-posture host --chrome to restore UI)"
+    else
+      restart_chrome host
+      sleep 0.8
+      start_guide
+      log "entered host"
+    fi
     ;;
 esac

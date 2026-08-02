@@ -168,7 +168,34 @@ Scope {
         launcher: ShellState.launcherOpen,
         customize: ShellState.desktopCustomizeMode,
         locked: ShellState.sessionLocked,
-        padWanted: ShellState.padWanted
+        padWanted: ShellState.padWanted,
+        desktopEntries: DesktopEntries.applications.values.length,
+        dockPins: Config.dockPins
+      })
+    }
+
+    // Dogfood: qs -p <config> ipc call chrome dockLaunch chromium
+    function dockLaunch(desktopId: string): string {
+      const id = DockApps.normalizeDesktopId(desktopId)
+      if (!id.length)
+        return "empty"
+      let entry = DockApps.entryFromDesktopId(id)
+      if (!entry) {
+        entry = {
+          id: id,
+          name: id,
+          label: id,
+          desktopId: id,
+          match: id.split(".").pop().toLowerCase()
+        }
+      }
+      const desk = DesktopEntries.heuristicLookup(id)
+      DockApps.focusOrLaunch(entry)
+      return JSON.stringify({
+        id: id,
+        resolved: !!desk,
+        command: desk && desk.command ? desk.command : [],
+        apps: DesktopEntries.applications.values.length
       })
     }
   }

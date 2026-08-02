@@ -2,7 +2,7 @@
 doc: chrome
 role: reference
 audience: UI, contributors, coding agents
-last_updated: "2026-07-31"
+last_updated: "2026-08-02"
 doc_status: active
 scope: Proteus chrome language — principles, tokens, Settings patterns (company reference)
 related:
@@ -196,7 +196,7 @@ shell surfaces that rhyme):
 | **SettingsFormRow** | Label + hint + trailing control |
 | **SettingsHubList** | › rows into sub-settings |
 | **SettingsSegmented** | Exclusive segment pick |
-| **SettingsCombo** | Trailing popup picker (Theme chip + elevated menu; not Fusion ComboBox) |
+| **SettingsCombo** | Trailing popup picker (Theme chip + elevated menu; not Fusion ComboBox); menu **flips above** the chip when it would clip at the window bottom (`margins` keep it inside small windows) |
 | **ThemeSlider / ThemeSwitch** | Shared accent controls (`shell/shared/`) — drop-in Controls Slider/Switch: accent fill/track, white knob/thumb, hairline groove. Stock Controls Slider/Switch are banned outside these wrappers (`chrome-tokens-smoke` gate) |
 | **Fact line** | Mute one-liner naming the on-disk / CLI fact |
 

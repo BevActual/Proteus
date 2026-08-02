@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """
-Proteus hardware probe — Wave A (desktop / laptop).
+Proteus hardware probe — Wave A (desktop / laptop) + thin Wave B remote.
 
 Emits JSON: device class, modules present, derived capabilities.
-See docs/proteus/HARDWARE.md § Wave A.
+See docs/proteus/HARDWARE.md § Wave A / input.remote.
 
 Usage:
   proteus-hw-probe           # pretty JSON to stdout
   proteus-hw-probe --compact
   proteus-hw-probe --wave A
+  PROTEUS_HW_PROBE_FORCE_REMOTE=1     # CI / dogfood without CEC/IR/BT hardware
+  PROTEUS_HW_PROBE_FORCE_REMOTE_BT=1  # CI force Bluetooth HID remote path only
+  PROTEUS_HW_PROBE_INPUT_DEVICES=/path # override /proc/bus/input/devices (fixture)
 """
 
 from __future__ import annotations
@@ -142,9 +145,140 @@ def drm_connectors() -> list[dict[str, Any]]:
     return out
 
 
+def _sysfs_nonempty(path: Path) -> bool:
+    try:
+        return path.is_dir() and any(path.iterdir())
+    except OSError:
+        return False
+
+
+def _input_devices_text() -> str:
+    """/proc/bus/input/devices, or PROTEUS_HW_PROBE_INPUT_DEVICES fixture path."""
+    override = os.environ.get("PROTEUS_HW_PROBE_INPUT_DEVICES", "").strip()
+    if override:
+        return read_text(Path(override)) or ""
+    return read_text(Path("/proc/bus/input/devices")) or ""
+
+
+def _env_truthy(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _looks_like_bt_remote_name(name: str) -> bool:
+    """Name heuristics for Bluetooth HID remotes — not bare Consumer Control."""
+    n = name.lower().strip()
+    if not n:
+        return False
+    # Exclude common non-remote BT HID that mention "remote" loosely.
+    if any(x in n for x in ("remote desktop", "headset", "hands-free", "handsfree")):
+        return False
+    needles = (
+        "remote control",
+        "media remote",
+        "tv remote",
+        "bluetooth remote",
+        "smart remote",
+        "presentation remote",
+        "presentation clicker",
+        "fire tv",
+        "fire stick",
+        "roku",
+        "harmony",
+        "apple tv",
+        "keyspan",
+        "satechi",
+        "logitech spotlight",
+        "logitech present",
+    )
+    if any(x in n for x in needles):
+        return True
+    # Bare "remote" on BT (e.g. "Acme Remote") — skip Consumer Control alone.
+    if "remote" in n and "consumer control" not in n:
+        return True
+    return False
+
+
+def has_bluetooth_hid_remote() -> bool:
+    """Thin: Bluetooth (Bus=0005) input device with remote-like Name=.
+
+    Out: pairing UI · key decode · IR-over-BT proprietary stacks.
+    Honors PROTEUS_HW_PROBE_FORCE_REMOTE_BT=1 for smoke without hardware.
+    """
+    if _env_truthy("PROTEUS_HW_PROBE_FORCE_REMOTE_BT"):
+        return True
+    text = _input_devices_text()
+    if not text.strip():
+        return False
+    for block in text.split("\n\n"):
+        bus_raw = ""
+        name = ""
+        phys = ""
+        for line in block.splitlines():
+            if line.startswith("I:") and "Bus=" in line:
+                for part in line.split():
+                    if part.startswith("Bus="):
+                        bus_raw = part.split("=", 1)[1].strip().lower()
+            elif line.startswith("N: Name="):
+                raw = line.split("=", 1)[1].strip()
+                if len(raw) >= 2 and raw[0] == '"' and raw[-1] == '"':
+                    raw = raw[1:-1]
+                name = raw
+            elif line.startswith("P: Phys="):
+                phys = line.split("=", 1)[1].strip().lower()
+        is_bt = bus_raw == "0005" or "bluetooth" in phys
+        if is_bt and _looks_like_bt_remote_name(name):
+            return True
+    return False
+
+
+def has_remote_input() -> bool:
+    """Thin Wave B: CEC / IR (rc) / lirc / Bluetooth HID remote names.
+
+    Also honors PROTEUS_HW_PROBE_FORCE_REMOTE=1 for smoke without hardware.
+    QML still accepts PROTEUS_REMOTE_PROBE stub when probe finds nothing.
+    """
+    if _env_truthy("PROTEUS_HW_PROBE_FORCE_REMOTE"):
+        return True
+    if _sysfs_nonempty(Path("/sys/class/cec")):
+        return True
+    if _sysfs_nonempty(Path("/sys/class/rc")):
+        return True
+    if _sysfs_nonempty(Path("/sys/class/lirc")):
+        return True
+    try:
+        for p in Path("/dev").glob("cec*"):
+            if p.exists():
+                return True
+        for p in Path("/dev").glob("lirc*"):
+            if p.exists():
+                return True
+    except OSError:
+        pass
+    # /proc/bus/input Name= lines for common IR receivers
+    text = _input_devices_text().lower()
+    if any(
+        n in text
+        for n in (
+            "gpio_ir",
+            "gpio-ir",
+            "meson-ir",
+            "sunxi-ir",
+            "ite cir",
+            "nuvoton cir",
+            "ene cir",
+            "rc-core",
+            "infrared",
+        )
+    ):
+        return True
+    if has_bluetooth_hid_remote():
+        return True
+    return False
+
+
 def input_devices() -> dict[str, bool]:
     """Heuristic from /proc/bus/input/devices and by-path."""
-    text = read_text(Path("/proc/bus/input/devices")) or ""
+    text = _input_devices_text()
     low = text.lower()
     # libinput list if available
     li = run(["libinput", "list-devices"]) if which("libinput") else ""
@@ -158,6 +292,7 @@ def input_devices() -> dict[str, bool]:
         "input.pointer": hit("mouse", "touchpad", "trackpoint", "pointer"),
         "input.touch": hit("touchscreen", "touch screen", "finger"),
         "input.gamepad": hit("joystick", "gamepad", "x-box", "xbox"),
+        "input.remote": has_remote_input(),
     }
 
 
@@ -298,6 +433,7 @@ def collect_wave_a() -> dict[str, Any]:
         "pointer": modules["input.pointer"],
         "touch": modules["input.touch"],
         "gamepad": modules["input.gamepad"],
+        "remote": modules.get("input.remote", False),
         "mic": modules["audio.mic"],
         "speaker": modules["audio.speaker"],
         "battery": modules["power.battery"],

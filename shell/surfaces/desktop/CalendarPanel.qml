@@ -1,5 +1,6 @@
 import Quickshell
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import "../../shared"
 
@@ -107,6 +108,10 @@ Item {
     ShellState.openCalendarApp()
   }
 
+  function openFullMail() {
+    ShellState.openMailApp()
+  }
+
   readonly property bool onCurrentMonth: viewYear === todayDate.getFullYear()
       && viewMonth === todayDate.getMonth()
 
@@ -149,6 +154,8 @@ Item {
     if (openState) {
       goToday()
       CalendarEvents.refreshForDate(root.selectedDate)
+      MailGlance.refresh()
+      ContactsGlance.refresh()
       forceActiveFocus()
     }
   }
@@ -391,7 +398,7 @@ Item {
         }
       }
 
-      // Selected-day glance — Online accounts seats (read-only) + full app handoff
+      // Selected-day glance — Online accounts + CalDAV create/update/delete thin
       Rectangle {
         Layout.fillWidth: true
         implicitHeight: selCol.implicitHeight + 12
@@ -408,12 +415,35 @@ Item {
           anchors.margins: 10
           spacing: 4
 
+          property string newEventTitle: ""
+          // Create-only thin recurrence: none|daily|weekly|monthly
+          property string newEventRepeat: "none"
+          property string confirmDeleteHref: ""
+          property string editingHref: ""
+          property string editTitle: ""
+
+          readonly property var repeatCycle: ["none", "daily", "weekly", "monthly"]
+          function repeatLabel(v) {
+            const x = String(v || "none")
+            if (x === "daily")
+              return "Daily"
+            if (x === "weekly")
+              return "Weekly"
+            if (x === "monthly")
+              return "Monthly"
+            return "Once"
+          }
+          function cycleRepeat() {
+            const i = selCol.repeatCycle.indexOf(selCol.newEventRepeat)
+            selCol.newEventRepeat = selCol.repeatCycle[(i < 0 ? 0 : i + 1) % selCol.repeatCycle.length]
+          }
+
           Text {
             Layout.fillWidth: true
             text: {
               const _r = CalendarEvents.rev
-              if (CalendarEvents.busy)
-                return "Loading events…"
+              if (CalendarEvents.busy || CalendarEvents.mutating)
+                return CalendarEvents.mutating ? "Updating…" : "Loading events…"
               if (CalendarEvents.hasEvents)
                 return (root.selectedIsToday ? "Today" : Qt.formatDate(root.selectedDate, "MMM d"))
                     + " · " + CalendarEvents.events.length
@@ -438,17 +468,159 @@ Item {
               const list = CalendarEvents.events || []
               return list.slice(0, 5)
             }
-            Text {
+            ColumnLayout {
+              id: evRow
               required property var modelData
               Layout.fillWidth: true
-              text: {
-                const t = CalendarEvents.timeLabel(modelData)
-                return (t.length ? (t + " · ") : "") + String(modelData.title || "")
+              spacing: 4
+
+              readonly property string evHref: String(modelData.href || "")
+              readonly property bool isEditing: selCol.editingHref === evHref && evHref.length
+              readonly property bool isConfirmDelete: selCol.confirmDeleteHref === evHref
+                  && evHref.length
+
+              RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+                visible: !evRow.isEditing
+
+                Text {
+                  Layout.fillWidth: true
+                  text: {
+                    const t = CalendarEvents.timeLabel(modelData)
+                    return (t.length ? (t + " · ") : "") + String(modelData.title || "")
+                  }
+                  color: Theme.textDim
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  elide: Text.ElideRight
+                }
+
+                Text {
+                  visible: CalendarEvents.isMutable(modelData) && !evRow.isConfirmDelete
+                  text: "Edit"
+                  color: Theme.accent
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -4
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                      selCol.confirmDeleteHref = ""
+                      selCol.editingHref = String(modelData.href || "")
+                      selCol.editTitle = String(modelData.title || "")
+                    }
+                  }
+                }
+
+                Text {
+                  visible: CalendarEvents.isMutable(modelData) && !evRow.isConfirmDelete
+                  text: "✕"
+                  color: Theme.textMute
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -4
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                      selCol.editingHref = ""
+                      selCol.confirmDeleteHref = String(modelData.href || "")
+                    }
+                  }
+                }
+
+                RowLayout {
+                  visible: CalendarEvents.isMutable(modelData) && evRow.isConfirmDelete
+                  spacing: 6
+                  Text {
+                    text: "Cancel"
+                    color: Theme.textMute
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 11
+                    MouseArea {
+                      anchors.fill: parent
+                      anchors.margins: -4
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: selCol.confirmDeleteHref = ""
+                    }
+                  }
+                  Text {
+                    text: "Delete"
+                    color: Theme.danger
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 11
+                    MouseArea {
+                      anchors.fill: parent
+                      anchors.margins: -4
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: {
+                        CalendarEvents.deleteEvent(modelData)
+                        selCol.confirmDeleteHref = ""
+                      }
+                    }
+                  }
+                }
               }
-              color: Theme.textDim
-              font.family: Theme.fontFamily
-              font.pixelSize: 11
-              elide: Text.ElideRight
+
+              RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+                visible: evRow.isEditing
+
+                TextField {
+                  Layout.fillWidth: true
+                  text: selCol.editTitle
+                  color: Theme.text
+                  placeholderText: "Title"
+                  placeholderTextColor: Theme.textMute
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  background: Item {}
+                  onTextChanged: selCol.editTitle = text
+                  onAccepted: {
+                    const y = root.selectedDate.getFullYear()
+                    const m = ("0" + (root.selectedDate.getMonth() + 1)).slice(-2)
+                    const d = ("0" + root.selectedDate.getDate()).slice(-2)
+                    if (CalendarEvents.updateEvent(modelData, selCol.editTitle, y + "-" + m + "-" + d))
+                      selCol.editingHref = ""
+                  }
+                }
+
+                Text {
+                  text: "Save"
+                  color: Theme.accent
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  font.weight: Font.DemiBold
+                  MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -4
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                      const y = root.selectedDate.getFullYear()
+                      const m = ("0" + (root.selectedDate.getMonth() + 1)).slice(-2)
+                      const d = ("0" + root.selectedDate.getDate()).slice(-2)
+                      if (CalendarEvents.updateEvent(modelData, selCol.editTitle, y + "-" + m + "-" + d))
+                        selCol.editingHref = ""
+                    }
+                  }
+                }
+
+                Text {
+                  text: "Cancel"
+                  color: Theme.textMute
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -4
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: selCol.editingHref = ""
+                  }
+                }
+              }
             }
           }
 
@@ -456,7 +628,7 @@ Item {
             Layout.fillWidth: true
             visible: {
               const _r = CalendarEvents.rev
-              return !!CalendarEvents.error.length && !CalendarEvents.hasEvents
+              return !!CalendarEvents.error.length
             }
             text: CalendarEvents.error
             color: Theme.danger
@@ -465,14 +637,80 @@ Item {
             wrapMode: Text.WordWrap
           }
 
+          RowLayout {
+            Layout.fillWidth: true
+            visible: {
+              const _r = CalendarEvents.rev
+              return CalendarEvents.canCreate
+            }
+            spacing: 6
+
+            TextField {
+              Layout.fillWidth: true
+              placeholderText: "New event"
+              text: selCol.newEventTitle
+              color: Theme.text
+              placeholderTextColor: Theme.textMute
+              font.family: Theme.fontFamily
+              font.pixelSize: 11
+              background: Item {}
+              onTextChanged: selCol.newEventTitle = text
+              onAccepted: {
+                const y = root.selectedDate.getFullYear()
+                const m = ("0" + (root.selectedDate.getMonth() + 1)).slice(-2)
+                const d = ("0" + root.selectedDate.getDate()).slice(-2)
+                if (CalendarEvents.createEvent(
+                      selCol.newEventTitle, y + "-" + m + "-" + d, selCol.newEventRepeat))
+                  selCol.newEventTitle = ""
+              }
+            }
+
+            Text {
+              text: selCol.repeatLabel(selCol.newEventRepeat)
+              color: Theme.textDim
+              font.family: Theme.fontFamily
+              font.pixelSize: 11
+              font.weight: Font.Medium
+              MouseArea {
+                anchors.fill: parent
+                anchors.margins: -6
+                cursorShape: Qt.PointingHandCursor
+                onClicked: selCol.cycleRepeat()
+              }
+            }
+
+            Text {
+              text: "Add"
+              color: Theme.accent
+              font.family: Theme.fontFamily
+              font.pixelSize: 11
+              font.weight: Font.DemiBold
+              MouseArea {
+                anchors.fill: parent
+                anchors.margins: -6
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  const y = root.selectedDate.getFullYear()
+                  const m = ("0" + (root.selectedDate.getMonth() + 1)).slice(-2)
+                  const d = ("0" + root.selectedDate.getDate()).slice(-2)
+                  if (CalendarEvents.createEvent(
+                        selCol.newEventTitle, y + "-" + m + "-" + d, selCol.newEventRepeat))
+                    selCol.newEventTitle = ""
+                }
+              }
+            }
+          }
+
           Text {
             Layout.fillWidth: true
             text: {
               const _r = CalendarEvents.rev
+              if (CalendarEvents.canCreate)
+                return "CalDAV + Google/MS create/edit/delete In · recurrence thin create In · mail compose thin In · Open Calendar for full editing"
               if (CalendarEvents.hasSeats)
                 return ShellState.calendarAppAvailable
-                    ? "Open in Calendar for editing · seats from Online accounts"
-                    : "Connect seats in Settings → Online accounts"
+                    ? "Open in Calendar for editing · CalDAV seats enable glance create/edit/delete"
+                    : "Connect CalDAV/Nextcloud/Apple in Settings → Online accounts"
               return ShellState.calendarAppAvailable
                   ? "Open in Calendar for events, reminders, and editing"
                   : "Install gnome-calendar · or connect Online accounts"
@@ -511,6 +749,317 @@ Item {
                   ShellState.openDateTimeSettings()
               }
             }
+          }
+        }
+      }
+
+      // Mail glance — unread subjects from Online accounts (G/MS)
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: mailCol.implicitHeight + 20
+        radius: Theme.radiusMd
+        color: Theme.elevatedFill
+        border.width: 1
+        border.color: Theme.chromeBorder
+
+        ColumnLayout {
+          id: mailCol
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.margins: 10
+          spacing: 4
+
+          Text {
+            Layout.fillWidth: true
+            text: {
+              const _r = MailGlance.rev
+              if (MailGlance.busy)
+                return "Loading mail…"
+              if (MailGlance.hasMessages || MailGlance.unread > 0) {
+                const n = MailGlance.unread
+                return n > 0
+                    ? (n + (n === 1 ? " unread" : " unread"))
+                    : "Recent mail"
+              }
+              if (MailGlance.hasSeats)
+                return "Inbox clear"
+              return "Mail glance"
+            }
+            color: Theme.text
+            font.family: Theme.fontFamily
+            font.pixelSize: 12
+            font.weight: Font.Medium
+          }
+
+          Repeater {
+            model: {
+              const _r = MailGlance.rev
+              const list = MailGlance.messages || []
+              return list.slice(0, 3)
+            }
+            Text {
+              required property var modelData
+              Layout.fillWidth: true
+              text: {
+                const from = MailGlance.fromLabel(modelData)
+                const sub = String(modelData.subject || "")
+                return (from.length ? (from + " · ") : "") + sub
+              }
+              color: Theme.textDim
+              font.family: Theme.fontFamily
+              font.pixelSize: 11
+              elide: Text.ElideRight
+            }
+          }
+
+          Text {
+            Layout.fillWidth: true
+            visible: {
+              const _r = MailGlance.rev
+              return !!MailGlance.error.length && !MailGlance.hasMessages
+            }
+            text: MailGlance.error
+            color: Theme.danger
+            font.family: Theme.fontFamily
+            font.pixelSize: 11
+            wrapMode: Text.WordWrap
+          }
+
+          Text {
+            Layout.fillWidth: true
+            visible: {
+              const _r = MailGlance.rev
+              return !!MailGlance.hint.length
+            }
+            text: MailGlance.hint
+            color: Theme.textDim
+            font.family: Theme.fontFamily
+            font.pixelSize: 11
+            wrapMode: Text.WordWrap
+          }
+
+          ColumnLayout {
+            Layout.fillWidth: true
+            visible: {
+              const _r = MailGlance.rev
+              return MailGlance.canSend
+            }
+            spacing: 4
+
+            TextField {
+              Layout.fillWidth: true
+              placeholderText: "To"
+              text: MailGlance.composeTo
+              color: Theme.text
+              placeholderTextColor: Theme.textMute
+              font.family: Theme.fontFamily
+              font.pixelSize: 11
+              background: Item {}
+              onTextChanged: MailGlance.composeTo = text
+            }
+
+            TextField {
+              Layout.fillWidth: true
+              placeholderText: "Subject"
+              text: MailGlance.composeSubject
+              color: Theme.text
+              placeholderTextColor: Theme.textMute
+              font.family: Theme.fontFamily
+              font.pixelSize: 11
+              background: Item {}
+              onTextChanged: MailGlance.composeSubject = text
+              onAccepted: MailGlance.sendMessage()
+            }
+
+            TextField {
+              Layout.fillWidth: true
+              placeholderText: "Message"
+              text: MailGlance.composeBody
+              color: Theme.text
+              placeholderTextColor: Theme.textMute
+              font.family: Theme.fontFamily
+              font.pixelSize: 11
+              background: Item {}
+              onTextChanged: MailGlance.composeBody = text
+            }
+
+            RowLayout {
+              Layout.fillWidth: true
+              spacing: 6
+
+              Text {
+                Layout.fillWidth: true
+                text: {
+                  const _r = MailGlance.rev
+                  if (MailGlance.sending)
+                    return "Sending…"
+                  if (MailGlance.sendError.length)
+                    return MailGlance.sendError
+                  return "Plain text · To / Subject / Body"
+                }
+                color: {
+                  const _r = MailGlance.rev
+                  return MailGlance.sendError.length ? Theme.danger : Theme.textDim
+                }
+                font.family: Theme.fontFamily
+                font.pixelSize: 11
+                elide: Text.ElideRight
+              }
+
+              Text {
+                text: "Send"
+                color: Theme.accent
+                font.family: Theme.fontFamily
+                font.pixelSize: 11
+                font.weight: Font.DemiBold
+                opacity: {
+                  const _r = MailGlance.rev
+                  return MailGlance.sending ? 0.5 : 1
+                }
+                MouseArea {
+                  anchors.fill: parent
+                  anchors.margins: -6
+                  cursorShape: Qt.PointingHandCursor
+                  enabled: {
+                    const _r = MailGlance.rev
+                    return !MailGlance.sending
+                  }
+                  onClicked: MailGlance.sendMessage()
+                }
+              }
+            }
+          }
+
+          Text {
+            Layout.fillWidth: true
+            text: {
+              const _r = MailGlance.rev
+              if (MailGlance.canSend)
+                return "Compose thin In · Google/MS/Exchange + IMAP/Apple SMTP · Open Mail for full reading"
+              if (MailGlance.hasSeats)
+                return ShellState.mailAppAvailable
+                    ? "Open in Mail for reading · reconnect seats for send scopes"
+                    : "Connect seats in Settings → Online accounts"
+              return ShellState.mailAppAvailable
+                  ? "Open in Mail · or connect Online accounts for glance/compose"
+                  : "Install a mail app · or connect Online accounts"
+            }
+            color: Theme.textDim
+            font.family: Theme.fontFamily
+            font.pixelSize: 11
+            wrapMode: Text.WordWrap
+          }
+
+          Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 28
+            Layout.topMargin: 2
+            radius: Theme.radiusMd
+            color: openMailMa.containsMouse ? Theme.chromeAccentSoft : Theme.chromeHover
+
+            Text {
+              anchors.centerIn: parent
+              text: ShellState.mailAppAvailable ? "Open in Mail" : "Open Online accounts"
+              color: Theme.accent
+              font.family: Theme.fontFamily
+              font.pixelSize: 12
+              font.weight: Font.DemiBold
+            }
+
+            MouseArea {
+              id: openMailMa
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                if (ShellState.mailAppAvailable)
+                  root.openFullMail()
+                else
+                  ShellState.openSettings("accounts")
+              }
+            }
+          }
+        }
+      }
+
+      // Contacts glance — CardDAV address book (Online accounts)
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: contactsCol.implicitHeight + 20
+        radius: Theme.radiusMd
+        color: Theme.elevatedFill
+        border.width: 1
+        border.color: Theme.chromeBorder
+
+        ColumnLayout {
+          id: contactsCol
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.margins: 10
+          spacing: 4
+
+          Text {
+            Layout.fillWidth: true
+            text: {
+              const _r = ContactsGlance.rev
+              if (ContactsGlance.busy)
+                return "Loading contacts…"
+              if (ContactsGlance.hasContacts)
+                return "Contacts · " + ContactsGlance.contacts.length
+              if (ContactsGlance.hasSeats)
+                return "Address book empty"
+              return "Contacts glance"
+            }
+            color: Theme.text
+            font.family: Theme.fontFamily
+            font.pixelSize: 12
+            font.weight: Font.Medium
+          }
+
+          Repeater {
+            model: {
+              const _r = ContactsGlance.rev
+              const list = ContactsGlance.contacts || []
+              return list.slice(0, 3)
+            }
+            Text {
+              required property var modelData
+              Layout.fillWidth: true
+              text: ContactsGlance.contactLabel(modelData)
+              color: Theme.textDim
+              font.family: Theme.fontFamily
+              font.pixelSize: 11
+              elide: Text.ElideRight
+            }
+          }
+
+          Text {
+            Layout.fillWidth: true
+            visible: {
+              const _r = ContactsGlance.rev
+              return !!ContactsGlance.error.length && !ContactsGlance.hasContacts
+            }
+            text: ContactsGlance.error
+            color: Theme.danger
+            font.family: Theme.fontFamily
+            font.pixelSize: 11
+            wrapMode: Text.WordWrap
+          }
+
+          Text {
+            Layout.fillWidth: true
+            text: {
+              const _r = ContactsGlance.rev
+              if (ContactsGlance.hasSeats)
+                return "CardDAV seat · Settings → Online accounts"
+              return "Connect CardDAV in Settings → Online accounts"
+            }
+            color: Theme.textDim
+            font.family: Theme.fontFamily
+            font.pixelSize: 11
+            wrapMode: Text.WordWrap
           }
         }
       }

@@ -7,14 +7,23 @@
 #   synced     — Super+N / goto switches every display together (default)
 #   perDisplay — switch only the focused (or --monitor) display
 # --local / --synced override the setting for one invocation.
+#
+# Scratchpad (special:scratch) is separate from dock minimize (special:minimized).
+#   scratch-toggle — show/hide scratch
+#   scratch-move   — park focused window on scratch
+# Custom specials (settings.json specialWorkspaces; reserved scratch/minimized):
+#   special-toggle|special-move NAME · special-list
+#   special-toggle-index|special-move-index N — 1-based slot (keybinds / strip)
 set -euo pipefail
 
 STRIDE=10
 MAX_LOGICAL=10
+SCRATCH_NAME="${PROTEUS_SCRATCH_NAME:-scratch}"
+MINIMIZED_NAME="${PROTEUS_MINIMIZED_NAME:-minimized}"
 SETTINGS="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/settings.json"
 
 usage() {
-  echo "Usage: proteus-workspace {goto|next|prev|move|status|ensure|selftest} [N] [--local|--synced] [--monitor NAME] [--fixture]" >&2
+  echo "Usage: proteus-workspace {goto|next|prev|move|scratch-toggle|scratch-move|special-toggle|special-move|special-toggle-index|special-move-index|special-list|status|ensure|migrate-disconnect|apply-names|selftest} [N|NAME] [--local|--synced] [--monitor NAME] [--fixture]" >&2
   exit 2
 }
 
@@ -47,8 +56,247 @@ selftest() {
     echo "proteus-workspace selftest FAIL band overlap" >&2
     fail=1
   }
+  # Disconnect migration: orphan band → primary logical (monitorCount=1)
+  STRIDE="${STRIDE}" python3 - <<'PY' || fail=1
+import os, sys
+stride = int(os.environ.get("STRIDE", "10"))
+
+def target(wid, n_mons):
+    if wid < 1:
+        return None
+    band = (wid - 1) // stride
+    if band < n_mons:
+        return None
+    logical = ((wid - 1) % stride) + 1
+    return logical  # primary band index 0
+
+assert target(15, 1) == 5, target(15, 1)
+assert target(11, 1) == 1, target(11, 1)
+assert target(20, 1) == 10, target(20, 1)
+assert target(5, 1) is None
+assert target(15, 2) is None
+assert target(-98, 1) is None
+print("migrate-plan math ok")
+PY
+  # Scratchpad name is fixed product SoT (≠ special:minimized).
+  [[ "${SCRATCH_NAME}" == "scratch" ]] || {
+    echo "proteus-workspace selftest FAIL scratch name: ${SCRATCH_NAME}" >&2
+    fail=1
+  }
+  valid_special_name "notes" || {
+    echo "proteus-workspace selftest FAIL valid notes" >&2
+    fail=1
+  }
+  valid_special_name "scratch" || {
+    echo "proteus-workspace selftest FAIL reserved scratch still valid" >&2
+    fail=1
+  }
+  if valid_special_name "Bad Name" || valid_special_name "" || valid_special_name "1abc"; then
+    echo "proteus-workspace selftest FAIL invalid special names accepted" >&2
+    fail=1
+  fi
   [[ "${fail}" -eq 0 ]] || exit 1
   echo "proteus-workspace selftest: OK"
+}
+
+# Hypr special workspace slug: [a-z][a-z0-9-]{0,23}
+valid_special_name() {
+  local n="${1:-}"
+  [[ "${n}" =~ ^[a-z][a-z0-9-]{0,23}$ ]]
+}
+
+is_reserved_special() {
+  local n="${1:-}"
+  [[ "${n}" == "${SCRATCH_NAME}" || "${n}" == "${MINIMIZED_NAME}" ]]
+}
+
+emit_scratch_fixture() {
+  local action="$1"
+  python3 - "${action}" "${SCRATCH_NAME}" <<'PY'
+import json, sys
+print(json.dumps({
+    "ok": True,
+    "fixture": True,
+    "action": sys.argv[1],
+    "name": sys.argv[2],
+    "workspace": f"special:{sys.argv[2]}",
+}))
+PY
+}
+
+scratch_toggle() {
+  local fixture="${1:-0}"
+  if [[ "${fixture}" -eq 1 ]]; then
+    emit_scratch_fixture "scratch-toggle"
+    return 0
+  fi
+  need_hyprctl
+  hyprctl dispatch togglespecialworkspace "${SCRATCH_NAME}" >/dev/null
+}
+
+scratch_move() {
+  local fixture="${1:-0}"
+  if [[ "${fixture}" -eq 1 ]]; then
+    emit_scratch_fixture "scratch-move"
+    return 0
+  fi
+  need_hyprctl
+  hyprctl dispatch movetoworkspace "special:${SCRATCH_NAME}" >/dev/null
+}
+
+emit_special_fixture() {
+  local action="$1" name="$2"
+  python3 - "${action}" "${name}" <<'PY'
+import json, sys
+print(json.dumps({
+    "ok": True,
+    "fixture": True,
+    "action": sys.argv[1],
+    "name": sys.argv[2],
+    "workspace": f"special:{sys.argv[2]}",
+}))
+PY
+}
+
+special_toggle() {
+  local name="${1:-}" fixture="${2:-0}"
+  valid_special_name "${name}" || {
+    echo "proteus-workspace: invalid special name: ${name}" >&2
+    return 2
+  }
+  if [[ "${fixture}" -eq 1 ]]; then
+    emit_special_fixture "special-toggle" "${name}"
+    return 0
+  fi
+  need_hyprctl
+  hyprctl dispatch togglespecialworkspace "${name}" >/dev/null
+}
+
+special_move() {
+  local name="${1:-}" fixture="${2:-0}"
+  valid_special_name "${name}" || {
+    echo "proteus-workspace: invalid special name: ${name}" >&2
+    return 2
+  }
+  if [[ "${fixture}" -eq 1 ]]; then
+    emit_special_fixture "special-move" "${name}"
+    return 0
+  fi
+  need_hyprctl
+  hyprctl dispatch movetoworkspace "special:${name}" >/dev/null
+}
+
+# Resolve 1-based index into settings.json specialWorkspaces (empty → "").
+special_name_at_index() {
+  local idx="${1:-}"
+  SETTINGS_PATH="${SETTINGS}" INDEX="${idx}" python3 - <<'PY'
+import json, os, re, sys
+idx = int(os.environ.get("INDEX") or "0")
+settings = os.environ.get("SETTINGS_PATH", "")
+pat = re.compile(r"^[a-z][a-z0-9-]{0,23}$")
+reserved = {"scratch", "minimized"}
+raw = []
+if os.path.isfile(settings):
+    try:
+        with open(settings, encoding="utf-8") as f:
+            data = json.load(f)
+        raw = data.get("specialWorkspaces") or []
+    except Exception:
+        raw = []
+custom = []
+seen = set()
+for item in raw if isinstance(raw, list) else []:
+    s = str(item or "").strip().lower()
+    if not pat.match(s) or s in reserved or s in seen:
+        continue
+    seen.add(s)
+    custom.append(s)
+    if len(custom) >= 8:
+        break
+if idx < 1 or idx > len(custom):
+    sys.exit(0)
+print(custom[idx - 1])
+PY
+}
+
+special_by_index() {
+  local action="${1:-}" idx="${2:-}" fixture="${3:-0}"
+  [[ "${action}" == "toggle" || "${action}" == "move" ]] || return 2
+  [[ "${idx}" =~ ^[1-8]$ ]] || {
+    echo "proteus-workspace: special index must be 1–8" >&2
+    return 2
+  }
+  local name=""
+  if [[ "${fixture}" -eq 1 ]]; then
+    # Fixture slots: 1=notes, 2=mail
+    case "${idx}" in
+      1) name="notes" ;;
+      2) name="mail" ;;
+      *) name="" ;;
+    esac
+    if [[ -z "${name}" ]]; then
+      python3 - <<PY
+import json
+print(json.dumps({"ok": True, "fixture": True, "action": "special-${action}-index",
+                  "index": ${idx}, "name": "", "empty": True}))
+PY
+      return 0
+    fi
+    emit_special_fixture "special-${action}-index" "${name}"
+    return 0
+  fi
+  name="$(special_name_at_index "${idx}" || true)"
+  if [[ -z "${name}" ]]; then
+    echo "proteus-workspace: no special at index ${idx}" >&2
+    return 1
+  fi
+  if [[ "${action}" == "toggle" ]]; then
+    special_toggle "${name}" 0
+  else
+    special_move "${name}" 0
+  fi
+}
+
+# List reserved + custom specials from settings.json (offline-friendly).
+special_list() {
+  local fixture="${1:-0}"
+  SETTINGS_PATH="${SETTINGS}" SCRATCH="${SCRATCH_NAME}" MINIMIZED="${MINIMIZED_NAME}" \
+    FIXTURE="${fixture}" python3 - <<'PY'
+import json, os, re, sys
+
+settings = os.environ.get("SETTINGS_PATH", "")
+scratch = os.environ.get("SCRATCH", "scratch")
+minimized = os.environ.get("MINIMIZED", "minimized")
+fixture = os.environ.get("FIXTURE", "0") == "1"
+pat = re.compile(r"^[a-z][a-z0-9-]{0,23}$")
+custom = []
+raw = []
+if fixture:
+    raw = ["notes", "scratch", "Bad", "notes"]
+elif os.path.isfile(settings):
+    try:
+        with open(settings, encoding="utf-8") as f:
+            data = json.load(f)
+        raw = data.get("specialWorkspaces") or []
+    except Exception:
+        raw = []
+seen = set()
+for item in raw if isinstance(raw, list) else []:
+    s = str(item or "").strip().lower()
+    if not pat.match(s) or s in (scratch, minimized) or s in seen:
+        continue
+    seen.add(s)
+    custom.append(s)
+    if len(custom) >= 8:
+        break
+print(json.dumps({
+    "ok": True,
+    "fixture": fixture,
+    "reserved": [scratch, minimized],
+    "custom": custom,
+    "all": [scratch, minimized] + custom,
+}))
+PY
 }
 
 emit_status_fixture() {
@@ -108,7 +356,7 @@ elif n == 1:
     hint = "Add a second display to dogfood synced / per-display Spaces"
 else:
     summary = f"{n} displays · {mode} · bands ×{stride}"
-    hint = "Hotplug: proteus-workspace ensure rebinds logical bands per display"
+    hint = "Hotplug: ensure migrates orphan-band windows then rebinds logical bands"
 print(json.dumps({
     "ok": True,
     "fixture": False,
@@ -121,9 +369,142 @@ print(json.dumps({
 PY
 }
 
+# Read workspaceNames[0..9] from settings.json (logical 1–10).
+read_names() {
+  python3 - "$SETTINGS" <<'PY'
+import json, sys
+path = sys.argv[1]
+names = [""] * 10
+try:
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    raw = data.get("workspaceNames") or []
+    if isinstance(raw, list):
+        for i in range(10):
+            if i < len(raw) and raw[i] is not None:
+                s = str(raw[i]).strip()[:24]
+                names[i] = s
+except Exception:
+    pass
+print("\n".join(names))
+PY
+}
+
+# Push settings.json labels onto every monitor band via renameworkspace.
+# Empty label → numeric logical id (Hyprland default-adjacent).
+apply_names() {
+  local names=()
+  mapfile -t names < <(read_names)
+  local i=0 name focused aw logical wid label
+  while IFS=$'\t' read -r _id name focused aw; do
+    [[ -n "${name}" ]] || continue
+    for logical in $(seq 1 "${MAX_LOGICAL}"); do
+      wid="$(physical_of "${logical}" "${i}")"
+      label="${names[$((logical - 1))]:-}"
+      if [[ -z "${label}" ]]; then
+        label="${logical}"
+      fi
+      label="${label//$'\n'/ }"
+      label="${label//;/_}"
+      # Per-call (not --batch) so names may contain spaces.
+      hyprctl dispatch renameworkspace "${wid}" "${label}" >/dev/null 2>&1 || true
+    done
+    i=$((i + 1))
+  done < <(monitor_rows)
+  if [[ "${i}" -eq 0 ]]; then
+    echo "proteus-workspace: apply-names — no monitors" >&2
+    return 1
+  fi
+}
+
+# Move clients on orphan bands (index ≥ live monitor count) to the matching
+# logical Space on band 0 (primary). Idempotent when no orphans. Special /
+# negative workspace ids skipped. --fixture → plan JSON only (no hyprctl writes).
+migrate_disconnect() {
+  local fixture="${1:-0}"
+  STRIDE="${STRIDE}" MAX_LOGICAL="${MAX_LOGICAL}" FIXTURE="${fixture}" python3 - <<'PY'
+import json, os, subprocess, sys
+
+stride = int(os.environ.get("STRIDE", "10"))
+fixture = os.environ.get("FIXTURE", "0") == "1"
+
+def plan_moves(mons, clients):
+    n = len(mons)
+    moves = []
+    for c in clients:
+        ws = c.get("workspace") or {}
+        try:
+            wid = int(ws.get("id") or 0)
+        except (TypeError, ValueError):
+            continue
+        if wid < 1:
+            continue
+        band = (wid - 1) // stride
+        if band < n:
+            continue
+        logical = ((wid - 1) % stride) + 1
+        target = logical  # band 0
+        addr = str(c.get("address") or "")
+        if not addr:
+            continue
+        moves.append({
+            "address": addr,
+            "from": wid,
+            "to": target,
+            "logical": logical,
+        })
+    return n, moves
+
+if fixture:
+    mons = [{"id": 0, "name": "HDMI-A-1"}]
+    clients = [
+        {"address": "0xaaa", "workspace": {"id": 15}},
+        {"address": "0xbbb", "workspace": {"id": 5}},
+        {"address": "0xccc", "workspace": {"id": 20}},
+        {"address": "0xddd", "workspace": {"id": -98}},
+    ]
+    n, moves = plan_moves(mons, clients)
+    print(json.dumps({
+        "ok": True,
+        "fixture": True,
+        "monitorCount": n,
+        "moved": len(moves),
+        "moves": moves,
+    }, separators=(",", ":")))
+    sys.exit(0)
+
+try:
+    mons = json.loads(subprocess.check_output(["hyprctl", "-j", "monitors"], text=True))
+    clients = json.loads(subprocess.check_output(["hyprctl", "-j", "clients"], text=True))
+except Exception as e:
+    print(json.dumps({"ok": False, "error": str(e)}), file=sys.stderr)
+    sys.exit(1)
+
+mons = sorted(mons, key=lambda m: int(m.get("id", 0)))
+n, moves = plan_moves(mons, clients)
+batch = ""
+for m in moves:
+    addr = m["address"]
+    if not addr.startswith("address:"):
+        addr = f"address:{addr}"
+    batch += f"dispatch movetoworkspacesilent {m['to']},{addr};"
+if batch:
+    subprocess.run(["hyprctl", "--batch", batch], check=False,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+print(json.dumps({
+    "ok": True,
+    "fixture": False,
+    "monitorCount": n,
+    "moved": len(moves),
+    "moves": moves,
+}, separators=(",", ":")))
+PY
+}
+
 # Rebind each monitor onto its band's physical workspace for the current logical.
-# Thin hotplug helper — does not migrate windows across disconnect.
+# Hotplug helper — migrates orphan-band windows first, then rebinds.
 ensure_bands() {
+  migrate_disconnect 0 >/dev/null || true
   local rows restore="" batch="" i=0 name focused aw logical wid
   while IFS=$'\t' read -r _id name focused aw; do
     [[ -n "${name}" ]] || continue
@@ -386,10 +767,65 @@ main() {
     return 0
   fi
 
+  if [[ "${cmd}" == "migrate-disconnect" ]]; then
+    if [[ "${fixture}" -eq 1 ]]; then
+      migrate_disconnect 1
+    else
+      need_hyprctl
+      migrate_disconnect 0
+    fi
+    return 0
+  fi
+
+  if [[ "${cmd}" == "scratch-toggle" ]]; then
+    scratch_toggle "${fixture}"
+    return 0
+  fi
+
+  if [[ "${cmd}" == "scratch-move" ]]; then
+    scratch_move "${fixture}"
+    return 0
+  fi
+
+  if [[ "${cmd}" == "special-list" ]]; then
+    special_list "${fixture}"
+    return 0
+  fi
+
+  if [[ "${cmd}" == "special-toggle" ]]; then
+    [[ -n "${num}" ]] || usage
+    special_toggle "${num}" "${fixture}"
+    return 0
+  fi
+
+  if [[ "${cmd}" == "special-move" ]]; then
+    [[ -n "${num}" ]] || usage
+    special_move "${num}" "${fixture}"
+    return 0
+  fi
+
+  if [[ "${cmd}" == "special-toggle-index" ]]; then
+    [[ -n "${num}" ]] || usage
+    special_by_index "toggle" "${num}" "${fixture}"
+    return 0
+  fi
+
+  if [[ "${cmd}" == "special-move-index" ]]; then
+    [[ -n "${num}" ]] || usage
+    special_by_index "move" "${num}" "${fixture}"
+    return 0
+  fi
+
   need_hyprctl
 
   if [[ "${cmd}" == "ensure" ]]; then
     ensure_bands
+    apply_names || true
+    return 0
+  fi
+
+  if [[ "${cmd}" == "apply-names" ]]; then
+    apply_names
     return 0
   fi
 

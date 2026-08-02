@@ -5,6 +5,8 @@ import Quickshell.Hyprland
 import QtQuick
 
 Singleton {
+  id: root
+
   // Fixed chrome pins (not removable)
   readonly property var launcherPin: {
     "id": "launcher",
@@ -118,6 +120,7 @@ Singleton {
     const icon = desk && desk.icon ? String(desk.icon) : short
     const entry = {
       id: id,
+      name: label,
       label: label,
       icon: icon,
       desktopId: id,
@@ -250,8 +253,10 @@ Singleton {
       const short = idLower.split(".").pop()
       let wm = ""
       try {
-        if (a.startupWmClass)
-          wm = String(a.startupWmClass).toLowerCase()
+        // Quickshell DesktopEntry property is startupClass (not startupWmClass).
+        const sc = a.startupClass || a.startupWmClass
+        if (sc)
+          wm = String(sc).toLowerCase()
       } catch (err) {
       }
       if (wm === c || idLower === c || short === c || idLower.endsWith("." + c)) {
@@ -510,7 +515,7 @@ Singleton {
     const tops = Hyprland.toplevels.values
     if (titleNeedle.length) {
       for (let i = 0; i < tops.length; i++) {
-        if (titleOf(tops[i]) === titleNeedle)
+        if (titleOf(tops[i]) === titleNeedle && toplevelAlive(tops[i]))
           wins.push(tops[i])
       }
       return wins
@@ -519,7 +524,7 @@ Singleton {
       return []
     const needle = entry.match.toLowerCase()
     for (let i = 0; i < tops.length; i++) {
-      if (classOf(tops[i]).toLowerCase().indexOf(needle) !== -1)
+      if (classOf(tops[i]).toLowerCase().indexOf(needle) !== -1 && toplevelAlive(tops[i]))
         wins.push(tops[i])
     }
     return wins
@@ -532,7 +537,27 @@ Singleton {
     return addr
   }
 
+  // Hyprland.toplevels can briefly retain closed windows (Chromium especially).
+  // Focusing a ghost address returns "success" and blocks relaunch.
+  function toplevelAlive(toplevel) {
+    const addr = windowAddress(toplevel)
+    if (!addr.length)
+      return false
+    const tops = Hyprland.toplevels.values
+    for (let i = 0; i < tops.length; i++) {
+      if (windowAddress(tops[i]) === addr) {
+        // Drop entries with no class/title — usually a dying handle.
+        const cls = classOf(tops[i])
+        const title = titleOf(tops[i])
+        return cls.length > 0 || title.length > 0
+      }
+    }
+    return false
+  }
+
   function minimizeToplevel(toplevel) {
+    if (!toplevelAlive(toplevel))
+      return false
     const addr = windowAddress(toplevel)
     if (!addr.length)
       return false
@@ -541,6 +566,8 @@ Singleton {
   }
 
   function isMinimizedToplevel(toplevel) {
+    if (!toplevelAlive(toplevel))
+      return false
     const ws = workspaceNameOf(toplevel)
     return ws === minimizeWorkspace || ws.indexOf("special:minimized") === 0
   }
@@ -591,10 +618,17 @@ Singleton {
   }
 
   function focusToplevel(toplevel) {
+    if (!toplevelAlive(toplevel))
+      return false
     const addr = windowAddress(toplevel)
     if (addr.length) {
-      if (isMinimizedToplevel(toplevel))
+      if (isMinimizedToplevel(toplevel)) {
+        // Bring back from special:minimized onto the active workspace.
         Hyprland.dispatch("movetoworkspace +0,address:" + addr)
+        Hyprland.dispatch("focuswindow address:" + addr)
+        Hyprland.refreshToplevels()
+        return true
+      }
       Hyprland.dispatch("focuswindow address:" + addr)
       return true
     }
@@ -689,6 +723,10 @@ Singleton {
     const t = Hyprland.activeToplevel
     if (!t)
       return false
+    // Parked on special:minimized can still be Hyprland's "active" toplevel —
+    // treat that as not frontmost so dock click restores instead of re-minimize.
+    if (isMinimizedToplevel(t))
+      return false
     const titleNeedle = titleMatchOf(entry)
         || (entry.special === "settings" ? "Proteus Settings" : "")
     if (titleNeedle.length)
@@ -697,6 +735,8 @@ Singleton {
       return false
     return classOf(t).toLowerCase().indexOf(entry.match.toLowerCase()) !== -1
   }
+
+  readonly property string dockActivateHelper: Config.scriptsDir + "/proteus-dock-activate"
 
   function focusOrLaunch(entry) {
     if (!entry || entry.separator)
@@ -708,8 +748,8 @@ Singleton {
     if (entry.special === "settings") {
       const settingsWins = windowsFor(entry)
       if (settingsWins.length) {
-        // Frontmost → dock-minimize; otherwise restore / raise (never spawn).
-        if (isActive(entry)) {
+        // Frontmost visible → dock-minimize; parked/background → restore.
+        if (isActive(entry) && !isMinimizedToplevel(settingsWins[0])) {
           minimizeToplevel(settingsWins[0])
           return
         }
@@ -722,47 +762,13 @@ Singleton {
       return
     }
 
-    const wins = windowsFor(entry)
-    if (wins.length) {
-      // Already frontmost with several windows → cycle to the next (macOS-ish).
-      if (wins.length > 1 && isActive(entry)) {
-        const activeAddr = windowAddress(Hyprland.activeToplevel)
-        let at = -1
-        for (let i = 0; i < wins.length; i++) {
-          if (windowAddress(wins[i]) === activeAddr) {
-            at = i
-            break
-          }
-        }
-        if (focusToplevel(wins[(at + 1) % wins.length]))
-          return
-      }
-      // Single focused window → dock-minimize; click again restores (Windows-taskbar
-      // semantics; Hyprland minimize = park on special:minimized).
-      if (wins.length === 1 && isActive(entry)) {
-        minimizeToplevel(wins[0])
-        return
-      }
-      // Prefer a visible window; otherwise restore a parked one.
-      let target = wins[0]
-      for (let i = 0; i < wins.length; i++) {
-        if (!isMinimizedToplevel(wins[i])) {
-          target = wins[i]
-          break
-        }
-      }
-      if (focusToplevel(target))
-        return
-    }
-
-    // No windows → launch. Ask → PrivacyAsk prompt; Deny → Privacy leaf.
-    // Pins stay visible — dockEntryAvailable remains hardware-only.
+    // Privacy Ask / Deny before activate (same as Beacon).
     const askCat = EnvGate.appPrivacyAskCategory(entry)
     if (askCat && askCat.length) {
-      PrivacyAsk.promptLaunch(entry, askCat, function (e) {
-        root.launchEntry(e || entry)
-      })
-      return
+      if (PrivacyAsk.promptLaunch(entry, askCat, function (e) {
+        root.focusOrLaunch(e || entry)
+      }))
+        return
     }
     const privacyPane = EnvGate.appPrivacyBlockPane(entry)
     if (privacyPane && privacyPane.length) {
@@ -772,30 +778,113 @@ Singleton {
     if (!EnvGate.appAvailable(entry))
       return
 
-    root.launchEntry(entry)
+    // Ghostty needs proteus-terminal (VM GL) — keep QML launchEntry.
+    if (entry.id === "terminal" || entry.match === "ghostty"
+        || entry.desktopId === "com.mitchellh.ghostty") {
+      root.launchEntry(entry)
+      return
+    }
+
+    // hyprctl-backed helper — avoids QS stale toplevels (Chromium ghosts).
+    const pinId = normalizeDesktopId(entry.desktopId || entry.id)
+    if (!pinId.length) {
+      root.launchEntry(entry)
+      return
+    }
+    markLaunching(entry)
+    Quickshell.execDetached({
+      command: [root.dockActivateHelper, pinId, String(entry.match || "")]
+    })
+  }
+
+  // Last-resort launch when DesktopEntries is empty/racy (stripped session env)
+  // or DesktopEntry.command/execute is unavailable. gtk-launch uses XDG dirs.
+  function launchDesktopIdFallback(desktopId) {
+    const id = normalizeDesktopId(desktopId)
+    if (!id.length)
+      return false
+    Quickshell.execDetached({
+      command: ["gtk-launch", id]
+    })
+    return true
   }
 
   function launchEntry(entry) {
     if (!entry)
       return
-    const desk = entry.desktopId ? DesktopEntries.heuristicLookup(entry.desktopId) : null
+    let adaptEnv = ({})
+    try {
+      adaptEnv = EnvGate.appAdaptLaunchEnv(entry) || ({})
+    } catch (e) {
+      adaptEnv = ({})
+    }
+    const hasAdapt = Object.keys(adaptEnv).length > 0
+    const pinId = normalizeDesktopId(entry.desktopId || entry.id)
+    // DesktopEntry from Beacon already has .command; dock pins use desktopId lookup.
+    let desk = null
+    if (pinId.length) {
+      try {
+        desk = DesktopEntries.heuristicLookup(pinId) || DesktopEntries.byId(pinId)
+      } catch (e2) {
+        desk = null
+      }
+    }
+    const deskOrSelf = desk
+        || (entry.command && entry.command.length ? entry : null)
     if (entry.id === "terminal" || entry.match === "ghostty" || entry.desktopId === "com.mitchellh.ghostty") {
       markLaunching(entry)
-      Quickshell.execDetached({
-        command: terminalCommand([])
-      })
+      const ctx = ({ command: terminalCommand([]) })
+      if (hasAdapt)
+        ctx.environment = adaptEnv
+      Quickshell.execDetached(ctx)
       return
     }
-    if (desk) {
-      markLaunching(entry)
-      desk.execute()
-      return
+    if (deskOrSelf) {
+      const cmd = deskOrSelf.command
+      const hasCmd = !!(cmd && cmd.length)
+      // Prefer DesktopEntry.execute() — works when .command is empty.
+      // Adapt-env spawn needs a command list for execDetached.
+      if (hasAdapt && hasCmd) {
+        markLaunching(entry)
+        Quickshell.execDetached({
+          command: cmd,
+          workingDirectory: deskOrSelf.workingDirectory || "",
+          environment: adaptEnv
+        })
+        return
+      }
+      if (deskOrSelf.execute) {
+        markLaunching(entry)
+        try {
+          deskOrSelf.execute()
+          return
+        } catch (e3) {
+          // fall through to command / gtk-launch
+        }
+      }
+      if (hasCmd) {
+        markLaunching(entry)
+        const ctx = ({
+          command: cmd,
+          workingDirectory: deskOrSelf.workingDirectory || ""
+        })
+        if (hasAdapt)
+          ctx.environment = adaptEnv
+        Quickshell.execDetached(ctx)
+        return
+      }
     }
     if (entry.command && entry.command.length) {
       markLaunching(entry)
-      Quickshell.execDetached({
-        command: entry.command
-      })
+      const ctx = ({ command: entry.command })
+      if (hasAdapt)
+        ctx.environment = adaptEnv
+      Quickshell.execDetached(ctx)
+      return
+    }
+    if (pinId.length) {
+      markLaunching(entry)
+      launchDesktopIdFallback(pinId)
     }
   }
 

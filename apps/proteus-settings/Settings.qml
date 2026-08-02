@@ -11,6 +11,8 @@ Item {
   readonly property var panes: {
     const _ = Hardware.capabilityList
     const __ = Hardware.ready
+    const ___ = FocusMode.paneDensity
+    const ____ = FocusMode.active
     return EnvGate.availableSettingsPanes()
   }
 
@@ -189,6 +191,10 @@ Item {
     {
       key: "network-vpn",
       label: "VPN"
+    },
+    {
+      key: "network-headscale",
+      label: "Headscale"
     }
   ]
 
@@ -227,10 +233,46 @@ Item {
     }
   ]
 
+  readonly property var accountsChildren: [
+    {
+      key: "accounts-google",
+      label: "Google"
+    },
+    {
+      key: "accounts-microsoft",
+      label: "Microsoft"
+    },
+    {
+      key: "accounts-exchange",
+      label: "Exchange"
+    },
+    {
+      key: "accounts-nextcloud",
+      label: "Nextcloud"
+    },
+    {
+      key: "accounts-imap",
+      label: "IMAP"
+    },
+    {
+      key: "accounts-caldav",
+      label: "CalDAV"
+    },
+    {
+      key: "accounts-carddav",
+      label: "CardDAV"
+    },
+    {
+      key: "accounts-apple",
+      label: "Apple"
+    }
+  ]
+
   // Every hub's leaf pages, flattened — the title lookup used to walk each
   // list separately, so adding a hub meant another near-identical loop.
   readonly property var allChildren: styleChildren
-      .concat(desktopChildren, peripheralsChildren, packagesChildren, soundChildren, networkChildren, privacyChildren)
+      .concat(desktopChildren, peripheralsChildren, packagesChildren, soundChildren,
+              networkChildren, privacyChildren, accountsChildren)
 
   readonly property string pageTitle: {
     const p = page
@@ -562,6 +604,7 @@ Item {
               source: "panes/DesktopPane.qml"
               onLoaded: {
                 item.page = Qt.binding(() => root.page)
+                item.focusHost = root
                 item.requestGo.connect(id => SettingsNav.go(id))
               }
             }
@@ -644,9 +687,12 @@ Item {
               }
             }
             StickyPaneLoader {
-              want: root.page === "accounts"
+              want: root.section === "accounts"
               source: "panes/AccountsPane.qml"
-              onLoaded: item.active = Qt.binding(() => root.page === "accounts")
+              onLoaded: {
+                item.page = Qt.binding(() => root.page)
+                item.requestGo.connect(id => SettingsNav.go(id))
+              }
             }
             StickyPaneLoader {
               want: root.page === "datetime"
@@ -660,6 +706,11 @@ Item {
                 item.page = Qt.binding(() => root.page)
                 item.requestGo.connect(id => SettingsNav.go(id))
               }
+            }
+            StickyPaneLoader {
+              want: root.page === "virtualization"
+              source: "panes/VirtualizationPane.qml"
+              onLoaded: item.active = Qt.binding(() => root.page === "virtualization")
             }
             StickyPaneLoader {
               want: root.page === "system"

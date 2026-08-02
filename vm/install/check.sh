@@ -104,9 +104,14 @@ grep -q 'guest-install.sh' "${ROOT}/docs/proteus/INSTALL.md" 2>/dev/null \
 [[ -x "${ROOT}/shell/scripts/proteus-console-seat" ]] && ok shell/scripts/proteus-console-seat || bad shell/scripts/proteus-console-seat
 [[ -x "${ROOT}/shell/scripts/proteus-workspace" ]] && ok shell/scripts/proteus-workspace || bad shell/scripts/proteus-workspace
 [[ -x "${ROOT}/shell/scripts/proteus-console-capabilities" ]] && ok shell/scripts/proteus-console-capabilities || bad shell/scripts/proteus-console-capabilities
+[[ -x "${ROOT}/shell/scripts/proteus-console-session" ]] && ok shell/scripts/proteus-console-session || bad shell/scripts/proteus-console-session
+[[ -x "${ROOT}/vm/guest/dogfood-console.sh" ]] && ok vm/guest/dogfood-console.sh || bad vm/guest/dogfood-console.sh
 grep -q 'proteus-console-seat' "${ROOT}/vm/install/apps.sh" && ok "apps.sh installs proteus-console-seat" || bad "apps.sh missing proteus-console-seat"
 grep -q 'proteus-console-capabilities' "${ROOT}/vm/install/apps.sh" && ok "apps.sh installs proteus-console-capabilities" || bad "apps.sh missing proteus-console-capabilities"
 grep -q 'proteus-console-launch' "${ROOT}/vm/install/apps.sh" && ok "apps.sh installs proteus-console-launch" || bad "apps.sh missing proteus-console-launch"
+grep -q 'proteus-console-session' "${ROOT}/vm/install/apps.sh" && ok "apps.sh installs proteus-console-session" || bad "apps.sh missing proteus-console-session"
+grep -q 'install-console-software' "${ROOT}/vm/guest/apply-console-kit.sh" \
+  && ok "apply-console-kit cites install-console-software" || bad "apply-console-kit must cite full console install"
 [[ -x "${ROOT}/shell/scripts/proteus-permissions.py" ]] && ok shell/scripts/proteus-permissions.py || bad shell/scripts/proteus-permissions.py
 [[ -x "${ROOT}/shell/scripts/privacy-indicators.py" ]] && ok shell/scripts/privacy-indicators.py || bad shell/scripts/privacy-indicators.py
 [[ -x "${ROOT}/shell/scripts/proteus-defaults.py" ]] && ok shell/scripts/proteus-defaults.py || bad shell/scripts/proteus-defaults.py
@@ -262,8 +267,9 @@ if [[ -f "${HIDE}" ]]; then
   done
   grep -q 'NoDisplay=true' "${HIDE}" && ok "hide-system-apps NoDisplay" || bad "hide-system-apps NoDisplay"
   grep -q 'install-settings-app.sh' "${ROOT}/vm/install/apps.sh" \
+    && grep -q 'install-workloads-app.sh' "${ROOT}/vm/install/apps.sh" \
     && grep -q 'hide-system-apps.sh' "${ROOT}/vm/install/apps.sh" \
-    && ok "apps.sh invokes hide-system-apps" || bad "apps.sh must invoke hide-system-apps"
+    && ok "apps.sh invokes hide-system-apps + workloads" || bad "apps.sh must invoke hide-system-apps + workloads"
   grep -q 'hide-system-apps.sh' "${ROOT}/vm/install/post-install.sh" \
     && ok "post-install refreshes hide-system-apps" || bad "post-install missing hide-system-apps"
 else

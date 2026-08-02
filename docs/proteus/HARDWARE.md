@@ -95,7 +95,7 @@ flags (§4).
 | `input.touch` | Touchscreen | `p1` |
 | `input.tablet_pen` | Stylus | `p2` |
 | `input.gamepad` | Game controller | `p1` |
-| `input.remote` | IR/Bluetooth TV remote / CEC | `p1` |
+| `input.remote` | IR/CEC/lirc + Bluetooth HID remote-like `Name=` via probe (`has_remote_input` / `has_bluetooth_hid_remote`) + soft stub `PROTEUS_REMOTE_PROBE=1` when no hardware; pairing UI / key decode Out | `p1` (sensor thin In) |
 | `input.crown` / `input.dial` | Watch crown / volume knob | `p2` |
 | `input.wheel` | Vehicle controls | `p2` |
 
@@ -251,7 +251,7 @@ the resolver maps modules → capabilities.
 | `services/proteus-hw-probe/proteus_hw_probe.py` | Probe logic |
 | `services/proteus-hw-probe/proteus-hw-probe` | CLI wrapper |
 | `scripts/smoke/hw-probe-smoke.sh` | JSON shape gate |
-| `shell/shared/Hardware.qml` | Cache-first; shell live-probes + deferred refresh; Settings cache-only; `Hardware.has("wifi")` |
+| `shell/shared/Hardware.qml` | Cache-first; shell live-probes + deferred refresh; Settings cache-only; `Hardware.has("wifi")`; `has("remote")` honors probe CEC/IR/BT HID or `PROTEUS_REMOTE_PROBE` stub |
 | `ShellState` | Mirrors class / caps; `refreshHardware()` |
 | Probe `--cache` | Writes `~/.config/proteus/hw-probe.json` (no QML hex encode) |
 

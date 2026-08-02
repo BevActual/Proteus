@@ -12,11 +12,12 @@ ColumnLayout {
   spacing: Theme.spaceMd
 
   property string page: "desktop"
+  property Item focusHost
   signal requestGo(string id)
 
   readonly property bool active: page === "desktop" || page.startsWith("desktop-")
 
-  readonly property var sections: [
+  readonly property var allSections: [
     {
       key: "desktop-gaps",
       label: "Gaps"
@@ -55,6 +56,17 @@ ColumnLayout {
     }
   ]
 
+  readonly property var sections: {
+    const _ = FocusMode.paneDensity
+    const out = []
+    for (let i = 0; i < root.allSections.length; i++) {
+      const s = root.allSections[i]
+      if (EnvGate.paneAvailable(s.key))
+        out.push(s)
+    }
+    return out
+  }
+
   SettingsHubList {
     visible: root.page === "desktop"
     items: root.sections
@@ -84,6 +96,7 @@ ColumnLayout {
   StickyPaneLoader {
     want: root.page === "desktop-spaces"
     source: "DesktopSpacesLeaf.qml"
+    onLoaded: item.focusHost = root.focusHost
   }
 
   StickyPaneLoader {

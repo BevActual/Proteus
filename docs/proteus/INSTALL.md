@@ -54,16 +54,28 @@ which the `console` stage enables).
 ## Console dogfood after the overlay
 
 The `console` stage (and the earlier `apps` stage) put the seat kit on PATH —
-`proteus-console-seat`, `proteus-console-capabilities`, `proteus-console-launch`
-(symlinked to the live tree when `PROTEUS_ROOT=/mnt/proteus`) — and seeds
-`console.conf`. Then:
+`proteus-console-seat`, `proteus-console-capabilities`, `proteus-console-launch`,
+`proteus-console-session` (symlinked to the live tree when
+`PROTEUS_ROOT=/mnt/proteus`) — and seeds `console.conf`.
+
+### Flip to console and launch a title
 
 ```bash
-proteus-posture console          # hard flip (fact + hypr profile + chrome restart)
+# Preferred one-command (Fact + profile + chrome.surface === console)
+bash /mnt/proteus/vm/guest/dogfood-console.sh
+bash /mnt/proteus/vm/guest/dogfood-console.sh --launch retroarch   # optional seat
+bash /mnt/proteus/vm/guest/dogfood-console.sh --restore            # back to desktop
+
+# Manual equivalent
+proteus-posture console
 proteus-console-seat --expect-class steam -- steam -gamepadui
-# seat map/fullscreen trail:
-#   tail -f /run/user/$UID/proteus-console-seat.log
+# trail: tail -f /run/user/$UID/proteus-console-seat.log
+# chrome: qs -p /mnt/proteus/shell ipc call chrome state
 ```
+
+**Repair vs full packages:** `apply-console-kit.sh` = helpers/seed (+ best-effort
+pkgs). Full Steam/RetroArch/cores/udev = overlay `console` stage or
+`sudo bash /mnt/proteus/vm/guest/install-console-software.sh`.
 
 Phase 1 = supervised seats + capabilities probe (Gamescope only when
 `gamescopeUsable`; QEMU/VirGL typically bare kiosk). **Phase 2** = nested
@@ -71,7 +83,8 @@ session Fact via `proteus-console-session` (`seat`\|`gamescope`) + launch
 adaptive flags + ConsoleBar toggle — still nested under Hyprland (sole
 Gamescope compositor Out). Pad passthrough (`PROTEUS_VM_PAD=auto`),
 Steam/RetroArch specifics, and VM audio/GL caveats live in
-[vm/README.md](../../vm/README.md).
+[vm/README.md](../../vm/README.md). Guest gate:
+`./scripts/smoke/console-guest-smoke.sh` (SKIP unless SSH / `PROTEUS_GUEST=1`).
 
 ## Honesty / expectations
 

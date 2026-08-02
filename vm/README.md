@@ -62,16 +62,19 @@ Guide button → nav; face buttons / D-pad while console nav is up.
 
 **Phase 1:** Hyprland kiosk + supervised `proteus-console-seat` (wait for map →
 fullscreen by address → reaper). Gamescope only when Vulkan is usable.
-**Phase 2 (later):** optional Gamescope *session* on bare metal.
+**Phase 2 (shipped):** nested Gamescope *session mode* under Hyprland via
+`proteus-console-session` Fact + ConsoleBar toggle when `gamescopeUsable` —
+does **not** replace Hyprland as sole compositor.
 
 Console software lives in `vm/install/proteus-console.packages` — the overlay
 `console` stage installs it (multilib included). Re-apply by hand:
 
 ```bash
 sudo bash /mnt/proteus/vm/guest/install-console-software.sh   # → console stage
-# helpers/seed only:
+# helpers/seed only (not a full package substitute):
 sudo bash /mnt/proteus/vm/guest/apply-console-kit.sh
-proteus-posture console
+# one-command flip + verify (optional --launch browser|retroarch):
+bash /mnt/proteus/vm/guest/dogfood-console.sh
 ```
 
 Without sudo, user-local RetroArch cores work under `~/.config/retroarch/cores`

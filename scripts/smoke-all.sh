@@ -18,6 +18,7 @@ run app-manifest-smoke.sh
 run chrome-tokens-smoke.sh
 run software-reliability-smoke.sh
 run power-logind-smoke.sh
+run power-threshold-smoke.sh
 run accounts-smoke.sh
 run users-smoke.sh
 run lock-pin-smoke.sh
@@ -34,11 +35,15 @@ run session-smoke.sh
 run posture-hard-smoke.sh
 run console-smoke.sh
 run host-smoke.sh
+run workloads-app-smoke.sh
 run peripherals-smoke.sh
+run network-vpn-smoke.sh
+run headscale-admin-smoke.sh
 run qs-version-smoke.sh
 
 # Guest: always attempt (skips if SSH down unless PROTEUS_GUEST=1)
 run qs-guest-smoke.sh
 run software-guest-smoke.sh
+run console-guest-smoke.sh
 
 echo "smoke-all: OK"

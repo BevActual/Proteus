@@ -270,11 +270,22 @@ Singleton {
     weatherOpen = false
     const page = String(pageId || "").trim()
     const q = String(query || "").trim()
-    let envPrefix = ""
+    const environment = ({})
     if (page.length)
-      envPrefix += "PROTEUS_SETTINGS_PAGE=" + shellQuote(page) + " "
+      environment.PROTEUS_SETTINGS_PAGE = page
     if (q.length)
-      envPrefix += "PROTEUS_SETTINGS_QUERY=" + shellQuote(q) + " "
+      environment.PROTEUS_SETTINGS_QUERY = q
+    // Inject resolved adapts (same keys DockApps.launchEntry uses).
+    try {
+      const adapt = EnvGate.appAdaptLaunchEnv({
+        id: "proteus-settings",
+        desktopId: "proteus-settings"
+      }) || ({})
+      const keys = Object.keys(adapt)
+      for (let i = 0; i < keys.length; i++)
+        environment[keys[i]] = adapt[keys[i]]
+    } catch (e) {
+    }
     // Prefer the live tree launcher (single-instance via nav IPC) when the
     // repo is mounted — PATH may still point at a stale /usr/local copy.
     const root = String(Quickshell.env("PROTEUS_ROOT") || "").trim()
@@ -283,12 +294,31 @@ Singleton {
       command: [
         "bash",
         "-lc",
-        envPrefix
-          + "if [[ -x " + shellQuote(live) + " ]]; then exec " + shellQuote(live) + "; fi; "
+        "if [[ -x " + shellQuote(live) + " ]]; then exec " + shellQuote(live) + "; fi; "
           + "command -v proteus-settings >/dev/null && exec proteus-settings; "
           + "exec " + shellQuote(live)
+      ],
+      environment: environment
+    })
+  }
+
+  // Thin Host workloads app (read-only inventory) — not Settings.
+  function openWorkloadsApp() {
+    if (sessionLocked || sessionStartLockPending)
+      return false
+    closeOverlays()
+    const root = String(Quickshell.env("PROTEUS_ROOT") || "").trim()
+    const live = (root.length ? root : "/mnt/proteus") + "/apps/proteus-workloads/proteus-workloads"
+    Quickshell.execDetached({
+      command: [
+        "bash",
+        "-lc",
+        "if [[ -x " + shellQuote(live) + " ]]; then exec " + shellQuote(live) + "; fi; "
+            + "command -v proteus-workloads >/dev/null && exec proteus-workloads; "
+            + "exec " + shellQuote(live)
       ]
     })
+    return true
   }
 
   // Preferred calendar desktop ids (GNOME Calendar first — desktop kit).
@@ -342,6 +372,53 @@ Singleton {
 
   function openDateTimeSettings() {
     openSettings("datetime")
+  }
+
+  // Preferred mail desktop ids (Geary first — desktop kit).
+  readonly property var mailDesktopIds: [
+    "org.gnome.Geary",
+    "geary",
+    "org.mozilla.Thunderbird",
+    "thunderbird",
+    "org.gnome.Evolution",
+    "evolution"
+  ]
+
+  function findMailDesktop() {
+    for (let i = 0; i < mailDesktopIds.length; i++) {
+      const id = mailDesktopIds[i]
+      const desk = DesktopEntries.heuristicLookup(id)
+      if (desk)
+        return desk
+    }
+    const apps = DesktopEntries.applications.values
+    for (let i = 0; i < apps.length; i++) {
+      const a = apps[i]
+      const id = String(a.id || "").toLowerCase()
+      const name = String(a.name || "").toLowerCase()
+      if (id.indexOf("mail") >= 0 || id.indexOf("thunderbird") >= 0
+          || name === "mail" || name.indexOf("mail") === 0)
+        return a
+    }
+    return null
+  }
+
+  readonly property bool mailAppAvailable: {
+    const _n = DesktopEntries.applications.values.length
+    return !!findMailDesktop()
+  }
+
+  function openMailApp() {
+    if (sessionLocked || sessionStartLockPending)
+      return false
+    const desk = findMailDesktop()
+    closeOverlays()
+    if (desk) {
+      desk.execute()
+      return true
+    }
+    openSettings("accounts")
+    return false
   }
 
   // Preferred weather desktop ids (GNOME Weather first — desktop kit).

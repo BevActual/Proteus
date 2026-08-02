@@ -33,13 +33,50 @@
       "reason": "Needs virtualization"
     },
     {
+      "id": "proteus-workloads",
+      "desktopIds": ["proteus-workloads", "proteus-workloads.desktop"],
+      "match": "proteus-workloads",
+      "requiresAny": ["libvirt", "containers"],
+      "postures": ["host"],
+      "device_classes": ["desktop", "laptop", "server"],
+      "prefers": ["pointer"],
+      "reason": "Needs virtualization or containers on Host"
+    },
+    {
+      "id": "proteus-vitals-glance",
+      "desktopIds": ["proteus-vitals-glance", "proteus-vitals-glance.desktop"],
+      "match": "vitals-glance|proteus-vitals",
+      "requires": ["vitals"],
+      "device_classes": ["watch", "phone"],
+      "reason": "Vitals glance is for wearables and phones"
+    },
+    {
       "id": "steam",
       "desktopIds": ["steam", "steam.desktop"],
       "match": "\\bsteam\\b",
       "requiresAny": ["display"],
       "postures": ["desktop", "console"],
       "prefers": ["gamepad", "pointer"],
-      "reason": "Needs a display"
+      "adapts": {
+        "input": ["remote", "gamepad", "pointer", "touch"],
+        "nav": ["dense", "sparse"],
+        "panes": ["full", "minimal"]
+      },
+      "reason": "Needs a display — remote via PROTEUS_REMOTE_PROBE stub until Wave B sensor"
+    },
+    {
+      "id": "proteus-settings",
+      "desktopIds": ["proteus-settings", "proteus-settings.desktop"],
+      "match": "proteus-settings",
+      "requiresAny": ["display"],
+      "postures": ["desktop", "console", "host"],
+      "prefers": ["pointer"],
+      "adapts": {
+        "input": ["pointer", "touch", "gamepad"],
+        "nav": ["dense", "sparse"],
+        "panes": ["full", "minimal"]
+      },
+      "reason": "Needs a display — reads PROTEUS_ADAPT_* at launch (About)"
     },
     {
       "id": "snapshot",

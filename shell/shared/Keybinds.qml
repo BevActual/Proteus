@@ -183,6 +183,42 @@ Singleton {
       arg: "proteus-workspace goto 6"
     },
     {
+      id: "ws7",
+      category: "Workspaces",
+      label: "Space 7",
+      mods: "SUPER",
+      key: "7",
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 7"
+    },
+    {
+      id: "ws8",
+      category: "Workspaces",
+      label: "Space 8",
+      mods: "SUPER",
+      key: "8",
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 8"
+    },
+    {
+      id: "ws9",
+      category: "Workspaces",
+      label: "Space 9",
+      mods: "SUPER",
+      key: "9",
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 9"
+    },
+    {
+      id: "ws10",
+      category: "Workspaces",
+      label: "Space 10",
+      mods: "SUPER",
+      key: "0",
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 10"
+    },
+    {
       id: "ws1-local",
       category: "Workspaces",
       label: "Space 1 (this display)",
@@ -237,6 +273,42 @@ Singleton {
       arg: "proteus-workspace goto 6 --local"
     },
     {
+      id: "ws7-local",
+      category: "Workspaces",
+      label: "Space 7 (this display)",
+      mods: "SUPER CTRL",
+      key: "7",
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 7 --local"
+    },
+    {
+      id: "ws8-local",
+      category: "Workspaces",
+      label: "Space 8 (this display)",
+      mods: "SUPER CTRL",
+      key: "8",
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 8 --local"
+    },
+    {
+      id: "ws9-local",
+      category: "Workspaces",
+      label: "Space 9 (this display)",
+      mods: "SUPER CTRL",
+      key: "9",
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 9 --local"
+    },
+    {
+      id: "ws10-local",
+      category: "Workspaces",
+      label: "Space 10 (this display)",
+      mods: "SUPER CTRL",
+      key: "0",
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 10 --local"
+    },
+    {
       id: "move1",
       category: "Workspaces",
       label: "Move Window to Space 1",
@@ -289,6 +361,204 @@ Singleton {
       key: "6",
       dispatcher: "exec",
       arg: "proteus-workspace move 6"
+    },
+    {
+      id: "move7",
+      category: "Workspaces",
+      label: "Move Window to Space 7",
+      mods: "SUPER SHIFT",
+      key: "7",
+      dispatcher: "exec",
+      arg: "proteus-workspace move 7"
+    },
+    {
+      id: "move8",
+      category: "Workspaces",
+      label: "Move Window to Space 8",
+      mods: "SUPER SHIFT",
+      key: "8",
+      dispatcher: "exec",
+      arg: "proteus-workspace move 8"
+    },
+    {
+      id: "move9",
+      category: "Workspaces",
+      label: "Move Window to Space 9",
+      mods: "SUPER SHIFT",
+      key: "9",
+      dispatcher: "exec",
+      arg: "proteus-workspace move 9"
+    },
+    {
+      id: "move10",
+      category: "Workspaces",
+      label: "Move Window to Space 10",
+      mods: "SUPER SHIFT",
+      key: "0",
+      dispatcher: "exec",
+      arg: "proteus-workspace move 10"
+    },
+    {
+      id: "scratch-toggle",
+      category: "Workspaces",
+      label: "Toggle Scratchpad",
+      mods: "SUPER",
+      key: "S",
+      dispatcher: "exec",
+      arg: "proteus-workspace scratch-toggle"
+    },
+    {
+      id: "scratch-move",
+      category: "Workspaces",
+      label: "Move to Scratchpad",
+      mods: "SUPER ALT",
+      key: "S",
+      dispatcher: "exec",
+      arg: "proteus-workspace scratch-move"
+    },
+    {
+      id: "special-toggle-1",
+      category: "Workspaces",
+      label: "Toggle special 1 (specialWorkspaces[0])",
+      mods: "SUPER ALT",
+      key: "1",
+      dispatcher: "exec",
+      arg: "proteus-workspace special-toggle-index 1"
+    },
+    {
+      id: "special-toggle-2",
+      category: "Workspaces",
+      label: "Toggle special 2",
+      mods: "SUPER ALT",
+      key: "2",
+      dispatcher: "exec",
+      arg: "proteus-workspace special-toggle-index 2"
+    },
+    {
+      id: "special-toggle-3",
+      category: "Workspaces",
+      label: "Toggle special 3",
+      mods: "SUPER ALT",
+      key: "3",
+      dispatcher: "exec",
+      arg: "proteus-workspace special-toggle-index 3"
+    },
+    {
+      id: "special-toggle-4",
+      category: "Workspaces",
+      label: "Toggle special 4",
+      mods: "SUPER ALT",
+      key: "4",
+      dispatcher: "exec",
+      arg: "proteus-workspace special-toggle-index 4"
+    },
+    {
+      id: "special-move-1",
+      category: "Workspaces",
+      label: "Move to special 1",
+      mods: "SUPER ALT SHIFT",
+      key: "1",
+      dispatcher: "exec",
+      arg: "proteus-workspace special-move-index 1"
+    },
+    {
+      id: "special-move-2",
+      category: "Workspaces",
+      label: "Move to special 2",
+      mods: "SUPER ALT SHIFT",
+      key: "2",
+      dispatcher: "exec",
+      arg: "proteus-workspace special-move-index 2"
+    },
+    {
+      id: "special-move-3",
+      category: "Workspaces",
+      label: "Move to special 3",
+      mods: "SUPER ALT SHIFT",
+      key: "3",
+      dispatcher: "exec",
+      arg: "proteus-workspace special-move-index 3"
+    },
+    {
+      id: "special-move-4",
+      category: "Workspaces",
+      label: "Move to special 4",
+      mods: "SUPER ALT SHIFT",
+      key: "4",
+      dispatcher: "exec",
+      arg: "proteus-workspace special-move-index 4"
+    },
+    {
+      id: "special-toggle-5",
+      category: "Workspaces",
+      label: "Toggle special 5",
+      mods: "SUPER ALT",
+      key: "5",
+      dispatcher: "exec",
+      arg: "proteus-workspace special-toggle-index 5"
+    },
+    {
+      id: "special-toggle-6",
+      category: "Workspaces",
+      label: "Toggle special 6",
+      mods: "SUPER ALT",
+      key: "6",
+      dispatcher: "exec",
+      arg: "proteus-workspace special-toggle-index 6"
+    },
+    {
+      id: "special-toggle-7",
+      category: "Workspaces",
+      label: "Toggle special 7",
+      mods: "SUPER ALT",
+      key: "7",
+      dispatcher: "exec",
+      arg: "proteus-workspace special-toggle-index 7"
+    },
+    {
+      id: "special-toggle-8",
+      category: "Workspaces",
+      label: "Toggle special 8",
+      mods: "SUPER ALT",
+      key: "8",
+      dispatcher: "exec",
+      arg: "proteus-workspace special-toggle-index 8"
+    },
+    {
+      id: "special-move-5",
+      category: "Workspaces",
+      label: "Move to special 5",
+      mods: "SUPER ALT SHIFT",
+      key: "5",
+      dispatcher: "exec",
+      arg: "proteus-workspace special-move-index 5"
+    },
+    {
+      id: "special-move-6",
+      category: "Workspaces",
+      label: "Move to special 6",
+      mods: "SUPER ALT SHIFT",
+      key: "6",
+      dispatcher: "exec",
+      arg: "proteus-workspace special-move-index 6"
+    },
+    {
+      id: "special-move-7",
+      category: "Workspaces",
+      label: "Move to special 7",
+      mods: "SUPER ALT SHIFT",
+      key: "7",
+      dispatcher: "exec",
+      arg: "proteus-workspace special-move-index 7"
+    },
+    {
+      id: "special-move-8",
+      category: "Workspaces",
+      label: "Move to special 8",
+      mods: "SUPER ALT SHIFT",
+      key: "8",
+      dispatcher: "exec",
+      arg: "proteus-workspace special-move-index 8"
     },
     {
       id: "screenshot-region",
@@ -492,6 +762,27 @@ Singleton {
       if (chordKey(eff.mods, eff.key) === want)
         return e.id
     }
+    // Per-special toggle / move chords (Desktop → Spaces)
+    if (typeof SpacesSpecials !== "undefined" && SpacesSpecials) {
+      if (typeof SpacesSpecials.chordsMap === "function") {
+        const map = SpacesSpecials.chordsMap()
+        const slugs = Object.keys(map)
+        for (let i = 0; i < slugs.length; i++) {
+          const c = map[slugs[i]]
+          if (chordKey(c.mods, c.key) === want)
+            return "special:" + slugs[i]
+        }
+      }
+      if (typeof SpacesSpecials.moveChordsMap === "function") {
+        const mmap = SpacesSpecials.moveChordsMap()
+        const mslugs = Object.keys(mmap)
+        for (let i = 0; i < mslugs.length; i++) {
+          const c = mmap[mslugs[i]]
+          if (chordKey(c.mods, c.key) === want)
+            return "special-move:" + mslugs[i]
+        }
+      }
+    }
     return ""
   }
 
@@ -648,6 +939,25 @@ Singleton {
         out += "# " + cat + "\n"
       }
       out += bindLine(e) + "\n"
+    }
+    // Per-slug special toggle/move chords (Desktop → Spaces); index chords stay above.
+    if (typeof SpacesSpecials !== "undefined" && SpacesSpecials) {
+      if (typeof SpacesSpecials.customBindLines === "function") {
+        const custom = SpacesSpecials.customBindLines()
+        if (custom && custom.length) {
+          out += "\n# Custom special toggle chords (Desktop → Spaces)\n"
+          for (let i = 0; i < custom.length; i++)
+            out += custom[i] + "\n"
+        }
+      }
+      if (typeof SpacesSpecials.customMoveBindLines === "function") {
+        const moveCustom = SpacesSpecials.customMoveBindLines()
+        if (moveCustom && moveCustom.length) {
+          out += "\n# Custom special move chords (Desktop → Spaces)\n"
+          for (let i = 0; i < moveCustom.length; i++)
+            out += moveCustom[i] + "\n"
+        }
+      }
     }
     // Fixed mouse binds (not in the rebind catalog): Hyprland draws no
     // titlebars, so ⌘+drag anywhere on a window is how floating windows move

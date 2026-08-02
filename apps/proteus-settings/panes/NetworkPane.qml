@@ -8,8 +8,9 @@ import "../kit"
 // Network category hub → leaf loaders (Sound/Desktop pattern).
 // Page ids: network · network-machine · network-devices · network-wifi ·
 // network-bluetooth · network-localsend · network-tailscale · network-vpn ·
-// network-diagnostics.
-// Headscale admin UI / OpenVPN cert wizard stay Out (SETTINGS-IA §2).
+// network-headscale · network-diagnostics.
+// OpenVPN cert wizard stays Out. Headscale admin thin In (remote API).
+// OpenVPN .ovpn import + optional user/pass drafts are In (thin wizard).
 ColumnLayout {
   id: root
   Layout.fillWidth: true
@@ -50,6 +51,11 @@ ColumnLayout {
   property bool vpnBusy: false
   property string vpnError: ""
   property string vpnImportHint: ""
+  // wireguard | openvpn — last import kind (error copy + optional creds)
+  property string vpnImportKind: ""
+  property string vpnOvpnPendingName: ""
+  property string vpnOvpnPendingUser: ""
+  property string vpnOvpnPendingPass: ""
 
   property bool tsAvailable: false
   property string tsState: ""
@@ -122,6 +128,10 @@ ColumnLayout {
     {
       key: "network-vpn",
       label: "VPN"
+    },
+    {
+      key: "network-headscale",
+      label: "Headscale"
     }
   ]
 
@@ -395,6 +405,10 @@ ColumnLayout {
       return
     vpnBusy = true
     vpnError = ""
+    vpnImportKind = "wireguard"
+    vpnOvpnPendingName = ""
+    vpnOvpnPendingUser = ""
+    vpnOvpnPendingPass = ""
     vpnImportHint = "Importing…"
     vpnImportProc.command = [
       "nmcli",
@@ -402,6 +416,31 @@ ColumnLayout {
       "import",
       "type",
       "wireguard",
+      "file",
+      p
+    ]
+    vpnImportProc.running = false
+    vpnImportProc.running = true
+  }
+
+  function importOpenVpn(path, user, pass) {
+    const p = String(path || "").trim()
+    if (!p.length || vpnBusy)
+      return
+    vpnBusy = true
+    vpnError = ""
+    vpnImportKind = "openvpn"
+    vpnOvpnPendingUser = String(user || "").trim()
+    vpnOvpnPendingPass = String(pass || "")
+    const base = p.split("/").pop() || ""
+    vpnOvpnPendingName = base.replace(/\.ovpn$/i, "").replace(/\.conf$/i, "")
+    vpnImportHint = "Importing OpenVPN…"
+    vpnImportProc.command = [
+      "nmcli",
+      "connection",
+      "import",
+      "type",
+      "openvpn",
       "file",
       p
     ]
@@ -482,6 +521,12 @@ ColumnLayout {
   StickyPaneLoader {
     want: root.page === "network-vpn"
     source: "NetworkVpnLeaf.qml"
+    onLoaded: item.host = root
+  }
+
+  StickyPaneLoader {
+    want: root.page === "network-headscale"
+    source: "NetworkHeadscaleLeaf.qml"
     onLoaded: item.host = root
   }
 
@@ -1029,7 +1074,7 @@ ColumnLayout {
           + "  p=line.split(':'); name=p[0] if p else ''; typ=(p[1] if len(p)>1 else '').lower(); act=(p[2] if len(p)>2 else '')\n"
           + "  if typ in ('vpn','wireguard','vpnc','openvpn') or 'vpn' in typ or typ=='wireguard':\n"
           + "    out.append({'name':name,'type':typ or 'vpn','active':act in ('yes','true','1')})\n"
-          + "status=('' if out else 'No VPN profiles yet — import WireGuard or use NetworkManager')\n"
+          + "status=('' if out else 'No VPN profiles yet — import WireGuard / OpenVPN or use NetworkManager')\n"
           + "print(json.dumps({'connections':out,'status':status}))"
     ]
     running: false
@@ -1070,20 +1115,82 @@ ColumnLayout {
     id: vpnImportProc
     command: ["true"]
     running: false
+    stdout: StdioCollector {
+      id: vpnImportOut
+    }
     stderr: StdioCollector {
       id: vpnImportErr
     }
     onExited: (exitCode, exitStatus) => {
-      root.vpnBusy = false
       if (exitCode !== 0) {
+        root.vpnBusy = false
         const e = String(vpnImportErr.text || "").trim().split("\n").pop() || ""
-        root.vpnError = e.length ? e : "WireGuard import failed"
+        const kind = root.vpnImportKind === "openvpn" ? "OpenVPN" : "WireGuard"
+        root.vpnError = e.length ? e : (kind + " import failed")
         root.vpnImportHint = ""
+        root.vpnOvpnPendingPass = ""
+        root.vpnRefresh.restart()
+        return
+      }
+      // Prefer nmcli "Connection 'name' …" from stdout; else basename.
+      let name = root.vpnOvpnPendingName
+      const out = String(vpnImportOut.text || "")
+      const m = out.match(/Connection\s+'([^']+)'/i) || out.match(/Connection\s+"([^"]+)"/i)
+      if (m && m[1])
+        name = m[1]
+      if (root.vpnImportKind === "openvpn" && root.vpnOvpnPendingUser.length && name.length) {
+        root.vpnImportHint = "Setting credentials…"
+        root.vpnOvpnPendingName = name
+        vpnOvpnCredProc.command = [
+          "python3", "-c",
+          "import subprocess,sys\n"
+          + "name=sys.argv[1]; user=sys.argv[2]; pw=sys.argv[3]\n"
+          + "r1=subprocess.run(['nmcli','connection','modify',name,'vpn.user-name',user],capture_output=True,text=True)\n"
+          + "if r1.returncode!=0:\n"
+          + "  sys.stderr.write((r1.stderr or r1.stdout or 'user-name failed').strip()); sys.exit(r1.returncode or 1)\n"
+          + "if pw:\n"
+          + "  r2=subprocess.run(['nmcli','connection','modify',name,'vpn.secrets',f'password={pw}'],capture_output=True,text=True)\n"
+          + "  if r2.returncode!=0:\n"
+          + "    sys.stderr.write((r2.stderr or r2.stdout or 'password failed').strip()); sys.exit(r2.returncode or 1)\n"
+          + "print('ok')\n",
+          name,
+          root.vpnOvpnPendingUser,
+          root.vpnOvpnPendingPass
+        ]
+        vpnOvpnCredProc.running = false
+        vpnOvpnCredProc.running = true
+        return
+      }
+      root.vpnBusy = false
+      root.vpnError = ""
+      root.vpnImportHint = "Imported"
+      root.vpnOvpnPendingPass = ""
+      vpnImportFlash.restart()
+      root.vpnRefresh.restart()
+    }
+  }
+
+  Process {
+    id: vpnOvpnCredProc
+    command: ["true"]
+    running: false
+    stderr: StdioCollector {
+      id: vpnOvpnCredErr
+    }
+    onExited: (exitCode, exitStatus) => {
+      root.vpnBusy = false
+      root.vpnOvpnPendingPass = ""
+      if (exitCode !== 0) {
+        const e = String(vpnOvpnCredErr.text || "").trim().split("\n").pop() || ""
+        root.vpnError = e.length
+            ? ("Imported, but credentials failed: " + e)
+            : "Imported, but credentials failed — set them in NetworkManager"
+        root.vpnImportHint = "Imported"
       } else {
         root.vpnError = ""
-        root.vpnImportHint = "Imported"
-        vpnImportFlash.restart()
+        root.vpnImportHint = "Imported · credentials set"
       }
+      vpnImportFlash.restart()
       root.vpnRefresh.restart()
     }
   }

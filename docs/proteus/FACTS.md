@@ -2,7 +2,7 @@
 doc: facts
 role: reference
 audience: coding agents, contributors
-last_updated: "2026-08-01"
+last_updated: "2026-08-02"
 doc_status: active
 scope: On-disk truth paths; QML façade vs services mutators
 related:
@@ -23,7 +23,7 @@ before inventing a second store.
 |------|---------------|---------|
 | `~/.config/proteus/settings.json` | `Config.qml` FileView | Background, Widgets, Theme, Audio prefs, … |
 | `~/.config/proteus/keybinds.json` | `Keybinds.qml` | Hyprland bind generator |
-| `~/.config/proteus/permissions.json` | `proteus-permissions.py` / `Permissions.qml` (0600) | EnvGate grant gate, PrivacyAsk prompt, Privacy leaves, portal sync, capture enforce (Deny) — **not** in settings.json; see [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md) |
+| `~/.config/proteus/permissions.json` | `proteus-permissions.py` / `Permissions.qml` (0600) | EnvGate grant gate, PrivacyAsk prompt, Privacy leaves, portal sync, capture enforce (Deny + Ask mute/destroy mic/camera/screen) — **not** in settings.json; see [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md) |
 | `~/.local/share/proteus/auth/pin` | `proteus-pin.py` / `check-unlock.py` via `proteus_auth.py` (0600) | LockSurface unlock PIN hash — **not** in settings.json; see [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md). Guest PATH: `apps.sh` installs the two CLIs; PAM service source `shell/pam/proteus-lock` (optional install → `login` fallback) |
 | `~/.cache/proteus/beacon-files.json` | `beacon-file-index.py` (rebuild/search) | Beacon Files home path cache — not in settings.json; fd preferred / walk fallback; stale after 5m |
 | `~/.config/proteus/hw-probe.json` | `proteus-hw-probe` / `Hardware.qml` cache | EnvGate, Settings About |
@@ -32,6 +32,8 @@ before inventing a second store.
 | `~/.config/hypr/proteus-monitors.conf` | `Displays.qml` | Hyprland |
 | `~/.config/hypr/proteus-profile.conf` | `set-hypr-profile.sh` / `HyprProfile.qml` / `proteus-posture` / seed | Hyprland `source =` → `profiles/*.conf` |
 | `~/.config/proteus/posture` | `proteus-posture` | Hard-switch Fact (`desktop` \| `console` \| `host`); boot / `proteus-qs` when `PROTEUS_SURFACE` unset; mid-session flips also set env `PROTEUS_SKIP_SESSION_LOCK=1` |
+| `~/.config/proteus/host-chrome` | `proteus-posture host --headless\|--chrome` | Host UI Fact (`full` \| `none`); `none` → proteus-qs skips Quickshell (headless-no-QS); restore with `--chrome` |
+| `~/.config/proteus/console-session-mode` | `proteus-console-session` | Console nested session preference (`seat` \| `gamescope`); launch wraps when `gamescopeUsable`; does **not** replace Hyprland |
 | `/run/user/$UID/proteus-console-seat.log` | `proteus-console-seat` | Console Phase 1 seat map/fullscreen trail (runtime; not settings.json) |
 | `~/.config/hypr/profiles/*.conf` | seed / manual / Settings soft picker | Active soft profile via pointer |
 | `~/.local/share/proteus/backgrounds/` | Background daily/album flows | `proteus-bg` / wallpaper runner |
@@ -51,13 +53,13 @@ facts: [`vm/guest/`](../../vm/guest/).
 | **Theme** | Chrome tokens from Config accent/font/mode | System facts |
 | **SystemInfo** | Read-only OS/kernel/hostname/QS/Hypr/tip + About copy summary | Privileged writes; hostname edit |
 | **SystemLoad** | About-active CPU/mem/swap/root storage/uptime from `/proc` + `statvfs` | Process lists; charts; always-on poll |
-| **Workloads** | HostHome thin VM/container glance via `proteus-workloads.py` (virsh · podman/docker) | Full workloads app; create/destroy; Settings virt |
-| **SpacesDisplays** | Multi-head Spaces status + hotplug `ensure` via `proteus-workspace` | Named Spaces; Super+7–10; disconnect window migration |
+| **Workloads** | HostHome glance + `apps/proteus-workloads` via `proteus-workloads.py` (virsh · podman/docker; start/stop/kill/create/destroy); Settings → Virtualization thin hub (jumps/status) | Auto-resolver · Portainer-style Settings UI · mutations inside Settings |
+| **SpacesDisplays / SpacesNames** | Multi-head status + hotplug `ensure` (migrate-disconnect orphan bands → primary, then rebind); Named Spaces labels via `workspaceNames` + `apply-names`; Super+1–10 logical; strip visual order via `workspaceOrder`; Scratchpad `special:scratch` (proteus-workspace scratch-toggle/move + menu-bar ◇ pill) | Special CRUD |
 | **Weather** | Open-Meteo for stored place; respects `Config.weatherEnabled` mute | IP geolocation; fetch when muted |
 | **NetworkDiagnostics** | Diagnostics-active iface rates + calm bars · `ss` · firewall one-liner · route/DNS · ping; Wireshark escape | In-Settings packet decode; always-on promiscuous capture |
 | **MissionCenter** | Detect/open Mission Center (Activity Monitor escape) | Embedding a live dashboard in Settings |
 | **Audio** (graph escape) | Detect/open `qpwgraph` (or already-installed `helvum`); Install… → Repos · `qpwgraph` only | Embedding a full PipeWire patchbay in Settings |
-| **Accounts** | Online accounts catalog + Google/Microsoft PKCE + Nextcloud app-password seats via `proteus-accounts`; calendar glance via `proteus-calendar-events.py` | OAuth secrets in `settings.json`; inventing mail/contacts apps |
+| **Accounts** | Online accounts hub + per-provider leaves (`AccountsPane` / `AccountsProviderLeaf`) + Google/Microsoft/Exchange PKCE + Nextcloud app-password + IMAP + CalDAV + CardDAV + Apple (Apple ID + app-specific password) seats via `proteus-accounts`; calendar/mail/contacts glances via fetch scripts; calendar mutate + mail send thin | OAuth secrets in `settings.json`; inventing mail/contacts apps; Sign in with Apple OAuth; EWS/NTLM Exchange |
 
 **Why flat `shell/shared/`:** Quickshell directory imports + `property alias`
 across singletons in *subdirectories* (or via `qmldir`) hit load-order cycles.
@@ -70,10 +72,11 @@ directory**. Name helpers clearly (`BackgroundDaily.qml`, `ConfigHypr.qml`, …)
 |------|-------|------|
 | Preference / chrome state | QML (`shell/shared/…`) | One Config schema; façades mutate via FileView or thin helpers |
 | Read-only discovery | Python OK (`services/proteus-hw-probe`) | JSON out; no privileged write |
-| Privileged mutation | Rust CLI (`services/proteus-pkg`, `services/proteus-logind`, `services/proteus-greetd`, …) + polkit | Settings proposes → confirm → helper |
+| Privileged mutation | Rust CLI (`services/proteus-pkg`, `services/proteus-logind`, `services/proteus-battery-threshold`, `services/proteus-greetd`, …) + polkit | Settings proposes → confirm → helper |
 | Online accounts seats | Rust CLI `services/proteus-accounts` (user vault; no polkit) | Tokens outside `settings.json`; PKCE browser connect |
 | Hot-path read (mixer) | Rust resident `proteus-audio-mix serve` (+ Python fallback) | Dump+peaks while Apps/Mixer open |
 | Power mode (PPD) | `powerprofilesctl` / `power-profiles-daemon` (session polkit) | Eco = `power-saver`; no Proteus helper |
+| Battery charge limits | `proteus-battery-threshold` → sysfs `charge_control_*` when present | TLP; invent thresholds on unsupported hardware |
 
 **Do not** add silent Python helpers for privileged mutation. **Do not** grow a
 second `settings-*.json` per posture.
@@ -91,7 +94,7 @@ shell/shared/
   Audio.qml Brightness.qml Hud.qml Power.qml DateTime.qml Weather.qml Displays.qml
   ShellState.qml Hardware.qml EnvGate.qml Keybinds.qml Notifications.qml LockLayoutZones.qml
   HyprProfile.qml SystemInfo.qml SystemLoad.qml MissionCenter.qml Accounts.qml
-  CalendarEvents.qml Workloads.qml SpacesDisplays.qml
+  CalendarEvents.qml MailGlance.qml ContactsGlance.qml AdaptEnv.qml Workloads.qml SpacesDisplays.qml SpacesNames.qml
   ActiveWindow.qml KeepAwake.qml LocalSend.qml NetworkDiagnostics.qml Packages.qml
   DockApps.qml Time.qml Permissions.qml PrivacyAsk.qml PrivacyIndicators.qml DefaultApps.qml
   SystemServices.qml FocusMode.qml ControlCenterLayout.qml UniversalSearch.qml …

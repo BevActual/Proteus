@@ -53,6 +53,12 @@ data["desktopWidgetsSnapToGrid"] = True
 data["launcherRecents"] = "smoke-app.desktop"
 # Desktop catch-up keys (#1248)
 data["workspaceMode"] = "perDisplay" if data.get("workspaceMode") != "perDisplay" else "synced"
+data["workspaceNames"] = ["Dev", "Browser", "", "", "", "", "", "", "", "Mail"]
+data["workspaceOrder"] = [2, 1, 3, 4, 5, 6, 7, 8, 9, 10]
+data["specialWorkspaces"] = ["notes", "scratch", "notes"]
+data["inputDeviceOverrides"] = [
+    {"name": "epic-mouse-v1", "sensitivity": -0.5, "accelFlat": True},
+]
 data["focusActiveProfileId"] = "sleep"
 data["focusProfiles"] = [
     {
@@ -97,6 +103,10 @@ required = {
     "desktopWidgetsSnapToGrid",
     "launcherRecents",
     "workspaceMode",
+    "workspaceNames",
+    "workspaceOrder",
+    "specialWorkspaces",
+    "inputDeviceOverrides",
     "focusProfiles",
     "focusActiveProfileId",
     "controlCenterLayout",
@@ -126,6 +136,24 @@ if again.get("launcherRecents") != "smoke-app.desktop":
     sys.exit(1)
 if again.get("workspaceMode") != data["workspaceMode"]:
     print("workspaceMode round-trip mismatch", file=sys.stderr)
+    sys.exit(1)
+wn = again.get("workspaceNames") or []
+if not isinstance(wn, list) or len(wn) < 2 or wn[0] != "Dev" or wn[1] != "Browser":
+    print("workspaceNames round-trip mismatch", file=sys.stderr)
+    sys.exit(1)
+wo = again.get("workspaceOrder") or []
+if not isinstance(wo, list) or wo[:3] != [2, 1, 3]:
+    print("workspaceOrder round-trip mismatch", file=sys.stderr)
+    sys.exit(1)
+sw = again.get("specialWorkspaces") or []
+if not isinstance(sw, list) or "notes" not in sw:
+    print("specialWorkspaces round-trip mismatch", file=sys.stderr)
+    sys.exit(1)
+ido = again.get("inputDeviceOverrides") or []
+if not isinstance(ido, list) or not any(
+    isinstance(r, dict) and r.get("name") == "epic-mouse-v1" for r in ido
+):
+    print("inputDeviceOverrides round-trip mismatch", file=sys.stderr)
     sys.exit(1)
 if again.get("focusActiveProfileId") != "sleep":
     print("focusActiveProfileId round-trip mismatch", file=sys.stderr)

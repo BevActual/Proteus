@@ -206,7 +206,7 @@ Item {
     return "#" + tags.join("  #")
   }
 
-  // Available apps: soft prefers hint, else tags/fallback. Blocked: EnvGate reason.
+  // Available apps: soft prefers / adapts hint, else tags/fallback. Blocked: EnvGate reason.
   function appResultSubtitle(entry, fallback) {
     if (!entry)
       return fallback || ""
@@ -215,6 +215,9 @@ Item {
     const soft = EnvGate.appPrefersHint(entry)
     if (soft.length)
       return soft
+    const adapt = EnvGate.appAdaptHint(entry)
+    if (adapt.length)
+      return adapt
     return root.tagsSubtitle(entry.id, fallback || "Application")
   }
 
@@ -1102,14 +1105,15 @@ Item {
       const askCat = EnvGate.appPrivacyAskCategory(row.entry)
       if (askCat.length) {
         const entry = row.entry
-        PrivacyAsk.promptLaunch(entry, askCat, function (e) {
+        if (PrivacyAsk.promptLaunch(entry, askCat, function (e) {
           const ent = e || entry
           Config.recordLauncherRecent(ent.id)
           DockApps.launchEntry(ent)
-        })
-        search.text = ""
-        list.currentIndex = 0
-        return
+        })) {
+          search.text = ""
+          list.currentIndex = 0
+          return
+        }
       }
       const pane = EnvGate.appPrivacyBlockPane(row.entry)
       if (pane.length) {
@@ -1180,7 +1184,8 @@ Item {
         return
       }
       Config.recordLauncherRecent(row.entry.id)
-      row.entry.execute()
+      // DockApps injects PROTEUS_ADAPT_* when EnvGate resolves adapts.
+      DockApps.launchEntry(row.entry)
     }
     ShellState.closeLauncher()
     search.text = ""

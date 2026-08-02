@@ -197,6 +197,10 @@ grep -q 'special:proteus-chrome' "${ROOT}/env/hypr/profiles/console.conf" \
   || die "console.conf must park Quickshell on special:proteus-chrome"
 grep -q 'console_workspace_hygiene' "${ROOT}/vm/guest/proteus-posture" \
   || die "proteus-posture missing console workspace hygiene"
+grep -q 'close_host_product_apps' "${ROOT}/vm/guest/proteus-posture" \
+  || die "proteus-posture missing close_host_product_apps"
+grep -q 'Proteus Workloads' "${ROOT}/vm/guest/proteus-posture" \
+  || die "proteus-posture must close Proteus Workloads on leave-host"
 grep -q 'proteus-console-seat' "${ROOT}/vm/guest/apply-console-kit.sh" \
   || die "apply-console-kit missing proteus-console-seat"
 [[ -f "${ROOT}/shell/surfaces/console/ConsoleAppsModel.qml" ]] || die "ConsoleAppsModel.qml missing"

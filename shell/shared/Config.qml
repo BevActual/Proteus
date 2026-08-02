@@ -25,8 +25,19 @@ Singleton {
   property alias barMonitor: adapter.barMonitor
   // Spaces: synced (all displays) | perDisplay (this display only)
   property alias workspaceMode: adapter.workspaceMode
+  // Named Spaces — labels for logical slots 1–10 (index 0 = Space 1)
+  property alias workspaceNames: adapter.workspaceNames
+  // Strip visual order — permutation of logical 1–10 (Super+N stays logical SoT)
+  property alias workspaceOrder: adapter.workspaceOrder
+  // Custom special workspace slugs (≠ reserved scratch / minimized)
+  property alias specialWorkspaces: adapter.specialWorkspaces
+  // Optional toggle chords per slug — { "notes": { "mods": "SUPER ALT", "key": "N" } }
+  property alias specialWorkspaceChords: adapter.specialWorkspaceChords
+  property alias specialWorkspaceMoveChords: adapter.specialWorkspaceMoveChords
   property alias mouseSensitivity: adapter.mouseSensitivity
   property alias mouseAccelFlat: adapter.mouseAccelFlat
+  // Per-device hypr device {} overrides: [{ name, sensitivity, accelFlat }]
+  property alias inputDeviceOverrides: adapter.inputDeviceOverrides
   // Touchpad / tablet (Settings → Peripherals; hypr input:touchpad / input:tablet)
   property alias touchpadNaturalScroll: adapter.touchpadNaturalScroll
   property alias touchpadTapToClick: adapter.touchpadTapToClick
@@ -37,6 +48,22 @@ Singleton {
   property alias tabletLeftHanded: adapter.tabletLeftHanded
   property alias tabletOutput: adapter.tabletOutput
   property alias tabletTransform: adapter.tabletTransform
+  // Active area mm (0×0 size = unset / full tablet); pressure -1 = driver default
+  property alias tabletActiveAreaPosX: adapter.tabletActiveAreaPosX
+  property alias tabletActiveAreaPosY: adapter.tabletActiveAreaPosY
+  property alias tabletActiveAreaSizeX: adapter.tabletActiveAreaSizeX
+  property alias tabletActiveAreaSizeY: adapter.tabletActiveAreaSizeY
+  property alias tabletPressureMin: adapter.tabletPressureMin
+  property alias tabletPressureMax: adapter.tabletPressureMax
+  // input:tablettool:eraser_button_* — tool-mode (not bezier curves)
+  property alias tabletEraserButtonMode: adapter.tabletEraserButtonMode
+  property alias tabletEraserButtonOverride: adapter.tabletEraserButtonOverride
+  // Monitor-layout region px (size 0×0 = unset); absolute only when output unbound
+  property alias tabletRegionPosX: adapter.tabletRegionPosX
+  property alias tabletRegionPosY: adapter.tabletRegionPosY
+  property alias tabletRegionSizeX: adapter.tabletRegionSizeX
+  property alias tabletRegionSizeY: adapter.tabletRegionSizeY
+  property alias tabletRegionAbsolute: adapter.tabletRegionAbsolute
   // Console Guide button (BTN_MODE) — nav | cc | off
   property alias gamepadsGuideSingle: adapter.gamepadsGuideSingle
   property alias gamepadsGuideDouble: adapter.gamepadsGuideDouble
@@ -51,6 +78,7 @@ Singleton {
   property alias weatherUnits: adapter.weatherUnits
   property alias weatherEnabled: adapter.weatherEnabled
   property alias tailscaleLoginServer: adapter.tailscaleLoginServer
+  property alias headscaleAdminUrl: adapter.headscaleAdminUrl
   property alias accentId: adapter.accentId
   property alias accentCustom: adapter.accentCustom
   property alias chromeMode: adapter.chromeMode
@@ -419,6 +447,15 @@ Singleton {
     })
   }
 
+  function openHeadscaleAdmin(url) {
+    const u = String(url || root.headscaleAdminUrl || "").trim()
+    if (!u.length)
+      return
+    Quickshell.execDetached({
+      command: ["xdg-open", u]
+    })
+  }
+
   function openBluetoothEditor() {
     const ids = ["blueman-manager", "blueberry", "gnome-bluetooth-panel"]
     for (let i = 0; i < ids.length; i++) {
@@ -531,6 +568,15 @@ Singleton {
       return
     Quickshell.execDetached({
       command: ["nmcli", "connection", "import", "type", "wireguard", "file", p]
+    })
+  }
+
+  function vpnImportOpenVpn(path) {
+    const p = String(path || "").trim()
+    if (!p.length)
+      return
+    Quickshell.execDetached({
+      command: ["nmcli", "connection", "import", "type", "openvpn", "file", p]
     })
   }
 
@@ -736,6 +782,128 @@ Singleton {
       configFile.writeAdapter()
     } catch (e) {
     }
+  }
+
+  // Spaces strip visual order — always a permutation of logical 1–10.
+  function workspaceOrderList() {
+    const raw = adapter.workspaceOrder
+    const seen = ({})
+    const out = []
+    if (raw && raw.length) {
+      for (let i = 0; i < raw.length; i++) {
+        const n = Math.round(Number(raw[i]))
+        if (n < 1 || n > 10 || seen[n])
+          continue
+        seen[n] = true
+        out.push(n)
+      }
+    }
+    for (let k = 1; k <= 10; k++) {
+      if (!seen[k])
+        out.push(k)
+    }
+    return out
+  }
+
+  // Reorder within the visible strip prefix (indices into workspaceOrderList).
+  function reorderWorkspaceStrip(fromIndex, toIndex) {
+    const from = Math.round(Number(fromIndex))
+    const to = Math.round(Number(toIndex))
+    if (from === to || from < 0 || to < 0)
+      return
+    const list = workspaceOrderList()
+    if (from >= list.length || to >= list.length)
+      return
+    const item = list.splice(from, 1)[0]
+    list.splice(to, 0, item)
+    adapter.workspaceOrder = list
+    flushSettings()
+  }
+
+  // Hyprland device {} overrides (name from `hyprctl devices`).
+  readonly property int maxInputDeviceOverrides: 16
+
+  function normalizeDeviceName(raw) {
+    let s = String(raw || "").trim()
+    if (!s.length)
+      return ""
+    if (s.indexOf("\n") >= 0 || s.indexOf("\r") >= 0 || s.indexOf("}") >= 0)
+      return ""
+    if (s.length > 128)
+      s = s.slice(0, 128)
+    return s
+  }
+
+  function inputDeviceOverridesList() {
+    const raw = adapter.inputDeviceOverrides
+    const out = []
+    const seen = ({})
+    const src = Array.isArray(raw) ? raw : []
+    for (let i = 0; i < src.length; i++) {
+      const row = src[i]
+      if (!row || typeof row !== "object")
+        continue
+      const name = root.normalizeDeviceName(row.name)
+      if (!name.length || seen[name])
+        continue
+      seen[name] = true
+      let sens = Number(row.sensitivity)
+      if (!isFinite(sens))
+        sens = 0
+      sens = Math.max(-1, Math.min(1, Math.round(sens * 10) / 10))
+      out.push({
+        name: name,
+        sensitivity: sens,
+        accelFlat: !!row.accelFlat
+      })
+      if (out.length >= root.maxInputDeviceOverrides)
+        break
+    }
+    return out
+  }
+
+  function upsertInputDeviceOverride(name, sensitivity, accelFlat) {
+    const n = root.normalizeDeviceName(name)
+    if (!n.length)
+      return false
+    let sens = Number(sensitivity)
+    if (!isFinite(sens))
+      sens = 0
+    sens = Math.max(-1, Math.min(1, Math.round(sens * 10) / 10))
+    const list = root.inputDeviceOverridesList()
+    let found = false
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].name === n) {
+        list[i] = { name: n, sensitivity: sens, accelFlat: !!accelFlat }
+        found = true
+        break
+      }
+    }
+    if (!found) {
+      if (list.length >= root.maxInputDeviceOverrides)
+        return false
+      list.push({ name: n, sensitivity: sens, accelFlat: !!accelFlat })
+    }
+    adapter.inputDeviceOverrides = list
+    flushSettings()
+    return true
+  }
+
+  function removeInputDeviceOverride(name) {
+    const n = root.normalizeDeviceName(name)
+    if (!n.length)
+      return false
+    const list = root.inputDeviceOverridesList()
+    const next = []
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].name !== n)
+        next.push(list[i])
+    }
+    if (next.length === list.length)
+      return false
+    adapter.inputDeviceOverrides = next
+    flushSettings()
+    return true
   }
 
   // Customize / drag: keep JsonAdapter in memory; skip disk round-trip that
@@ -1188,8 +1356,20 @@ Singleton {
       property string barMonitor: "all"
       // synced | perDisplay — macOS-adjacent Spaces (see proteus-workspace)
       property string workspaceMode: "synced"
+      // Optional labels for logical Spaces 1–10 ("" = show number)
+      property var workspaceNames: []
+      // Visual strip order (perm of 1–10); empty = identity
+      property var workspaceOrder: []
+      // Custom special:* names (Settings CRUD; reserved scratch/minimized excluded)
+      property var specialWorkspaces: []
+      // Per-slug toggle chords (index Super+Alt+N stay as fallback)
+      property var specialWorkspaceChords: ({})
+      // Per-slug move chords (index Super+Alt+Shift+N stay as fallback)
+      property var specialWorkspaceMoveChords: ({})
       property real mouseSensitivity: 0
       property bool mouseAccelFlat: false
+      // Per-device hypr device {} — [{ name, sensitivity, accelFlat }]
+      property var inputDeviceOverrides: []
       property bool touchpadNaturalScroll: false
       property bool touchpadTapToClick: true
       property bool touchpadDisableWhileTyping: true
@@ -1200,6 +1380,24 @@ Singleton {
       // "" = unbound / compositor default; else Hyprland monitor name
       property string tabletOutput: ""
       property int tabletTransform: 0
+      // Active area in mm (hypr input:tablet:active_area_*); size 0 0 = unset
+      property real tabletActiveAreaPosX: 0
+      property real tabletActiveAreaPosY: 0
+      property real tabletActiveAreaSizeX: 0
+      property real tabletActiveAreaSizeY: 0
+      // input:tablettool:pressure_range_* ; -1 = unset / driver default
+      property real tabletPressureMin: -1
+      property real tabletPressureMax: -1
+      // 0 = hardware eraser; 1 = eraser sends button event (libinput)
+      property int tabletEraserButtonMode: 0
+      // linux button code when mode=1; 0 = default (e.g. 331 = BTN_STYLUS)
+      property int tabletEraserButtonOverride: 0
+      // Monitor-layout region (hypr input:tablet:region_*); size 0 0 = unset
+      property real tabletRegionPosX: 0
+      property real tabletRegionPosY: 0
+      property real tabletRegionSizeX: 0
+      property real tabletRegionSizeY: 0
+      property bool tabletRegionAbsolute: false
       // Guide button in console posture: nav | cc | off
       property string gamepadsGuideSingle: "nav"
       property string gamepadsGuideDouble: "cc"
@@ -1219,6 +1417,8 @@ Singleton {
       // When false, Open-Meteo forecast fetch is muted (location + place search stay).
       property bool weatherEnabled: true
       property string tailscaleLoginServer: ""
+      // Remote Headscale control-plane base URL (API key in vault, not here)
+      property string headscaleAdminUrl: ""
       property string accentId: "blue"
       property string accentCustom: "#3d8bfd"
       property string chromeMode: "dark"
@@ -1309,6 +1509,7 @@ Singleton {
       onAnimationsEnabledChanged: root.applyHyprland()
       onMouseSensitivityChanged: root.applyHyprland()
       onMouseAccelFlatChanged: root.applyHyprland()
+      onInputDeviceOverridesChanged: root.applyHyprland()
       onTouchpadNaturalScrollChanged: root.applyHyprland()
       onTouchpadTapToClickChanged: root.applyHyprland()
       onTouchpadDisableWhileTypingChanged: root.applyHyprland()
@@ -1318,6 +1519,19 @@ Singleton {
       onTabletLeftHandedChanged: root.applyHyprland()
       onTabletOutputChanged: root.applyHyprland()
       onTabletTransformChanged: root.applyHyprland()
+      onTabletActiveAreaPosXChanged: root.applyHyprland()
+      onTabletActiveAreaPosYChanged: root.applyHyprland()
+      onTabletActiveAreaSizeXChanged: root.applyHyprland()
+      onTabletActiveAreaSizeYChanged: root.applyHyprland()
+      onTabletPressureMinChanged: root.applyHyprland()
+      onTabletPressureMaxChanged: root.applyHyprland()
+      onTabletEraserButtonModeChanged: root.applyHyprland()
+      onTabletEraserButtonOverrideChanged: root.applyHyprland()
+      onTabletRegionPosXChanged: root.applyHyprland()
+      onTabletRegionPosYChanged: root.applyHyprland()
+      onTabletRegionSizeXChanged: root.applyHyprland()
+      onTabletRegionSizeYChanged: root.applyHyprland()
+      onTabletRegionAbsoluteChanged: root.applyHyprland()
       onAccentIdChanged: root.applyHyprland()
       onAudioLatencyChanged: Audio.applyAudioLatency()
     }

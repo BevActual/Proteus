@@ -93,13 +93,37 @@ Item {
 
   Popup {
     id: popup
-    y: chip.height + 4
+    // Estimated final height (32px rows · 1px spacing · 4px padding) — known
+    // before the content item instantiates, so the flip decision is stable.
+    readonly property int estHeight: {
+      const n = Math.max((root.model || []).length, 1)
+      return Math.min(n * 32 + (n - 1) * 1, 280) + 8
+    }
+    // Flip above the chip when the list would clip at the window bottom
+    // (popups cannot render outside the window).
+    property bool openUp: false
+    y: openUp ? -(estHeight + 4) : chip.height + 4
     x: Math.min(0, root.width - width)
     width: Math.max(root.width, 168)
     padding: 4
+    // Non-negative margins let Qt push the popup back inside the window if
+    // neither direction fully fits (small windows).
+    margins: 4
     // Parent includes the chip — CloseOnPressOutside would flash-close on chip press.
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
     modal: false
+
+    onAboutToShow: {
+      const win = root.Window.window
+      if (!win) {
+        openUp = false
+        return
+      }
+      const pos = root.mapToItem(null, 0, 0)
+      const fitsBelow = pos.y + chip.height + 4 + estHeight <= win.height - 4
+      const fitsAbove = pos.y - 4 - estHeight >= 4
+      openUp = !fitsBelow && fitsAbove
+    }
 
     background: Rectangle {
       radius: Theme.radiusMd

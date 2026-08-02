@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+# proteus-dock-activate — dock click: focus / minimize / launch using hyprctl
+# as source of truth (Quickshell Hyprland.toplevels can retain dead Chromium
+# handles and then silently "focus" ghosts instead of relaunching).
+#
+# Usage: proteus-dock-activate <desktop-id> [class-match]
+#   desktop-id  — e.g. chromium · org.gnome.Nautilus
+#   class-match — substring for hyprctl client class (default: last id segment)
+set -euo pipefail
+
+ID="$(printf '%s' "${1:-}" | sed 's/\.desktop$//I')"
+MATCH="$(printf '%s' "${2:-}" | tr '[:upper:]' '[:lower:]')"
+if [[ -z "${ID}" ]]; then
+  echo "usage: $0 <desktop-id> [class-match]" >&2
+  exit 2
+fi
+if [[ -z "${MATCH}" ]]; then
+  MATCH="$(printf '%s' "${ID}" | awk -F. '{print tolower($NF)}')"
+fi
+
+MINIMIZED="${PROTEUS_MINIMIZED_NAME:-special:minimized}"
+# Allow bare name or special: prefix
+case "${MINIMIZED}" in
+  special:*) ;;
+  *) MINIMIZED="special:${MINIMIZED}" ;;
+esac
+
+need() { command -v "$1" >/dev/null 2>&1 || { echo "proteus-dock-activate: missing $1" >&2; exit 127; }; }
+need hyprctl
+need python3
+
+CLIENTS_JSON="$(hyprctl -j clients 2>/dev/null || echo '[]')"
+ACTIVE_JSON="$(hyprctl -j activewindow 2>/dev/null || echo '{}')"
+
+# Rows: addr, workspace, mapped, focusHistoryID, is_active (1/0)
+mapfile -t ROWS < <(MATCH="${MATCH}" python3 -c '
+import json, os, sys
+match = (os.environ.get("MATCH") or "").lower()
+try:
+    clients = json.loads(sys.argv[1] if len(sys.argv) > 1 else "[]")
+except Exception:
+    clients = []
+try:
+    aw = json.loads(sys.argv[2] if len(sys.argv) > 2 else "{}")
+except Exception:
+    aw = {}
+active = str(aw.get("address") or "")
+if active and not active.startswith("0x"):
+    active = "0x" + active
+for c in clients:
+    cls = str(c.get("class") or "").lower()
+    init = str(c.get("initialClass") or "").lower()
+    if match and (match in cls or match in init):
+        addr = str(c.get("address") or "")
+        if not addr:
+            continue
+        if not addr.startswith("0x"):
+            addr = "0x" + addr
+        ws = ""
+        w = c.get("workspace") or {}
+        if isinstance(w, dict):
+            ws = str(w.get("name") or "")
+        mapped = "1" if c.get("mapped", True) else "0"
+        try:
+            fhid = int(c.get("focusHistoryID", 999))
+        except Exception:
+            fhid = 999
+        # activewindow can be Invalid/{} (layer-shell focus); fall back to fhid==0
+        is_act = "1" if (active and addr == active) or (not active and fhid == 0) else "0"
+        print(f"{addr}\t{ws}\t{mapped}\t{fhid}\t{is_act}")
+' "${CLIENTS_JSON}" "${ACTIVE_JSON}")
+
+# Drop unmapped ghosts
+LIVE=()
+for row in "${ROWS[@]:-}"; do
+  [[ -z "${row}" ]] && continue
+  IFS=$'\t' read -r addr ws mapped fhid is_act <<<"${row}"
+  [[ "${mapped}" == "0" ]] && continue
+  LIVE+=("${addr}"$'\t'"${ws}"$'\t'"${is_act}")
+done
+
+active_addr=""
+
+is_minimized() {
+  local ws="$1"
+  [[ "${ws}" == "${MINIMIZED}" || "${ws}" == special:minimized || "${ws}" == minimized ]]
+}
+
+focus_addr() {
+  local addr="$1" ws="$2"
+  if is_minimized "${ws}"; then
+    hyprctl dispatch movetoworkspace "+0,address:${addr}" >/dev/null
+  fi
+  hyprctl dispatch focuswindow "address:${addr}" >/dev/null
+}
+
+launch_app() {
+  # Compositor-side launch so Wayland/env match the session (not SSH).
+  if command -v gtk-launch >/dev/null 2>&1; then
+    hyprctl dispatch exec "gtk-launch ${ID}" >/dev/null && return 0
+  fi
+  local desk=""
+  for d in \
+    "${XDG_DATA_HOME:-$HOME/.local/share}/applications" \
+    /usr/local/share/applications \
+    /usr/share/applications
+  do
+    if [[ -f "${d}/${ID}.desktop" ]]; then
+      desk="${d}/${ID}.desktop"
+      break
+    fi
+  done
+  if [[ -n "${desk}" ]] && command -v gio >/dev/null 2>&1; then
+    hyprctl dispatch exec "gio launch ${desk}" >/dev/null && return 0
+  fi
+  # Last resort: first Exec token from the desktop file
+  if [[ -n "${desk}" ]]; then
+    local bin
+    bin="$(grep -m1 '^Exec=' "${desk}" | sed 's/^Exec=//; s/ %[UuFfDdNnickvm]//g; s/ %%/ /g' | awk '{print $1}')"
+    if [[ -n "${bin}" ]]; then
+      hyprctl dispatch exec "${bin}" >/dev/null && return 0
+    fi
+  fi
+  hyprctl dispatch exec "${ID}" >/dev/null
+}
+
+if ((${#LIVE[@]} == 0)); then
+  launch_app
+  exit 0
+fi
+
+# Parse live rows
+ADDRS=()
+WSS=()
+ACTS=()
+for row in "${LIVE[@]}"; do
+  IFS=$'\t' read -r addr ws is_act <<<"${row}"
+  ADDRS+=("${addr}")
+  WSS+=("${ws}")
+  ACTS+=("${is_act}")
+done
+
+# Find active index among our windows
+active_i=-1
+for i in "${!ADDRS[@]}"; do
+  if [[ "${ACTS[$i]}" == "1" ]]; then
+    active_i=$i
+    break
+  fi
+done
+
+# Single frontmost visible → minimize (taskbar toggle)
+if ((${#ADDRS[@]} == 1)) && ((active_i == 0)) && ! is_minimized "${WSS[0]}"; then
+  hyprctl dispatch movetoworkspacesilent "${MINIMIZED},address:${ADDRS[0]}" >/dev/null
+  exit 0
+fi
+
+# Several windows, one focused → cycle
+if ((${#ADDRS[@]} > 1)) && ((active_i >= 0)) && ! is_minimized "${WSS[$active_i]}"; then
+  next=$(( (active_i + 1) % ${#ADDRS[@]} ))
+  focus_addr "${ADDRS[$next]}" "${WSS[$next]}"
+  exit 0
+fi
+
+# Prefer a visible window; else restore minimized
+target=-1
+for i in "${!ADDRS[@]}"; do
+  if ! is_minimized "${WSS[$i]}"; then
+    target=$i
+    break
+  fi
+done
+if ((target < 0)); then
+  target=0
+fi
+focus_addr "${ADDRS[$target]}" "${WSS[$target]}"
+exit 0

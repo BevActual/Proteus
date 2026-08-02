@@ -24,12 +24,12 @@ Singleton {
   property string pingResult: ""
   property bool pingBusy: false
 
-  // Privacy → Diagnostics category (fail-open until Permissions.ready).
+  // Privacy → Diagnostics category (fail-closed until Permissions.ready).
   readonly property bool allowed: {
     try {
       return Permissions.diagnosticsAllowed
     } catch (e) {
-      return true
+      return false
     }
   }
   readonly property string denyHint: "Blocked by Privacy · Diagnostics — allow in Settings → Privacy & security → Diagnostics"

@@ -55,6 +55,29 @@ Item {
     const scroll = Math.max(0.1, Math.min(3.0, Number(host.touchpadScrollFactor) || 1))
     const txf = Math.max(0, Math.min(7, Math.round(Number(host.tabletTransform) || 0)))
     const tabOut = String(host.tabletOutput || "").trim()
+    const areaPosX = Math.max(0, Math.min(1000, Math.round(Number(host.tabletActiveAreaPosX) || 0)))
+    const areaPosY = Math.max(0, Math.min(1000, Math.round(Number(host.tabletActiveAreaPosY) || 0)))
+    const areaSizeX = Math.max(0, Math.min(1000, Math.round(Number(host.tabletActiveAreaSizeX) || 0)))
+    const areaSizeY = Math.max(0, Math.min(1000, Math.round(Number(host.tabletActiveAreaSizeY) || 0)))
+    const regPosX = Math.max(0, Math.min(7680, Math.round(Number(host.tabletRegionPosX) || 0)))
+    const regPosY = Math.max(0, Math.min(7680, Math.round(Number(host.tabletRegionPosY) || 0)))
+    const regSizeX = Math.max(0, Math.min(7680, Math.round(Number(host.tabletRegionSizeX) || 0)))
+    const regSizeY = Math.max(0, Math.min(7680, Math.round(Number(host.tabletRegionSizeY) || 0)))
+    let pMin = Number(host.tabletPressureMin)
+    let pMax = Number(host.tabletPressureMax)
+    if (!isFinite(pMin))
+      pMin = -1
+    if (!isFinite(pMax))
+      pMax = -1
+    pMin = Math.max(-1, Math.min(1, Math.round(pMin * 100) / 100))
+    pMax = Math.max(-1, Math.min(1, Math.round(pMax * 100) / 100))
+    let eraserMode = Math.round(Number(host.tabletEraserButtonMode) || 0)
+    if (eraserMode !== 1)
+      eraserMode = 0
+    let eraserBtn = Math.round(Number(host.tabletEraserButtonOverride) || 0)
+    if (!isFinite(eraserBtn) || eraserBtn < 0)
+      eraserBtn = 0
+    eraserBtn = Math.min(65535, eraserBtn)
     out += "input {\n"
     out += "  sensitivity = " + host.mouseSensitivity + "\n"
     out += "  accel_profile = " + (host.mouseAccelFlat ? "flat" : "adaptive") + "\n"
@@ -71,8 +94,34 @@ Item {
     out += "    left_handed = " + (host.tabletLeftHanded ? "true" : "false") + "\n"
     if (tabOut.length)
       out += "    output = " + tabOut + "\n"
+    out += "    active_area_position = " + areaPosX + " " + areaPosY + "\n"
+    out += "    active_area_size = " + areaSizeX + " " + areaSizeY + "\n"
+    out += "    region_position = " + regPosX + " " + regPosY + "\n"
+    out += "    region_size = " + regSizeX + " " + regSizeY + "\n"
+    out += "    absolute_region_position = " + (host.tabletRegionAbsolute ? "true" : "false") + "\n"
+    out += "  }\n"
+    out += "  tablettool {\n"
+    out += "    pressure_range_min = " + pMin + "\n"
+    out += "    pressure_range_max = " + pMax + "\n"
+    out += "    eraser_button_mode = " + eraserMode + "\n"
+    out += "    eraser_button_override = " + eraserBtn + "\n"
     out += "  }\n"
     out += "}\n\n"
+    // Per-device overrides (hyprctl devices names) — overwrite matching input keys only.
+    const overs = typeof host.inputDeviceOverridesList === "function"
+        ? host.inputDeviceOverridesList()
+        : []
+    for (let di = 0; di < overs.length; di++) {
+      const d = overs[di]
+      if (!d || !d.name)
+        continue
+      const dSens = Math.max(-1, Math.min(1, Number(d.sensitivity) || 0))
+      out += "device {\n"
+      out += "  name = " + d.name + "\n"
+      out += "  sensitivity = " + dSens + "\n"
+      out += "  accel_profile = " + (d.accelFlat ? "flat" : "adaptive") + "\n"
+      out += "}\n\n"
+    }
     if (blurOn) {
       out += "# Proteus chrome blur (Settings → Appearance) — Hyprland ≥0.56\n"
       out += "# Scope to chrome namespaces only (not wallpaper / desktop widgets).\n"
@@ -124,6 +173,29 @@ Item {
     const scroll = Math.max(0.1, Math.min(3.0, Number(host.touchpadScrollFactor) || 1))
     const txf = Math.max(0, Math.min(7, Math.round(Number(host.tabletTransform) || 0)))
     const tabOut = String(host.tabletOutput || "").trim()
+    const areaPosX = Math.max(0, Math.min(1000, Math.round(Number(host.tabletActiveAreaPosX) || 0)))
+    const areaPosY = Math.max(0, Math.min(1000, Math.round(Number(host.tabletActiveAreaPosY) || 0)))
+    const areaSizeX = Math.max(0, Math.min(1000, Math.round(Number(host.tabletActiveAreaSizeX) || 0)))
+    const areaSizeY = Math.max(0, Math.min(1000, Math.round(Number(host.tabletActiveAreaSizeY) || 0)))
+    const regPosX = Math.max(0, Math.min(7680, Math.round(Number(host.tabletRegionPosX) || 0)))
+    const regPosY = Math.max(0, Math.min(7680, Math.round(Number(host.tabletRegionPosY) || 0)))
+    const regSizeX = Math.max(0, Math.min(7680, Math.round(Number(host.tabletRegionSizeX) || 0)))
+    const regSizeY = Math.max(0, Math.min(7680, Math.round(Number(host.tabletRegionSizeY) || 0)))
+    let pMin = Number(host.tabletPressureMin)
+    let pMax = Number(host.tabletPressureMax)
+    if (!isFinite(pMin))
+      pMin = -1
+    if (!isFinite(pMax))
+      pMax = -1
+    pMin = Math.max(-1, Math.min(1, Math.round(pMin * 100) / 100))
+    pMax = Math.max(-1, Math.min(1, Math.round(pMax * 100) / 100))
+    let eraserMode = Math.round(Number(host.tabletEraserButtonMode) || 0)
+    if (eraserMode !== 1)
+      eraserMode = 0
+    let eraserBtn = Math.round(Number(host.tabletEraserButtonOverride) || 0)
+    if (!isFinite(eraserBtn) || eraserBtn < 0)
+      eraserBtn = 0
+    eraserBtn = Math.min(65535, eraserBtn)
     Quickshell.execDetached({
       command: ["hyprctl", "keyword", "input:touchpad:natural_scroll",
                  host.touchpadNaturalScroll ? "true" : "false"]
@@ -157,6 +229,55 @@ Item {
     if (tabOut.length) {
       Quickshell.execDetached({
         command: ["hyprctl", "keyword", "input:tablet:output", tabOut]
+      })
+    }
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "input:tablet:active_area_position",
+                 areaPosX + " " + areaPosY]
+    })
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "input:tablet:active_area_size",
+                 areaSizeX + " " + areaSizeY]
+    })
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "input:tablet:region_position",
+                 regPosX + " " + regPosY]
+    })
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "input:tablet:region_size",
+                 regSizeX + " " + regSizeY]
+    })
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "input:tablet:absolute_region_position",
+                 host.tabletRegionAbsolute ? "true" : "false"]
+    })
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "input:tablettool:pressure_range_min", String(pMin)]
+    })
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "input:tablettool:pressure_range_max", String(pMax)]
+    })
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "input:tablettool:eraser_button_mode", String(eraserMode)]
+    })
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "input:tablettool:eraser_button_override", String(eraserBtn)]
+    })
+    const overs = typeof host.inputDeviceOverridesList === "function"
+        ? host.inputDeviceOverridesList()
+        : []
+    for (let di = 0; di < overs.length; di++) {
+      const d = overs[di]
+      if (!d || !d.name)
+        continue
+      const dSens = Math.max(-1, Math.min(1, Number(d.sensitivity) || 0))
+      const keyBase = "device[" + d.name + "]"
+      Quickshell.execDetached({
+        command: ["hyprctl", "-r", "--", "keyword", keyBase + ":sensitivity", String(dSens)]
+      })
+      Quickshell.execDetached({
+        command: ["hyprctl", "-r", "--", "keyword", keyBase + ":accel_profile",
+                   d.accelFlat ? "flat" : "adaptive"]
       })
     }
   }

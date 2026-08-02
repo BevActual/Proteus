@@ -3,18 +3,24 @@
 # Usage:
 #   proteus-qs <path-to-quickshell-config-dir>
 #   proteus-qs --restart <path>   # kill prior wrapper+chrome for path, then start
+#   proteus-qs --stop <path>      # kill wrapper+chrome; do not start (headless host)
 # Hyprland: exec-once = PROTEUS_SURFACE=desktop …/proteus-qs …/shell
+# Host headless: ~/.config/proteus/host-chrome = none → exit without starting QS.
 set -uo pipefail
 
 RESTART=0
+STOP_ONLY=0
 if [[ "${1:-}" == "--restart" ]]; then
   RESTART=1
+  shift
+elif [[ "${1:-}" == "--stop" ]]; then
+  STOP_ONLY=1
   shift
 fi
 
 SHELL_PATH="${1:-}"
 if [[ -z "${SHELL_PATH}" ]]; then
-  echo "usage: $0 [--restart] <quickshell -p path>" >&2
+  echo "usage: $0 [--restart|--stop] <quickshell -p path>" >&2
   exit 2
 fi
 # Normalize for stable flock key + pkill patterns
@@ -43,6 +49,15 @@ if [[ -z "${PROTEUS_ROOT:-}" || ! -d "${PROTEUS_ROOT}/shell" ]]; then
   fi
 fi
 export PROTEUS_ROOT
+# DesktopEntries (dock / Beacon) scan XDG application dirs. Hyprland exec-once
+# often starts us with a stripped env (no XDG_DATA_DIRS) — apply the XDG
+# defaults so .desktop files under /usr/share/applications are visible.
+if [[ -z "${XDG_DATA_HOME:-}" && -n "${HOME:-}" ]]; then
+  export XDG_DATA_HOME="${HOME}/.local/share"
+fi
+if [[ -z "${XDG_DATA_DIRS:-}" ]]; then
+  export XDG_DATA_DIRS="/usr/local/share:/usr/share"
+fi
 # Boot persistence: when unset, read hard-switch Fact (~/.config/proteus/posture)
 if [[ -z "${PROTEUS_SURFACE:-}" ]]; then
   _posture_file="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/posture"
@@ -59,6 +74,25 @@ esac
 export PROTEUS_SURFACE
 export PATH="/usr/local/bin:${PROTEUS_ROOT}/shell/scripts:${PATH}"
 SELF="${PROTEUS_ROOT}/shell/scripts/proteus-qs"
+
+# Host chrome Fact: full (default) | none (headless-no-QS). Env override wins.
+host_chrome_mode() {
+  if [[ -n "${PROTEUS_HOST_CHROME:-}" ]]; then
+    case "$(printf '%s' "${PROTEUS_HOST_CHROME}" | tr '[:upper:]' '[:lower:]')" in
+      none|off|0|headless) echo none; return ;;
+      *) echo full; return ;;
+    esac
+  fi
+  local f="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/host-chrome"
+  local v="full"
+  if [[ -f "${f}" ]]; then
+    v="$(tr -d '[:space:]' <"${f}" || true)"
+  fi
+  case "${v}" in
+    none|off|0|headless) echo none ;;
+    *) echo full ;;
+  esac
+}
 
 log() {
   printf '%s proteus-qs: %s\n' "$(date -Iseconds 2>/dev/null || date)" "$*" >>"${LOG}" 2>/dev/null || true
@@ -92,6 +126,14 @@ LOCK_DIR="${XDG_RUNTIME_DIR:-/tmp}"
 LOCK_HASH="$(printf '%s' "${SHELL_PATH}" | sha256sum 2>/dev/null | awk '{print $1}' | cut -c1-16)"
 LOCK="${LOCK_DIR}/proteus-qs-${LOCK_HASH:-shell}.lock"
 
+if [[ "${STOP_ONLY}" -eq 1 ]]; then
+  log "stop requested for ${SHELL_PATH} (headless / no-QS)"
+  kill_other_wrappers
+  reap_chrome
+  rm -f "${LOCK}"
+  exit 0
+fi
+
 if [[ "${RESTART}" -eq 1 ]]; then
   log "restart requested for ${SHELL_PATH}"
   kill_other_wrappers
@@ -114,6 +156,12 @@ if [[ "${RESTART}" -eq 1 ]]; then
     sleep 0.2
   fi
   exec "${SELF}" "${SHELL_PATH}"
+fi
+
+# Host posture + host-chrome=none → headless-no-QS (CLI Workloads still work).
+if [[ "${PROTEUS_SURFACE}" == "host" && "$(host_chrome_mode)" == "none" ]]; then
+  log "host-chrome=none — skipping Quickshell (headless-no-QS)"
+  exit 0
 fi
 
 exec 9>"${LOCK}"

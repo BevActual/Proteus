@@ -32,8 +32,30 @@ Singleton {
     return "/mnt/proteus/services/proteus-hw-probe/proteus-hw-probe"
   }
 
+  // Thin Wave B: probe may set capabilities.remote / modules input.remote
+  // (CEC/IR/lirc or Bluetooth HID remote-like Name=). Soft stub:
+  // PROTEUS_REMOTE_PROBE=1 when no hardware (dogfood adapts.input).
+  readonly property bool remoteProbeStub: {
+    const v = String(Quickshell.env("PROTEUS_REMOTE_PROBE") || "").trim().toLowerCase()
+    return v === "1" || v === "true" || v === "yes" || v === "on"
+  }
+
+  readonly property bool remoteFromProbe: {
+    if (capabilities && capabilities.remote)
+      return true
+    return !!(modules && modules["input.remote"])
+  }
+
   function has(cap) {
-    return !!(capabilities && capabilities[cap])
+    const c = String(cap || "").trim().toLowerCase()
+    if (!c.length)
+      return false
+    if (capabilities && capabilities[c])
+      return true
+    // Stub only for remote when probe did not find CEC/IR/BT HID.
+    if (c === "remote" && root.remoteProbeStub)
+      return true
+    return false
   }
 
   function hasModule(mod) {

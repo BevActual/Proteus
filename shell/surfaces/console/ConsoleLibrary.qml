@@ -112,11 +112,11 @@ Item {
     if (root.hasSteam)
       out.push(root.seatSteam())
     else
-      out.push(root.seatMissing("steam", "Steam", "GAMES", "Install Steam (apply-console-kit)"))
+      out.push(root.seatMissing("steam", "Steam", "GAMES", "Install Steam (install-console-software / console stage)"))
     if (root.hasRetroarch)
       out.push(root.seatRetro())
     else
-      out.push(root.seatMissing("retroarch", "RetroArch", "GAMES", "Install RetroArch (apply-console-kit)"))
+      out.push(root.seatMissing("retroarch", "RetroArch", "GAMES", "Install RetroArch (install-console-software / console stage)"))
     if (root.hasBrowser)
       out.push(root.seatBrowser())
     if (root.hasMpv)
@@ -154,11 +154,11 @@ Item {
     if (root.hasSteam)
       out.push(root.seatSteam())
     else
-      out.push(root.seatMissing("steam", "Steam", "GAMES", "Install Steam (apply-console-kit)"))
+      out.push(root.seatMissing("steam", "Steam", "GAMES", "Install Steam (install-console-software / console stage)"))
     if (root.hasRetroarch)
       out.push(root.seatRetro())
     else
-      out.push(root.seatMissing("retroarch", "RetroArch", "GAMES", "Install RetroArch (apply-console-kit)"))
+      out.push(root.seatMissing("retroarch", "RetroArch", "GAMES", "Install RetroArch (install-console-software / console stage)"))
     if (root.hasBrowser)
       out.push(root.seatBrowser())
     if (root.hasMpv)
@@ -529,7 +529,7 @@ Item {
       return
     }
     if (item.kind === "empty") {
-      statusHint = "No apps available yet — apply-console-kit / desktop packages"
+      statusHint = "No apps available yet — install-console-software / desktop packages"
       return
     }
 

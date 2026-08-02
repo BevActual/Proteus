@@ -52,9 +52,13 @@ Item {
 
       Text {
         Layout.fillWidth: true
-        text: PrivacyAsk.appLabel.length
-            ? (PrivacyAsk.appLabel + " wants " + PrivacyAsk.categoryLabel.toLowerCase() + " access.")
-            : ("An app wants " + PrivacyAsk.categoryLabel.toLowerCase() + " access.")
+        text: {
+          const label = PrivacyAsk.appLabel.length ? PrivacyAsk.appLabel : "An app"
+          const cat = PrivacyAsk.categoryLabel.toLowerCase()
+          if (PrivacyAsk.isCapture)
+            return label + " is using " + cat + "."
+          return label + " wants " + cat + " access."
+        }
         color: Theme.textDim
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSize

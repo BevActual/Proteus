@@ -88,6 +88,142 @@ Singleton {
     return charging ? (txt + " until full") : (txt + " remaining")
   }
 
+  // —— Battery charge thresholds (sysfs · pkexec proteus-battery-threshold) ——
+  // Fail-closed when charge_control_* absent. TLP stays Out.
+  property bool chargeThresholdsAvailable: false
+  property bool chargeHasStart: false
+  property bool chargeHasEnd: false
+  property int chargeStart: -1
+  property int chargeEnd: -1
+  property string chargeSupply: ""
+  property string chargeHint: ""
+  property string chargeError: ""
+  property bool chargeBusy: false
+  property bool chargeHelperMissing: false
+  property int chargeRev: 0
+  property var chargePendingArgs: []
+
+  function refreshChargeThresholds() {
+    chargeShowProc.command = [
+      "bash", "-lc",
+      "BIN=\"\"; "
+          + "if [ -x /usr/local/libexec/proteus-battery-threshold ]; then BIN=/usr/local/libexec/proteus-battery-threshold; "
+          + "elif command -v proteus-battery-threshold >/dev/null 2>&1; then BIN=$(command -v proteus-battery-threshold); "
+          + "elif [ -x \"$PROTEUS_ROOT/services/proteus-battery-threshold/target/release/proteus-battery-threshold\" ]; then "
+          + "BIN=\"$PROTEUS_ROOT/services/proteus-battery-threshold/target/release/proteus-battery-threshold\"; "
+          + "elif [ -x \"$HOME/Projects/Proteus/services/proteus-battery-threshold/target/release/proteus-battery-threshold\" ]; then "
+          + "BIN=\"$HOME/Projects/Proteus/services/proteus-battery-threshold/target/release/proteus-battery-threshold\"; fi; "
+          + "if [ -n \"$BIN\" ]; then \"$BIN\" show; else echo '{\"ok\":false,\"error\":\"helper missing\"}'; fi"
+    ]
+    chargeShowProc.running = false
+    chargeShowProc.running = true
+  }
+
+  function setChargeThresholds(startPct, endPct) {
+    const args = ["set"]
+    const s = Math.round(Number(startPct))
+    const e = Math.round(Number(endPct))
+    if (root.chargeHasStart && !isNaN(s) && s >= 1)
+      args.push("--start", String(s))
+    if (root.chargeHasEnd && !isNaN(e) && e >= 1)
+      args.push("--end", String(e))
+    if (args.length < 3)
+      return
+    if (root.chargeSupply.length)
+      args.push("--supply", root.chargeSupply)
+    root.chargeBusy = true
+    root.chargeError = ""
+    root.chargeHelperMissing = false
+    root.chargePendingArgs = args
+    _resolveAndRunCharge()
+  }
+
+  function _resolveAndRunCharge() {
+    const script = "BIN=\"\"; "
+        + "if [ -x /usr/local/libexec/proteus-battery-threshold ]; then BIN=/usr/local/libexec/proteus-battery-threshold; "
+        + "elif command -v proteus-battery-threshold >/dev/null 2>&1; then BIN=$(command -v proteus-battery-threshold); fi; "
+        + "printf '%s' \"$BIN\""
+    chargeResolveProc.command = ["bash", "-c", script]
+    chargeResolveProc.running = false
+    chargeResolveProc.running = true
+  }
+
+  Process {
+    id: chargeShowProc
+    command: ["true"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const data = JSON.parse(String(text).trim() || "{}")
+          if (data.ok === false && String(data.error || "").indexOf("helper") >= 0) {
+            root.chargeThresholdsAvailable = false
+            root.chargeHelperMissing = true
+            root.chargeRev++
+            return
+          }
+          root.chargeHelperMissing = false
+          root.chargeThresholdsAvailable = !!data.supported
+          root.chargeHasStart = !!data.hasStart
+          root.chargeHasEnd = !!data.hasEnd
+          root.chargeSupply = String(data.supply || "")
+          root.chargeHint = String(data.hint || "")
+          root.chargeStart = data.start === null || data.start === undefined
+              ? -1 : Math.round(Number(data.start))
+          root.chargeEnd = data.end === null || data.end === undefined
+              ? -1 : Math.round(Number(data.end))
+          if (!root.chargeBusy)
+            root.chargeError = ""
+          root.chargeRev++
+        } catch (e) {
+          root.chargeThresholdsAvailable = false
+          root.chargeRev++
+        }
+      }
+    }
+  }
+
+  Process {
+    id: chargeResolveProc
+    command: ["true"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const bin = String(text || "").trim()
+        if (!bin.length) {
+          root.chargeBusy = false
+          root.chargeHelperMissing = true
+          root.chargeError = "proteus-battery-threshold not installed"
+          return
+        }
+        const args = ["pkexec", bin]
+        for (let i = 0; i < root.chargePendingArgs.length; i++)
+          args.push(root.chargePendingArgs[i])
+        chargeSetProc.command = args
+        chargeSetProc.running = false
+        chargeSetProc.running = true
+      }
+    }
+  }
+
+  Process {
+    id: chargeSetProc
+    command: ["true"]
+    stdout: StdioCollector { id: chargeSetOut }
+    stderr: StdioCollector { id: chargeSetErr }
+    onExited: (exitCode, exitStatus) => {
+      root.chargeBusy = false
+      if (exitCode === 0) {
+        root.chargeError = ""
+        root.refreshChargeThresholds()
+        return
+      }
+      const e = chargeSetErr.text.trim().split("\n")[0]
+          || chargeSetOut.text.trim().split("\n").filter(l => l.length).slice(-1)[0]
+          || ""
+      root.chargeError = e.length ? e : "Change refused (needs authorization)"
+      root.refreshChargeThresholds()
+    }
+  }
+
   // —— power-profiles-daemon (Performance / Balanced / Eco) ————————————————
 
   // UI ids: performance | balanced | eco  (eco → PPD power-saver)
@@ -495,5 +631,6 @@ Singleton {
   Component.onCompleted: {
     refreshLogind()
     refreshProfiles()
+    refreshChargeThresholds()
   }
 }

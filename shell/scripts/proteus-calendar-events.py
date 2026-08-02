@@ -4,10 +4,14 @@
 Uses `proteus-accounts token` (refresh when needed). Providers:
   google    — Calendar API v3 primary calendar
   microsoft — Graph calendarView
-  nextcloud — CalDAV REPORT (best-effort)
+  nextcloud — CalDAV REPORT under Nextcloud DAV path (best-effort)
+  caldav    — CalDAV REPORT on vault calendar-home URL (best-effort)
+  apple     — CalDAV REPORT on iCloud caldavUrl / baseUrl (app-specific password)
 
 Stdout: one JSON object. Never logs access tokens.
-Honesty: read-only glance consumer — not a calendar app.
+Honesty: glance consumer — create/update/delete via proteus-calendar-mutate.py
+(CalDAV + Google/MS/Exchange; create may include daily/weekly/monthly RRULE).
+Series edit / COUNT/UNTIL / attendees Out.
 """
 from __future__ import annotations
 
@@ -117,13 +121,22 @@ def fetch_google(access: str, day: date) -> tuple[list[dict], str]:
         st = item.get("start") or {}
         en = item.get("end") or {}
         all_day = "date" in st and "dateTime" not in st
+        eid = str(item.get("id") or "")
         out.append(
             {
+                "id": eid,
                 "title": str(item.get("summary") or "(No title)"),
                 "start": str(st.get("dateTime") or st.get("date") or ""),
                 "end": str(en.get("dateTime") or en.get("date") or ""),
                 "allDay": bool(all_day),
                 "provider": "google",
+                "mutable": bool(eid),
+                "href": (
+                    f"https://www.googleapis.com/calendar/v3/calendars/primary/events/"
+                    f"{urllib.parse.quote(eid, safe='')}"
+                    if eid
+                    else ""
+                ),
             }
         )
     return out, ""
@@ -137,7 +150,7 @@ def fetch_microsoft(access: str, day: date) -> tuple[list[dict], str]:
             "endDateTime": end.isoformat().replace("+00:00", "Z"),
             "$top": "20",
             "$orderby": "start/dateTime",
-            "$select": "subject,start,end,isAllDay",
+            "$select": "id,subject,start,end,isAllDay",
         }
     )
     url = f"https://graph.microsoft.com/v1.0/me/calendarview?{q}"
@@ -157,28 +170,52 @@ def fetch_microsoft(access: str, day: date) -> tuple[list[dict], str]:
             continue
         st = item.get("start") or {}
         en = item.get("end") or {}
+        eid = str(item.get("id") or "")
         out.append(
             {
+                "id": eid,
                 "title": str(item.get("subject") or "(No title)"),
                 "start": str(st.get("dateTime") or ""),
                 "end": str(en.get("dateTime") or ""),
                 "allDay": bool(item.get("isAllDay")),
                 "provider": "microsoft",
+                "mutable": bool(eid),
+                "href": (
+                    f"https://graph.microsoft.com/v1.0/me/events/"
+                    f"{urllib.parse.quote(eid, safe='')}"
+                    if eid
+                    else ""
+                ),
             }
         )
     return out, ""
 
 
-def fetch_nextcloud(base: str, user: str, password: str, day: date) -> tuple[list[dict], str]:
-    """Best-effort CalDAV calendar-query on personal calendar path."""
-    if not base or not user or not password:
-        return [], "nextcloud credentials incomplete"
+def fetch_exchange(access: str, day: date) -> tuple[list[dict], str]:
+    """Same Graph calendar view as Microsoft; labeled exchange for work/school seats."""
+    ev, err = fetch_microsoft(access, day)
+    for e in ev:
+        e["provider"] = "exchange"
+    return ev, err
+
+
+def _fetch_caldav_home(
+    cal_url: str,
+    origin_base: str,
+    user: str,
+    password: str,
+    day: date,
+    provider: str,
+    fallback_hrefs: list[str] | None = None,
+) -> tuple[list[dict], str]:
+    """Best-effort CalDAV calendar-query under a calendar-home URL."""
+    if not cal_url or not user or not password:
+        return [], f"{provider} credentials incomplete"
     import base64
 
     auth = base64.b64encode(f"{user}:{password}".encode()).decode()
-    cal_url = f"{base.rstrip('/')}/remote.php/dav/calendars/{urllib.parse.quote(user)}/"
+    cal_url = cal_url if cal_url.endswith("/") else f"{cal_url}/"
     start, end = _day_bounds_utc(day)
-    # ISO without tz for CalDAV filter
     start_s = start.strftime("%Y%m%dT000000Z")
     end_s = end.strftime("%Y%m%dT000000Z")
     body = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -196,7 +233,6 @@ def fetch_nextcloud(base: str, user: str, password: str, day: date) -> tuple[lis
   </c:filter>
 </c:calendar-query>
 """
-    # Discover first calendar href under user home
     propfind = """<?xml version="1.0" encoding="UTF-8"?>
 <d:propfind xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
   <d:prop><d:displayname/><c:calendar-description/></d:prop>
@@ -216,33 +252,39 @@ def fetch_nextcloud(base: str, user: str, password: str, day: date) -> tuple[lis
         with urllib.request.urlopen(req, timeout=12) as resp:
             listing = resp.read().decode("utf-8", errors="replace")
     except Exception as e:
-        return [], f"nextcloud PROPFIND: {e}"
+        return [], f"{provider} PROPFIND: {e}"
 
-    hrefs = []
+    hrefs: list[str] = []
     try:
         root = ET.fromstring(listing)
         ns = {"d": "DAV:"}
+        home_path = urllib.parse.urlparse(cal_url).path.rstrip("/")
         for resp_el in root.findall("d:response", ns):
             href = resp_el.findtext("d:href", default="", namespaces=ns)
-            if href and href.rstrip("/").count("/") >= cal_url.rstrip("/").count("/"):
-                # skip the collection itself; keep children
-                if href.rstrip("/") != urllib.parse.urlparse(cal_url).path.rstrip("/"):
-                    if not href.endswith("/"):
-                        continue
-                    hrefs.append(href)
+            if not href or not href.endswith("/"):
+                continue
+            if href.rstrip("/") == home_path:
+                continue
+            hrefs.append(href)
     except Exception:
         pass
     if not hrefs:
-        # Fallback: try "personal" common path
-        hrefs = [f"/remote.php/dav/calendars/{urllib.parse.quote(user)}/personal/"]
+        # Home itself may be a calendar collection
+        hrefs = [cal_url]
+    if fallback_hrefs:
+        hrefs = hrefs + fallback_hrefs
 
     events: list[dict] = []
     errors: list[str] = []
-    for href in hrefs[:3]:
+    seen: set[str] = set()
+    for href in hrefs[:4]:
+        if href in seen:
+            continue
+        seen.add(href)
         if href.startswith("http"):
             report_url = href
         else:
-            parsed = urllib.parse.urlparse(base)
+            parsed = urllib.parse.urlparse(origin_base or cal_url)
             report_url = f"{parsed.scheme}://{parsed.netloc}{href}"
         req2 = urllib.request.Request(
             report_url,
@@ -260,31 +302,99 @@ def fetch_nextcloud(base: str, user: str, password: str, day: date) -> tuple[lis
         except Exception as e:
             errors.append(str(e))
             continue
-        # Parse VEVENT SUMMARY / DTSTART lightly
-        for block in xml_body.split("BEGIN:VEVENT"):
-            if "SUMMARY:" not in block and "SUMMARY;" not in block:
-                continue
-            title = "(No title)"
-            start_s = ""
-            for line in block.splitlines():
-                if line.startswith("SUMMARY:") or line.startswith("SUMMARY;"):
-                    title = line.split(":", 1)[-1].strip() or title
-                if line.startswith("DTSTART:") or line.startswith("DTSTART;"):
-                    start_s = line.split(":", 1)[-1].strip()
-            events.append(
-                {
-                    "title": title,
-                    "start": start_s,
-                    "end": "",
-                    "allDay": "T" not in start_s,
-                    "provider": "nextcloud",
-                }
-            )
+        cal_ns = {"d": "DAV:", "c": "urn:ietf:params:xml:ns:caldav"}
+        try:
+            root = ET.fromstring(xml_body)
+            for resp_el in root.findall("d:response", cal_ns):
+                ev_href = resp_el.findtext("d:href", default="", namespaces=cal_ns) or ""
+                cal_data = ""
+                for el in resp_el.iter():
+                    tag = el.tag.rsplit("}", 1)[-1] if "}" in el.tag else el.tag
+                    if tag == "calendar-data" and el.text:
+                        cal_data = el.text
+                        break
+                if not cal_data or "BEGIN:VEVENT" not in cal_data:
+                    continue
+                title = "(No title)"
+                start_ev = ""
+                uid = ""
+                for line in cal_data.splitlines():
+                    if line.startswith("SUMMARY:") or line.startswith("SUMMARY;"):
+                        title = line.split(":", 1)[-1].strip() or title
+                    if line.startswith("DTSTART:") or line.startswith("DTSTART;"):
+                        start_ev = line.split(":", 1)[-1].strip()
+                    if line.startswith("UID:") or line.startswith("UID;"):
+                        uid = line.split(":", 1)[-1].strip()
+                if ev_href.startswith("http"):
+                    abs_href = ev_href
+                else:
+                    parsed = urllib.parse.urlparse(origin_base or cal_url)
+                    abs_href = f"{parsed.scheme}://{parsed.netloc}{ev_href}"
+                events.append(
+                    {
+                        "id": uid or abs_href,
+                        "title": title,
+                        "start": start_ev,
+                        "end": "",
+                        "allDay": "T" not in start_ev,
+                        "provider": provider,
+                        "mutable": True,
+                        "href": abs_href,
+                    }
+                )
+        except ET.ParseError:
+            for block in xml_body.split("BEGIN:VEVENT"):
+                if "SUMMARY:" not in block and "SUMMARY;" not in block:
+                    continue
+                title = "(No title)"
+                start_ev = ""
+                uid = ""
+                for line in block.splitlines():
+                    if line.startswith("SUMMARY:") or line.startswith("SUMMARY;"):
+                        title = line.split(":", 1)[-1].strip() or title
+                    if line.startswith("DTSTART:") or line.startswith("DTSTART;"):
+                        start_ev = line.split(":", 1)[-1].strip()
+                    if line.startswith("UID:") or line.startswith("UID;"):
+                        uid = line.split(":", 1)[-1].strip()
+                events.append(
+                    {
+                        "id": uid,
+                        "title": title,
+                        "start": start_ev,
+                        "end": "",
+                        "allDay": "T" not in start_ev,
+                        "provider": provider,
+                        "mutable": bool(uid),
+                        "href": "",
+                    }
+                )
         if events:
             break
     if not events and errors:
         return [], errors[0]
     return events[:20], ""
+
+
+def fetch_nextcloud(base: str, user: str, password: str, day: date) -> tuple[list[dict], str]:
+    """Best-effort CalDAV under Nextcloud personal calendars path."""
+    if not base or not user or not password:
+        return [], "nextcloud credentials incomplete"
+    cal_url = f"{base.rstrip('/')}/remote.php/dav/calendars/{urllib.parse.quote(user)}/"
+    fallback = [f"/remote.php/dav/calendars/{urllib.parse.quote(user)}/personal/"]
+    return _fetch_caldav_home(cal_url, base, user, password, day, "nextcloud", fallback)
+
+
+def fetch_caldav(base: str, user: str, password: str, day: date) -> tuple[list[dict], str]:
+    """Best-effort CalDAV on a user-supplied calendar-home URL."""
+    return _fetch_caldav_home(base.rstrip("/") + "/", base, user, password, day, "caldav")
+
+
+def fetch_apple(tok: dict, day: date) -> tuple[list[dict], str]:
+    """Best-effort CalDAV on Apple / iCloud seat endpoints."""
+    base = str(tok.get("caldavUrl") or tok.get("baseUrl") or "").strip()
+    user = str(tok.get("username") or tok.get("email") or "").strip()
+    password = str(tok.get("accessToken") or "")
+    return _fetch_caldav_home(base.rstrip("/") + "/", base, user, password, day, "apple")
 
 
 def main() -> int:
@@ -305,24 +415,32 @@ def main() -> int:
                     "date": day.isoformat(),
                     "events": [
                         {
+                            "id": "fixture-uid-1",
                             "title": "Fixture event",
                             "start": f"{day.isoformat()}T09:00:00Z",
                             "end": f"{day.isoformat()}T10:00:00Z",
                             "allDay": False,
-                            "provider": "fixture",
+                            "provider": "caldav",
+                            "mutable": True,
+                            "href": "https://cal.example/dav/calendars/alice/personal/fixture-uid-1.ics",
                         }
                     ],
-                    "seats": 0,
+                    "seats": 1,
+                    "mutableSeats": 1,
                     "errors": [],
                 }
             )
         )
         return 0
 
-    providers = ("google", "microsoft", "nextcloud")
+    providers = ("google", "microsoft", "exchange", "nextcloud", "caldav", "apple")
+    writable = frozenset(
+        {"google", "microsoft", "exchange", "nextcloud", "caldav", "apple"}
+    )
     events: list[dict] = []
     errors: list[str] = []
     seats = 0
+    mutable_seats = 0
     for prov in providers:
         tok = _token(prov)
         if tok is None:
@@ -332,11 +450,24 @@ def main() -> int:
             # No seat for this provider — skip quietly
             continue
         seats += 1
+        if prov in writable:
+            mutable_seats += 1
         access = str(tok.get("accessToken") or "")
         if prov == "google":
             ev, err = fetch_google(access, day)
         elif prov == "microsoft":
             ev, err = fetch_microsoft(access, day)
+        elif prov == "exchange":
+            ev, err = fetch_exchange(access, day)
+        elif prov == "caldav":
+            ev, err = fetch_caldav(
+                str(tok.get("baseUrl") or ""),
+                str(tok.get("username") or ""),
+                access,
+                day,
+            )
+        elif prov == "apple":
+            ev, err = fetch_apple(tok, day)
         else:
             ev, err = fetch_nextcloud(
                 str(tok.get("baseUrl") or ""),
@@ -359,6 +490,7 @@ def main() -> int:
                 "date": day.isoformat(),
                 "events": events[:30],
                 "seats": seats,
+                "mutableSeats": mutable_seats,
                 "errors": errors,
                 "hint": (
                     "Reconnect Google/Microsoft seats if calendar scope was added after connect"

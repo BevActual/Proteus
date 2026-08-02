@@ -1,0 +1,15 @@
+[package]
+name = "proteus-battery-threshold"
+version = "0.1.0"
+edition = "2021"
+description = "Privileged battery charge threshold writer for Proteus Settings (pkexec)"
+license = "MIT"
+
+[[bin]]
+name = "proteus-battery-threshold"
+path = "src/main.rs"
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1

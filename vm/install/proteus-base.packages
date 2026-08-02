@@ -59,6 +59,9 @@ power-profiles-daemon
 
 # Network / Bluetooth (Settings owns UX; hide *-manager .desktop via hide-system-apps.sh)
 networkmanager
+# OpenVPN plugin for Settings → Network → VPN .ovpn import (nmcli type openvpn)
+networkmanager-openvpn
+openvpn
 nm-connection-editor
 bluez
 bluez-utils

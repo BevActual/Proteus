@@ -6,7 +6,9 @@ import Quickshell.Io
 import QtQuick
 
 // Multi-head Spaces honesty — DesktopSpacesLeaf + hotplug ensure.
-// Fact: bands via proteus-workspace; named Spaces / Super+7–10 Out.
+// Fact: bands via proteus-workspace; Named Spaces labels via SpacesNames.
+// Hotplug: ensure → migrate-disconnect (orphan bands → primary) then rebind.
+// Logical 1–10 SoT · strip visual order via workspaceOrder · Scratchpad via proteus-workspace.
 Singleton {
   id: root
 
@@ -119,6 +121,11 @@ Singleton {
     command: ["true"]
     onExited: (exitCode) => {
       root.lastEnsureCount = root.liveMonitorCount
+      // ensure already calls apply-names; refresh + nudge SpacesNames rev.
+      try {
+        SpacesNames.rev++
+      } catch (e) {
+      }
       root.refresh()
       if (exitCode !== 0 && !root.error.length)
         root.error = "Could not rebind Spaces bands"

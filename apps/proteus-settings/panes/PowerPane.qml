@@ -4,13 +4,30 @@ import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Power: profiles (PPD), battery (UPower), logind idle / lid.
+// Power: profiles (PPD), battery (UPower), charge limits, logind idle / lid.
 ColumnLayout {
   id: root
   Layout.fillWidth: true
   spacing: Theme.spaceMd
 
   property bool active: false
+  property int chargeDraftStart: -1
+  property int chargeDraftEnd: -1
+
+  Timer {
+    id: chargeApplyTimer
+    interval: 450
+    repeat: false
+    onTriggered: {
+      const s = root.chargeDraftStart >= 0
+          ? root.chargeDraftStart
+          : (Power.chargeStart > 0 ? Power.chargeStart : 40)
+      const e = root.chargeDraftEnd >= 0
+          ? root.chargeDraftEnd
+          : (Power.chargeEnd > 0 ? Power.chargeEnd : 80)
+      Power.setChargeThresholds(s, e)
+    }
+  }
 
   readonly property var actionOpts: [
     { id: "ignore", label: "Do nothing" },
@@ -197,6 +214,107 @@ ColumnLayout {
   }
 
   SettingsGroup {
+    title: "Charge limits"
+    visible: {
+      const _r = Power.chargeRev
+      return Power.chargeThresholdsAvailable
+    }
+
+    SettingsFormRow {
+      visible: Power.chargeHasStart
+      label: "Start charging below"
+      hint: {
+        const _r = Power.chargeRev
+        if (Power.chargeBusy)
+          return "Applying…"
+        return Power.chargeStart >= 0
+            ? (Power.chargeStart + "% · sysfs " + (Power.chargeSupply || "BAT"))
+            : "sysfs charge_control_start_threshold"
+      }
+      showSeparator: true
+      ThemeSlider {
+        Layout.preferredWidth: 150
+        from: 1
+        to: 99
+        stepSize: 1
+        value: root.chargeDraftStart >= 0
+            ? root.chargeDraftStart
+            : (Power.chargeStart > 0 ? Power.chargeStart : 40)
+        enabled: !Power.chargeBusy
+        onMoved: {
+          let s = Math.round(value)
+          let e = root.chargeDraftEnd >= 0
+              ? root.chargeDraftEnd
+              : (Power.chargeEnd > 0 ? Power.chargeEnd : 80)
+          if (Power.chargeHasEnd && s >= e)
+            e = Math.min(100, s + 1)
+          root.chargeDraftStart = s
+          root.chargeDraftEnd = e
+          chargeApplyTimer.restart()
+        }
+      }
+    }
+
+    SettingsFormRow {
+      visible: Power.chargeHasEnd
+      label: "Stop charging at"
+      hint: {
+        const _r = Power.chargeRev
+        if (Power.chargeBusy)
+          return "Applying…"
+        return Power.chargeEnd >= 0
+            ? (Power.chargeEnd + "% · prolongs battery life")
+            : "sysfs charge_control_end_threshold"
+      }
+      showSeparator: true
+      ThemeSlider {
+        Layout.preferredWidth: 150
+        from: 50
+        to: 100
+        stepSize: 1
+        value: root.chargeDraftEnd >= 0
+            ? root.chargeDraftEnd
+            : (Power.chargeEnd > 0 ? Power.chargeEnd : 80)
+        enabled: !Power.chargeBusy
+        onMoved: {
+          let e = Math.round(value)
+          let s = root.chargeDraftStart >= 0
+              ? root.chargeDraftStart
+              : (Power.chargeStart > 0 ? Power.chargeStart : 40)
+          if (Power.chargeHasStart && s >= e)
+            s = Math.max(1, e - 1)
+          root.chargeDraftStart = s
+          root.chargeDraftEnd = e
+          chargeApplyTimer.restart()
+        }
+      }
+    }
+
+    SettingsFormRow {
+      visible: Power.chargeError.length > 0
+      label: "Error"
+      hint: Power.chargeError
+      labelColor: Theme.danger
+      showSeparator: false
+    }
+
+    SettingsFormRow {
+      visible: Power.chargeError.length === 0
+      label: "Refresh"
+      hint: "Re-read sysfs thresholds"
+      showSeparator: false
+      interactive: !Power.chargeBusy
+      onActivated: Power.refreshChargeThresholds()
+      Text {
+        text: "↻"
+        color: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+  }
+
+  SettingsGroup {
     title: "Idle & lid"
 
     SettingsFormRow {
@@ -337,7 +455,8 @@ ColumnLayout {
     Layout.maximumWidth: 480
     Layout.topMargin: Theme.spaceXs
     text: "Fact: powerprofilesctl (PPD) · UPower · pkexec proteus-logind → "
-        + "/etc/systemd/logind.conf.d/99-proteus.conf (reloads systemd-logind)."
+        + "/etc/systemd/logind.conf.d/99-proteus.conf · Charge limits via "
+        + "pkexec proteus-battery-threshold (sysfs charge_control_* when present). TLP Out."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11

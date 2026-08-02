@@ -16,6 +16,8 @@ Type=simple
 Environment=PROTEUS_SURFACE=desktop
 Environment=QS_ICON_THEME=Papirus-Dark
 Environment=PROTEUS_ROOT=/mnt/proteus
+# DesktopEntries scan; match proteus-qs defaults when session env is stripped.
+Environment=XDG_DATA_DIRS=/usr/local/share:/usr/share
 # Wrapper loops with crash backoff; Restart only if the wrapper process exits.
 ExecStart=/mnt/proteus/shell/scripts/proteus-qs /mnt/proteus/shell
 Restart=on-failure

@@ -4,15 +4,24 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// Gate Settings panes / launcher / dock by Hardware capabilities + postures.
-// Spec: docs/proteus/APPLICATIONS.md · HARDWARE.md · POSTURES.md
+// Gate Settings panes / launcher / dock by Hardware capabilities + postures
+// + device_classes + adapts. Spec: docs/proteus/APPLICATIONS.md · HARDWARE.md · POSTURES.md
 // App manifests: env/apps/catalog.json (preferred over appRules heuristics).
-// postures = hard allow-list; prefers = soft hint / Beacon ranking (never blocks).
+// postures / device_classes = hard; prefers / adapts.input|nav = soft (never blocks);
+// adapts.panes → Focus minimal hard-hides Settings panes (wedge).
 Singleton {
   id: root
 
   // When probe is not ready, fail open (show everything) so the session is usable.
   readonly property bool gatingActive: Hardware.ready
+
+  // Focus on (paneDensity=minimal) — keep Focus escape + session/privacy hubs.
+  // Not a settings.json key; leaves under privacy stay; other desktop leaves hide.
+  readonly property var minimalPaneAllow: [
+    "system", "users", "notifications", "desktop", "desktop-focus", "privacy",
+    "privacy-activity", "privacy-microphone", "privacy-camera", "privacy-location",
+    "privacy-notifications", "privacy-screen", "privacy-diagnostics", "privacy-flatpak"
+  ]
 
   readonly property string activePosture: {
     try {
@@ -20,6 +29,11 @@ Singleton {
     } catch (e) {
       return "desktop"
     }
+  }
+
+  readonly property string activeDeviceClass: {
+    const c = String(Hardware.deviceClass || "").trim().toLowerCase()
+    return c
   }
 
   // Declarative manifests from env/apps/catalog.json (empty until load).
@@ -124,6 +138,13 @@ Singleton {
     {
       id: "packages",
       label: "Software",
+      status: "shipped",
+      requires: [],
+      requiresAny: []
+    },
+    {
+      id: "virtualization",
+      label: "Virtualization",
       status: "shipped",
       requires: [],
       requiresAny: []
@@ -281,7 +302,7 @@ Singleton {
       id: "network",
       label: "Network",
       hubId: "network",
-      keywords: "wifi ethernet bluetooth vpn tailscale localsend diagnostics wireshark"
+      keywords: "wifi ethernet bluetooth vpn tailscale headscale localsend diagnostics wireshark"
     },
     {
       id: "network-machine",
@@ -330,6 +351,12 @@ Singleton {
       label: "VPN",
       hubId: "network",
       keywords: "wireguard openvpn"
+    },
+    {
+      id: "network-headscale",
+      label: "Headscale",
+      hubId: "network",
+      keywords: "headscale admin mesh control plane api nodes expire"
     },
     {
       id: "peripherals",
@@ -452,6 +479,12 @@ Singleton {
       keywords: "install search"
     },
     {
+      id: "virtualization",
+      label: "Virtualization",
+      hubId: "virtualization",
+      keywords: "vm container workloads libvirt podman headless host virt"
+    },
+    {
       id: "system",
       label: "About",
       hubId: "system",
@@ -516,10 +549,36 @@ Singleton {
     return null
   }
 
+  function paneDensityIsMinimal() {
+    try {
+      return String(FocusMode.paneDensity || "full").trim().toLowerCase() === "minimal"
+    } catch (e) {
+      return false
+    }
+  }
+
+  function paneAllowedWhenMinimal(id) {
+    const sid = String(id || "")
+    if (!sid.length)
+      return true
+    for (let i = 0; i < root.minimalPaneAllow.length; i++) {
+      if (root.minimalPaneAllow[i] === sid)
+        return true
+    }
+    // Privacy leaves stay reachable under Focus (deny / In use now).
+    if (sid.indexOf("privacy-") === 0)
+      return true
+    return false
+  }
+
   function paneAvailable(id) {
+    const sid = String(id || "")
+    // Focus density hide is independent of Hardware.ready (user-driven).
+    if (paneDensityIsMinimal() && !paneAllowedWhenMinimal(sid))
+      return false
     if (!gatingActive)
       return true
-    const spec = paneSpec(id)
+    const spec = paneSpec(sid)
     if (!spec)
       return true
     return hasAll(spec.requires) && hasAny(spec.requiresAny)
@@ -528,7 +587,10 @@ Singleton {
   function paneBlockReason(id) {
     if (paneAvailable(id))
       return ""
-    const spec = paneSpec(id)
+    const sid = String(id || "")
+    if (paneDensityIsMinimal() && !paneAllowedWhenMinimal(sid))
+      return "Hidden while Focus is on"
+    const spec = paneSpec(sid)
     if (!spec)
       return "Unavailable on this device"
     if (spec.requiresAny && spec.requiresAny.length)
@@ -571,8 +633,13 @@ Singleton {
       return
     }
     if (isDesktopDrill) {
-      if (!paneAvailable("desktop"))
-        nav.page = firstAvailablePane()
+      if (p === "desktop") {
+        if (!paneAvailable("desktop"))
+          nav.page = firstAvailablePane()
+        return
+      }
+      if (!paneAvailable(p))
+        nav.page = paneAvailable("desktop-focus") ? "desktop-focus" : firstAvailablePane()
       return
     }
     if (isPeripheralsDrill) {
@@ -591,8 +658,13 @@ Singleton {
       return
     }
     if (isPrivacyDrill) {
-      if (!paneAvailable("privacy"))
-        nav.page = firstAvailablePane()
+      if (p === "privacy") {
+        if (!paneAvailable("privacy"))
+          nav.page = firstAvailablePane()
+        return
+      }
+      if (!paneAvailable(p))
+        nav.page = paneAvailable("privacy") ? "privacy" : firstAvailablePane()
       return
     }
     if (!paneAvailable(page))
@@ -687,6 +759,8 @@ Singleton {
       permissions: m.permissions || [],
       postures: m.postures || [],
       prefers: m.prefers || [],
+      deviceClasses: m.device_classes || m.deviceClasses || [],
+      adapts: m.adapts || null,
       reason: m.reason || "Unavailable on this device"
     }
   }
@@ -728,6 +802,37 @@ Singleton {
     return "Unavailable in this posture"
   }
 
+  // Empty device_classes = allowed on any class (fail-open).
+  // Unknown/empty Hardware.deviceClass also fail-open.
+  function deviceClassAllowed(rule) {
+    const list = rule && rule.deviceClasses ? rule.deviceClasses : []
+    if (!list || !list.length)
+      return true
+    const cur = root.activeDeviceClass
+    if (!cur.length)
+      return true
+    for (let i = 0; i < list.length; i++) {
+      if (String(list[i] || "").trim().toLowerCase() === cur)
+        return true
+    }
+    return false
+  }
+
+  function deviceClassBlockReason(rule) {
+    if (deviceClassAllowed(rule))
+      return ""
+    const list = (rule && rule.deviceClasses) ? rule.deviceClasses : []
+    const labels = []
+    for (let i = 0; i < list.length; i++) {
+      const id = String(list[i] || "").trim().toLowerCase()
+      if (id.length)
+        labels.push(id)
+    }
+    if (labels.length)
+      return "Needs " + labels.join(" / ") + " device class"
+    return "Unavailable on this device class"
+  }
+
   // Soft: true when every prefers[] cap is present, or list empty.
   function prefersSatisfied(rule) {
     const list = rule && rule.prefers ? rule.prefers : []
@@ -761,16 +866,125 @@ Singleton {
     return prefersSatisfied(rule) ? 40 : 0
   }
 
+  // Read-only adapts profile (shaping hints). Never affects appAvailable.
+  // Fail-open until Hardware.ready — empty profile, not a block.
+  function appAdaptProfile(entry) {
+    const out = { input: "", nav: "", panes: "" }
+    if (!entry || !gatingActive)
+      return out
+    const rule = ruleForApp(entry)
+    const adapts = rule && rule.adapts ? rule.adapts : null
+    if (!adapts || typeof adapts !== "object")
+      return out
+
+    const inputs = adapts.input || []
+    // Priority: first listed that Hardware.has (remote via probe or PROTEUS_REMOTE_PROBE stub).
+    for (let i = 0; i < inputs.length; i++) {
+      const cap = String(inputs[i] || "").trim().toLowerCase()
+      if (!cap.length)
+        continue
+      if (Hardware.has(cap)) {
+        out.input = cap
+        break
+      }
+    }
+
+    const navs = adapts.nav || []
+    if (navs && navs.length) {
+      const wantSparse = root.activePosture === "console"
+      let pick = ""
+      for (let j = 0; j < navs.length; j++) {
+        const n = String(navs[j] || "").trim().toLowerCase()
+        if (wantSparse && n === "sparse") {
+          pick = "sparse"
+          break
+        }
+        if (!wantSparse && n === "dense") {
+          pick = "dense"
+          break
+        }
+        if (!pick && (n === "dense" || n === "sparse"))
+          pick = n
+      }
+      out.nav = pick
+    }
+
+    const panes = adapts.panes || []
+    if (panes && panes.length) {
+      // Soft density from FocusMode — never blocks availability.
+      let want = "full"
+      try {
+        want = String(FocusMode.paneDensity || "full").trim().toLowerCase()
+      } catch (e) {
+        want = "full"
+      }
+      if (want !== "minimal")
+        want = "full"
+      let pick = ""
+      for (let k = 0; k < panes.length; k++) {
+        const p = String(panes[k] || "").trim().toLowerCase()
+        if (p === want) {
+          pick = p
+          break
+        }
+        if (!pick && (p === "full" || p === "minimal"))
+          pick = p
+      }
+      out.panes = pick
+    }
+
+    return out
+  }
+
+  function appAdaptHint(entry) {
+    if (!gatingActive || !entry)
+      return ""
+    const p = appAdaptProfile(entry)
+    const bits = []
+    if (p.input && p.input.length)
+      bits.push(p.input)
+    if (p.nav && p.nav.length)
+      bits.push(p.nav + " nav")
+    if (p.panes && p.panes.length)
+      bits.push(p.panes + " panes")
+    if (!bits.length)
+      return ""
+    return "Adapts · " + bits.join(" · ")
+  }
+
+  // Launch-time env map from resolved adapts profile. Soft only — never blocks.
+  // Keys: PROTEUS_ADAPT_INPUT · PROTEUS_ADAPT_NAV · PROTEUS_ADAPT_PANES.
+  function appAdaptLaunchEnv(entry) {
+    const env = ({})
+    if (!entry)
+      return env
+    let p = appAdaptProfile(entry)
+    // Dock pins may only set desktopId — retry so catalog desktopIds match.
+    if (!p.input && !p.nav && !p.panes && entry.desktopId) {
+      p = appAdaptProfile({
+        id: entry.desktopId,
+        name: entry.name || entry.label || ""
+      })
+    }
+    if (p.input && p.input.length)
+      env.PROTEUS_ADAPT_INPUT = String(p.input)
+    if (p.nav && p.nav.length)
+      env.PROTEUS_ADAPT_NAV = String(p.nav)
+    if (p.panes && p.panes.length)
+      env.PROTEUS_ADAPT_PANES = String(p.panes)
+    return env
+  }
+
   function permissionDeniedReason(entry, rule) {
     const perms = (rule && rule.permissions) ? rule.permissions : []
     if (!perms.length)
       return ""
-    // Fail-open until Permissions store is ready (mirror Hardware).
+    // Fail-closed until Permissions store is ready — block privacy-gated apps.
     try {
       if (!Permissions.ready)
-        return ""
+        return "Privacy · Permissions loading…"
     } catch (e) {
-      return ""
+      return "Privacy · Permissions unavailable"
     }
     const id = entry && entry.id ? entry.id : ""
     for (let i = 0; i < perms.length; i++) {
@@ -783,7 +997,7 @@ Singleton {
         if (!Permissions.granted(id, cat))
           return "Blocked by Privacy · " + Permissions.categoryLabel(cat)
       } catch (e2) {
-        return ""
+        return "Privacy · Permissions unavailable"
       }
     }
     return ""
@@ -818,6 +1032,7 @@ Singleton {
 
   // Pane id for the first hard-Deny privacy category (e.g. privacy-camera), or "".
   // Ask uses PrivacyAsk prompt — not Settings redirect.
+  // Not-ready → Privacy hub (fail-closed; no silent launch).
   function appPrivacyBlockPane(entry) {
     const rule = ruleForApp(entry)
     const perms = (rule && rule.permissions) ? rule.permissions : []
@@ -825,9 +1040,9 @@ Singleton {
       return ""
     try {
       if (!Permissions.ready)
-        return ""
+        return "privacy"
     } catch (e) {
-      return ""
+      return "privacy"
     }
     const id = entry && entry.id ? entry.id : ""
     for (let i = 0; i < perms.length; i++) {
@@ -840,7 +1055,7 @@ Singleton {
         if (!Permissions.granted(id, cat))
           return "privacy-" + cat
       } catch (e2) {
-        return ""
+        return "privacy"
       }
     }
     return ""
@@ -981,6 +1196,8 @@ Singleton {
       return false
     if (!postureAllowed(rule))
       return false
+    if (!deviceClassAllowed(rule))
+      return false
     if (permissionDeniedReason(entry, rule).length)
       return false
     return true
@@ -996,10 +1213,13 @@ Singleton {
     const posture = postureBlockReason(rule)
     if (posture.length)
       return posture
+    const dclass = deviceClassBlockReason(rule)
+    if (dclass.length)
+      return dclass
     return (rule && rule.reason) ? rule.reason : "Unavailable on this device"
   }
 
-  // Subtitle helper: block reason, else soft prefers hint when available.
+  // Subtitle helper: block reason, else soft prefers / adapts hint when available.
   function appAvailabilitySubtitle(entry, fallback) {
     const block = appBlockReason(entry)
     if (block.length)
@@ -1007,6 +1227,9 @@ Singleton {
     const soft = appPrefersHint(entry)
     if (soft.length)
       return soft
+    const adapt = appAdaptHint(entry)
+    if (adapt.length)
+      return adapt
     return fallback || ""
   }
 

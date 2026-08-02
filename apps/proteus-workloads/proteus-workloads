@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Launch the Proteus Workloads thin app (read-only VM/container inventory).
+# Single-instance: if already running, raise it instead of spawning another QS.
+set -euo pipefail
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export QS_ICON_THEME="${QS_ICON_THEME:-Papirus-Dark}"
+
+ipc() {
+  if command -v qs >/dev/null 2>&1; then
+    qs -p "${DIR}" ipc call "$@"
+  else
+    quickshell -p "${DIR}" ipc call "$@"
+  fi
+}
+
+if ipc app state >/dev/null 2>&1; then
+  ipc app raise >/dev/null 2>&1 || true
+  exit 0
+fi
+
+exec quickshell -n -p "${DIR}"

@@ -235,7 +235,7 @@ ColumnLayout {
     SettingsFormRow {
       label: host && host.tsAvailable ? "Open Tailscale status" : "Install Tailscale…"
       hint: host && host.tsAvailable
-          ? "tailscale status · Headscale admin stays Out"
+          ? "tailscale status · Headscale admin → Network → Headscale"
           : "Software → Repos · tailscale"
       showSeparator: false
       interactive: true
@@ -295,7 +295,7 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Fact: tailscale status --json · set --exit-node · up --login-server. Headscale admin Out."
+    text: "Fact: tailscale status --json · set --exit-node · up --login-server. Headscale admin → Network → Headscale (remote API)."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11

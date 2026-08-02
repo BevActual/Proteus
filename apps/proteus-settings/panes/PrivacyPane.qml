@@ -300,7 +300,7 @@ ColumnLayout {
     Text {
       Layout.fillWidth: true
       Layout.maximumWidth: 520
-      text: "App permissions gate adaptive apps, Flatpak overrides, portal PermissionStore (mic/camera/screen), and best-effort capture enforce. Not a full OS sandbox — fail-open until Permissions.ready."
+      text: "App permissions gate adaptive apps, Flatpak overrides, portal PermissionStore (mic/camera/screen), and best-effort capture enforce (Deny + Ask mute/destroy for mic/camera/screen). Ask prompts at launch and mid-session (mic/camera/screen). Screencast kill is heuristic (portal attribution imperfect). Not a full OS sandbox — fail-closed until Permissions.ready (privacy-gated apps wait)."
       color: Theme.textDim
       font.family: Theme.fontFamily
       font.pixelSize: 13

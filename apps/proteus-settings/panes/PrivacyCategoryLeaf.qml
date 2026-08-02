@@ -55,11 +55,15 @@ ColumnLayout {
         let t = root.categoryHint
         if (categoryId === "microphone" || categoryId === "camera")
           t += (t.length ? " · " : "")
-              + "Deny syncs portal PermissionStore + best-effort capture enforce (pactl mute / PW video destroy). "
+              + "Deny/Ask sync portal PermissionStore + best-effort capture enforce "
+              + "(pactl mute / PW video destroy for active streams; Ask blocks until Allow — "
+              + "launch + mid-session dialog). "
               + "Not a full OS sandbox. Flatpak also uses overrides."
         if (categoryId === "screen")
           t += (t.length ? " · " : "")
-              + "Per-app Deny syncs portal screencast table when available; session restore tokens stay portal-side."
+              + "Deny/Ask syncs portal screencast table when available and best-effort "
+              + "destroys matching PipeWire screencast nodes (heuristic attribution). "
+              + "Session restore tokens stay portal-side. Not a full OS sandbox."
         if (categoryId === "location")
           t += " Deny mutes weather fetch; Allow does not auto-unmute."
         if (categoryId === "notifications")

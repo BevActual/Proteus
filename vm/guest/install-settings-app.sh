@@ -133,6 +133,15 @@ else
   echo "note: skipped proteus-logind (build release on host first)"
 fi
 
+# Privileged battery charge thresholds (polkit) — Settings → Power
+if [[ -x "${ROOT}/services/proteus-battery-threshold/bin/proteus-battery-threshold" ]] \
+  || [[ -x "${ROOT}/services/proteus-battery-threshold/target/release/proteus-battery-threshold" ]] \
+  || command -v cargo >/dev/null 2>&1; then
+  bash "${ROOT}/vm/guest/install-proteus-battery-threshold.sh"
+else
+  echo "note: skipped proteus-battery-threshold (build release on host first)"
+fi
+
 # Privileged greetd autologin writer (polkit) — Settings → Users
 if [[ -x "${ROOT}/services/proteus-greetd/bin/proteus-greetd" ]] \
   || [[ -x "${ROOT}/services/proteus-greetd/target/release/proteus-greetd" ]] \

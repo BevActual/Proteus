@@ -58,9 +58,15 @@ grep -q 'NotificationToast' "${HSHELL}" || die "HostShell missing NotificationTo
 grep -q 'hostnameLabel\|SystemLoad.summaryLabel' "${HSHELL}" \
   || die "HostShell bar missing hostname/load"
 grep -q 'Workloads' "${HOST_HOME}" || die "HostHome missing Workloads glance"
-grep -q 'headless-no-QS\|full Host workloads' "${HOST_HOME}" \
-  || die "HostHome must state full workloads/headless Out honesty"
-ok "Phase 2 HostHome + HUD/toast"
+grep -q 'openWorkloadsApp\|Workloads ›' "${HOST_HOME}" \
+  || die "HostHome missing thin Workloads app handoff"
+grep -q 'headless\|host-chrome\|Workloads' "${HOST_HOME}" \
+  || die "HostHome must state headless / Workloads honesty"
+grep -q 'id: "headless"\|host --headless' "${HOST_HOME}" \
+  || die "HostHome missing Headless tile / host --headless"
+grep -qiE 'Settings → Virtualization|Virtualization \(jumps|mutations stay in Workloads' "${HOST_HOME}" \
+  || die "HostHome must state Settings Virtualization hub honesty"
+ok "Phase 2 HostHome + HUD/toast + headless"
 
 WL="${ROOT}/shell/shared/Workloads.qml"
 WL_PY="${ROOT}/shell/scripts/proteus-workloads.py"
@@ -112,6 +118,36 @@ got="$(tr -d '[:space:]' <"${HOME}/.config/proteus/posture")"
 grep -q 'profiles/host.conf' "${HOME}/.config/hypr/proteus-profile.conf" \
   || die "hypr pointer not set to host.conf"
 ok "Fact write + profile pointer host"
+
+# headless-no-QS Fact + --stop path
+grep -qE -- '--stop' "${QS}" || die "proteus-qs missing --stop"
+grep -q 'host-chrome\|host_chrome_mode' "${QS}" || die "proteus-qs missing host-chrome gate"
+grep -qE -- '--headless' "${POSTURE}" || die "proteus-posture missing --headless"
+bash "${FAKE_ROOT}/vm/guest/proteus-posture" host --headless || true
+[[ -f "${HOME}/.config/proteus/host-chrome" ]] || die "host-chrome Fact not written"
+hc="$(tr -d '[:space:]' <"${HOME}/.config/proteus/host-chrome")"
+[[ "${hc}" == "none" ]] || die "expected host-chrome none, got '${hc}'"
+bash "${FAKE_ROOT}/vm/guest/proteus-posture" host --chrome || true
+hc2="$(tr -d '[:space:]' <"${HOME}/.config/proteus/host-chrome")"
+[[ "${hc2}" == "full" ]] || die "expected host-chrome full after --chrome, got '${hc2}'"
+ok "host-chrome Fact + --headless/--chrome"
+
+SP="${ROOT}/apps/proteus-settings/panes/SystemPane.qml"
+VP="${ROOT}/apps/proteus-settings/panes/VirtualizationPane.qml"
+SET="${ROOT}/apps/proteus-settings/Settings.qml"
+EG="${ROOT}/shell/shared/EnvGate.qml"
+[[ -f "${VP}" ]] || die "missing VirtualizationPane.qml"
+grep -q 'id: "virtualization"' "${EG}" || die "EnvGate catalog missing virtualization"
+grep -q 'VirtualizationPane.qml\|page === "virtualization"' "${SET}" \
+  || die "Settings must load VirtualizationPane"
+grep -q 'Virtualization' "${SP}" || die "SystemPane missing Virtualization jump"
+grep -q 'virtualization' "${SP}" || die "SystemPane must jump to Virtualization hub"
+grep -q 'openWorkloadsApp' "${VP}" || die "VirtualizationPane must open Workloads"
+grep -q 'host --headless\|host --chrome' "${VP}" \
+  || die "VirtualizationPane missing headless/chrome posture actions"
+grep -qiE 'auto-resolver|Portainer|mutations' "${VP}" \
+  || die "VirtualizationPane must state mutations/auto-resolver Out"
+ok "Settings Virtualization hub (thin)"
 
 [[ $fail -eq 0 ]] || { echo "host-smoke: FAILED" >&2; exit 1; }
 echo "host-smoke: OK"

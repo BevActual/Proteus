@@ -1,278 +1,366 @@
 import Quickshell
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Online accounts: Google / Microsoft PKCE + Nextcloud app-password.
-// Tokens via proteus-accounts vault — never settings.json. Mail/Contacts apps Out.
+// Online accounts hub → per-provider leaves.
+// Page ids: accounts · accounts-google · accounts-microsoft · accounts-exchange ·
+// accounts-nextcloud · accounts-imap · accounts-caldav · accounts-carddav ·
+// accounts-apple.
+// The hub owns the canonical provider list (specs below) and only takes
+// status/seats from the proteus-accounts catalog — a stale catalog can't
+// inject "Coming later" rows or scope-dump hints.
+// Tokens via proteus-accounts vault — never settings.json.
+// Calendar + mail + contacts glances In; Mail/Contacts product apps Out.
 ColumnLayout {
   id: root
   Layout.fillWidth: true
   spacing: Theme.spaceMd
 
-  property bool active: false
+  property string page: "accounts"
+  signal requestGo(string id)
+
+  readonly property bool active: page === "accounts" || page.startsWith("accounts-")
+
+  // Canonical catalog — labels + one-line blurbs the hub renders. Status and
+  // seats merge in from Accounts.connectors by id.
+  readonly property var providerSpecs: [
+    { id: "google", label: "Google", blurb: "Calendar, mail & contacts glances", oauth: true },
+    { id: "microsoft", label: "Microsoft", blurb: "Personal account · calendar + mail glances", oauth: true },
+    { id: "exchange", label: "Exchange", blurb: "Microsoft 365 work / school · calendar + mail", oauth: true },
+    { id: "nextcloud", label: "Nextcloud", blurb: "Self-hosted · app password", oauth: false },
+    { id: "imap", label: "IMAP", blurb: "Any mail provider · mail glance", oauth: false },
+    { id: "caldav", label: "CalDAV", blurb: "Any calendar provider · calendar glance", oauth: false },
+    { id: "carddav", label: "CardDAV", blurb: "Any contacts provider · contacts glance", oauth: false },
+    { id: "apple", label: "Apple", blurb: "iCloud mail, calendar & contacts", oauth: false }
+  ]
+
+  function connectorFor(id) {
+    const list = Accounts.connectors || []
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].id === id)
+        return list[i]
+    }
+    return null
+  }
+
+  function seatsFor(id) {
+    const c = root.connectorFor(id)
+    return (c && c.seats) ? c.seats : []
+  }
+
+  function isConnected(id) {
+    const c = root.connectorFor(id)
+    if (c && c.status === "connected")
+      return true
+    return root.seatsFor(id).length > 0
+  }
+
+  function seatSummary(id) {
+    const seats = root.seatsFor(id)
+    if (!seats.length)
+      return "Connected"
+    const first = String(seats[0].label || seats[0].email || "Connected")
+    if (seats.length > 1)
+      return first + " · +" + (seats.length - 1) + " more"
+    return first
+  }
+
+  readonly property var connectedProviders: {
+    const out = []
+    for (let i = 0; i < root.providerSpecs.length; i++) {
+      if (root.isConnected(root.providerSpecs[i].id))
+        out.push(root.providerSpecs[i])
+    }
+    return out
+  }
+
+  readonly property var availableProviders: {
+    const out = []
+    for (let i = 0; i < root.providerSpecs.length; i++) {
+      if (!root.isConnected(root.providerSpecs[i].id))
+        out.push(root.providerSpecs[i])
+    }
+    return out
+  }
+
+  function oauthConfigured(id) {
+    if (id === "google")
+      return Accounts.googleClientConfigured
+    if (id === "exchange")
+      return Accounts.exchangeConnectable
+    if (id === "microsoft")
+      return Accounts.microsoftClientConfigured
+    return false
+  }
+
+  function oauthSetupHint(id) {
+    if (id === "google")
+      return "Needs setup — ~/.config/proteus/oauth-google-client-id"
+    if (id === "exchange")
+      return "Needs setup — same oauth-microsoft-client-id (work/school)"
+    if (id === "microsoft")
+      return "Needs setup — ~/.config/proteus/oauth-microsoft-client-id"
+    return ""
+  }
+
+  function availableHint(spec) {
+    if (!Accounts.ready)
+      return "Loading…"
+    if (spec.oauth && !root.oauthConfigured(spec.id))
+      return root.oauthSetupHint(spec.id)
+    return spec.blurb
+  }
+
+  function connectOauth(id) {
+    if (id === "google") {
+      if (!Accounts.googleClientConfigured) {
+        Accounts.error = "Set PROTEUS_GOOGLE_OAUTH_CLIENT_ID or ~/.config/proteus/oauth-google-client-id"
+        return
+      }
+      Accounts.connectGoogle()
+      return
+    }
+    if (id === "exchange") {
+      if (!Accounts.exchangeConnectable) {
+        Accounts.error = "Set PROTEUS_MICROSOFT_OAUTH_CLIENT_ID or ~/.config/proteus/oauth-microsoft-client-id (Exchange uses the same client)"
+        return
+      }
+      Accounts.connectExchange()
+      return
+    }
+    if (id === "microsoft") {
+      if (!Accounts.microsoftClientConfigured) {
+        Accounts.error = "Set PROTEUS_MICROSOFT_OAUTH_CLIENT_ID or ~/.config/proteus/oauth-microsoft-client-id"
+        return
+      }
+      Accounts.connectMicrosoft()
+    }
+  }
 
   onActiveChanged: {
     if (active)
       Accounts.refresh()
   }
 
-  Text {
+  Component.onCompleted: {
+    if (active)
+      Accounts.refresh()
+  }
+
+  // ── Hub ──────────────────────────────────────────────────────────────
+  ColumnLayout {
+    visible: root.page === "accounts"
     Layout.fillWidth: true
-    Layout.maximumWidth: 520
-    text: "Provider seats power the menu-bar calendar glance (today’s events). Google/Microsoft need calendar scopes — reconnect older seats. Mail/contacts apps stay Out."
-    color: Theme.textDim
-    font.family: Theme.fontFamily
-    font.pixelSize: Theme.fontSizeSm
-    wrapMode: Text.WordWrap
-  }
+    spacing: Theme.spaceMd
 
-  Text {
-    visible: Accounts.error.length > 0
-    Layout.fillWidth: true
-    Layout.maximumWidth: 520
-    text: Accounts.error
-    color: Theme.danger
-    font.family: Theme.fontFamily
-    font.pixelSize: Theme.fontSizeSm
-    wrapMode: Text.WordWrap
-  }
-
-  SettingsGroup {
-    title: "Providers"
-
-    Repeater {
-      model: Accounts.ready ? Accounts.connectors : [
-        { id: "google", label: "Google", hint: "Loading…", status: "coming_later", seats: [] },
-        { id: "microsoft", label: "Microsoft", hint: "Loading…", status: "coming_later", seats: [] },
-        { id: "nextcloud", label: "Nextcloud", hint: "Loading…", status: "coming_later", seats: [] }
-      ]
-
-      SettingsFormRow {
-        required property var modelData
-        required property int index
-        label: modelData.label
-        hint: {
-          if (modelData.status === "connected" && modelData.seats && modelData.seats.length)
-            return String(modelData.seats[0].label || modelData.seats[0].email || "Connected")
-          return modelData.hint || ""
-        }
-        showSeparator: index < (Accounts.connectors.length || 3) - 1
-
-        RowLayout {
-          spacing: Theme.spaceSm
-
-          Text {
-            text: {
-              if (modelData.status === "connected")
-                return "Connected"
-              if (modelData.status === "not_connected")
-                return "Not connected"
-              return "Coming later"
-            }
-            color: modelData.status === "connected" ? Theme.accent : Theme.textMute
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSizeSm
-          }
-
-          Rectangle {
-            visible: (modelData.id === "google" || modelData.id === "microsoft")
-                && modelData.status === "not_connected"
-            Layout.preferredHeight: 28
-            Layout.preferredWidth: connectLabel.implicitWidth + 20
-            radius: Theme.radiusPill - 8
-            color: Accounts.busy ? Theme.bgHover : Theme.accent
-            opacity: {
-              if (modelData.id === "google")
-                return Accounts.googleClientConfigured ? 1 : 0.55
-              return Accounts.microsoftClientConfigured ? 1 : 0.55
-            }
-            Text {
-              id: connectLabel
-              anchors.centerIn: parent
-              text: Accounts.busy ? "…" : "Connect"
-              color: "#ffffff"
-              font.family: Theme.fontFamily
-              font.pixelSize: Theme.fontSizeSm
-              font.weight: Font.Medium
-            }
-            MouseArea {
-              anchors.fill: parent
-              enabled: !Accounts.busy
-              cursorShape: Qt.PointingHandCursor
-              onClicked: {
-                if (modelData.id === "google") {
-                  if (!Accounts.googleClientConfigured) {
-                    Accounts.error = "Set PROTEUS_GOOGLE_OAUTH_CLIENT_ID or ~/.config/proteus/oauth-google-client-id"
-                    return
-                  }
-                  Accounts.connectGoogle()
-                } else {
-                  if (!Accounts.microsoftClientConfigured) {
-                    Accounts.error = "Set PROTEUS_MICROSOFT_OAUTH_CLIENT_ID or ~/.config/proteus/oauth-microsoft-client-id"
-                    return
-                  }
-                  Accounts.connectMicrosoft()
-                }
-              }
-            }
-          }
-
-          Rectangle {
-            visible: (modelData.id === "google" || modelData.id === "microsoft"
-                      || modelData.id === "nextcloud")
-                && modelData.status === "connected"
-            Layout.preferredHeight: 28
-            Layout.preferredWidth: discLabel.implicitWidth + 20
-            radius: Theme.radiusPill - 8
-            color: Theme.bgHover
-            Text {
-              id: discLabel
-              anchors.centerIn: parent
-              text: "Disconnect"
-              color: Theme.text
-              font.family: Theme.fontFamily
-              font.pixelSize: Theme.fontSizeSm
-              font.weight: Font.Medium
-            }
-            MouseArea {
-              anchors.fill: parent
-              enabled: !Accounts.busy
-              cursorShape: Qt.PointingHandCursor
-              onClicked: {
-                const seats = modelData.seats || []
-                if (seats.length)
-                  Accounts.disconnectSeat(seats[0].id)
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  SettingsGroup {
-    title: "Nextcloud"
-    visible: {
-      if (!Accounts.ready)
-        return true
-      for (let i = 0; i < Accounts.connectors.length; i++) {
-        const c = Accounts.connectors[i]
-        if (c.id === "nextcloud" && c.status === "connected")
-          return false
-      }
-      return true
-    }
-
-    ColumnLayout {
+    Text {
       Layout.fillWidth: true
-      spacing: Theme.spaceSm
+      Layout.maximumWidth: 480
+      text: "Accounts power the menu-bar calendar, mail, and contacts glances. Tokens stay in the proteus-accounts vault."
+      color: Theme.textDim
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.fontSizeSm
+      wrapMode: Text.WordWrap
+    }
 
-      Text {
-        Layout.fillWidth: true
-        Layout.maximumWidth: 520
-        text: "Create an app password under Nextcloud → Settings → Security, then connect. Tokens stay in the proteus-accounts vault (not settings.json)."
-        color: Theme.textMute
-        font.family: Theme.fontFamily
-        font.pixelSize: 11
-        wrapMode: Text.WordWrap
-      }
+    Text {
+      visible: Accounts.error.length > 0
+      Layout.fillWidth: true
+      Layout.maximumWidth: 480
+      text: Accounts.error
+      color: Theme.danger
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.fontSizeSm
+      wrapMode: Text.WordWrap
+    }
 
-      TextField {
-        Layout.fillWidth: true
-        Layout.maximumWidth: 520
-        placeholderText: "https://cloud.example"
-        text: Accounts.nextcloudUrl
-        onTextChanged: Accounts.nextcloudUrl = text
-        color: Theme.text
-        font.family: Theme.fontFamily
-        background: Rectangle {
-          radius: Theme.radiusSm
-          color: Theme.bgHover
-          border.width: 1
-          border.color: Theme.chromeBorder
+    SettingsGroup {
+      title: "Connected"
+      visible: root.connectedProviders.length > 0
+
+      Repeater {
+        model: root.connectedProviders
+
+        SettingsFormRow {
+          required property var modelData
+          required property int index
+          label: modelData.label
+          hint: root.seatSummary(modelData.id)
+          showSeparator: index < root.connectedProviders.length - 1
+          interactive: true
+          onActivated: root.requestGo("accounts-" + modelData.id)
+
+          RowLayout {
+            spacing: Theme.spaceSm
+
+            Text {
+              text: "Connected"
+              color: Theme.accent
+              font.family: Theme.fontFamily
+              font.pixelSize: Theme.fontSizeSm
+            }
+
+            Text {
+              text: "›"
+              color: Theme.textMute
+              font.family: Theme.fontFamily
+              font.pixelSize: Theme.fontSize
+            }
+          }
         }
       }
+    }
 
-      TextField {
-        Layout.fillWidth: true
-        Layout.maximumWidth: 520
-        placeholderText: "Username"
-        text: Accounts.nextcloudUser
-        onTextChanged: Accounts.nextcloudUser = text
-        color: Theme.text
-        font.family: Theme.fontFamily
-        background: Rectangle {
-          radius: Theme.radiusSm
-          color: Theme.bgHover
-          border.width: 1
-          border.color: Theme.chromeBorder
+    SettingsGroup {
+      title: root.connectedProviders.length > 0 ? "Add account" : "Providers"
+      visible: root.availableProviders.length > 0
+
+      Repeater {
+        model: root.availableProviders
+
+        SettingsFormRow {
+          required property var modelData
+          required property int index
+          label: modelData.label
+          hint: root.availableHint(modelData)
+          showSeparator: index < root.availableProviders.length - 1
+          // Row click always drills into the leaf (details / setup); the
+          // inline Connect on ready OAuth rows consumes its own click.
+          interactive: true
+          onActivated: root.requestGo("accounts-" + modelData.id)
+
+          RowLayout {
+            spacing: Theme.spaceSm
+
+            // OAuth ready → one-click Connect without leaving the hub
+            Text {
+              visible: modelData.oauth && root.oauthConfigured(modelData.id)
+              text: Accounts.busy ? "…" : "Connect"
+              color: Theme.accent
+              font.family: Theme.fontFamily
+              font.pixelSize: Theme.fontSizeSm
+              font.weight: Font.Medium
+              opacity: Accounts.busy ? 0.6 : 1
+
+              MouseArea {
+                anchors.fill: parent
+                enabled: !Accounts.busy
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.connectOauth(modelData.id)
+              }
+            }
+
+            Text {
+              text: "›"
+              color: Theme.textMute
+              font.family: Theme.fontFamily
+              font.pixelSize: Theme.fontSize
+            }
+          }
         }
       }
+    }
 
-      TextField {
-        Layout.fillWidth: true
-        Layout.maximumWidth: 520
-        placeholderText: "App password"
-        echoMode: TextInput.Password
-        text: Accounts.nextcloudAppPassword
-        onTextChanged: Accounts.nextcloudAppPassword = text
-        color: Theme.text
-        font.family: Theme.fontFamily
-        background: Rectangle {
-          radius: Theme.radiusSm
-          color: Theme.bgHover
-          border.width: 1
-          border.color: Theme.chromeBorder
-        }
+    Text {
+      Layout.fillWidth: true
+      Layout.maximumWidth: 480
+      text: {
+        const bits = []
+        if (Accounts.googleClientConfigured)
+          bits.push("Google PKCE ready")
+        else
+          bits.push("Google: set ~/.config/proteus/oauth-google-client-id")
+        if (Accounts.microsoftClientConfigured)
+          bits.push("Microsoft PKCE ready")
+        else
+          bits.push("Microsoft: set ~/.config/proteus/oauth-microsoft-client-id (public client · loopback redirect)")
+        if (Accounts.exchangeConnectable)
+          bits.push("Exchange PKCE ready (same Microsoft client · work/school)")
+        else
+          bits.push("Exchange: same oauth-microsoft-client-id as Microsoft")
+        bits.push("Nextcloud/IMAP/CalDAV/CardDAV/Apple: manual setup in each leaf")
+        bits.push("Vault tokens never enter settings.json")
+        return "Fact: " + bits.join(" · ")
       }
-
-      Rectangle {
-        Layout.preferredHeight: 32
-        Layout.preferredWidth: ncConnectLabel.implicitWidth + 24
-        radius: Theme.radiusPill - 8
-        color: Accounts.busy ? Theme.bgHover : Theme.accent
-        Text {
-          id: ncConnectLabel
-          anchors.centerIn: parent
-          text: Accounts.busy ? "…" : "Connect Nextcloud"
-          color: "#ffffff"
-          font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSizeSm
-          font.weight: Font.Medium
-        }
-        MouseArea {
-          anchors.fill: parent
-          enabled: !Accounts.busy
-          cursorShape: Qt.PointingHandCursor
-          onClicked: Accounts.connectNextcloud()
-        }
-      }
+      color: Theme.textMute
+      font.family: Theme.fontFamily
+      font.pixelSize: 11
+      wrapMode: Text.WordWrap
     }
   }
 
-  Text {
-    Layout.fillWidth: true
-    Layout.maximumWidth: 520
-    text: {
-      const bits = []
-      if (Accounts.googleClientConfigured)
-        bits.push("Google PKCE ready")
-      else
-        bits.push("Google: set ~/.config/proteus/oauth-google-client-id")
-      if (Accounts.microsoftClientConfigured)
-        bits.push("Microsoft PKCE ready")
-      else
-        bits.push("Microsoft: set ~/.config/proteus/oauth-microsoft-client-id (public client · loopback redirect)")
-      bits.push("Nextcloud: app password + instance URL")
-      bits.push("Vault tokens never enter settings.json")
-      return "Fact: " + bits.join(" · ")
+  // ── Leaves (one generic file, provider id per loader) ─────────────────
+  StickyPaneLoader {
+    want: root.page === "accounts-google"
+    source: "AccountsProviderLeaf.qml"
+    onLoaded: {
+      item.host = root
+      item.provider = "google"
     }
-    color: Theme.textMute
-    font.family: Theme.fontFamily
-    font.pixelSize: 11
-    wrapMode: Text.WordWrap
+  }
+
+  StickyPaneLoader {
+    want: root.page === "accounts-microsoft"
+    source: "AccountsProviderLeaf.qml"
+    onLoaded: {
+      item.host = root
+      item.provider = "microsoft"
+    }
+  }
+
+  StickyPaneLoader {
+    want: root.page === "accounts-exchange"
+    source: "AccountsProviderLeaf.qml"
+    onLoaded: {
+      item.host = root
+      item.provider = "exchange"
+    }
+  }
+
+  StickyPaneLoader {
+    want: root.page === "accounts-nextcloud"
+    source: "AccountsProviderLeaf.qml"
+    onLoaded: {
+      item.host = root
+      item.provider = "nextcloud"
+    }
+  }
+
+  StickyPaneLoader {
+    want: root.page === "accounts-imap"
+    source: "AccountsProviderLeaf.qml"
+    onLoaded: {
+      item.host = root
+      item.provider = "imap"
+    }
+  }
+
+  StickyPaneLoader {
+    want: root.page === "accounts-caldav"
+    source: "AccountsProviderLeaf.qml"
+    onLoaded: {
+      item.host = root
+      item.provider = "caldav"
+    }
+  }
+
+  StickyPaneLoader {
+    want: root.page === "accounts-carddav"
+    source: "AccountsProviderLeaf.qml"
+    onLoaded: {
+      item.host = root
+      item.provider = "carddav"
+    }
+  }
+
+  StickyPaneLoader {
+    want: root.page === "accounts-apple"
+    source: "AccountsProviderLeaf.qml"
+    onLoaded: {
+      item.host = root
+      item.provider = "apple"
+    }
   }
 }

@@ -11,6 +11,10 @@ Singleton {
   // off | 30m | 1h | 2h | indefinite
   property string mode: "off"
   property bool active: mode !== "off"
+  // EnvGate adapts.panes signal — Focus on → minimal, off → full.
+  // Hard-hides non-allowlisted Settings panes via EnvGate.paneAvailable.
+  // Not a settings.json key.
+  readonly property string paneDensity: active ? "minimal" : "full"
   property double endsAtMs: 0
   property int clock: 0
   // True when Focus was started by a schedule window (auto-stop when window ends).

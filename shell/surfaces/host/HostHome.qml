@@ -4,7 +4,8 @@ import QtQuick.Layouts
 import "../../shared"
 
 // Host ops home — calm glance + Settings spine shortcuts.
-// Thin VM/container glance via Workloads; full workloads app stays Out.
+// Thin VM/container glance via Workloads; thin app via openWorkloadsApp.
+// Settings virt = Virtualization hub (+ About jump). headless-no-QS = host-chrome Fact.
 Item {
   id: root
   anchors.fill: parent
@@ -39,6 +40,21 @@ Item {
     Workloads.release()
   }
 
+  function runPosture(args) {
+    const proot = String(Quickshell.env("PROTEUS_ROOT") || "/mnt/proteus")
+    const extra = String(args || "").trim()
+    // args are fixed product tokens (desktop | host --headless) — not user input.
+    Quickshell.execDetached({
+      command: [
+        "bash", "-lc",
+        "P=" + proot + "/vm/guest/proteus-posture; "
+            + "if [[ -x \"$P\" ]]; then setsid \"$P\" " + extra + " >/dev/null 2>&1 & "
+            + "elif command -v proteus-posture >/dev/null 2>&1; then "
+            + "setsid proteus-posture " + extra + " >/dev/null 2>&1 & fi"
+      ]
+    })
+  }
+
   function openTerminal() {
     Quickshell.execDetached({
       command: [
@@ -54,29 +70,31 @@ Item {
   }
 
   readonly property var actions: [
+    { id: "workloads", label: "Workloads", hint: "VMs · containers", page: "" },
     { id: "software", label: "Software", hint: "Updates · packages", page: "packages-updates" },
     { id: "network", label: "Network", hint: "This machine · devices", page: "network" },
-    { id: "about", label: "About", hint: "OS · load · Mission Center", page: "system" },
+    { id: "about", label: "About", hint: "OS · virt jump · load", page: "system" },
     { id: "privacy", label: "Privacy", hint: "Permissions · sensors", page: "privacy" },
     { id: "mission", label: "Mission Center", hint: MissionCenter.available ? "Open" : "Install…", page: "" },
     { id: "terminal", label: "Terminal", hint: "Local shell", page: "" },
+    { id: "headless", label: "Headless", hint: "Stop chrome · CLI on", page: "" },
     { id: "settings", label: "Settings", hint: "Full Settings spine", page: "" },
     { id: "desktop", label: "Desktop", hint: "Hard switch · desk", page: "" }
   ]
 
   function runAction(a) {
     const id = String(a && a.id || "")
+    if (id === "workloads") {
+      ShellState.openWorkloadsApp()
+      return
+    }
+    if (id === "headless") {
+      // host-chrome=none + stop QS — restore with: proteus-posture host --chrome
+      root.runPosture("host --headless")
+      return
+    }
     if (id === "desktop") {
-      const proot = String(Quickshell.env("PROTEUS_ROOT") || "/mnt/proteus")
-      Quickshell.execDetached({
-        command: [
-          "bash", "-lc",
-          "P=" + proot + "/vm/guest/proteus-posture; "
-              + "if [[ -x \"$P\" ]]; then setsid \"$P\" desktop >/dev/null 2>&1 & "
-              + "elif command -v proteus-posture >/dev/null 2>&1; then "
-              + "setsid proteus-posture desktop >/dev/null 2>&1 & fi"
-        ]
-      })
+      root.runPosture("desktop")
       return
     }
     if (id === "terminal") {
@@ -134,62 +152,94 @@ Item {
         wrapMode: Text.WordWrap
       }
 
-      Text {
+      Rectangle {
         Layout.fillWidth: true
-        text: Workloads.summaryLabel
-        color: Theme.textDim
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
-        wrapMode: Text.WordWrap
-      }
+        implicitHeight: wlCol.implicitHeight + 16
+        radius: Theme.radiusMd
+        color: wlMa.containsMouse ? Theme.chromeHover : "transparent"
 
-      ColumnLayout {
-        Layout.fillWidth: true
-        spacing: 2
-        visible: Workloads.domains.length > 0 || Workloads.containers.length > 0
-
-        Repeater {
-          model: Workloads.domains.slice(0, 4)
+        ColumnLayout {
+          id: wlCol
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: 2
 
           Text {
-            required property var modelData
             Layout.fillWidth: true
-            text: "VM · " + String(modelData.name || "—")
-                + " · " + String(modelData.state || "")
+            text: Workloads.summaryLabel
+            color: Theme.textDim
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize
+            wrapMode: Text.WordWrap
+          }
+
+          ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 2
+            visible: Workloads.domains.length > 0 || Workloads.containers.length > 0
+
+            Repeater {
+              model: Workloads.domains.slice(0, 4)
+
+              Text {
+                required property var modelData
+                Layout.fillWidth: true
+                text: "VM · " + String(modelData.name || "—")
+                    + " · " + String(modelData.state || "")
+                color: Theme.textMute
+                font.family: Theme.fontFamily
+                font.pixelSize: 11
+                elide: Text.ElideRight
+              }
+            }
+
+            Repeater {
+              model: Workloads.containers.slice(0, 4)
+
+              Text {
+                required property var modelData
+                Layout.fillWidth: true
+                text: (Workloads.containerEngine || "ctr") + " · "
+                    + String(modelData.name || "—")
+                    + (modelData.status ? " · " + String(modelData.status) : "")
+                color: Theme.textMute
+                font.family: Theme.fontFamily
+                font.pixelSize: 11
+                elide: Text.ElideRight
+              }
+            }
+          }
+
+          Text {
+            Layout.fillWidth: true
+            visible: Workloads.hint.length > 0
+                && Workloads.domains.length === 0
+                && Workloads.containers.length === 0
+            text: Workloads.hint
             color: Theme.textMute
             font.family: Theme.fontFamily
             font.pixelSize: 11
-            elide: Text.ElideRight
+            wrapMode: Text.WordWrap
           }
-        }
-
-        Repeater {
-          model: Workloads.containers.slice(0, 4)
 
           Text {
-            required property var modelData
             Layout.fillWidth: true
-            text: (Workloads.containerEngine || "ctr") + " · "
-                + String(modelData.name || "—")
-                + (modelData.status ? " · " + String(modelData.status) : "")
-            color: Theme.textMute
+            text: "Workloads ›"
+            color: Theme.accent
             font.family: Theme.fontFamily
             font.pixelSize: 11
-            elide: Text.ElideRight
+            font.weight: Font.DemiBold
           }
         }
-      }
 
-      Text {
-        Layout.fillWidth: true
-        visible: Workloads.hint.length > 0
-            && Workloads.domains.length === 0
-            && Workloads.containers.length === 0
-        text: Workloads.hint
-        color: Theme.textMute
-        font.family: Theme.fontFamily
-        font.pixelSize: 11
-        wrapMode: Text.WordWrap
+        MouseArea {
+          id: wlMa
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: ShellState.openWorkloadsApp()
+        }
       }
     }
 
@@ -247,7 +297,7 @@ Item {
 
     Text {
       Layout.fillWidth: true
-      text: "Fact: thin VM/container glance only — full Host workloads app · create/destroy · Settings virt · headless-no-QS Out."
+      text: "Fact: Workloads app + Settings → Virtualization (jumps/status) · Headless tile → host-chrome=none (restore: proteus-posture host --chrome) · mutations stay in Workloads · auto-resolver Out."
       color: Theme.textMute
       font.family: Theme.fontFamily
       font.pixelSize: 11
