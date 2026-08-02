@@ -755,8 +755,15 @@ Singleton {
         return
     }
 
-    // No windows → launch. Privacy-denied: Privacy leaf (Beacon Enter parity).
+    // No windows → launch. Ask → PrivacyAsk prompt; Deny → Privacy leaf.
     // Pins stay visible — dockEntryAvailable remains hardware-only.
+    const askCat = EnvGate.appPrivacyAskCategory(entry)
+    if (askCat && askCat.length) {
+      PrivacyAsk.promptLaunch(entry, askCat, function (e) {
+        root.launchEntry(e || entry)
+      })
+      return
+    }
     const privacyPane = EnvGate.appPrivacyBlockPane(entry)
     if (privacyPane && privacyPane.length) {
       ShellState.openSettings(privacyPane)
@@ -765,6 +772,12 @@ Singleton {
     if (!EnvGate.appAvailable(entry))
       return
 
+    root.launchEntry(entry)
+  }
+
+  function launchEntry(entry) {
+    if (!entry)
+      return
     const desk = entry.desktopId ? DesktopEntries.heuristicLookup(entry.desktopId) : null
     if (entry.id === "terminal" || entry.match === "ghostty" || entry.desktopId === "com.mitchellh.ghostty") {
       markLaunching(entry)

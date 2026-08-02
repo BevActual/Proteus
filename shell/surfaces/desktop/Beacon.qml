@@ -960,7 +960,9 @@ Item {
             path: "",
             paneId: "privacy-" + cat.id,
             name: appLabel + " · " + cat.label,
-            subtitle: "Privacy · " + grant + " · Enter to manage",
+            subtitle: grant === "ask"
+                ? ("Privacy · ask · Enter to decide")
+                : ("Privacy · " + grant + " · Enter to manage"),
             icon: "preferences-system-privacy",
             blocked: false,
             score: score,
@@ -1095,8 +1097,20 @@ Item {
     const row = filtered[i]
     if (!row || row.kind === "section" || row.kind === "hint")
       return
-    // Privacy-blocked apps: Enter opens the matching Privacy leaf.
+    // Privacy Ask → prompt; hard Deny → Settings leaf.
     if (row.blocked && row.kind === "app" && row.entry) {
+      const askCat = EnvGate.appPrivacyAskCategory(row.entry)
+      if (askCat.length) {
+        const entry = row.entry
+        PrivacyAsk.promptLaunch(entry, askCat, function (e) {
+          const ent = e || entry
+          Config.recordLauncherRecent(ent.id)
+          DockApps.launchEntry(ent)
+        })
+        search.text = ""
+        list.currentIndex = 0
+        return
+      }
       const pane = EnvGate.appPrivacyBlockPane(row.entry)
       if (pane.length) {
         ShellState.openSettings(pane)
@@ -1264,6 +1278,8 @@ Item {
     const r = String(reason || "").trim()
     if (!r.length)
       return "Unavailable on this device"
+    if (r.indexOf("Privacy · Ask") === 0)
+      return r + " · Enter to decide"
     if (r.indexOf("Blocked by Privacy") === 0)
       return r + " · Enter to manage"
     if (r.toLowerCase().startsWith("unavailable"))
