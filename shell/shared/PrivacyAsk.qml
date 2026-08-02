@@ -23,7 +23,7 @@ Singleton {
   readonly property bool isCapture: mode === "capture"
 
   readonly property string honesty: isCapture
-      ? "Mid-session Ask — mic/camera/screen. Session Allow once. Deny/Ask kills screencast streams (best-effort). Not an OS sandbox."
+      ? "Mid-session Ask — mic/camera/screen. Session Allow once. Deny/Ask closes portal screencast sessions + kills PW streams (best-effort). Not an OS sandbox."
       : "Ask once — not an OS sandbox. Portal may still prompt Flatpak apps."
 
   function promptLaunch(entry, category, launchFn) {

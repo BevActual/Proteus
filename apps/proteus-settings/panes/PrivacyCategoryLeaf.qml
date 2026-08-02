@@ -61,9 +61,10 @@ ColumnLayout {
               + "Not a full OS sandbox. Flatpak also uses overrides."
         if (categoryId === "screen")
           t += (t.length ? " · " : "")
-              + "Deny/Ask syncs portal screencast table when available and best-effort "
-              + "destroys matching PipeWire screencast nodes (heuristic attribution). "
-              + "Session restore tokens stay portal-side. Not a full OS sandbox."
+              + "Deny/Ask syncs portal screencast table when available, best-effort "
+              + "calls portal Session.Close on discoverable sessions, then destroys "
+              + "matching PipeWire screencast nodes (heuristic attribution). "
+              + "Not a full OS sandbox."
         if (categoryId === "location")
           t += " Deny mutes weather fetch; Allow does not auto-unmute."
         if (categoryId === "notifications")
