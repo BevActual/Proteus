@@ -70,7 +70,7 @@ Singleton {
     return false
   }
 
-  function createEvent(title, dayIso, recurrence) {
+  function createEvent(title, dayIso, recurrence, recurrenceEnd) {
     if (!root.canCreate || root.mutating)
       return false
     const t = String(title || "").trim()
@@ -78,20 +78,24 @@ Singleton {
       return false
     const d = String(dayIso || root.dateIso || "").trim()
     const r = String(recurrence || "").trim().toLowerCase()
+    const e = String(recurrenceEnd || "forever").trim().toLowerCase()
     root.mutating = true
     root.error = ""
     const args = ["python3", root.mutateScript, "create", "--title", t]
     if (d.length)
       args.push("--date", d)
-    if (r.length && r !== "none")
+    if (r.length && r !== "none") {
       args.push("--recurrence", r)
+      if (e.length && e !== "forever")
+        args.push("--recurrence-end", e)
+    }
     mutateProc.command = args
     mutateProc.running = false
     mutateProc.running = true
     return true
   }
 
-  function updateEvent(ev, title, dayIso, recurrence) {
+  function updateEvent(ev, title, dayIso, recurrence, recurrenceEnd) {
     if (!root.isMutable(ev) || root.mutating)
       return false
     const t = String(title || "").trim()
@@ -99,6 +103,7 @@ Singleton {
       return false
     const d = String(dayIso || root.dateIso || "").trim()
     const r = String(recurrence || "none").trim().toLowerCase()
+    const e = String(recurrenceEnd || "forever").trim().toLowerCase()
     root.mutating = true
     root.error = ""
     const seriesUid = String(ev.seriesId || ev.id || ev.uid || "")
@@ -110,6 +115,8 @@ Singleton {
       "--title", t,
       "--recurrence", r.length ? r : "none"
     ]
+    if (r.length && r !== "none")
+      args.push("--recurrence-end", e.length ? e : "forever")
     if (d.length)
       args.push("--date", d)
     mutateProc.command = args

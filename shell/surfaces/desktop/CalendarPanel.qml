@@ -419,12 +419,16 @@ Item {
           property string newEventTitle: ""
           // Thin recurrence (create + whole-series edit): none|daily|weekly|monthly
           property string newEventRepeat: "none"
+          // COUNT end presets: forever|count:2|count:5|count:10
+          property string newEventRepeatEnd: "forever"
           property string confirmDeleteHref: ""
           property string editingHref: ""
           property string editTitle: ""
           property string editEventRepeat: "none"
+          property string editEventRepeatEnd: "forever"
 
           readonly property var repeatCycle: ["none", "daily", "weekly", "monthly"]
+          readonly property var endCycle: ["forever", "count:2", "count:5", "count:10"]
           function repeatLabel(v) {
             const x = String(v || "none")
             if (x === "daily")
@@ -435,6 +439,27 @@ Item {
               return "Monthly"
             return "Once"
           }
+          function endLabel(v) {
+            const x = String(v || "forever")
+            if (x === "count:2")
+              return "2×"
+            if (x === "count:5")
+              return "5×"
+            if (x === "count:10")
+              return "10×"
+            return "Forever"
+          }
+          function normalizeEnd(v) {
+            const x = String(v || "forever")
+            if (x === "count:2" || x === "count:5" || x === "count:10")
+              return x
+            if (x === "count:2" || x.startsWith("count:")) {
+              const n = parseInt(x.split(":")[1] || "0", 10)
+              if (n === 2 || n === 5 || n === 10)
+                return "count:" + n
+            }
+            return "forever"
+          }
           function cycleRepeat() {
             const i = selCol.repeatCycle.indexOf(selCol.newEventRepeat)
             selCol.newEventRepeat = selCol.repeatCycle[(i < 0 ? 0 : i + 1) % selCol.repeatCycle.length]
@@ -442,6 +467,14 @@ Item {
           function cycleEditRepeat() {
             const i = selCol.repeatCycle.indexOf(selCol.editEventRepeat)
             selCol.editEventRepeat = selCol.repeatCycle[(i < 0 ? 0 : i + 1) % selCol.repeatCycle.length]
+          }
+          function cycleRepeatEnd() {
+            const i = selCol.endCycle.indexOf(selCol.newEventRepeatEnd)
+            selCol.newEventRepeatEnd = selCol.endCycle[(i < 0 ? 0 : i + 1) % selCol.endCycle.length]
+          }
+          function cycleEditRepeatEnd() {
+            const i = selCol.endCycle.indexOf(selCol.editEventRepeatEnd)
+            selCol.editEventRepeatEnd = selCol.endCycle[(i < 0 ? 0 : i + 1) % selCol.endCycle.length]
           }
 
           Text {
@@ -519,6 +552,7 @@ Item {
                       const r = String(modelData.recurrence || "").toLowerCase()
                       selCol.editEventRepeat = (r === "daily" || r === "weekly" || r === "monthly")
                           ? r : "none"
+                      selCol.editEventRepeatEnd = selCol.normalizeEnd(modelData.recurrenceEnd)
                     }
                   }
                 }
@@ -594,7 +628,7 @@ Item {
                     const d = ("0" + root.selectedDate.getDate()).slice(-2)
                     if (CalendarEvents.updateEvent(
                           modelData, selCol.editTitle, y + "-" + m + "-" + d,
-                          selCol.editEventRepeat))
+                          selCol.editEventRepeat, selCol.editEventRepeatEnd))
                       selCol.editingHref = ""
                   }
                 }
@@ -614,6 +648,21 @@ Item {
                 }
 
                 Text {
+                  visible: selCol.editEventRepeat !== "none"
+                  text: selCol.endLabel(selCol.editEventRepeatEnd)
+                  color: Theme.textDim
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  font.weight: Font.Medium
+                  MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -4
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: selCol.cycleEditRepeatEnd()
+                  }
+                }
+
+                Text {
                   text: "Save"
                   color: Theme.accent
                   font.family: Theme.fontFamily
@@ -629,7 +678,7 @@ Item {
                       const d = ("0" + root.selectedDate.getDate()).slice(-2)
                       if (CalendarEvents.updateEvent(
                             modelData, selCol.editTitle, y + "-" + m + "-" + d,
-                            selCol.editEventRepeat))
+                            selCol.editEventRepeat, selCol.editEventRepeatEnd))
                         selCol.editingHref = ""
                     }
                   }
@@ -687,7 +736,8 @@ Item {
                 const m = ("0" + (root.selectedDate.getMonth() + 1)).slice(-2)
                 const d = ("0" + root.selectedDate.getDate()).slice(-2)
                 if (CalendarEvents.createEvent(
-                      selCol.newEventTitle, y + "-" + m + "-" + d, selCol.newEventRepeat))
+                      selCol.newEventTitle, y + "-" + m + "-" + d, selCol.newEventRepeat,
+                      selCol.newEventRepeatEnd))
                   selCol.newEventTitle = ""
               }
             }
@@ -707,6 +757,21 @@ Item {
             }
 
             Text {
+              visible: selCol.newEventRepeat !== "none"
+              text: selCol.endLabel(selCol.newEventRepeatEnd)
+              color: Theme.textDim
+              font.family: Theme.fontFamily
+              font.pixelSize: 11
+              font.weight: Font.Medium
+              MouseArea {
+                anchors.fill: parent
+                anchors.margins: -6
+                cursorShape: Qt.PointingHandCursor
+                onClicked: selCol.cycleRepeatEnd()
+              }
+            }
+
+            Text {
               text: "Add"
               color: Theme.accent
               font.family: Theme.fontFamily
@@ -721,7 +786,8 @@ Item {
                   const m = ("0" + (root.selectedDate.getMonth() + 1)).slice(-2)
                   const d = ("0" + root.selectedDate.getDate()).slice(-2)
                   if (CalendarEvents.createEvent(
-                        selCol.newEventTitle, y + "-" + m + "-" + d, selCol.newEventRepeat))
+                        selCol.newEventTitle, y + "-" + m + "-" + d, selCol.newEventRepeat,
+                        selCol.newEventRepeatEnd))
                     selCol.newEventTitle = ""
                 }
               }
@@ -733,7 +799,7 @@ Item {
             text: {
               const _r = CalendarEvents.rev
               if (CalendarEvents.canCreate)
-                return "CalDAV + Google/MS create/edit/delete In · recurrence thin create+edit In · mail compose thin In · Open Calendar for full editing"
+                return "CalDAV + Google/MS create/edit/delete In · recurrence thin create+edit + COUNT end In · mail compose thin In · Open Calendar for full editing"
               if (CalendarEvents.hasSeats)
                 return ShellState.calendarAppAvailable
                     ? "Open in Calendar for editing · CalDAV seats enable glance create/edit/delete"
