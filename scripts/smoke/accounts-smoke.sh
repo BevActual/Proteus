@@ -63,6 +63,15 @@ if fv >= 0 and (pw < 0 or fv < pw):
     raise SystemExit("fieldValue before password gate in hint")
 print("ok")
 PY
+# #1597 — Reconnect gated on oauthReady like Connect
+grep -q 'interactive: !Accounts.busy && root.oauthReady' "${LEAF}" \
+  || die "AccountsProviderLeaf Reconnect must gate on oauthReady (#1597)"
+# #1598 — Beacon index includes per-provider leaves
+EG="${ROOT}/shell/shared/EnvGate.qml"
+for id in accounts-google accounts-microsoft accounts-exchange accounts-nextcloud \
+          accounts-imap accounts-caldav accounts-carddav accounts-apple; do
+  grep -q "id: \"${id}\"" "${EG}" || die "EnvGate settingsSearchIndex missing ${id} (#1598)"
+done
 grep -q 'id: "accounts"' "${ROOT}/apps/proteus-settings/SettingsNav.qml" \
   || die "SettingsNav missing accounts hub"
 grep -q 'accountsChildren\|accounts-google' "${ROOT}/apps/proteus-settings/Settings.qml" \

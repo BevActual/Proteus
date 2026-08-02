@@ -395,6 +395,54 @@ Singleton {
       keywords: "accounts oauth"
     },
     {
+      id: "accounts-google",
+      label: "Google",
+      hubId: "accounts",
+      keywords: "google gmail calendar contacts oauth"
+    },
+    {
+      id: "accounts-microsoft",
+      label: "Microsoft",
+      hubId: "accounts",
+      keywords: "microsoft outlook hotmail oauth"
+    },
+    {
+      id: "accounts-exchange",
+      label: "Exchange",
+      hubId: "accounts",
+      keywords: "exchange microsoft 365 work school oauth"
+    },
+    {
+      id: "accounts-nextcloud",
+      label: "Nextcloud",
+      hubId: "accounts",
+      keywords: "nextcloud self-hosted app password"
+    },
+    {
+      id: "accounts-imap",
+      label: "IMAP",
+      hubId: "accounts",
+      keywords: "imap mail email smtp"
+    },
+    {
+      id: "accounts-caldav",
+      label: "CalDAV",
+      hubId: "accounts",
+      keywords: "caldav calendar ical"
+    },
+    {
+      id: "accounts-carddav",
+      label: "CardDAV",
+      hubId: "accounts",
+      keywords: "carddav contacts address book"
+    },
+    {
+      id: "accounts-apple",
+      label: "Apple",
+      hubId: "accounts",
+      keywords: "apple icloud apple id app-specific password"
+    },
+    {
       id: "datetime",
       label: "Date, time & weather",
       hubId: "datetime",
