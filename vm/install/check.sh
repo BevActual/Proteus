@@ -108,6 +108,7 @@ grep -q 'guest-install.sh' "${ROOT}/docs/proteus/INSTALL.md" 2>/dev/null \
 [[ -x "${ROOT}/shell/scripts/privacy-indicators.py" ]] && ok shell/scripts/privacy-indicators.py || bad shell/scripts/privacy-indicators.py
 [[ -x "${ROOT}/shell/scripts/proteus-defaults.py" ]] && ok shell/scripts/proteus-defaults.py || bad shell/scripts/proteus-defaults.py
 [[ -x "${ROOT}/shell/scripts/beacon-file-index.py" ]] && ok shell/scripts/beacon-file-index.py || bad shell/scripts/beacon-file-index.py
+grep -q 'beacon-file-index.py' "${ROOT}/vm/install/apps.sh" && ok "apps.sh installs beacon-file-index.py" || bad "apps.sh missing beacon-file-index.py"
 [[ -x "${ROOT}/shell/scripts/proteus-pin.py" ]] && ok shell/scripts/proteus-pin.py || bad shell/scripts/proteus-pin.py
 [[ -x "${ROOT}/shell/scripts/check-unlock.py" ]] && ok shell/scripts/check-unlock.py || bad shell/scripts/check-unlock.py
 [[ -f "${ROOT}/shell/scripts/proteus_auth.py" ]] && ok shell/scripts/proteus_auth.py || bad shell/scripts/proteus_auth.py
