@@ -20,11 +20,13 @@ use url::Url;
 
 const GOOGLE_AUTH: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN: &str = "https://oauth2.googleapis.com/token";
-const GOOGLE_SCOPES: &str = "openid email profile";
+// Calendar.readonly for menu-bar glance consumer (reconnect required for older seats).
+const GOOGLE_SCOPES: &str =
+    "openid email profile https://www.googleapis.com/auth/calendar.readonly";
 
 const MS_AUTH: &str = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
 const MS_TOKEN: &str = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
-const MS_SCOPES: &str = "openid profile email offline_access User.Read";
+const MS_SCOPES: &str = "openid profile email offline_access User.Read Calendars.Read";
 
 #[derive(Clone, Serialize, Deserialize)]
 struct CatalogEntry {
@@ -74,7 +76,7 @@ struct TokenBlob {
 
 fn usage() -> ! {
     eprintln!(
-        "Usage: proteus-accounts <catalog|status|list|connect|disconnect|smoke> [args…]\n\
+        "Usage: proteus-accounts <catalog|status|list|connect|disconnect|token|smoke> [args…]\n\
          catalog              — JSON connector catalog\n\
          status               — catalog + seats (no secrets)\n\
          list                 — connected seats only\n\
@@ -82,6 +84,7 @@ fn usage() -> ! {
          connect microsoft    — Microsoft PKCE (PROTEUS_MICROSOFT_OAUTH_CLIENT_ID)\n\
          connect nextcloud <base-url> <user> <app-password>\n\
          disconnect <seat-id> — remove seat + token vault entry\n\
+         token <seat-id|provider> — access token JSON (refresh if needed; for calendar glance)\n\
          smoke                — static self-check JSON"
     );
     std::process::exit(2);
@@ -94,21 +97,21 @@ fn catalog() -> Vec<CatalogEntry> {
             label: "Google".into(),
             connect_kind: "oauth_pkce".into(),
             v1_status: "connectable".into(),
-            hint: "Sign in with Google (openid · email · profile)".into(),
+            hint: "Sign in with Google (openid · email · profile · calendar.readonly) — reconnect if seat predates calendar glance".into(),
         },
         CatalogEntry {
             id: "microsoft".into(),
             label: "Microsoft".into(),
             connect_kind: "oauth_pkce".into(),
             v1_status: "connectable".into(),
-            hint: "Sign in with Microsoft (Entra / MSA · openid · profile · email)".into(),
+            hint: "Sign in with Microsoft (Entra / MSA · Calendars.Read) — reconnect if seat predates calendar glance".into(),
         },
         CatalogEntry {
             id: "nextcloud".into(),
             label: "Nextcloud".into(),
             connect_kind: "app_password".into(),
             v1_status: "connectable".into(),
-            hint: "Self-hosted instance · app password (Settings → Security)".into(),
+            hint: "Self-hosted instance · app password (Settings → Security) · CalDAV glance".into(),
         },
         CatalogEntry {
             id: "apple".into(),
@@ -216,6 +219,130 @@ fn save_token(seat_id: &str, blob: &TokenBlob) -> Result<(), String> {
 
 fn clear_token(seat_id: &str) {
     let _ = fs::remove_file(vault_path(seat_id));
+}
+
+fn load_token(seat_id: &str) -> Result<TokenBlob, String> {
+    let p = vault_path(seat_id);
+    let raw = fs::read_to_string(&p).map_err(|_| format!("no token vault for seat {seat_id}"))?;
+    serde_json::from_str(&raw).map_err(|e| format!("token vault parse: {e}"))
+}
+
+fn find_seat(id_or_provider: &str) -> Result<Seat, String> {
+    let key = id_or_provider.trim();
+    if key.is_empty() {
+        return Err("token requires seat id or provider".into());
+    }
+    let idx = load_index();
+    if let Some(s) = idx.seats.iter().find(|s| s.id == key) {
+        return Ok(s.clone());
+    }
+    if let Some(s) = idx.seats.iter().find(|s| s.provider == key) {
+        return Ok(s.clone());
+    }
+    Err(format!("unknown seat or provider: {key}"))
+}
+
+fn refresh_oauth_token(
+    token_url: &str,
+    client_id: &str,
+    refresh_token: &str,
+) -> Result<TokenBlob, String> {
+    if refresh_token.is_empty() {
+        return Err("missing refresh_token — reconnect the seat".into());
+    }
+    let form = [
+        ("client_id", client_id),
+        ("grant_type", "refresh_token"),
+        ("refresh_token", refresh_token),
+    ];
+    let resp = ureq::post(token_url)
+        .set("Content-Type", "application/x-www-form-urlencoded")
+        .send_form(&form)
+        .map_err(|e| format!("token refresh: {e}"))?;
+    let body: Value = resp.into_json().map_err(|e| format!("token json: {e}"))?;
+    if let Some(err) = body.get("error") {
+        return Err(format!(
+            "refresh error: {err} {}",
+            body.get("error_description").unwrap_or(&Value::Null)
+        ));
+    }
+    let access = body
+        .get("access_token")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "missing access_token".to_string())?
+        .to_string();
+    let refresh = body
+        .get("refresh_token")
+        .and_then(|v| v.as_str())
+        .unwrap_or(refresh_token)
+        .to_string();
+    let id_token = body
+        .get("id_token")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let expires_in = body.get("expires_in").and_then(|v| v.as_u64()).unwrap_or(3600);
+    Ok(TokenBlob {
+        access_token: access,
+        refresh_token: refresh,
+        expires_at: now_secs().saturating_add(expires_in),
+        id_token,
+        base_url: String::new(),
+        username: String::new(),
+        kind: "oauth_pkce".into(),
+    })
+}
+
+fn ensure_access_token(seat: &Seat) -> Result<(TokenBlob, bool), String> {
+    let mut blob = load_token(&seat.id)?;
+    if seat.provider == "nextcloud" {
+        // App password seats: access_token holds the app password.
+        return Ok((blob, false));
+    }
+    let skew = 60u64;
+    if blob.expires_at > now_secs().saturating_add(skew) && !blob.access_token.is_empty() {
+        return Ok((blob, false));
+    }
+    let client_id = match seat.provider.as_str() {
+        "google" => google_client_id()?,
+        "microsoft" => microsoft_client_id()?,
+        other => return Err(format!("token refresh unsupported for {other}")),
+    };
+    let token_url = match seat.provider.as_str() {
+        "google" => GOOGLE_TOKEN,
+        "microsoft" => MS_TOKEN,
+        _ => unreachable!(),
+    };
+    let mut refreshed = refresh_oauth_token(token_url, &client_id, &blob.refresh_token)?;
+    // Preserve Nextcloud-only fields (empty for OAuth).
+    if refreshed.refresh_token.is_empty() {
+        refreshed.refresh_token = blob.refresh_token.clone();
+    }
+    if refreshed.id_token.is_empty() {
+        refreshed.id_token = blob.id_token.clone();
+    }
+    save_token(&seat.id, &refreshed)?;
+    blob = refreshed;
+    Ok((blob, true))
+}
+
+fn cmd_token(id_or_provider: &str) -> Result<Value, String> {
+    let seat = find_seat(id_or_provider)?;
+    let (blob, refreshed) = ensure_access_token(&seat)?;
+    Ok(json!({
+        "ok": true,
+        "seatId": seat.id,
+        "provider": seat.provider,
+        "label": seat.label,
+        "email": seat.email,
+        "baseUrl": if blob.base_url.is_empty() { seat.base_url.clone() } else { blob.base_url.clone() },
+        "username": blob.username,
+        "kind": blob.kind,
+        "accessToken": blob.access_token,
+        "expiresAt": blob.expires_at,
+        "refreshed": refreshed,
+        // Never echo refresh_token.
+    }))
 }
 
 fn now_secs() -> u64 {
@@ -813,6 +940,10 @@ fn main() -> ExitCode {
             } else {
                 disconnect_seat(&id)
             }
+        }
+        "token" => {
+            let id = args.next().unwrap_or_default();
+            cmd_token(&id)
         }
         "-h" | "--help" | "help" => usage(),
         other => Err(format!("unknown command: {other}")),

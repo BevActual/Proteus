@@ -12,9 +12,12 @@ User-scoped online-account seats for Proteus Settings.
   verifies `status.php` + OCS user unless `PROTEUS_ACCOUNTS_SKIP_VERIFY=1`
 - Seat metadata: `~/.config/proteus/accounts.json`
 - Tokens: `~/.local/share/proteus/accounts/tokens/*.token.json` (0600) — **not** `settings.json`
+- `token <seat|provider>` — access token JSON with refresh (Google/MS calendar scopes)
+- Consumer: menu-bar calendar glance via `shell/scripts/proteus-calendar-events.py`
 
 ```bash
 cargo build --release
 ./target/release/proteus-accounts smoke
+./target/release/proteus-accounts token nextcloud   # after connect
 ./scripts/smoke/accounts-smoke.sh
 ```
