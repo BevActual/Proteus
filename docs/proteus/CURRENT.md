@@ -52,7 +52,7 @@ postures are thesis only. Docs describe the thesis ahead of code where marked
 | Hyprland session | `shipped` | Backend for desktop posture; greetd / proteus-session |
 | Quickshell shell | `shipped` | Chrome runtime; `/mnt/proteus/shell` via 9p |
 | Nested Hyprland (host) | `shipped` | `scripts/run-nested.sh` — shell-only quick test |
-| Hyprland posture profiles | `partial` — desktop + console (fullscreen rules) / host (lean ops) / home stub + soft `set-hypr-profile.sh` + Settings About picker; console + host hard switch via `proteus-posture` — [POSTURES.md](./POSTURES.md) · [COMPOSITOR.md](./COMPOSITOR.md) |
+| Hyprland posture profiles | `partial` — desktop + console (fullscreen rules) / host (lean ops) / home stub + soft `set-hypr-profile.sh` + Settings About soft picker; hard Session posture picker in About (`proteus-posture`) — [POSTURES.md](./POSTURES.md) · [COMPOSITOR.md](./COMPOSITOR.md) |
 | QS version pin / respawn policy | `shipped` — `proteus-qs` flock + `--restart` + orphan reap + backoff; optional systemd `--user` unit; version **recorded** in `qs-guest-smoke` / `qs-version-smoke` (not IgnorePkg); after QS upgrade re-run guest smoke; IgnorePkg/ISO pin Out |
 
 ---
@@ -101,7 +101,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Users (session actions + read-only local users · greetd autologin) | `shipped` — Session Lock/Logout; Reboot/Shutdown confirm strip; **lock screen PIN** set/change/clear (`proteus-pin.py`, PAM password gate; hash not in settings.json); current user GECOS/home/UID/groups; other users read-only; Online accounts jump; greetd status + **autologin toggle** via `proteus-greetd` (pkexec `[initial_session]`; no greetd restart); conf escape; no add/remove |
 | Online accounts (provider seats) | `partial` — locked connector catalog (Google + Microsoft PKCE + Nextcloud app-password connectable; Apple/Exchange/IMAP/CalDAV/CardDAV listed); `proteus-accounts` + vault tokens (not settings.json); mail/contacts/Drive apps Out |
 | Privacy & security (transparency · mute · session · grants) | `partial` — hub + leaves; what leaves; weather mute; DND / Lock / clipboard / LocalSend; **In use now** (mic/camera/screen apps via `privacy-indicators.py`); category Allow/Deny + per-app Allow/Ask/Deny in `permissions.json` (`proteus-permissions.py` · `Permissions.qml`); Flatpak mic/camera overrides; EnvGate honors manifest `permissions` (ask=deny until Allow) — **fail-open until `Permissions.ready`** (mirror Hardware.ready; brief startup window); Beacon + dock grant parity; **Diagnostics deny** gates Network Diagnostics polling; smoke/install harness gates privacy helpers; **native pacman apps observed not sandboxed**; portal store write Out |
-| About (hardware class / capabilities) | `shipped` — OS/kernel/hostname (`SystemInfo`); Hyprland/Quickshell versions; tip hash; hw-probe class/caps; CPU/mem/swap/storage/uptime (`SystemLoad`, About-active only); battery when present (`Power`/UPower); Mission Center escape; Check for updates → Software; soft Hyprland profile; Copy + Copied; session under Users only; hard posture Out; no in-Settings live dashboard |
+| About (hardware class / capabilities) | `shipped` — OS/kernel/hostname (`SystemInfo`); Hyprland/Quickshell versions; tip hash; hw-probe class/caps; CPU/mem/swap/storage/uptime (`SystemLoad`, About-active only); battery when present (`Power`/UPower); Mission Center escape; Check for updates → Software; **hard Session posture** (`SessionPosture` → `proteus-posture`, confirm before chrome restart) + soft Hyprland profile (`HyprProfile`); Copy + Copied; session power under Users only; no in-Settings live dashboard |
 | Host / VM·container setup | **out of Settings** — separate app later |
 | Cold-start (open feel) | `shipped` — async `shell.qml` → `Settings.qml`; `kit/StickyPaneLoader` (active category first, sticky after visit); Keyboard/Keybinds deferred; Settings QS skips live hw-probe (`Hardware.isSettingsApp` → cache only) |
 | Window & layout | `shipped` — normal app window (tiles / floats like any other; legacy float+center windowrule removed, config.sh strips it from old installs); wide/tiled windows cap + center the pane column (`paneMaxW` 760; back/title track it, ✕ stays at the corner; Mixer full-bleed); **single-instance** (`proteus-settings` reuses via `nav` IPC + `raise` / hypr focus; `quickshell -n` race guard) |
@@ -129,9 +129,10 @@ Focus set + hard switches: [POSTURES.md](./POSTURES.md). Hard flips:
 profile; sets `PROTEUS_SKIP_SESSION_LOCK=1` so mid-session flips do not blank
 the surface). Enter from desktop: Beacon Action · Control Center tiles ·
 `Super+Shift+C` (console) / `Super+Shift+H` (host) — CC prefers live
-`$PROTEUS_ROOT/vm/guest/proteus-posture`. Soft hypr helper `set-hypr-profile.sh`
-+ Settings → About picker remain soft-only (window-rule component, not the
-product flip).
+`$PROTEUS_ROOT/vm/guest/proteus-posture`. Settings → About **Session posture**
+is the hard picker (`SessionPosture` → `proteus-posture`, confirm). Soft hypr
+helper `set-hypr-profile.sh` + About **Hyprland profile** remain soft-only
+(window-rule component, not the product flip).
 
 Console dogfood (guest): `sudo bash /mnt/proteus/vm/guest/apply-console-kit.sh`
 then `proteus-posture console` (or `/mnt/proteus/vm/guest/proteus-posture` if
@@ -246,7 +247,6 @@ Install path SoT (three layers, knobs, repair, failures): [INSTALL.md](./INSTALL
 - More Rust helper CLIs under `services/` (Wave A probe is Python; `proteus-pkg` + `proteus-logind` mutators + `proteus-audio-mix` resident dump/peaks shipped; mixer mutations still Python)  
 - Posture / prefers / device_classes enforcement on manifests (schema only today)  
 - ISO / installer productization (dogfood overlay in `vm/install/` is enough for now; path documented in [INSTALL.md](./INSTALL.md))  
-- Settings UI for posture **hard-switch** picker (soft Hyprland profile picker shipped in About)  
 - Rowena (and other sibling) CSS retarget onto `--proteus-*` export  
 
 When shipping a feature, update this file in the same change.

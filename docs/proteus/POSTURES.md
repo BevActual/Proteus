@@ -116,8 +116,9 @@ fragments may still express desktop tuning; they do not define the product flip.
 
 Soft helper: `vm/guest/set-hypr-profile.sh desktop|console|media|host|home`
 (`media` ≡ `console` → `profiles/console.conf`); Settings → About soft select
-via `HyprProfile.qml` (soft≠hard). **Hard console switch:**
+via `HyprProfile.qml` (soft≠hard). **Hard switch:**
 `vm/guest/proteus-posture console|desktop|host` — Fact + chrome restart + profile;
+Settings → About **Session posture** (`SessionPosture.qml`, confirm before flip);
 Beacon / Control Center / `Super+Shift+C` enter; console Desktop tile exits.
 CC / Quick Settings prefer the **live tree** helper (`$PROTEUS_ROOT/vm/guest/…`)
 over a stale `/usr/local` copy. Posture flips set

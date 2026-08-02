@@ -116,11 +116,12 @@ Left-nav + content pane (macOS System Settings style).
 | **Notifications** (`notifications`) | Prefs: hard DND · jump to Focus · live list stays Control Center | `notificationsDnd` · FocusMode | `shipped` |
 | **Privacy & security** (`privacy`) | Hub → What leaves + weather mute + session; **In use now**; category leaves (Allow/Deny + per-app Allow/Ask/Deny); Flatpak overrides | `permissions.json` · `proteus-permissions.py` · PrivacyIndicators · EnvGate grants · Flatpak override | `partial` |
 | **Software** (`packages`) | Hub → Updates; Repos / AUR / Flathub (Install\|Installed mode-safe, per-mode search, op narrative); AppImages; **Web apps** (URL → `proteus-web-*.desktop` via `proteus-webapp`, no polkit); Orphans — helper honesty when yay/paru/flatpak missing | `pacman` + `proteus-pkg` · yay/paru · flatpak + Flathub · local AppImages · `proteus-webapp` | `shipped` |
-| **About** (`system`) | OS/kernel/hostname · QS/Hypr · load/mem/storage · battery when present · Mission Center (Install… → Flathub · `io.missioncenter.MissionCenter`) · Check for updates → Software; hardware caps; soft Hyprland profile; Copy + Copied | `SystemInfo` · `SystemLoad` · `MissionCenter` · `Power` · probe · `HyprProfile` | `shipped` |
+| **About** (`system`) | OS/kernel/hostname · QS/Hypr · load/mem/storage · battery when present · Mission Center (Install… → Flathub · `io.missioncenter.MissionCenter`) · Check for updates → Software; hardware caps; **hard Session posture** (`SessionPosture` → `proteus-posture`, confirm) + soft Hyprland profile (`HyprProfile`); Copy + Copied | `SystemInfo` · `SystemLoad` · `MissionCenter` · `Power` · probe · `SessionPosture` · `HyprProfile` | `shipped` |
 
 VM / container **setup** is **not** a Settings category — a separate host app later.
-About may still show host-relevant hardware facts. Soft profile select does
-**not** flip console/host hard switches. Hostname **edit** stays under Network.
+About may still show host-relevant hardware facts. Soft Hyprland profile select
+does **not** flip hard posture — use Session posture (or Beacon / CC /
+`proteus-posture`). Hostname **edit** stays under Network.
 
 Panes live under `apps/proteus-settings/panes/`. EnvGate capability-gates
 sidebar entries (`display` for Desktop / Displays / Keyboard, audio/network
@@ -356,7 +357,8 @@ PAM · PIN in settings.json Out.)*
 *(Software hub + six leaves + reliability/guest smoke shipped — dep graphs / Snap stay Out.)*
 *(Appearance hub + Date, time & weather locale/forecast shipped — manual time/RTC Out.)*
 *(About OS/kernel/hostname · load strip · Mission Center escape · Copy+Copied ·
-soft profile shipped — hard posture switch via proteus-posture / Beacon / CC (not About picker); no in-Settings live dashboard.)*
+hard Session posture picker + soft Hyprland profile shipped — Beacon/CC still
+flip hard too; no in-Settings live dashboard.)*
 *(Privacy & security hub · In use now · category grants · Flatpak overrides ·
 Beacon/dock grant parity · Diagnostics deny → Network Diagnostics · smoke/install
 privacy harness shipped — native OS sandbox / portal store write still Out;
