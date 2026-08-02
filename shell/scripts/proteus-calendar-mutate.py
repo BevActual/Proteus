@@ -5,9 +5,9 @@ Writable:
   · CalDAV — nextcloud · caldav · apple (Basic auth)
   · OAuth — google · microsoft · exchange (Bearer; calendar.events / Calendars.ReadWrite)
 
-Thin UX: title + day (09:00–10:00 UTC slot) + optional create recurrence
-(daily|weekly|monthly, no end). Update stays title/day (no series edit).
-No attendees · COUNT/UNTIL · this-vs-all · exceptions.
+Thin UX: title + day (09:00–10:00 UTC slot) + optional recurrence
+(daily|weekly|monthly|none, no end) on create and whole-series update.
+No attendees · COUNT/UNTIL · this-vs-all · exceptions · scoped delete.
 Stdout: one JSON object. Never logs passwords/tokens.
 """
 from __future__ import annotations
@@ -344,7 +344,13 @@ def _cmd_create_oauth(
 
 
 def _cmd_update_oauth(
-    provider: str, href: str, title: str, day: date, uid: str, tok: dict
+    provider: str,
+    href: str,
+    title: str,
+    day: date,
+    uid: str,
+    tok: dict,
+    recurrence: str | None = None,
 ) -> dict:
     access = _bearer(tok)
     if not access:
@@ -357,13 +363,23 @@ def _cmd_update_oauth(
         url = _oauth_event_href(provider, event_id)
     elif not event_id:
         event_id = url.rstrip("/").rsplit("/", 1)[-1]
+    # Prefer series master id when glance expanded an instance (id_YYYYMMDD…).
+    if "_" in event_id and provider == "google" and "T" in event_id.split("_", 1)[-1]:
+        event_id = event_id.split("_", 1)[0]
+        url = _oauth_event_href(provider, event_id)
     start_iso, end_iso = _slot_times(day)
+    touch_rec = recurrence is not None
+    recurrence_n = _normalize_recurrence(recurrence or "") if touch_rec else ""
     if provider == "google":
         payload = {
             "summary": title,
             "start": {"dateTime": start_iso},
             "end": {"dateTime": end_iso},
         }
+        if touch_rec:
+            payload["recurrence"] = (
+                [_rrule_line(recurrence_n)] if recurrence_n else []
+            )
         method = "PUT"
     else:
         payload = {
@@ -371,6 +387,9 @@ def _cmd_update_oauth(
             "start": {"dateTime": start_iso.replace("Z", ""), "timeZone": "UTC"},
             "end": {"dateTime": end_iso.replace("Z", ""), "timeZone": "UTC"},
         }
+        if touch_rec:
+            graphed = _graph_recurrence(recurrence_n, day)
+            payload["recurrence"] = graphed if graphed else None
         method = "PATCH"
     status, data, err = _http_json(
         url,
@@ -390,7 +409,7 @@ def _cmd_update_oauth(
             "provider": provider,
         }
     eid = str(data.get("id") or event_id)
-    return {
+    out = {
         "ok": True,
         "action": "update",
         "provider": provider,
@@ -401,6 +420,9 @@ def _cmd_update_oauth(
         "status": status,
         "mutable": True,
     }
+    if touch_rec and recurrence_n:
+        out["recurrence"] = recurrence_n
+    return out
 
 
 def _cmd_delete_oauth(provider: str, href: str, uid: str, tok: dict) -> dict:
@@ -520,10 +542,23 @@ def _uid_from_href(href: str) -> str:
     return base.strip()
 
 
-def cmd_update(provider: str, href: str, title: str, day: date, uid: str = "") -> dict:
-    """Overwrite an existing event resource (title + day). Thin — no recurrence."""
+def cmd_update(
+    provider: str,
+    href: str,
+    title: str,
+    day: date,
+    uid: str = "",
+    recurrence: str | None = None,
+) -> dict:
+    """Overwrite an existing event (title + day + optional whole-series recurrence).
+
+    recurrence=None preserves prior RRULE on CalDAV (GET not performed — omit
+    means rewrite without RRULE only when explicitly none|daily|…).
+    """
     href = (href or "").strip()
     title = (title or "").strip() or "Untitled"
+    touch_rec = recurrence is not None
+    recurrence_n = _normalize_recurrence(recurrence or "") if touch_rec else ""
     if provider not in WRITABLE:
         return {
             "ok": False,
@@ -540,14 +575,38 @@ def cmd_update(provider: str, href: str, title: str, day: date, uid: str = "") -
             "action": "update",
         }
     if provider in OAUTH_WRITABLE:
-        return _cmd_update_oauth(provider, href, title, day, uid, tok)
+        return _cmd_update_oauth(
+            provider, href, title, day, uid, tok, recurrence=recurrence
+        )
     if not href.startswith("http"):
         return {"ok": False, "error": "href required (absolute event URL)", "action": "update"}
     _cal_home, _origin, user, password = _creds(provider, tok)
     event_uid = (uid or "").strip() or _uid_from_href(href)
     if not event_uid:
         return {"ok": False, "error": "uid required (or href basename .ics)", "action": "update"}
-    body = _ics(event_uid, title, day).encode()
+    # When recurrence omitted, preserve existing RRULE via GET (best-effort).
+    cal_rec = recurrence_n if touch_rec else ""
+    if not touch_rec:
+        try:
+            get_req = urllib.request.Request(
+                href,
+                method="GET",
+                headers={"Authorization": _auth_header(user, password)},
+            )
+            with urllib.request.urlopen(get_req, timeout=12) as resp:
+                existing = resp.read().decode("utf-8", errors="replace")
+            for line in existing.splitlines():
+                if line.startswith("RRULE:") or line.startswith("RRULE;"):
+                    if "FREQ=DAILY" in line.upper():
+                        cal_rec = "daily"
+                    elif "FREQ=WEEKLY" in line.upper():
+                        cal_rec = "weekly"
+                    elif "FREQ=MONTHLY" in line.upper():
+                        cal_rec = "monthly"
+                    break
+        except Exception:
+            cal_rec = ""
+    body = _ics(event_uid, title, day, recurrence=cal_rec).encode()
     req = urllib.request.Request(
         href,
         data=body,
@@ -573,7 +632,7 @@ def cmd_update(provider: str, href: str, title: str, day: date, uid: str = "") -
         }
     except Exception as e:
         return {"ok": False, "error": str(e), "action": "update", "provider": provider}
-    return {
+    out = {
         "ok": True,
         "action": "update",
         "provider": provider,
@@ -584,6 +643,11 @@ def cmd_update(provider: str, href: str, title: str, day: date, uid: str = "") -
         "status": status,
         "mutable": True,
     }
+    if touch_rec and recurrence_n:
+        out["recurrence"] = recurrence_n
+    elif not touch_rec and cal_rec:
+        out["recurrence"] = cal_rec
+    return out
 
 
 def cmd_delete(provider: str, href: str, uid: str = "") -> dict:
@@ -665,8 +729,8 @@ def main() -> int:
     )
     ap.add_argument(
         "--recurrence",
-        default="",
-        help="create only: none|daily|weekly|monthly (no end)",
+        default=None,
+        help="create/update: none|daily|weekly|monthly (whole series, no end)",
     )
     args = ap.parse_args()
 
@@ -676,7 +740,7 @@ def main() -> int:
             print(json.dumps({"ok": True, "fixture": True, "providers": ["caldav"]}))
             return 0
         if args.action == "create":
-            rec = _normalize_recurrence(args.recurrence)
+            rec = _normalize_recurrence(args.recurrence or "")
             payload = {
                 "ok": True,
                 "fixture": True,
@@ -696,21 +760,22 @@ def main() -> int:
             href = args.href or (
                 "https://cal.example/dav/calendars/alice/personal/fixture-uid-1.ics"
             )
-            print(
-                json.dumps(
-                    {
-                        "ok": True,
-                        "fixture": True,
-                        "action": "update",
-                        "provider": args.provider or "caldav",
-                        "id": (args.uid or _uid_from_href(href) or "fixture-uid-1"),
-                        "href": href,
-                        "title": (args.title or "Updated").strip() or "Updated",
-                        "date": day.isoformat(),
-                        "mutable": True,
-                    }
-                )
-            )
+            payload = {
+                "ok": True,
+                "fixture": True,
+                "action": "update",
+                "provider": args.provider or "caldav",
+                "id": (args.uid or _uid_from_href(href) or "fixture-uid-1"),
+                "href": href,
+                "title": (args.title or "Updated").strip() or "Updated",
+                "date": day.isoformat(),
+                "mutable": True,
+            }
+            if args.recurrence is not None:
+                rec = _normalize_recurrence(args.recurrence)
+                if rec:
+                    payload["recurrence"] = rec
+            print(json.dumps(payload))
             return 0
         print(
             json.dumps(
@@ -760,9 +825,18 @@ def main() -> int:
         return 1
 
     if args.action == "create":
-        result = cmd_create(provider, args.title, day, recurrence=args.recurrence)
+        result = cmd_create(
+            provider, args.title, day, recurrence=args.recurrence or ""
+        )
     elif args.action == "update":
-        result = cmd_update(provider, args.href, args.title, day, args.uid)
+        result = cmd_update(
+            provider,
+            args.href,
+            args.title,
+            day,
+            args.uid,
+            recurrence=args.recurrence,
+        )
     else:
         result = cmd_delete(provider, args.href, args.uid)
     print(json.dumps(result))
