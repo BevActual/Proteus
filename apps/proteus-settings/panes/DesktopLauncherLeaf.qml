@@ -47,7 +47,7 @@ ColumnLayout {
       Layout.rightMargin: Theme.spaceMd
       Layout.topMargin: Theme.spaceSm
       Layout.bottomMargin: Theme.spaceSm
-      text: "One search for apps, Settings, and actions. Modes: Tab cycles · Ctrl+1 Apps · Ctrl+2 Files · Ctrl+3 Clipboard · Ctrl+4 Actions (allowlisted). Tag an app with Ctrl+T or # · filter with #tag. Math and unit conversions work in the search field."
+      text: "Universal search for apps, Settings, Actions, running Windows, and Privacy In-use / grants. Modes: Tab cycles · Ctrl+1 Apps · Ctrl+2 Files (beacon-file-index) · Ctrl+3 Clipboard (paste via wtype when available) · Ctrl+4 Actions. Tag an app with Ctrl+T or # · filter with #tag. Math and unit conversions work in the search field."
       color: Theme.textMute
       font.family: Theme.fontFamily
       font.pixelSize: Theme.fontSizeSm
