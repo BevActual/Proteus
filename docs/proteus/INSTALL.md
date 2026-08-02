@@ -76,6 +76,12 @@ audio/GL caveats live in [vm/README.md](../../vm/README.md).
   drifted.
 - **Stale `/usr/local/bin` helpers** were a real bug class; when the tree is
   live at `/mnt/proteus`, helpers are symlinks and cannot go stale.
+- **Lock unlock PIN** — `apps` stage puts `proteus-pin.py` + `check-unlock.py`
+  on PATH (module `proteus_auth.py` stays beside them in `shell/scripts/`).
+  Hash lives under `~/.local/share/proteus/auth/pin` (0600), never
+  `settings.json`. Optional PAM service `proteus-lock` is installed from
+  `shell/pam/proteus-lock` via `vm/guest/install-lock-pam.sh`; if that step
+  skips (no `system-auth`), the lock falls back to the `login` PAM stack.
 
 ## Failure table
 

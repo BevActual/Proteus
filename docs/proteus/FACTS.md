@@ -24,7 +24,7 @@ before inventing a second store.
 | `~/.config/proteus/settings.json` | `Config.qml` FileView | Background, Widgets, Theme, Audio prefs, … |
 | `~/.config/proteus/keybinds.json` | `Keybinds.qml` | Hyprland bind generator |
 | `~/.config/proteus/permissions.json` | `proteus-permissions.py` / `Permissions.qml` (0600) | EnvGate grant gate, Privacy leaves — **not** in settings.json; see [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md) |
-| `~/.local/share/proteus/auth/pin` | `proteus-pin.py` / `check-unlock.py` (0600) | LockSurface unlock PIN hash — **not** in settings.json; see [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md) |
+| `~/.local/share/proteus/auth/pin` | `proteus-pin.py` / `check-unlock.py` via `proteus_auth.py` (0600) | LockSurface unlock PIN hash — **not** in settings.json; see [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md). Guest PATH: `apps.sh` installs the two CLIs; PAM service source `shell/pam/proteus-lock` (optional install → `login` fallback) |
 | `~/.config/proteus/hw-probe.json` | `proteus-hw-probe` / `Hardware.qml` cache | EnvGate, Settings About |
 | `~/.config/hypr/proteus-general.conf` | `Config` / `ConfigHypr` | Hyprland `source =` |
 | `~/.config/hypr/proteus-keybinds.conf` | `Keybinds.qml` | Hyprland |
