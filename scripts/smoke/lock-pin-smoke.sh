@@ -24,6 +24,17 @@ grep -q 'proteus-pin.py' "${USERS}" || die "UsersPane cites proteus-pin.py"
 grep -q 'Lock screen PIN' "${USERS}" || die "UsersPane PIN group"
 grep -q 'settings.json' "${USERS}" || die "UsersPane honesty about settings.json"
 
+[[ -f "${ROOT}/shell/pam/proteus-lock" ]] || die "missing shell/pam/proteus-lock"
+[[ -x "${ROOT}/vm/guest/install-lock-pam.sh" ]] || die "install-lock-pam.sh not executable"
+grep -q 'proteus-pin.py' "${ROOT}/vm/install/apps.sh" \
+  || die "apps.sh must install proteus-pin.py"
+grep -q 'check-unlock.py' "${ROOT}/vm/install/apps.sh" \
+  || die "apps.sh must install check-unlock.py"
+grep -q 'install-lock-pam' "${ROOT}/vm/install/apps.sh" \
+  || die "apps.sh must cite install-lock-pam"
+python3 -m py_compile "${AUTH}" || die "proteus_auth.py py_compile"
+ok "install + PAM source wiring"
+
 # Fail closed: PIN must not be claimed as a Config / settings.json key
 if grep -qiE '^\|[^|]*\bpin\b|lockPin|unlockPin' \
   "${ROOT}/docs/proteus/CONFIG-SCHEMA.md" 2>/dev/null; then
