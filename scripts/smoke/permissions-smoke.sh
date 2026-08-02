@@ -134,5 +134,29 @@ grep -q 'privacy-indicators.py' "${ROOT}/vm/install/apps.sh" \
   || die "apps.sh must install privacy-indicators.py"
 ok "apps.sh privacy helpers"
 
+# EnvGate catalog must not mark CURRENT-shipped categories as partial
+# (Privacy + Online accounts may stay partial).
+python3 - <<'PY' "${ROOT}/shell/shared/EnvGate.qml" || die "EnvGate settingsCatalog vs CURRENT shipped"
+import re, sys
+text = open(sys.argv[1], encoding="utf-8").read()
+# crude extract of id/status pairs in settingsCatalog block
+block = text.split("settingsCatalog:", 1)[1].split("settingsSearchIndex:", 1)[0]
+ids = re.findall(r'id:\s*"([^"]+)"', block)
+statuses = re.findall(r'status:\s*"([^"]+)"', block)
+assert len(ids) == len(statuses), (ids, statuses)
+m = dict(zip(ids, statuses))
+shipped = {
+    "style", "desktop", "displays", "sound", "network", "peripherals",
+    "power", "users", "datetime", "notifications", "packages", "system",
+}
+partial_ok = {"privacy", "accounts"}
+for i in shipped:
+    assert m.get(i) == "shipped", f"{i} want shipped got {m.get(i)}"
+for i in partial_ok:
+    assert m.get(i) == "partial", f"{i} want partial got {m.get(i)}"
+print("catalog ok")
+PY
+ok "EnvGate catalog vs CURRENT"
+
 [[ $fail -eq 0 ]] || { echo "permissions-smoke: FAILED" >&2; exit 1; }
 echo "permissions-smoke: OK"

@@ -26,11 +26,12 @@ Singleton {
   }
 
   // North-star sidebar order — status: shipped | partial | stub | planned
+  // Statuses mirror docs/proteus/CURRENT.md §3 (Privacy + Online accounts stay partial).
   readonly property var settingsCatalog: [
     {
       id: "style",
       label: "Appearance",
-      status: "partial",
+      status: "shipped",
       requires: [],
       requiresAny: []
     },
@@ -44,21 +45,21 @@ Singleton {
     {
       id: "displays",
       label: "Displays",
-      status: "partial",
+      status: "shipped",
       requires: ["display"],
       requiresAny: []
     },
     {
       id: "sound",
       label: "Sound",
-      status: "partial",
+      status: "shipped",
       requires: [],
       requiresAny: ["speaker", "mic", "qs_pipewire"]
     },
     {
       id: "network",
       label: "Network",
-      status: "partial",
+      status: "shipped",
       requires: [],
       requiresAny: ["wifi", "ethernet", "bt"]
     },
@@ -72,14 +73,14 @@ Singleton {
     {
       id: "power",
       label: "Power",
-      status: "partial",
+      status: "shipped",
       requires: [],
       requiresAny: []
     },
     {
       id: "users",
       label: "Users",
-      status: "partial",
+      status: "shipped",
       requires: [],
       requiresAny: []
     },
@@ -93,14 +94,14 @@ Singleton {
     {
       id: "datetime",
       label: "Date, time & weather",
-      status: "partial",
+      status: "shipped",
       requires: [],
       requiresAny: []
     },
     {
       id: "notifications",
       label: "Notifications",
-      status: "partial",
+      status: "shipped",
       requires: [],
       requiresAny: []
     },
@@ -114,14 +115,14 @@ Singleton {
     {
       id: "packages",
       label: "Software",
-      status: "partial",
+      status: "shipped",
       requires: [],
       requiresAny: []
     },
     {
       id: "system",
       label: "About",
-      status: "partial",
+      status: "shipped",
       requires: [],
       requiresAny: []
     }

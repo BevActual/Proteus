@@ -88,7 +88,8 @@ shell/shared/
   ShellState.qml Hardware.qml EnvGate.qml Keybinds.qml Notifications.qml LockLayoutZones.qml
   HyprProfile.qml SystemInfo.qml SystemLoad.qml MissionCenter.qml Accounts.qml
   ActiveWindow.qml KeepAwake.qml LocalSend.qml NetworkDiagnostics.qml Packages.qml
-  DockApps.qml Time.qml …
+  DockApps.qml Time.qml Permissions.qml PrivacyIndicators.qml DefaultApps.qml
+  SystemServices.qml FocusMode.qml ControlCenterLayout.qml UniversalSearch.qml …
 apps/proteus-settings/
   kit/     # SettingsFormRow · Group · HubList · Segmented · StickyPaneLoader · Combo …
   panes/   # product panes
