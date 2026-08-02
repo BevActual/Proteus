@@ -4,7 +4,8 @@ import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Peripherals category: Keyboard · Mouse (headphones stay under Sound).
+// Peripherals category: Keyboard · Mouse · Touchpad · Tablet · Gamepads
+// (headphones stay under Sound).
 ColumnLayout {
   id: root
   Layout.fillWidth: true
@@ -21,6 +22,14 @@ ColumnLayout {
     {
       key: "peripherals-mouse",
       label: "Mouse"
+    },
+    {
+      key: "peripherals-touchpad",
+      label: "Touchpad"
+    },
+    {
+      key: "peripherals-tablet",
+      label: "Tablet"
     },
     {
       key: "peripherals-gamepads",
