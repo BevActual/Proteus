@@ -57,6 +57,27 @@ ColumnLayout {
   }
 
   SettingsGroup {
+    title: "Layout"
+
+    SettingsFormRow {
+      label: "Columns"
+      hint: Number(root.layout.columns) === 3
+          ? "Three columns in the quick settings grid"
+          : "Two columns in the quick settings grid"
+      showSeparator: false
+      SettingsSegmented {
+        Layout.preferredWidth: Math.min(200, parent.width)
+        options: [
+          { id: "2", label: "2" },
+          { id: "3", label: "3" }
+        ]
+        selected: String(Number(root.layout.columns) === 3 ? 3 : 2)
+        onActivated: id => ControlCenterLayout.setColumns(Number(id))
+      }
+    }
+  }
+
+  SettingsGroup {
     title: "Plates"
 
     SettingsFormRow {
