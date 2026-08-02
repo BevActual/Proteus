@@ -26,7 +26,8 @@ for s in proteus-screenshot proteus-clipboard proteus-colorpick proteus-terminal
          proteus-console-session \
          proteus-permissions.py privacy-indicators.py \
          proteus-calendar-events.py proteus-calendar-mutate.py \
-         proteus-mail-glance.py proteus-mail-send.py proteus-contacts-glance.py \
+         proteus-mail-glance.py proteus-mail-send.py \
+         proteus-contacts-glance.py proteus-contacts-mutate.py \
          proteus-headscale.py \
          proteus-workloads.py \
          proteus-defaults.py beacon-file-index.py \
