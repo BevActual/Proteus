@@ -47,6 +47,20 @@ fi
 grep -q 'vm/guest/proteus-posture' "${QSGRID}" || die "QuickSettingsGrid missing live-tree posture launch"
 ok "enter/exit wires"
 
+HOST_HOME="${ROOT}/shell/surfaces/host/HostHome.qml"
+[[ -f "${HOST_HOME}" ]] || die "missing HostHome.qml"
+grep -q 'HostHome' "${HSHELL}" || die "HostShell missing HostHome"
+grep -q 'SystemLoad\|SystemInfo' "${HOST_HOME}" || die "HostHome missing load/info glance"
+grep -q 'openSettings\|MissionCenter\|openTerminal' "${HOST_HOME}" \
+  || die "HostHome missing ops quick actions"
+grep -q 'StatusHud' "${HSHELL}" || die "HostShell missing StatusHud"
+grep -q 'NotificationToast' "${HSHELL}" || die "HostShell missing NotificationToast"
+grep -q 'hostnameLabel\|SystemLoad.summaryLabel' "${HSHELL}" \
+  || die "HostShell bar missing hostname/load"
+grep -q 'workloads\|separate app\|Headless' "${HOST_HOME}" \
+  || die "HostHome must state workloads/headless Out honesty"
+ok "Phase 2 HostHome + HUD/toast"
+
 # Isolated Fact write host (stub qs + hyprctl)
 TMP="$(mktemp -d)"
 trap 'rm -rf "${TMP}"' EXIT
