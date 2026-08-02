@@ -222,11 +222,27 @@ echo "${enf}" | python3 -c 'import json,sys
 d=json.load(sys.stdin)
 assert d.get("ok") is True
 assert "microphone" in d and "camera" in d and "screen" in d
+assert "portalScreen" in d and isinstance(d.get("portalScreen"), list)
 ' || die "enforce-capture JSON shape"
 ok "enforce-capture"
 
+PROTEUS_PORTAL_SESSION_FIXTURE=1 python3 "${HELPER}" enforce-capture | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("ok") is True
+ps=d.get("portalScreen") or []
+assert len(ps) >= 1 and ps[0].get("closed") is True and ps[0].get("fixture") is True
+assert int(d.get("portalClosed") or 0) >= 1
+' || die "portal Session.Close fixture"
+ok "portal Session.Close fixture"
+
 grep -q 'portal-sync\|SetPermission\|PermissionStore' "${HELPER}" \
   || die "helper missing portal PermissionStore bridge"
+grep -q 'Session.Close\|portal_close_screencast_sessions\|PORTAL_SESSION_IFACE' "${HELPER}" \
+  || die "helper missing portal Session.Close"
+grep -q 'Session.Close\|portal Session.Close' "${CAT_LEAF}" "${PRIV_PANE}" \
+  || die "Privacy UI missing portal Session.Close honesty"
+grep -q 'Session.Close\|portal screencast sessions' "${ROOT}/shell/shared/PrivacyAsk.qml" \
+  || die "PrivacyAsk missing portal Session.Close honesty"
 grep -q 'enforce-capture\|set-source-output-mute' "${HELPER}" \
   || die "helper missing capture enforce"
 grep -q 'def enforce_screen\|_is_screencast_node' "${HELPER}" \
