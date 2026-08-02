@@ -57,7 +57,7 @@ data["focusActiveProfileId"] = "sleep"
 data["focusProfiles"] = [
     {
         "id": "smoke-focus",
-        "label": "Smoke",
+        "name": "Smoke",
         "allowedApps": ["smoke.desktop"],
         "breakCritical": True,
     }

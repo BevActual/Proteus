@@ -23,6 +23,7 @@ run lock-pin-smoke.sh
 run permissions-smoke.sh
 run desktop-smoke.sh
 run spaces-smoke.sh
+run focus-smoke.sh
 run beacon-smoke.sh
 run audio-mix-serve-smoke.sh
 run hw-probe-smoke.sh
