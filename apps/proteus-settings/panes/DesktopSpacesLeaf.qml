@@ -30,7 +30,7 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "This display only"
-      hint: "Super+Ctrl+1–6 always switches the focused display"
+      hint: "Super+Ctrl+1–6 always switches the focused display (keyboard). Strip and wheel reach Spaces 1–10."
       showSeparator: false
       Text {
         text: "⌃⌘N"
