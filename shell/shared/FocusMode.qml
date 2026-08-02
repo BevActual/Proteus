@@ -158,6 +158,92 @@ Singleton {
     root.saveProfiles(list)
   }
 
+  function slugifyProfileId(name) {
+    let s = String(name || "").trim().toLowerCase()
+    s = s.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
+    if (!s.length)
+      s = "profile"
+    return s.slice(0, 32)
+  }
+
+  function uniqueProfileId(base) {
+    const list = root.profiles()
+    const taken = {}
+    for (let i = 0; i < list.length; i++) {
+      if (list[i] && list[i].id)
+        taken[String(list[i].id)] = true
+    }
+    const rootId = String(base || "profile")
+    if (!taken[rootId])
+      return rootId
+    for (let n = 2; n < 100; n++) {
+      const cand = rootId + "-" + n
+      if (!taken[cand])
+        return cand
+    }
+    return rootId + "-" + Date.now()
+  }
+
+  // Profile entity CRUD (Settings leaf). Content filters stay on updateActiveProfile.
+  function addProfile(name) {
+    root.ensureProfilesPersisted()
+    const label = String(name || "").trim() || "Focus"
+    const id = root.uniqueProfileId(root.slugifyProfileId(label))
+    const list = root.profiles().slice()
+    list.push({
+      id: id,
+      name: label,
+      allowedApps: [],
+      breakCritical: true,
+      keywordAllow: [],
+      keywordDeny: [],
+      schedule: null
+    })
+    root.saveProfiles(list)
+    root.setActiveProfileId(id)
+    return id
+  }
+
+  function renameProfile(id, name) {
+    root.ensureProfilesPersisted()
+    const label = String(name || "").trim()
+    if (!label.length)
+      return false
+    const want = String(id || "")
+    const list = root.profiles().slice()
+    let found = false
+    for (let i = 0; i < list.length; i++) {
+      if (list[i] && String(list[i].id) === want) {
+        list[i] = Object.assign({}, list[i], { name: label })
+        found = true
+        break
+      }
+    }
+    if (!found)
+      return false
+    root.saveProfiles(list)
+    return true
+  }
+
+  function deleteProfile(id) {
+    root.ensureProfilesPersisted()
+    const want = String(id || "")
+    const list = root.profiles().slice()
+    if (list.length <= 1)
+      return false
+    const next = []
+    for (let i = 0; i < list.length; i++) {
+      if (list[i] && String(list[i].id) !== want)
+        next.push(list[i])
+    }
+    if (next.length === list.length || next.length === 0)
+      return false
+    if (root.activeProfileId() === want)
+      Config.focusActiveProfileId = String(next[0].id)
+    root.saveProfiles(next)
+    return true
+  }
+
   function allowedAppsList() {
     const p = root.activeProfile()
     if (p && Array.isArray(p.allowedApps))
