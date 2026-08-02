@@ -120,5 +120,19 @@ grep -q 'appPrivacyBlockPane' "${DOCK}" \
   || die "DockApps must open Privacy leaf via appPrivacyBlockPane (Beacon parity)"
 ok "Dock grant gate"
 
+ND="${ROOT}/shell/shared/NetworkDiagnostics.qml"
+ND_LEAF="${ROOT}/apps/proteus-settings/panes/NetworkDiagnosticsLeaf.qml"
+grep -q 'diagnosticsAllowed\|Permissions.diagnosticsAllowed\|\.allowed' "${ND}" \
+  || die "NetworkDiagnostics must honor Permissions.diagnosticsAllowed"
+grep -q 'denyHint\|Diagnostics blocked' "${ND_LEAF}" \
+  || die "NetworkDiagnosticsLeaf must show Privacy deny honesty"
+ok "Diagnostics category gate"
+
+grep -q 'proteus-permissions.py' "${ROOT}/vm/install/apps.sh" \
+  || die "apps.sh must install proteus-permissions.py"
+grep -q 'privacy-indicators.py' "${ROOT}/vm/install/apps.sh" \
+  || die "apps.sh must install privacy-indicators.py"
+ok "apps.sh privacy helpers"
+
 [[ $fail -eq 0 ]] || { echo "permissions-smoke: FAILED" >&2; exit 1; }
 echo "permissions-smoke: OK"

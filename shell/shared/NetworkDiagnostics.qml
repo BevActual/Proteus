@@ -24,6 +24,16 @@ Singleton {
   property string pingResult: ""
   property bool pingBusy: false
 
+  // Privacy → Diagnostics category (fail-open until Permissions.ready).
+  readonly property bool allowed: {
+    try {
+      return Permissions.diagnosticsAllowed
+    } catch (e) {
+      return true
+    }
+  }
+  readonly property string denyHint: "Blocked by Privacy · Diagnostics — allow in Settings → Privacy & security → Diagnostics"
+
   property bool captureAvailable: false
   property bool captureFlatpak: false
   property string capturePath: ""
@@ -40,12 +50,31 @@ Singleton {
       ? "Installed"
       : "Not installed"
 
+  function _clearLive() {
+    root.ready = false
+    root.interfaces = []
+    root.connections = []
+    root.listeners = []
+    root.gateway = ""
+    root.dnsLabel = "—"
+    root.routeHint = "—"
+    root.firewallLabel = "—"
+    root.ssHint = ""
+    root.pingBusy = false
+    root.pingResult = root.allowed ? "" : root.denyHint
+  }
+
   function refresh() {
+    if (!root.allowed) {
+      _clearLive()
+      return
+    }
     snapProc.running = false
     snapProc.running = true
   }
 
   function refreshCapture() {
+    // Wireshark presence detect stays read-only even when Diagnostics denied.
     captureProc.running = false
     captureProc.running = true
   }
@@ -54,6 +83,10 @@ Singleton {
     const t = String(target || "").trim()
     if (!t.length || root.pingBusy)
       return
+    if (!root.allowed) {
+      root.pingResult = root.denyHint
+      return
+    }
     root.pingBusy = true
     root.pingTarget = t
     root.pingResult = "Pinging…"
@@ -172,12 +205,26 @@ Singleton {
   }
 
   onWatchingChanged: {
-    if (watching) {
+    if (watching && root.allowed) {
       root.refresh()
       root.refreshCapture()
       poll.restart()
     } else {
       poll.stop()
+      if (watching && !root.allowed)
+        root._clearLive()
+      if (watching)
+        root.refreshCapture()
+    }
+  }
+
+  onAllowedChanged: {
+    if (!root.allowed) {
+      poll.stop()
+      root._clearLive()
+    } else if (root.watching) {
+      root.refresh()
+      poll.restart()
     }
   }
 

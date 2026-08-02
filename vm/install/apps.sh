@@ -22,7 +22,8 @@ fi
 SCRIPTS="${PROTEUS_ROOT}/shell/scripts"
 for s in proteus-screenshot proteus-clipboard proteus-colorpick proteus-terminal \
          proteus-workspace \
-         proteus-console-launch proteus-console-seat proteus-console-capabilities; do
+         proteus-console-launch proteus-console-seat proteus-console-capabilities \
+         proteus-permissions.py privacy-indicators.py; do
   proteus_install_helper "${SCRIPTS}/${s}"
 done
 

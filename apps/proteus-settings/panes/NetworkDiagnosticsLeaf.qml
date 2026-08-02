@@ -17,6 +17,17 @@ ColumnLayout {
   Component.onCompleted: NetworkDiagnostics.watching = active
   Component.onDestruction: NetworkDiagnostics.watching = false
 
+  SettingsGroup {
+    visible: !NetworkDiagnostics.allowed
+    title: "Privacy"
+
+    SettingsFormRow {
+      label: "Diagnostics blocked"
+      hint: NetworkDiagnostics.denyHint
+      showSeparator: false
+    }
+  }
+
   component RateBar: Item {
     id: bar
     property real frac: 0
