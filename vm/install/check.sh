@@ -104,6 +104,9 @@ grep -q 'guest-install.sh' "${ROOT}/docs/proteus/INSTALL.md" 2>/dev/null \
 [[ -x "${ROOT}/shell/scripts/proteus-console-seat" ]] && ok shell/scripts/proteus-console-seat || bad shell/scripts/proteus-console-seat
 [[ -x "${ROOT}/shell/scripts/proteus-workspace" ]] && ok shell/scripts/proteus-workspace || bad shell/scripts/proteus-workspace
 [[ -x "${ROOT}/shell/scripts/proteus-console-capabilities" ]] && ok shell/scripts/proteus-console-capabilities || bad shell/scripts/proteus-console-capabilities
+grep -q 'proteus-console-seat' "${ROOT}/vm/install/apps.sh" && ok "apps.sh installs proteus-console-seat" || bad "apps.sh missing proteus-console-seat"
+grep -q 'proteus-console-capabilities' "${ROOT}/vm/install/apps.sh" && ok "apps.sh installs proteus-console-capabilities" || bad "apps.sh missing proteus-console-capabilities"
+grep -q 'proteus-console-launch' "${ROOT}/vm/install/apps.sh" && ok "apps.sh installs proteus-console-launch" || bad "apps.sh missing proteus-console-launch"
 [[ -x "${ROOT}/shell/scripts/proteus-permissions.py" ]] && ok shell/scripts/proteus-permissions.py || bad shell/scripts/proteus-permissions.py
 [[ -x "${ROOT}/shell/scripts/privacy-indicators.py" ]] && ok shell/scripts/privacy-indicators.py || bad shell/scripts/privacy-indicators.py
 [[ -x "${ROOT}/shell/scripts/proteus-defaults.py" ]] && ok shell/scripts/proteus-defaults.py || bad shell/scripts/proteus-defaults.py
