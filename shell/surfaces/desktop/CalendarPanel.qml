@@ -1,6 +1,7 @@
 import Quickshell
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 import QtQuick.Layouts
 import "../../shared"
 
@@ -934,6 +935,74 @@ Item {
               onTextChanged: MailGlance.composeBody = text
             }
 
+            FileDialog {
+              id: mailAttachDialog
+              title: "Attach file"
+              nameFilters: ["All files (*)"]
+              onAccepted: {
+                let s = String(selectedFile)
+                if (s.startsWith("file://"))
+                  s = s.slice(7)
+                try {
+                  s = decodeURIComponent(s)
+                } catch (e) {}
+                MailGlance.composeAttachPath = s
+              }
+            }
+
+            RowLayout {
+              Layout.fillWidth: true
+              spacing: 6
+
+              Text {
+                Layout.fillWidth: true
+                text: {
+                  const _r = MailGlance.rev
+                  const hint = MailGlance.attachHint()
+                  if (hint.length)
+                    return "Attach · " + hint
+                  return "One file attach optional"
+                }
+                color: Theme.textDim
+                font.family: Theme.fontFamily
+                font.pixelSize: 11
+                elide: Text.ElideMiddle
+              }
+
+              Text {
+                visible: {
+                  const _r = MailGlance.rev
+                  return !!MailGlance.composeAttachPath.length
+                }
+                text: "Clear"
+                color: Theme.textMute
+                font.family: Theme.fontFamily
+                font.pixelSize: 11
+                MouseArea {
+                  anchors.fill: parent
+                  anchors.margins: -4
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: MailGlance.composeAttachPath = ""
+                }
+              }
+
+              Text {
+                text: {
+                  const _r = MailGlance.rev
+                  return MailGlance.composeAttachPath.length ? "Change…" : "Attach"
+                }
+                color: Theme.accent
+                font.family: Theme.fontFamily
+                font.pixelSize: 11
+                MouseArea {
+                  anchors.fill: parent
+                  anchors.margins: -4
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: mailAttachDialog.open()
+                }
+              }
+            }
+
             RowLayout {
               Layout.fillWidth: true
               spacing: 6
@@ -946,7 +1015,7 @@ Item {
                     return "Sending…"
                   if (MailGlance.sendError.length)
                     return MailGlance.sendError
-                  return "Plain text · To / Cc / Bcc / Subject / Body"
+                  return "Plain text · To / Cc / Bcc / Subject / Body · one file"
                 }
                 color: {
                   const _r = MailGlance.rev
@@ -986,7 +1055,7 @@ Item {
             text: {
               const _r = MailGlance.rev
               if (MailGlance.canSend)
-                return "Compose thin In (CC/BCC) · Google/MS/Exchange + IMAP/Apple SMTP · Open Mail for full reading"
+                return "Compose thin In (CC/BCC · one-file attach) · Google/MS/Exchange + IMAP/Apple SMTP · Open Mail for full reading"
               if (MailGlance.hasSeats)
                 return ShellState.mailAppAvailable
                     ? "Open in Mail for reading · reconnect seats for send scopes"
