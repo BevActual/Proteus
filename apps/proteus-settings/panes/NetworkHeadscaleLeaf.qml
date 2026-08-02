@@ -23,10 +23,18 @@ ColumnLayout {
   property bool reachable: false
   property int nodeCount: 0
   property var nodes: []
+  property var users: []
+  property string userDraft: ""
+  property string policyDraft: ""
+  property string policyLoaded: ""
+  property bool policyWritable: true
+  property string policyHint: ""
+  property string policyMsg: ""
   property string confirmExpireId: ""
   property int rev: 0
 
   readonly property string script: Config.scriptsDir + "/proteus-headscale.py"
+  readonly property bool policyDirty: String(policyDraft) !== String(policyLoaded)
 
   readonly property bool urlDirty: {
     const a = String(Config.headscaleAdminUrl || "").trim().replace(/\/+$/, "")
@@ -46,6 +54,7 @@ ColumnLayout {
   function refresh() {
     root.busy = true
     root.error = ""
+    root.policyMsg = ""
     statusProc.command = [
       "bash", "-lc",
       root.adminUrlEnv() + " python3 " + root.shellQuote(root.script) + " status"
@@ -54,8 +63,18 @@ ColumnLayout {
       "bash", "-lc",
       root.adminUrlEnv() + " python3 " + root.shellQuote(root.script) + " nodes"
     ]
+    usersProc.command = [
+      "bash", "-lc",
+      root.adminUrlEnv() + " python3 " + root.shellQuote(root.script) + " users"
+    ]
+    policyProc.command = [
+      "bash", "-lc",
+      root.adminUrlEnv() + " python3 " + root.shellQuote(root.script) + " policy"
+    ]
     kick(statusProc)
     kick(nodesProc)
+    kick(usersProc)
+    kick(policyProc)
   }
 
   function kick(proc) {
@@ -126,6 +145,52 @@ ColumnLayout {
     if (!u.length)
       return
     Config.openHeadscaleAdmin(u)
+  }
+
+  function createUser() {
+    const n = String(userDraft || "").trim()
+    if (!n.length || root.busy)
+      return
+    root.busy = true
+    root.error = ""
+    mutateProc.command = [
+      "bash", "-lc",
+      root.adminUrlEnv() + " python3 " + root.shellQuote(root.script)
+          + " user-create " + root.shellQuote(n)
+    ]
+    kick(mutateProc)
+  }
+
+  function checkPolicy() {
+    if (root.busy)
+      return
+    root.busy = true
+    root.error = ""
+    root.policyMsg = ""
+    policyMutProc.command = [
+      "bash", "-lc",
+      root.adminUrlEnv()
+          + " printf '%s' " + root.shellQuote(root.policyDraft)
+          + " | python3 " + root.shellQuote(root.script) + " policy-check"
+    ]
+    policyMutProc._kind = "check"
+    kick(policyMutProc)
+  }
+
+  function savePolicy() {
+    if (root.busy || !root.policyWritable || !root.policyDirty)
+      return
+    root.busy = true
+    root.error = ""
+    root.policyMsg = ""
+    policyMutProc.command = [
+      "bash", "-lc",
+      root.adminUrlEnv()
+          + " printf '%s' " + root.shellQuote(root.policyDraft)
+          + " | python3 " + root.shellQuote(root.script) + " policy-set"
+    ]
+    policyMutProc._kind = "set"
+    kick(policyMutProc)
   }
 
   Component.onCompleted: {
@@ -301,13 +366,201 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "Refresh"
-      hint: "Re-probe /version + list nodes"
+      hint: "Re-probe /version + nodes + users + policy"
       showSeparator: false
       interactive: !root.busy
       onActivated: root.refresh()
       Text {
         text: "↻"
         color: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+  }
+
+  SettingsGroup {
+    title: "Users"
+
+    SettingsFormRow {
+      label: "Users"
+      hint: {
+        const _r = root.rev
+        const n = (root.users || []).length
+        return n ? (n + " user" + (n === 1 ? "" : "s")) : "No users loaded · set URL + API key"
+      }
+      showSeparator: true
+      Text {
+        text: {
+          const _r = root.rev
+          return String((root.users || []).length)
+        }
+        color: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+
+    Repeater {
+      model: root.users
+
+      SettingsFormRow {
+        required property var modelData
+        required property int index
+        label: modelData.name || ("user " + modelData.id)
+        hint: {
+          const bits = []
+          if (modelData.displayName && modelData.displayName !== modelData.name)
+            bits.push(modelData.displayName)
+          if (modelData.email)
+            bits.push(modelData.email)
+          if (modelData.id)
+            bits.push("id " + modelData.id)
+          return bits.join(" · ") || "—"
+        }
+        showSeparator: true
+        interactive: false
+      }
+    }
+
+    SettingsFormRow {
+      label: "New user name"
+      hint: "headscale users create · rename/delete Out"
+      showSeparator: true
+    }
+
+    Item {
+      Layout.fillWidth: true
+      Layout.preferredHeight: 44
+
+      Rectangle {
+        anchors.fill: parent
+        anchors.leftMargin: Theme.spaceMd
+        anchors.rightMargin: Theme.spaceMd
+        anchors.topMargin: Theme.spaceXs
+        anchors.bottomMargin: Theme.spaceSm
+        radius: Theme.radiusMd
+        color: Theme.bgHover
+        border.width: 1
+        border.color: userInput.activeFocus ? Theme.accent : Theme.border
+
+        TextInput {
+          id: userInput
+          anchors.fill: parent
+          anchors.leftMargin: 10
+          anchors.rightMargin: 10
+          color: Theme.text
+          font.family: Theme.fontFamily
+          font.pixelSize: 13
+          verticalAlignment: TextInput.AlignVCenter
+          clip: true
+          text: root.userDraft
+          onTextChanged: root.userDraft = text
+        }
+      }
+    }
+
+    SettingsFormRow {
+      label: "Create user"
+      hint: root.userDraft.trim().length ? "POST /api/v1/user" : "Enter a name"
+      showSeparator: false
+      interactive: root.userDraft.trim().length > 0 && !root.busy
+      onActivated: root.createUser()
+      Text {
+        text: "Create"
+        color: root.userDraft.trim().length ? Theme.accent : Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+  }
+
+  SettingsGroup {
+    title: "Policy"
+
+    SettingsFormRow {
+      label: "ACL policy"
+      hint: {
+        const _r = root.rev
+        if (root.policyMsg.length)
+          return root.policyMsg
+        if (root.policyHint.length)
+          return root.policyHint
+        if (!root.policyWritable)
+          return "Read-only (file mode) — edit on server or switch policy.mode to db"
+        return root.policyDirty ? "HuJSON dirty · Check then Save" : "HuJSON · Check validates without persist"
+      }
+      showSeparator: true
+    }
+
+    Item {
+      Layout.fillWidth: true
+      Layout.preferredHeight: 160
+
+      Rectangle {
+        anchors.fill: parent
+        anchors.leftMargin: Theme.spaceMd
+        anchors.rightMargin: Theme.spaceMd
+        anchors.topMargin: Theme.spaceXs
+        anchors.bottomMargin: Theme.spaceSm
+        radius: Theme.radiusMd
+        color: Theme.bgHover
+        border.width: 1
+        border.color: policyEdit.activeFocus ? Theme.accent : Theme.border
+
+        Flickable {
+          id: policyFlick
+          anchors.fill: parent
+          anchors.margins: 8
+          contentWidth: width
+          contentHeight: policyEdit.paintedHeight + 8
+          clip: true
+          boundsBehavior: Flickable.StopAtBounds
+
+          TextEdit {
+            id: policyEdit
+            width: policyFlick.width
+            color: Theme.text
+            font.family: Theme.fontFamily
+            font.pixelSize: 12
+            wrapMode: TextEdit.Wrap
+            selectByMouse: true
+            text: root.policyDraft
+            onTextChanged: {
+              if (text !== root.policyDraft)
+                root.policyDraft = text
+            }
+          }
+        }
+      }
+    }
+
+    SettingsFormRow {
+      label: "Check policy"
+      hint: "POST /api/v1/policy/check"
+      showSeparator: true
+      interactive: !root.busy && String(root.policyDraft || "").length > 0
+      onActivated: root.checkPolicy()
+      Text {
+        text: "Check"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+
+    SettingsFormRow {
+      label: "Save policy"
+      hint: root.policyWritable
+          ? (root.policyDirty ? "PUT /api/v1/policy (db mode)" : "No changes")
+          : "Save disabled · file mode"
+      showSeparator: false
+      interactive: !root.busy && root.policyWritable && root.policyDirty
+          && String(root.policyDraft || "").length > 0
+      onActivated: root.savePolicy()
+      Text {
+        text: "Save"
+        color: (root.policyWritable && root.policyDirty) ? Theme.accent : Theme.textMute
         font.family: Theme.fontFamily
         font.pixelSize: 12
       }
@@ -405,7 +658,7 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Fact: proteus-headscale.py · GET /api/v1/node · expire/enable · vault API key. ACL/policy · users · preauth · DNS · server install Out."
+    text: "Fact: proteus-headscale.py · nodes expire/enable · users list/create · policy HuJSON check/save (db mode) · vault API key. Preauth · user rename/delete · structured ACL editor · MagicDNS · tags/routes · server install Out."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11
@@ -440,7 +693,6 @@ ColumnLayout {
     command: ["true"]
     stdout: StdioCollector {
       onStreamFinished: {
-        root.busy = false
         try {
           const data = JSON.parse(String(text).trim() || "{}")
           if (data.ok === false) {
@@ -456,6 +708,95 @@ ColumnLayout {
         } catch (e) {
           root.nodes = []
           root.error = "Could not parse nodes"
+          root.rev++
+        }
+      }
+    }
+  }
+
+  Process {
+    id: usersProc
+    command: ["true"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const data = JSON.parse(String(text).trim() || "{}")
+          if (data.ok === false) {
+            root.users = []
+            if (!root.error.length)
+              root.error = String(data.error || "")
+            root.rev++
+            return
+          }
+          root.users = Array.isArray(data.users) ? data.users : []
+          root.rev++
+        } catch (e) {
+          root.users = []
+          root.error = "Could not parse users"
+          root.rev++
+        }
+      }
+    }
+  }
+
+  Process {
+    id: policyProc
+    command: ["true"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        root.busy = false
+        try {
+          const data = JSON.parse(String(text).trim() || "{}")
+          if (data.ok === false) {
+            if (!root.error.length)
+              root.error = String(data.error || "policy failed")
+            root.rev++
+            return
+          }
+          const p = String(data.policy || "")
+          root.policyLoaded = p
+          root.policyDraft = p
+          root.policyWritable = data.writable !== false
+          root.policyHint = String(data.hint || "")
+          root.rev++
+        } catch (e) {
+          root.error = "Could not parse policy"
+          root.rev++
+        }
+      }
+    }
+  }
+
+  Process {
+    id: policyMutProc
+    property string _kind: ""
+    command: ["true"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        root.busy = false
+        try {
+          const data = JSON.parse(String(text).trim() || "{}")
+          if (data.ok === false) {
+            if (data.writable === false)
+              root.policyWritable = false
+            root.policyHint = String(data.hint || root.policyHint || "")
+            root.policyMsg = String(data.error || "policy mutate failed")
+            root.error = root.policyMsg
+            root.rev++
+            return
+          }
+          if (policyMutProc._kind === "check")
+            root.policyMsg = "Policy check OK"
+          else {
+            root.policyMsg = "Policy saved"
+            root.policyLoaded = root.policyDraft
+            root.policyWritable = data.writable !== false
+            if (data.hint)
+              root.policyHint = String(data.hint)
+          }
+          root.rev++
+        } catch (e) {
+          root.error = "Could not parse policy mutate"
           root.rev++
         }
       }
@@ -500,6 +841,8 @@ ColumnLayout {
           const data = JSON.parse(String(text).trim() || "{}")
           if (data.ok === false)
             root.error = String(data.error || "mutate failed")
+          else if (data.action === "user-create")
+            root.userDraft = ""
         } catch (e) {
           root.error = "Could not parse mutate"
         }
