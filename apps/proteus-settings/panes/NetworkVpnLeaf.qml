@@ -6,15 +6,20 @@ import "../shared"
 import "../kit"
 
 // Leaf UI for NetworkPane — VPN up/down + WireGuard / OpenVPN import.
+// Optional OpenVPN user/pass + CA/cert/key(+tls-auth) path attach (session-only).
 ColumnLayout {
   id: root
   property Item host
   width: parent ? parent.width : implicitWidth
   spacing: Theme.spaceMd
 
-  // Ephemeral OpenVPN auth drafts — never written to settings.json
+  // Ephemeral OpenVPN drafts — never written to settings.json
   property string ovpnUserDraft: ""
   property string ovpnPassDraft: ""
+  property string ovpnCaDraft: ""
+  property string ovpnCertDraft: ""
+  property string ovpnKeyDraft: ""
+  property string ovpnTlsAuthDraft: ""
 
   function vpnHint(conn) {
     if (!conn)
@@ -40,6 +45,14 @@ ColumnLayout {
     }
   }
 
+  function pathHint(p) {
+    const s = String(p || "")
+    if (!s.length)
+      return ""
+    const parts = s.split("/")
+    return parts.length > 2 ? ("…/" + parts.slice(-2).join("/")) : s
+  }
+
   FileDialog {
     id: wgDialog
     title: "Import WireGuard config"
@@ -61,8 +74,40 @@ ColumnLayout {
       host.importOpenVpn(
             root.localPathFromUrl(selectedFile),
             root.ovpnUserDraft,
-            root.ovpnPassDraft)
+            root.ovpnPassDraft,
+            root.ovpnCaDraft,
+            root.ovpnCertDraft,
+            root.ovpnKeyDraft,
+            root.ovpnTlsAuthDraft)
     }
+  }
+
+  FileDialog {
+    id: ovpnCaDialog
+    title: "OpenVPN CA certificate"
+    nameFilters: ["Certificates (*.crt *.pem *.cer)", "All files (*)"]
+    onAccepted: root.ovpnCaDraft = root.localPathFromUrl(selectedFile)
+  }
+
+  FileDialog {
+    id: ovpnCertDialog
+    title: "OpenVPN client certificate"
+    nameFilters: ["Certificates (*.crt *.pem *.cer)", "All files (*)"]
+    onAccepted: root.ovpnCertDraft = root.localPathFromUrl(selectedFile)
+  }
+
+  FileDialog {
+    id: ovpnKeyDialog
+    title: "OpenVPN private key"
+    nameFilters: ["Keys (*.key *.pem)", "All files (*)"]
+    onAccepted: root.ovpnKeyDraft = root.localPathFromUrl(selectedFile)
+  }
+
+  FileDialog {
+    id: ovpnTlsAuthDialog
+    title: "OpenVPN tls-auth key"
+    nameFilters: ["Keys (*.key *.pem)", "All files (*)"]
+    onAccepted: root.ovpnTlsAuthDraft = root.localPathFromUrl(selectedFile)
   }
 
   SettingsGroup {
@@ -203,6 +248,70 @@ ColumnLayout {
     }
 
     SettingsFormRow {
+      label: "CA certificate…"
+      hint: root.ovpnCaDraft.length
+          ? root.pathHint(root.ovpnCaDraft)
+          : "Optional — absolute path via +vpn.data ca= (session draft)"
+      showSeparator: true
+      interactive: true
+      onActivated: ovpnCaDialog.open()
+      Text {
+        text: root.ovpnCaDraft.length ? "Change…" : "Choose…"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+
+    SettingsFormRow {
+      label: "Client certificate…"
+      hint: root.ovpnCertDraft.length
+          ? root.pathHint(root.ovpnCertDraft)
+          : "Optional — +vpn.data cert="
+      showSeparator: true
+      interactive: true
+      onActivated: ovpnCertDialog.open()
+      Text {
+        text: root.ovpnCertDraft.length ? "Change…" : "Choose…"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+
+    SettingsFormRow {
+      label: "Private key…"
+      hint: root.ovpnKeyDraft.length
+          ? root.pathHint(root.ovpnKeyDraft)
+          : "Optional — +vpn.data key= (path only; never settings.json)"
+      showSeparator: true
+      interactive: true
+      onActivated: ovpnKeyDialog.open()
+      Text {
+        text: root.ovpnKeyDraft.length ? "Change…" : "Choose…"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+
+    SettingsFormRow {
+      label: "tls-auth key…"
+      hint: root.ovpnTlsAuthDraft.length
+          ? root.pathHint(root.ovpnTlsAuthDraft)
+          : "Optional — +vpn.data tls-auth="
+      showSeparator: true
+      interactive: true
+      onActivated: ovpnTlsAuthDialog.open()
+      Text {
+        text: root.ovpnTlsAuthDraft.length ? "Change…" : "Choose…"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+
+    SettingsFormRow {
       label: "Import OpenVPN…"
       hint: "nmcli connection import type openvpn · needs networkmanager-openvpn"
       showSeparator: true
@@ -217,8 +326,37 @@ ColumnLayout {
     }
 
     SettingsFormRow {
+      visible: {
+        const n = host && host.vpnOvpnPendingName
+        return !!(host && String(n || "").length
+                  && (root.ovpnCaDraft.length || root.ovpnCertDraft.length
+                      || root.ovpnKeyDraft.length || root.ovpnTlsAuthDraft.length))
+      }
+      label: "Attach certs to last import…"
+      hint: host ? ("nmcli +vpn.data → " + String(host.vpnOvpnPendingName || "")) : ""
+      showSeparator: true
+      interactive: host && !host.vpnBusy
+      onActivated: {
+        if (!host)
+          return
+        host.applyOpenVpnCerts(
+              host.vpnOvpnPendingName,
+              root.ovpnCaDraft,
+              root.ovpnCertDraft,
+              root.ovpnKeyDraft,
+              root.ovpnTlsAuthDraft)
+      }
+      Text {
+        text: host && host.vpnBusy ? "…" : "Apply"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+
+    SettingsFormRow {
       label: "Open NetworkManager"
-      hint: "Certs · advanced edit · PKCS#11"
+      hint: "PKCS#11 · advanced edit · encrypted key passphrase"
       showSeparator: false
       interactive: true
       onActivated: Config.openNetworkEditor()
@@ -234,7 +372,7 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Fact: nmcli connection up/down · WireGuard + OpenVPN import (.ovpn). Optional OpenVPN user/pass are session-only. Cert wizard Out · Headscale admin → Network → Headscale."
+    text: "Fact: nmcli connection up/down · WireGuard + OpenVPN import (.ovpn). Optional user/pass + CA/cert/key path attach are session-only. Cert path attach thin In · PKI/PKCS#11 Out · Headscale admin → Network → Headscale."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11
