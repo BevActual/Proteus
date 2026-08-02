@@ -68,7 +68,7 @@ Examples:
 | Wi‑Fi connect / disconnect / password | `nmcli device wifi` (secured SSIDs prompt in Settings; password never in settings.json) |
 | Hostname | `hostnamectl` (polkit-gated set) |
 | Bluetooth (power · scan · pair/connect) | `bluetoothctl` · blueman escape for advanced |
-| VPN profiles (list · up/down · WG / OpenVPN import) | `nmcli connection` up/down · `import type wireguard|openvpn` · optional OpenVPN user/pass (session-only) |
+| VPN profiles (list · up/down · WG / OpenVPN import · cert path attach) | `nmcli connection` up/down · `import type wireguard|openvpn` · optional user/pass + CA/cert/key `+vpn.data` (session-only) |
 | LocalSend (status + open / start / stop) | `localsend` · port 53317 |
 | Tailscale (status · peers · exit-node · login-server) | `tailscale status --json` · `set --exit-node` · `up --login-server` · `wl-copy` |
 | Network diagnostics (iface rates · ss · firewall · route · DNS · ping) | `/proc/net/dev` · `ss -tun/-tln` · firewalld/ufw/`nft` · `/proc/net/route` · `resolv.conf` · `ping` |
@@ -284,12 +284,12 @@ Diagnostics use shared singletons).
 | Bluetooth | Power · Scan · pair/connect/disconnect/forget; Install… → Repos seeded `blueman` when missing; blueman escape |
 | LocalSend | Install… → AUR seeded `localsend-bin`; Start/Stop / Open / copy address; CC menu + Beacon |
 | Tailscale | Status / IP / peers / exit-node / login-server; Install… → Repos seeded `tailscale`; up·down·login |
-| VPN | Profile Connect/Disconnect; WireGuard + OpenVPN `.ovpn` import; optional OpenVPN user/pass; NetworkManager escape for certs / advanced |
+| VPN | Profile Connect/Disconnect; WireGuard + OpenVPN `.ovpn` import; optional user/pass + cert path attach; NetworkManager escape for PKCS#11 / advanced |
 | Headscale | Remote admin URL + vault API key; node list; expire/enable; Open admin UI; does not run Headscale locally |
 
 | Pane | Live apply | On-disk / helper |
 |------|------------|------------------|
-| Network | `hostnamectl` · `nmcli` wifi/VPN/WG/OpenVPN · `bluetoothctl` · `tailscale` up/down/set/login-server · `proteus-headscale.py` · clipboard IP | Escape: blueman / NetworkManager / Wireshark / browser admin — OpenVPN cert wizard · ACL/users/preauth · in-pane capture Out |
+| Network | `hostnamectl` · `nmcli` wifi/VPN/WG/OpenVPN · `bluetoothctl` · `tailscale` up/down/set/login-server · `proteus-headscale.py` · clipboard IP | Escape: blueman / NetworkManager / Wireshark / browser admin — OpenVPN PKI/PKCS#11 · ACL/users/preauth · in-pane capture Out |
 
 **Module rule:** Network leaf helpers stay in `panes/Network*Leaf.qml` + `kit/`
 FormRow/Group — not a single mega-inline `NetworkPane` body.
@@ -345,7 +345,7 @@ Depth order for what’s left:
 1. ~~Users depth~~ — greetd autologin write via `proteus-greetd` shipped; add-remove stays Out of Settings  
 2. ~~Online accounts depth~~ — hub → provider leaves + Microsoft / Exchange / Nextcloud / IMAP / CalDAV / CardDAV / Apple (app-specific password) connect shipped; ~~calendar + mail + contacts glances~~ + ~~CalDAV + Google/MS/Exchange create/edit/delete~~ + ~~mail compose thin~~ + ~~recurrence thin create~~ shipped; CC/BCC/attachments · series edit/COUNT/UNTIL · EWS/NTLM + Sign in with Apple OAuth + mail/contacts apps Out  
 3. ~~**Privacy native enforcement**~~ — portal PermissionStore sync + capture enforce (Deny + Ask) mic/camera/**screen** shipped; ~~**Ask UI**~~ launch + mid-session mic/camera/screen prompt shipped; ~~**fail-closed until ready**~~ shipped; ~~**kill screencast streams**~~ best-effort PW destroy shipped; full OS sandbox / v4l2 ACL / portal session Close Out  
-4. ~~**Network polish**~~ — largely shipped (IPv4 on Devices · Diagnostics ss/firewall · OpenVPN `.ovpn` import · Headscale admin thin); OpenVPN cert wizard · ACL/users/preauth stay Out  
+4. ~~**Network polish**~~ — largely shipped (IPv4 on Devices · Diagnostics ss/firewall · OpenVPN `.ovpn` import + cert path attach · Headscale admin thin); OpenVPN PKI/PKCS#11 · ACL/users/preauth stay Out  
 5. ~~**Peripherals** — touchpad / tablet / per-device `device {}` / active-area / pressure / region / eraser~~ — Touchpad + Tablet + Mouse per-device sensitivity/accel + active-area mm + pressure range + eraser-as-button + monitor region shipped; bezier per-tool curves / gestures Out  
 6. **Software depth** — dependency graphs later; Snap stays Out (hub + six leaves + smoke matrix shipped)  
 7. ~~Settings Notifications pane~~ — shipped (prefs-only; CC remains live list)  
@@ -353,7 +353,7 @@ Depth order for what’s left:
 *(Displays layout + Revert follow-ups shipped — removed from growth depth.)*
 *(Network hub + FormRow polish shipped — depth wizards stay on the list.)*
 *(Network Diagnostics · Wireshark escape shipped — in-pane capture Out.)*
-*(Network depth: password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG + OpenVPN import · Headscale admin thin shipped — OpenVPN cert wizard · ACL/users/preauth Out.)*
+*(Network depth: password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG + OpenVPN import + cert path attach · Headscale admin thin shipped — OpenVPN PKI/PKCS#11 · ACL/users/preauth Out.)*
 *(Control Center notifications + QS depth shipped — Settings Notifications prefs pane shipped; live list stays CC.)*
 *(Users session + greetd status shipped — writing greeter prefs / useradd stay Out.)*
 *(Users depth: proteus-greetd pkexec `[initial_session]` autologin toggle + users-smoke

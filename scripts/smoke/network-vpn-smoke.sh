@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# network-vpn-smoke — VPN leaf WireGuard + OpenVPN import wiring (host static)
+# network-vpn-smoke — VPN leaf WireGuard + OpenVPN import + cert path attach (host static)
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 fail=0
@@ -22,14 +22,22 @@ grep -q 'ovpnDialog' "${LEAF}" || die "leaf missing OpenVPN FileDialog"
 grep -q 'ovpnUserDraft\|ovpnPassDraft' "${LEAF}" || die "leaf missing OpenVPN auth drafts"
 grep -qiE 'never in settings.json|session-only|session only' "${LEAF}" \
   || die "leaf must say OpenVPN creds stay out of settings.json"
-grep -qiE 'Cert wizard Out|Headscale admin →' "${LEAF}" \
-  || die "leaf must keep cert wizard Out + Headscale admin pointer"
+grep -q 'ovpnCaDraft\|ovpnCertDraft\|ovpnKeyDraft\|ovpnCaDialog' "${LEAF}" \
+  || die "leaf missing OpenVPN cert path drafts / FileDialogs"
+grep -qiE 'Cert path attach thin In|certs attached|\+vpn.data' "${LEAF}" \
+  || die "leaf must claim cert path attach thin In"
+grep -qiE 'PKI/PKCS#11 Out|PKCS#11' "${LEAF}" \
+  || die "leaf must keep PKI/PKCS#11 Out + Headscale pointer"
 ok "NetworkVpnLeaf"
 
 grep -q 'function importOpenVpn' "${PANE}" || die "NetworkPane missing importOpenVpn"
 grep -q '"openvpn"' "${PANE}" || die "NetworkPane must nmcli import type openvpn"
 grep -q 'vpn.user-name\|vpn.secrets' "${PANE}" \
   || die "NetworkPane must optional OpenVPN credentials modify"
+grep -q 'function applyOpenVpnCerts\|vpnOvpnCertProc\|+vpn.data' "${PANE}" \
+  || die "NetworkPane must applyOpenVpnCerts / +vpn.data"
+grep -q 'vpnOvpnPendingCa\|vpnOvpnPendingCert\|vpnOvpnPendingKey' "${PANE}" \
+  || die "NetworkPane must pending cert path props"
 grep -q 'function importWireGuard' "${PANE}" || die "NetworkPane missing importWireGuard"
 ok "NetworkPane"
 
