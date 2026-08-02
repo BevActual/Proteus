@@ -121,7 +121,7 @@ Locked product set: [POSTURES.md](./POSTURES.md).
 |---------|--------|
 | desktop | `partial` — primary focus spine |
 | console | `partial` — layered ConsoleShell + hard `proteus-posture` (posture flip skips cold-boot re-lock + workspace hygiene); **tvOS-style shelf Home** — pinned cinematic Featured (tracks focused card), one active shelf (others peek/dim), curated lean-back Apps (not desktop dump) + Web/Games/Media + Jump Back In; **Library** = full DesktopEntries catalog; Search = Shortcuts + typed catalog; cards/hero without category chips (shelf titles); **Phase 1 seat:** `proteus-console-seat` + `proteus-console-capabilities` (supervised map→fullscreen, Gamescope only when Vulkan usable / skip in QEMU); Theme accent/icons; Media lean sheet + Details; Jump ✕ remove; CC/HUD/toasts; pad Menu/Open/Details; Guide long-hold → exit; cold-boot lock; `apply-console-kit.sh`; **Phase 2** Gamescope *session* later |
-| host | `partial` — lean `HostShell` + hard `proteus-posture host` (Fact + profile + chrome restart; skip cold-boot re-lock); enter via Beacon/CC Host tile / `Super+Shift+H`; return Desktop tile / Beacon; same Settings spine; **no** workloads app / headless-no-QS yet |
+| host | `partial` — lean `HostShell` + hard `proteus-posture host` (Fact + profile + chrome restart; skip cold-boot re-lock); **Phase 2 HostHome** ops glance (hostname · SystemLoad) + Settings quick actions · Terminal · Mission Center; StatusHud/toasts; bar load; enter via Beacon/CC Host tile / `Super+Shift+H`; return Desktop; same Settings spine; **no** workloads/VM app / headless-no-QS yet |
 | home · wearable · xr · vehicle | `parked` — thesis only; not in proof order |
 
 Focus set + hard switches: [POSTURES.md](./POSTURES.md). Hard flips:
@@ -235,12 +235,11 @@ Install path SoT (three layers, knobs, repair, failures): [INSTALL.md](./INSTALL
 
 ## 8. Not yet
 
-- Host depth (workloads app · headless-no-QS · auto-resolver); console Gamescope *session* hardening
+- Host workloads/VM app · headless-no-QS · auto-resolver; console Gamescope *session* hardening
 - Soft hypr profile reload sold as posture (use `proteus-posture` for console/host)
 - Parked postures (home / wearable / xr / vehicle) before focus three are proven  
 - Snap / dependency graphs in Software  
 - pacman IgnorePkg / ISO QS version pin (record + smoke only today)  
-- Host workload panes / richer ops chrome  
 - First-party Tauri app under `apps/`  
 - More Rust helper CLIs under `services/` (Wave A probe is Python; `proteus-pkg` + `proteus-logind` mutators + `proteus-audio-mix` resident dump/peaks shipped; mixer mutations still Python)  
 - Posture / prefers / device_classes enforcement on manifests (schema only today)  

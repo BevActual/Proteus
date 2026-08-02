@@ -87,7 +87,7 @@ Compositor engines: [COMPOSITOR.md](./COMPOSITOR.md).
 |---------|-----|------------------|--------|
 | **desktop** | Create / windowed work (desk + laptop) | Full shell (bar, dock, Beacon); Hyprland tiling backend | `partial` — primary spine |
 | **console** | Lean-back consume + play (TV, film, games) | Sparse ConsoleShell — tvOS-style shelf Home (cinematic Featured tracks focus, curated shelves, Library = full catalog), lean sheets; Hyprland kiosk + **supervised seat** (`proteus-console-seat`); **per-title Gamescope** when Vulkan usable; Guide / Super+Home | `partial` — Phase 1 seat/capabilities + console-smoke / INSTALL honesty shipped; full Gamescope *session* later |
-| **host** | Operate the box (VMs, containers, services, updates) | Default lean/headless; **UI on demand** (local or remote) — not a DE clone; little/no creative chrome | `partial` (HostShell + `proteus-posture host` + `host.conf`) |
+| **host** | Operate the box (VMs, containers, services, updates) | Default lean/headless; **UI on demand** (local or remote) — not a DE clone; little/no creative chrome | `partial` (HostShell + HostHome ops glance + `proteus-posture host` + `host.conf`) |
 
 **Naming:** **Console** is the locked product name for lean-back. Legacy docs /
 files may still say `media` / `couch` — treat them as aliases until renamed.
@@ -317,7 +317,7 @@ posture only, no capability profile; hypr profile helper is soft-only.
 |---------------|-------------------------|-------------------|--------|
 | desktop | `desktop` | `profiles/desktop.conf` | Default |
 | console | `console` (`couch` alias) | `profiles/console.conf` | Hard flip: `proteus-posture` (skip re-lock); shelf Home + Library/Search destinations + lean sheets |
-| host | `host` | `profiles/host.conf` | Hard flip: `proteus-posture host`; lean HostShell (bar · CC · Beacon · lock); no workloads app yet |
+| host | `host` | `profiles/host.conf` | Hard flip: `proteus-posture host`; HostShell + HostHome ops glance (Settings shortcuts · HUD/toasts); no workloads/VM app yet |
 
 | Parked / other | `PROTEUS_SURFACE` | Notes |
 |----------------|-------------------|--------|
