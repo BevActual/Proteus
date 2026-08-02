@@ -1,6 +1,7 @@
 import Quickshell
 import Quickshell.Widgets
 import Quickshell.Io
+import Quickshell.Hyprland
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -23,148 +24,13 @@ Item {
   property string filesHint: ""
   property var clipHits: []
   property string clipHint: ""
+  // Runtime probe — paste inject needs wtype; without it, recall is copy-only.
+  property bool hasWtype: false
 
   readonly property bool tagging: !!tagEditEntry
 
-  // Allowlisted Actions only — no unconstrained shell runners (#1142).
-  readonly property var actionCatalog: [
-    {
-      id: "lock",
-      name: "Lock screen",
-      subtitle: "Action · Config.session lock",
-      icon: "system-lock-screen",
-      keywords: "lock screen sleep",
-      destructive: false
-    },
-    {
-      id: "logout",
-      name: "Log out",
-      subtitle: "Action · end Hyprland session",
-      icon: "system-log-out",
-      keywords: "logout log out exit session",
-      destructive: false
-    },
-    {
-      id: "enter-console",
-      name: "Enter Console",
-      subtitle: "Action · proteus-posture console",
-      icon: "input-gaming",
-      keywords: "console game mode couch tv posture hard switch",
-      destructive: false
-    },
-    {
-      id: "settings",
-      name: "Open Settings",
-      subtitle: "Action · proteus-settings",
-      icon: "proteus-settings",
-      keywords: "settings preferences system",
-      destructive: false
-    },
-    {
-      id: "control-center",
-      name: "Open Control Center",
-      subtitle: "Action · notifications + quick settings",
-      icon: "preferences-system-notifications",
-      keywords: "control center notifications dnd",
-      destructive: false
-    },
-    {
-      id: "dnd-toggle",
-      name: "Toggle Do Not Disturb",
-      subtitle: "Action · suppress toasts",
-      icon: "notifications-disabled",
-      keywords: "dnd do not disturb quiet mute notifications",
-      destructive: false
-    },
-    {
-      id: "keep-awake-cycle",
-      name: "Keep Awake",
-      subtitle: "Action · cycle duration (or toggle off at end)",
-      icon: "preferences-system-power-management",
-      keywords: "keep awake caffeine amphetamine inhibit idle sleep prevent",
-      destructive: false
-    },
-    {
-      id: "keep-awake-toggle",
-      name: "Toggle Keep Awake",
-      subtitle: "Action · until turned off / off",
-      icon: "preferences-system-power-management",
-      keywords: "keep awake toggle indefinite caffeine",
-      destructive: false
-    },
-    {
-      id: "localsend-open",
-      name: "Open LocalSend",
-      subtitle: "Action · share files on the LAN",
-      icon: "folder-publicshare",
-      keywords: "localsend airdrop share files nearby lan send",
-      destructive: false
-    },
-    {
-      id: "settings-wifi",
-      name: "Wi‑Fi settings",
-      subtitle: "Action · Settings → Network → Wi‑Fi",
-      icon: "network-wireless",
-      keywords: "wifi wi-fi wireless network ssid settings",
-      destructive: false
-    },
-    {
-      id: "settings-displays",
-      name: "Displays settings",
-      subtitle: "Action · Settings → Displays",
-      icon: "preferences-desktop-display",
-      keywords: "displays monitors resolution scale settings",
-      destructive: false
-    },
-    {
-      id: "settings-mixer",
-      name: "Sound Mixer",
-      subtitle: "Action · Settings → Sound → Mixer",
-      icon: "audio-volume-high",
-      keywords: "sound mixer matrix audio volume settings",
-      destructive: false
-    },
-    {
-      id: "settings-privacy",
-      name: "Privacy & security",
-      subtitle: "Action · Settings → Privacy & security",
-      icon: "preferences-system-privacy",
-      keywords: "privacy security weather mute clipboard localsend lock settings",
-      destructive: false
-    },
-    {
-      id: "settings-updates",
-      name: "Software updates",
-      subtitle: "Action · Settings → Software → Updates",
-      icon: "system-software-update",
-      keywords: "updates packages pacman software settings",
-      destructive: false
-    },
-    {
-      id: "clear-notifications",
-      name: "Clear notifications",
-      subtitle: "Action · dismiss all",
-      icon: "edit-clear-all",
-      keywords: "clear notifications dismiss",
-      destructive: false
-    },
-    {
-      id: "reboot",
-      name: "Reboot",
-      subtitle: "Action · systemctl reboot",
-      icon: "system-reboot",
-      keywords: "reboot restart",
-      destructive: true
-    },
-    {
-      id: "shutdown",
-      name: "Shut down",
-      subtitle: "Action · systemctl poweroff",
-      icon: "system-shutdown",
-      keywords: "shutdown power off halt",
-      destructive: true
-    }
-  ]
+  // Allowlisted Actions — SoT in UniversalSearch (shared with console Search).
+  readonly property var actionCatalog: UniversalSearch.actionCatalog
 
   readonly property var modes: [
     {
@@ -204,12 +70,15 @@ Item {
       : Qt.rgba(1, 1, 1, 0.06)
 
   function setMode(id) {
-    if (mode === id)
-      return
+    const changed = mode !== id
     mode = id
-    list.currentIndex = root.firstSelectableIndex()
+    if (changed)
+      list.currentIndex = root.firstSelectableIndex()
+    // Always refresh — re-selecting the active pill must pick up new copies /
+    // filesystem changes while Beacon stayed open on that mode.
     if (id === "files") {
       root.refreshPlaces()
+      root.warmFileIndex()
       root.queueFileSearch()
     } else if (id === "clipboard") {
       root.refreshClipboard()
@@ -217,36 +86,82 @@ Item {
     claimSearchFocus()
   }
 
-  function fuzzySubsequence(hay, q) {
-    let hi = 0
-    for (let qi = 0; qi < q.length; qi++) {
-      const ch = q.charAt(qi)
-      hi = hay.indexOf(ch, hi)
-      if (hi < 0)
-        return false
-      hi++
-    }
-    return true
+  function scoreQuery(hay, q) {
+    return UniversalSearch.scoreQuery(hay, q)
   }
 
-  function scoreQuery(hay, q) {
-    if (!q.length)
-      return 0
-    if (hay === q)
-      return 1000
-    if (hay.startsWith(q))
-      return 850
-    const words = hay.split(/[\s\-_/]+/)
-    for (let i = 0; i < words.length; i++) {
-      if (words[i].startsWith(q))
-        return 700
+  function defaultAppSubtitle(path, fallback) {
+    const p = String(path || "")
+    const base = root.fileBaseName(p)
+    const dot = base.lastIndexOf(".")
+    if (dot < 0 || dot === base.length - 1)
+      return fallback || p
+    const ext = base.slice(dot + 1).toLowerCase()
+    const map = {
+      "mp4": "video",
+      "mkv": "video",
+      "webm": "video",
+      "avi": "video",
+      "mov": "video",
+      "m4v": "video",
+      "jpg": "images",
+      "jpeg": "images",
+      "png": "images",
+      "webp": "images",
+      "gif": "images",
+      "svg": "images",
+      "avif": "images",
+      "pdf": "pdf",
+      "mp3": "audio",
+      "flac": "audio",
+      "wav": "audio",
+      "ogg": "audio",
+      "m4a": "audio",
+      "txt": "text",
+      "md": "text",
+      "zip": "archive",
+      "tar": "archive",
+      "gz": "archive",
+      "7z": "archive",
+      "rar": "archive"
     }
-    const idx = hay.indexOf(q)
-    if (idx >= 0)
-      return 500 - Math.min(idx, 80)
-    if (fuzzySubsequence(hay, q))
-      return 180 + Math.max(0, 40 - (hay.length - q.length))
-    return -1
+    const cat = map[ext] || ""
+    if (!cat)
+      return fallback || p
+    try {
+      const row = DefaultApps.categoryAt(cat)
+      const label = row && row.currentLabel ? String(row.currentLabel) : ""
+      if (label.length && label !== "Not set")
+        return p + " · opens in " + label
+    } catch (e) {
+    }
+    return fallback || p
+  }
+
+  function privacyInUseLabel() {
+    const bits = []
+    if (PrivacyIndicators.mic)
+      bits.push("Mic")
+    if (PrivacyIndicators.camera)
+      bits.push("Camera")
+    if (PrivacyIndicators.screen)
+      bits.push("Screen")
+    if (!bits.length)
+      return "In use — Privacy"
+    return bits.join(" · ") + " in use — Privacy"
+  }
+
+  function privacyInUseSubtitle() {
+    const apps = PrivacyIndicators.apps || []
+    const names = []
+    for (let i = 0; i < apps.length && names.length < 3; i++) {
+      const n = String(apps[i].label || apps[i].id || "").trim()
+      if (n.length && names.indexOf(n) < 0)
+        names.push(n)
+    }
+    if (names.length)
+      return names.join(", ") + " · Privacy → In use now"
+    return "Privacy → In use now"
   }
 
   function recentIndexFor(desktopId) {
@@ -341,42 +256,30 @@ Item {
 
   function runFileSearch() {
     const q = search.text.trim()
-    filesHint = q.length ? "Searching home folder…" : ""
     if (!q.length) {
       fileHits = []
       filesHint = ""
       return
     }
+    // Drop previous query's hits immediately so the list doesn't lie while
+    // the indexed search runs.
+    fileHits = []
+    filesHint = "Searching home folder…"
     fileProc.running = false
+    // Cached home index (beacon-file-index.py) — rebuilds when stale; fd preferred.
     fileProc.command = [
       "python3",
-      "-c",
-      "import json, os, sys\n"
-          + "q = sys.argv[1].lower()\n"
-          + "home = os.path.expanduser('~')\n"
-          + "home_depth = home.count(os.sep)\n"
-          + "skip = {'.git','node_modules','.cache','Trash','.npm','.cargo','.local'}\n"
-          + "hits = []\n"
-          + "capped = False\n"
-          + "for root, dirs, files in os.walk(home):\n"
-          + "  if root.count(os.sep) - home_depth > 5:\n"
-          + "    dirs[:] = []\n"
-          + "    continue\n"
-          + "  dirs[:] = [d for d in dirs if d not in skip and not d.startswith('.')]\n"
-          + "  for name in list(files) + list(dirs):\n"
-          + "    if name.startswith('.') and (not q or q[0] != '.'):\n"
-          + "      continue\n"
-          + "    if q not in name.lower():\n"
-          + "      continue\n"
-          + "    path = os.path.join(root, name)\n"
-          + "    hits.append({'path': path, 'name': name, 'dir': os.path.isdir(path)})\n"
-          + "    if len(hits) >= 40:\n"
-          + "      capped = True\n"
-          + "      print(json.dumps({'hits': hits, 'capped': True})); raise SystemExit\n"
-          + "print(json.dumps({'hits': hits, 'capped': False}))\n",
+      Config.scriptsDir + "/beacon-file-index.py",
+      "search",
       q
     ]
     fileProc.running = true
+  }
+
+  function warmFileIndex() {
+    Quickshell.execDetached({
+      command: ["python3", Config.scriptsDir + "/beacon-file-index.py", "rebuild"]
+    })
   }
 
   function shellQuote(s) {
@@ -390,11 +293,16 @@ Item {
   }
 
   function pasteClipboardLine(line) {
+    // Close first so the focused client receives the paste, not Beacon.
+    ShellState.closeLauncher()
+    const inject = root.hasWtype
+        ? "; sleep 0.12; wtype -M ctrl -k v -m ctrl"
+        : ""
     Quickshell.execDetached({
       command: [
         "bash",
         "-lc",
-        "printf '%s\\n' " + shellQuote(line) + " | cliphist decode | wl-copy"
+        "printf '%s\\n' " + shellQuote(line) + " | cliphist decode | wl-copy" + inject
       ]
     })
   }
@@ -428,6 +336,14 @@ Item {
     const _places = root.placeHits
     const _clips = root.clipHits
     const _mode = root.mode
+    const _defaultsRev = DefaultApps.rev
+    const _privacyActive = PrivacyIndicators.anyActive
+    const _privacyApps = PrivacyIndicators.apps
+    const _pinned = DockApps.visiblePinned
+    const _hasWtype = root.hasWtype
+    const _tops = Hyprland.toplevels.values
+    const _permRev = Permissions.rev
+    const _permApps = Permissions.apps
     if (root.tagging)
       return []
 
@@ -445,7 +361,7 @@ Item {
             entry: null,
             path: path,
             name: root.fileBaseName(path),
-            subtitle: path,
+            subtitle: root.defaultAppSubtitle(path, path),
             icon: "document-open-recent",
             blocked: false,
             score: 2500 - r,
@@ -512,7 +428,7 @@ Item {
           entry: null,
           path: f.path,
           name: f.name,
-          subtitle: f.path,
+          subtitle: f.dir ? f.path : root.defaultAppSubtitle(f.path, f.path),
           icon: f.dir ? "folder" : "text-x-generic",
           blocked: false,
           score: 1000 - i,
@@ -573,7 +489,9 @@ Item {
           entry: null,
           path: "",
           name: c.preview,
-          subtitle: "Clipboard",
+          subtitle: root.hasWtype
+              ? "Enter pastes"
+              : "Enter copies — press Ctrl+V",
           icon: "edit-paste",
           blocked: false,
           score: 1000 - i,
@@ -632,6 +550,30 @@ Item {
     const apps = DesktopEntries.applications.values
     const rows = []
     const rawQ = search.text.trim()
+
+    // Privacy activity pin — empty query, or when the query matches privacy/in-use terms.
+    if (_privacyActive && !tagFilter.length) {
+      let showPrivacy = !q.length
+      if (q.length) {
+        const hay = ("privacy in use microphone camera screen mic " + root.privacyInUseLabel()).toLowerCase()
+        showPrivacy = root.scoreQuery(hay, q) >= 0
+      }
+      if (showPrivacy) {
+        rows.push({
+          kind: "settings",
+          entry: null,
+          path: "",
+          paneId: "privacy-activity",
+          name: root.privacyInUseLabel(),
+          subtitle: root.privacyInUseSubtitle(),
+          icon: "preferences-system-privacy",
+          blocked: false,
+          score: q.length ? 5200 : 5000,
+          clipLine: "",
+          calcValue: ""
+        })
+      }
+    }
 
     const calc = Calc.tryCalc(rawQ)
     if (calc) {
@@ -709,6 +651,7 @@ Item {
               : root.unavailableSubtitle(EnvGate.appBlockReason(a)),
             icon: EnvGate.resolveAppIcon(a),
             blocked: !ok,
+            privacyBlocked: !ok && !!EnvGate.appPrivacyBlockPane(a),
             score: 400 - i,
             clipLine: "",
             calcValue: ""
@@ -723,11 +666,12 @@ Item {
       return rows.slice(0, 40)
     }
 
-    // Empty Apps query: calm Recents hierarchy (section headers) — or honest empty.
+    // Empty Apps query: calm Recents + Pinned — or honest empty.
     // Do not dump alphabetical apps as a fake home; search/tags remain the browse path.
     if (!q.length && !tagFilter.length) {
       const recentRows = []
       const recentIds = Config.launcherRecentList()
+      const recentSeen = {}
       for (let r = 0; r < recentIds.length && recentRows.length < 12; r++) {
         const id = recentIds[r]
         let a = null
@@ -742,6 +686,7 @@ Item {
         const ok = EnvGate.appAvailable(a)
         if (!ok && !root.showUnavailable)
           continue
+        recentSeen[DockApps.normalizeDesktopId(a.id)] = true
         recentRows.push({
           kind: "app",
           entry: a,
@@ -752,6 +697,7 @@ Item {
             : root.unavailableSubtitle(EnvGate.appBlockReason(a)),
           icon: EnvGate.resolveAppIcon(a),
           blocked: !ok,
+          privacyBlocked: !ok && !!EnvGate.appPrivacyBlockPane(a),
           score: 2000 - r,
           clipLine: "",
           calcValue: "",
@@ -774,7 +720,89 @@ Item {
         for (let i = 0; i < recentRows.length; i++)
           rows.push(recentRows[i])
       }
-      // Skip alphabetical dump + settings browse on empty home — honest empty if none.
+
+      const pinRows = []
+      for (let p = 0; p < _pinned.length && pinRows.length < 8; p++) {
+        const e = _pinned[p]
+        if (!e || e.special || !e.name)
+          continue
+        const pid = DockApps.normalizeDesktopId(e.desktopId || e.id || "")
+        if (!pid.length || recentSeen[pid])
+          continue
+        if (pid === "proteus-settings" || pid === "settings" || pid === "proteus-beacon")
+          continue
+        const ok = EnvGate.appAvailable(e)
+        if (!ok && !root.showUnavailable)
+          continue
+        pinRows.push({
+          kind: "app",
+          entry: e,
+          path: "",
+          name: e.name,
+          subtitle: ok
+            ? root.tagsSubtitle(e.id || pid, "Pinned")
+            : root.unavailableSubtitle(EnvGate.appBlockReason(e)),
+          icon: EnvGate.resolveAppIcon(e),
+          blocked: !ok,
+          privacyBlocked: !ok && !!EnvGate.appPrivacyBlockPane(e),
+          score: 1500 - p,
+          clipLine: "",
+          calcValue: "",
+          section: "pinned"
+        })
+      }
+      if (pinRows.length) {
+        rows.push({
+          kind: "section",
+          entry: null,
+          path: "",
+          name: "Pinned",
+          subtitle: "",
+          icon: "",
+          blocked: true,
+          score: 2500,
+          clipLine: "",
+          calcValue: ""
+        })
+        for (let i = 0; i < pinRows.length; i++)
+          rows.push(pinRows[i])
+      }
+
+      const winRows = []
+      const wins = DockApps.listSearchableWindows()
+      for (let w = 0; w < wins.length && winRows.length < 8; w++) {
+        const win = wins[w]
+        winRows.push({
+          kind: "window",
+          entry: null,
+          path: "",
+          name: win.title,
+          subtitle: win.subtitle,
+          icon: win.icon || "preferences-system-windows",
+          blocked: false,
+          score: 1200 - w,
+          clipLine: "",
+          calcValue: "",
+          windowAddress: win.address,
+          section: "windows"
+        })
+      }
+      if (winRows.length) {
+        rows.push({
+          kind: "section",
+          entry: null,
+          path: "",
+          name: "Windows",
+          subtitle: "",
+          icon: "",
+          blocked: true,
+          score: 2200,
+          clipLine: "",
+          calcValue: ""
+        })
+        for (let i = 0; i < winRows.length; i++)
+          rows.push(winRows[i])
+      }
     } else {
       for (let i = 0; i < apps.length; i++) {
         const a = apps[i]
@@ -814,6 +842,7 @@ Item {
             : root.unavailableSubtitle(EnvGate.appBlockReason(a)),
           icon: EnvGate.resolveAppIcon(a),
           blocked: !ok,
+          privacyBlocked: !ok && !!EnvGate.appPrivacyBlockPane(a),
           score: score,
           clipLine: "",
           calcValue: ""
@@ -858,6 +887,10 @@ Item {
           const a = acts[i]
           if (String(a.id).startsWith("settings-"))
             continue
+          if (a.id === "enter-console" && ShellState.consoleSurfaceActive)
+            continue
+          if (a.id === "enter-desktop" && !ShellState.consoleSurfaceActive)
+            continue
           const hay = (String(a.name || "") + " " + String(a.keywords || "")).toLowerCase()
           const score = root.scoreQuery(hay, q)
           if (score < 0)
@@ -876,6 +909,97 @@ Item {
             actionId: a.id,
             destructive: !!a.destructive
           })
+        }
+
+        // Running windows (title / class)
+        const winsQ = DockApps.listSearchableWindows()
+        for (let w = 0; w < winsQ.length; w++) {
+          const win = winsQ[w]
+          const hay = (String(win.title || "") + " " + String(win.className || "") + " window").toLowerCase()
+          let score = Math.max(root.scoreQuery(String(win.title || "").toLowerCase(), q), root.scoreQuery(hay, q))
+          if (score < 0)
+            continue
+          score += 80
+          rows.push({
+            kind: "window",
+            entry: null,
+            path: "",
+            name: win.title,
+            subtitle: win.subtitle,
+            icon: win.icon || "preferences-system-windows",
+            blocked: false,
+            score: score,
+            clipLine: "",
+            calcValue: "",
+            windowAddress: win.address
+          })
+        }
+
+        // Per-app privacy grants — "firefox camera", "microphone", etc.
+        const cats = Permissions.categoryMeta || []
+        const storeApps = _permApps || {}
+        const seenPerm = {}
+        function pushPermRow(appId, appLabel, cat, score) {
+          const key = appId + "|" + cat.id
+          if (seenPerm[key])
+            return
+          seenPerm[key] = true
+          const grant = Permissions.appGrant(appId, cat.id)
+          rows.push({
+            kind: "settings",
+            entry: null,
+            path: "",
+            paneId: "privacy-" + cat.id,
+            name: appLabel + " · " + cat.label,
+            subtitle: "Privacy · " + grant + " · Enter to manage",
+            icon: "preferences-system-privacy",
+            blocked: false,
+            score: score,
+            clipLine: "",
+            calcValue: ""
+          })
+        }
+        // Stored grants
+        const storeIds = Object.keys(storeApps)
+        for (let i = 0; i < storeIds.length; i++) {
+          const aid = storeIds[i]
+          let label = aid
+          for (let j = 0; j < apps.length; j++) {
+            if (apps[j] && DockApps.normalizeDesktopId(apps[j].id) === DockApps.normalizeDesktopId(aid)) {
+              label = apps[j].name || aid
+              break
+            }
+          }
+          for (let c = 0; c < cats.length; c++) {
+            const cat = cats[c]
+            const hay = (label + " " + cat.label + " " + cat.id + " permission grant privacy").toLowerCase()
+            const score = root.scoreQuery(hay, q)
+            if (score < 0)
+              continue
+            pushPermRow(aid, label, cat, score + 40)
+          }
+        }
+        // Manifest apps with permissions[] even if not yet in store
+        for (let i = 0; i < apps.length; i++) {
+          const a = apps[i]
+          if (!a || !a.name)
+            continue
+          const pane = EnvGate.appPrivacyBlockPane(a)
+          const man = EnvGate.manifestForApp(a)
+          const perms = (man && man.permissions) ? man.permissions : []
+          if (!perms.length && !pane.length)
+            continue
+          const list = perms.length ? perms : (pane.length ? [pane.replace("privacy-", "")] : [])
+          for (let c = 0; c < cats.length; c++) {
+            const cat = cats[c]
+            if (list.indexOf(cat.id) < 0)
+              continue
+            const hay = (a.name + " " + cat.label + " " + cat.id + " permission grant privacy").toLowerCase()
+            const score = root.scoreQuery(hay, q)
+            if (score < 0)
+              continue
+            pushPermRow(DockApps.normalizeDesktopId(a.id), a.name, cat, score + 50)
+          }
         }
       }
     }
@@ -930,60 +1054,7 @@ Item {
   }
 
   function runAction(actionId) {
-    const id = String(actionId || "")
-    // Allowlist gate — only catalog ids.
-    let known = false
-    for (let i = 0; i < root.actionCatalog.length; i++) {
-      if (root.actionCatalog[i].id === id) {
-        known = true
-        break
-      }
-    }
-    if (!known)
-      return
-    if (id === "lock")
-      Config.session("lock")
-    else if (id === "logout")
-      Config.session("logout")
-    else if (id === "reboot")
-      Config.session("reboot")
-    else if (id === "shutdown")
-      Config.session("shutdown")
-    else if (id === "enter-console") {
-      const root = String(Quickshell.env("PROTEUS_ROOT") || "/mnt/proteus")
-      Quickshell.execDetached({
-        command: [
-          "bash", "-lc",
-          "setsid " + root + "/vm/guest/proteus-posture console >/dev/null 2>&1 &"
-        ]
-      })
-    } else if (id === "settings")
-      ShellState.openSettings()
-    else if (id === "control-center")
-      ShellState.openControlCenter()
-    else if (id === "dnd-toggle")
-      Notifications.toggleDnd()
-    else if (id === "keep-awake-cycle")
-      KeepAwake.cycle()
-    else if (id === "keep-awake-toggle")
-      KeepAwake.toggle()
-    else if (id === "localsend-open") {
-      if (LocalSend.available)
-        LocalSend.open()
-      else
-        ShellState.openSettings("network-localsend")
-    } else if (id === "settings-wifi")
-      ShellState.openSettings("network-wifi")
-    else if (id === "settings-displays")
-      ShellState.openSettings("displays")
-    else if (id === "settings-mixer")
-      ShellState.openSettings("sound-matrix")
-    else if (id === "settings-privacy")
-      ShellState.openSettings("privacy")
-    else if (id === "settings-updates")
-      ShellState.openSettings("packages-updates")
-    else if (id === "clear-notifications")
-      Notifications.clearAll()
+    UniversalSearch.runAction(actionId)
   }
 
   function firstSelectableIndex() {
@@ -1013,8 +1084,28 @@ Item {
     if (i < 0 || i >= filtered.length)
       return
     const row = filtered[i]
-    if (!row || row.blocked || row.kind === "section" || row.kind === "hint")
+    if (!row || row.kind === "section" || row.kind === "hint")
       return
+    // Privacy-blocked apps: Enter opens the matching Privacy leaf.
+    if (row.blocked && row.kind === "app" && row.entry) {
+      const pane = EnvGate.appPrivacyBlockPane(row.entry)
+      if (pane.length) {
+        ShellState.openSettings(pane)
+        search.text = ""
+        list.currentIndex = 0
+        return
+      }
+      return
+    }
+    if (row.blocked)
+      return
+    if (row.kind === "window") {
+      DockApps.focusWindowAddress(row.windowAddress)
+      ShellState.closeLauncher()
+      search.text = ""
+      list.currentIndex = 0
+      return
+    }
     if (row.kind === "filesearch") {
       // Keep the query; setMode re-runs it against ~.
       root.setMode("files")
@@ -1034,7 +1125,6 @@ Item {
     }
     if (row.kind === "clipboard") {
       root.pasteClipboardLine(row.clipLine)
-      ShellState.closeLauncher()
       search.text = ""
       return
     }
@@ -1138,11 +1228,13 @@ Item {
       return "No places available — type a name to search your home folder (depth ≤5)."
     }
     if (mode === "clipboard") {
+      // Prefer clipHint whenever history is empty so "not installed" isn't
+      // masked by a typed filter, and empty ≠ missing.
       if (clipHint.length && !clipHits.length)
         return clipHint
       if (search.text.trim().length)
         return "No clipboard matches in recent history."
-      return "Clipboard history is empty — needs cliphist + wl-paste watchers."
+      return "Clipboard history is empty — copy something, or check wl-paste watchers."
     }
     if (mode === "actions") {
       if (search.text.trim().length)
@@ -1163,6 +1255,8 @@ Item {
     const r = String(reason || "").trim()
     if (!r.length)
       return "Unavailable on this device"
+    if (r.indexOf("Blocked by Privacy") === 0)
+      return r + " · Enter to manage"
     if (r.toLowerCase().startsWith("unavailable"))
       return r
     return "Unavailable · " + r
@@ -1690,7 +1784,7 @@ Item {
 
                 Text {
                   visible: !!modelData.blocked
-                  text: "Unavailable"
+                  text: modelData.privacyBlocked ? "Blocked · Privacy" : "Unavailable"
                   color: Theme.danger
                   font.family: Theme.fontFamily
                   font.pixelSize: 10
@@ -1732,7 +1826,9 @@ Item {
                 hoverEnabled: modelData.kind !== "section"
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 enabled: modelData.kind !== "section"
-                cursorShape: modelData.blocked ? Qt.ForbiddenCursor : Qt.PointingHandCursor
+                cursorShape: (modelData.blocked && !modelData.privacyBlocked)
+                    ? Qt.ForbiddenCursor
+                    : Qt.PointingHandCursor
                 onEntered: list.currentIndex = index
                 onClicked: mouse => {
                   if (mouse.button === Qt.RightButton && modelData.kind === "app" && modelData.entry && !modelData.blocked) {
@@ -1843,16 +1939,17 @@ Item {
             capped = !!parsed.capped
           }
           root.fileHits = list
+          const eng = (parsed && parsed.engine) ? String(parsed.engine) : "index"
           if (list.length) {
             root.filesHint = capped
-                ? "Showing first 40 matches under ~ (depth ≤5)."
+                ? ("Showing first 40 · " + eng + " · depth ≤5")
                 : ""
           } else {
-            root.filesHint = "No files match under ~ (depth ≤5, skips dotdirs)."
+            root.filesHint = "No files match under ~ (" + eng + ", depth ≤5)."
           }
         } catch (e) {
           root.fileHits = []
-          root.filesHint = "File search failed — needs python3 on PATH."
+          root.filesHint = "File search failed — needs python3 + beacon-file-index.py."
         }
       }
     }
@@ -1910,10 +2007,18 @@ Item {
         search.text = ""
         tagEditEntry = null
         mode = "apps"
+        // Clear prior Files/Clipboard session so reopen doesn't flash stale
+        // hits or "Showing first 40…" from the last query.
+        fileHits = []
+        filesHint = ""
+        clipHits = []
+        clipHint = ""
         list.currentIndex = 0
         root.claimSearchFocus()
       } else {
         tagEditEntry = null
+        fileProc.running = false
+        clipProc.running = false
       }
     }
 
@@ -2016,5 +2121,19 @@ Item {
           root.beginTagEdit(e)
       }
     }
+  }
+
+  Process {
+    id: wtypeProbe
+    command: ["bash", "-lc", "command -v wtype >/dev/null 2>&1 && echo yes || echo no"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        root.hasWtype = String(text).trim() === "yes"
+      }
+    }
+  }
+
+  Component.onCompleted: {
+    wtypeProbe.running = true
   }
 }

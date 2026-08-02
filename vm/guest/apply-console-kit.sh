@@ -26,10 +26,24 @@ as_user() {
   fi
 }
 
+# Shared install helpers (proteus_install_helper: symlink when tree is live at
+# /mnt/proteus so dogfood always tracks the share; otherwise install a copy).
+export PROTEUS_USER="${USER_NAME}"
+# shellcheck source=../install/helpers.sh
+source "${ROOT}/vm/install/helpers.sh"
+
+install_helper() {
+  proteus_install_helper "$1"
+}
+
 echo "==> apply-console-kit (user=${USER_NAME} root=${ROOT})"
 
-# Packages (already listed in proteus-desktop.packages)
-if command -v pacman >/dev/null 2>&1; then
+# Packages — package SoT is vm/install/proteus-console.packages (console stage
+# enables multilib). Direct runs still get a best-effort install; the overlay
+# console stage sets PROTEUS_SKIP_CONSOLE_PACKAGES=1 since it owns packages.
+if [[ "${PROTEUS_SKIP_CONSOLE_PACKAGES:-0}" == "1" ]]; then
+  echo "  packages: skipped (console stage owns them)"
+elif command -v pacman >/dev/null 2>&1; then
   as_root pacman -S --needed --noconfirm gamescope python-evdev 2>&1 | tail -30
   # Steam / RetroArch — best-effort each (multilib / mirrors may omit steam)
   for pkg in steam retroarch; do
@@ -43,19 +57,13 @@ else
   echo "apply-console-kit: pacman missing — skip packages" >&2
 fi
 
-# Helpers on PATH
-as_root install -d /usr/local/bin
+# Helpers on PATH (guest + shell scripts)
 for s in proteus-posture proteus-guide set-hypr-profile.sh; do
-  if [[ -f "${GUEST}/${s}" ]]; then
-    as_root install -m 755 "${GUEST}/${s}" "/usr/local/bin/${s}"
-    echo "  installed /usr/local/bin/${s}"
-  fi
+  install_helper "${GUEST}/${s}"
 done
-for s in proteus-console-launch proteus-terminal proteus-qs proteus-webapp; do
-  if [[ -f "${SCRIPTS}/${s}" ]]; then
-    as_root install -m 755 "${SCRIPTS}/${s}" "/usr/local/bin/${s}"
-    echo "  installed /usr/local/bin/${s}"
-  fi
+for s in proteus-console-launch proteus-console-seat proteus-console-capabilities \
+         proteus-terminal proteus-qs proteus-webapp; do
+  install_helper "${SCRIPTS}/${s}"
 done
 
 # Seed console Hypr profile for the session user
@@ -69,8 +77,13 @@ fi
 echo "==> summary"
 command -v gamescope >/dev/null && echo "  gamescope: $(command -v gamescope)" || echo "  gamescope: MISSING"
 python3 -c 'import evdev' 2>/dev/null && echo "  python-evdev: ok" || echo "  python-evdev: MISSING"
+if [[ -x "${SCRIPTS}/proteus-console-capabilities" ]]; then
+  echo "  capabilities: $("${SCRIPTS}/proteus-console-capabilities" 2>/dev/null || echo '{}')"
+fi
 command -v proteus-posture >/dev/null && echo "  proteus-posture: $(command -v proteus-posture)" || echo "  proteus-posture: MISSING"
 command -v proteus-console-launch >/dev/null && echo "  proteus-console-launch: $(command -v proteus-console-launch)" || echo "  proteus-console-launch: MISSING"
+command -v proteus-console-seat >/dev/null && echo "  proteus-console-seat: $(command -v proteus-console-seat)" || echo "  proteus-console-seat: MISSING"
+command -v proteus-console-capabilities >/dev/null && echo "  proteus-console-capabilities: $(command -v proteus-console-capabilities)" || echo "  proteus-console-capabilities: MISSING"
 command -v proteus-guide >/dev/null && echo "  proteus-guide: $(command -v proteus-guide)" || echo "  proteus-guide: MISSING"
 command -v proteus-webapp >/dev/null && echo "  proteus-webapp: $(command -v proteus-webapp)" || echo "  proteus-webapp: MISSING"
 command -v steam >/dev/null && echo "  steam: $(command -v steam)" || echo "  steam: MISSING"

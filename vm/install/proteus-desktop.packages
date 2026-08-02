@@ -17,19 +17,44 @@ ffmpegthumbnailer
 # Viewers
 imv
 mpv
+# Desktop video UI (GTK shell over mpv). Keep mpv + yt-dlp for console / CLI.
+celluloid
+# Beacon Clipboard: inject Ctrl+V after cliphist recall (Wayland virtual keyboard)
+wtype
+# Beacon Files search (preferred engine; Beacon falls back to a Python walk)
+fd
 evince
+# Photos — GNOME image viewer (interim until a Proteus Photos app)
+loupe
 
 # Small utilities (interim Calculator until a Proteus calc app; Beacon still does quick math)
 gnome-calculator
+# Calendar — menu-bar center cluster + CalendarPanel “Open Calendar”
+gnome-calendar
+# Weather — menu-bar weather glance + WeatherPanel “Open Weather”
+gnome-weather
+# Clocks — alarms / world clock (pairs with desktop world-clock widget)
+gnome-clocks
+# Camera — stills + video (privacy dots already surface mic/camera use)
+snapshot
+# Music library UI (mpv/celluloid remain video; amberol is audio library)
+amberol
+# Disks / removable volumes
+gnome-disk-utility
 mousepad
 file-roller
 unzip
+# 7z/rar backend for file-roller
+p7zip
 satty
+# Screen recording (screenshots are grim/slurp/satty; this covers video)
+wf-recorder
+# mpv plays web video URLs directly — native fullscreen path for console MEDIA
+yt-dlp
 
-# LAN AirDrop-style share — Settings → Network → LocalSend · Control Center tile.
-# Prefer AUR prebuilt (localsend-bin) over source localsend (Flutter/fvm make-deps)
-# or Flatpak. Omarchy/official mirrors may ship `localsend` — desktop.sh treats
-# either package name as satisfying this seat.
+# Web rendering without CJK tofu (Chromium)
+noto-fonts-cjk
+
 # LAN AirDrop-style share — Settings → Network → LocalSend · Control Center tile.
 # Prefer AUR prebuilt (localsend-bin) over source localsend (Flutter/fvm make-deps)
 # or Flatpak. Omarchy/official mirrors may ship `localsend` — desktop.sh treats
@@ -39,9 +64,9 @@ localsend-bin
 # Activity Monitor escape from Settings → About (Mission Center)
 mission-center
 
-# Console posture — per-title Gamescope wraps + Guide-button listener (proteus-guide)
-gamescope
-python-evdev
-# Console game seats (optional on thin hosts; apply-console-kit installs when present)
-steam
-retroarch
+# Console kit (gamescope · steam · retroarch · cores · pad udev) moved to
+# proteus-console.packages — installed by the `console` stage (needs multilib).
+
+# Optional / deferred (not installed):
+#   unrar   — proprietary rar backend if p7zip's rar support falls short
+#   gthumb  — heavier photo browser if Loupe’s single-viewer seat isn’t enough

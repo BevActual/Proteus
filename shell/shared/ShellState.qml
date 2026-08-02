@@ -12,8 +12,12 @@ Singleton {
   property bool desktopCustomizeMode: false
   // Top-bar Control Center (notifications + quick settings)
   property bool controlCenterOpen: false
+  // Monitor name that should host CC (multi-monitor); empty = focused monitor.
+  property string controlCenterMonitor: ""
   // Menu-bar center cluster → calendar / today popover
   property bool calendarOpen: false
+  // Menu-bar weather glance → WeatherPanel (hands off to Weather app)
+  property bool weatherOpen: false
   // A desktop Note widget is being edited in place (widget layer raised +
   // keyboard grab — see DesktopShell deskWidgetsWin)
   property bool desktopNoteEditing: false
@@ -58,6 +62,7 @@ Singleton {
     desktopCustomizeMode = false
     controlCenterOpen = false
     calendarOpen = false
+    weatherOpen = false
     desktopNoteEditing = false
     consoleSwitcherOpen = false
     consoleExitConfirmOpen = false
@@ -126,18 +131,20 @@ Singleton {
   }
 
   function toggleLauncher() {
-    if (sessionLocked || desktopCustomizeMode)
+    if (sessionLocked || sessionStartLockPending || desktopCustomizeMode)
       return
     controlCenterOpen = false
     calendarOpen = false
+    weatherOpen = false
     launcherOpen = !launcherOpen
   }
 
   function openLauncher() {
-    if (sessionLocked || desktopCustomizeMode)
+    if (sessionLocked || sessionStartLockPending || desktopCustomizeMode)
       return
     controlCenterOpen = false
     calendarOpen = false
+    weatherOpen = false
     launcherOpen = true
   }
 
@@ -151,38 +158,49 @@ Singleton {
   property string beaconProbe: "{}"
 
   function seedBeaconQuery(q) {
-    if (sessionLocked || desktopCustomizeMode)
+    if (sessionLocked || sessionStartLockPending || desktopCustomizeMode)
       return
     controlCenterOpen = false
     launcherOpen = true
     beaconQuerySeeded(String(q || ""))
   }
 
-  function toggleControlCenter() {
-    if (sessionLocked || desktopCustomizeMode)
+  function toggleControlCenter(monitorName) {
+    if (sessionLocked || sessionStartLockPending || desktopCustomizeMode)
       return
     launcherOpen = false
     calendarOpen = false
-    controlCenterOpen = !controlCenterOpen
+    weatherOpen = false
+    if (controlCenterOpen) {
+      controlCenterOpen = false
+      controlCenterMonitor = ""
+      return
+    }
+    controlCenterMonitor = String(monitorName || "")
+    controlCenterOpen = true
   }
 
-  function openControlCenter() {
-    if (sessionLocked || desktopCustomizeMode)
+  function openControlCenter(monitorName) {
+    if (sessionLocked || sessionStartLockPending || desktopCustomizeMode)
       return
     launcherOpen = false
     calendarOpen = false
+    weatherOpen = false
+    controlCenterMonitor = String(monitorName || "")
     controlCenterOpen = true
   }
 
   function closeControlCenter() {
     controlCenterOpen = false
+    controlCenterMonitor = ""
   }
 
   function toggleCalendar() {
-    if (sessionLocked || desktopCustomizeMode)
+    if (sessionLocked || sessionStartLockPending || desktopCustomizeMode)
       return
     launcherOpen = false
     controlCenterOpen = false
+    weatherOpen = false
     calendarOpen = !calendarOpen
   }
 
@@ -190,11 +208,31 @@ Singleton {
     calendarOpen = false
   }
 
+  function toggleWeather() {
+    if (sessionLocked || sessionStartLockPending || desktopCustomizeMode)
+      return
+    // No location yet — send the user to set one instead of an empty glance.
+    if (!Weather.hasLocation) {
+      openDateTimeSettings()
+      return
+    }
+    launcherOpen = false
+    controlCenterOpen = false
+    calendarOpen = false
+    weatherOpen = !weatherOpen
+  }
+
+  function closeWeather() {
+    weatherOpen = false
+  }
+
   function enterDesktopCustomize() {
     if (sessionLocked)
       return
     launcherOpen = false
     controlCenterOpen = false
+    calendarOpen = false
+    weatherOpen = false
     desktopNoteEditing = false
     if (!desktopCustomizeMode)
       Config.beginLiveConfigEdits()
@@ -227,6 +265,7 @@ Singleton {
     launcherOpen = false
     controlCenterOpen = false
     calendarOpen = false
+    weatherOpen = false
     const page = String(pageId || "").trim()
     const q = String(query || "").trim()
     let envPrefix = ""
@@ -248,6 +287,104 @@ Singleton {
           + "exec " + shellQuote(live)
       ]
     })
+  }
+
+  // Preferred calendar desktop ids (GNOME Calendar first — desktop kit).
+  readonly property var calendarDesktopIds: [
+    "org.gnome.Calendar",
+    "gnome-calendar",
+    "org.kde.merkuro.calendar",
+    "org.kde.kalendar",
+    "org.gnome.Evolution",
+    "evolution"
+  ]
+
+  function findCalendarDesktop() {
+    for (let i = 0; i < calendarDesktopIds.length; i++) {
+      const id = calendarDesktopIds[i]
+      const desk = DesktopEntries.heuristicLookup(id)
+      if (desk)
+        return desk
+    }
+    // Fallback: any desktop entry whose id/name looks like a calendar app.
+    const apps = DesktopEntries.applications.values
+    for (let i = 0; i < apps.length; i++) {
+      const a = apps[i]
+      const id = String(a.id || "").toLowerCase()
+      const name = String(a.name || "").toLowerCase()
+      if (id.indexOf("calendar") >= 0 || name === "calendar" || name.indexOf("calendar") === 0)
+        return a
+    }
+    return null
+  }
+
+  // Re-evaluate when the desktop-entry catalog changes.
+  readonly property bool calendarAppAvailable: {
+    const _n = DesktopEntries.applications.values.length
+    return !!findCalendarDesktop()
+  }
+
+  // Open the system Calendar app; if none, fall through to Date, time & weather.
+  function openCalendarApp() {
+    if (sessionLocked || sessionStartLockPending)
+      return false
+    const desk = findCalendarDesktop()
+    closeOverlays()
+    if (desk) {
+      desk.execute()
+      return true
+    }
+    openSettings("datetime")
+    return false
+  }
+
+  function openDateTimeSettings() {
+    openSettings("datetime")
+  }
+
+  // Preferred weather desktop ids (GNOME Weather first — desktop kit).
+  readonly property var weatherDesktopIds: [
+    "org.gnome.Weather",
+    "gnome-weather",
+    "org.kde.kweather",
+    "kweather"
+  ]
+
+  function findWeatherDesktop() {
+    for (let i = 0; i < weatherDesktopIds.length; i++) {
+      const id = weatherDesktopIds[i]
+      const desk = DesktopEntries.heuristicLookup(id)
+      if (desk)
+        return desk
+    }
+    const apps = DesktopEntries.applications.values
+    for (let i = 0; i < apps.length; i++) {
+      const a = apps[i]
+      const id = String(a.id || "").toLowerCase()
+      const name = String(a.name || "").toLowerCase()
+      if (id.indexOf("weather") >= 0 || name === "weather" || name.indexOf("weather") === 0)
+        return a
+    }
+    return null
+  }
+
+  readonly property bool weatherAppAvailable: {
+    const _n = DesktopEntries.applications.values.length
+    return !!findWeatherDesktop()
+  }
+
+  // Full Weather app; if none, Date, time & weather settings.
+  function openWeatherApp() {
+    if (sessionLocked || sessionStartLockPending)
+      return false
+    const desk = findWeatherDesktop()
+    closeOverlays()
+    if (desk) {
+      desk.execute()
+      return true
+    }
+    openSettings("datetime")
+    return false
   }
 
   function shellQuote(s) {

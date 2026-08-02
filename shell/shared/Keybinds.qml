@@ -66,6 +66,15 @@ Singleton {
       arg: "proteus:customize-desktop"
     },
     {
+      id: "focus-cycle",
+      category: "Session",
+      label: "Focus Mode (cycle)",
+      mods: "SUPER SHIFT",
+      key: "F",
+      dispatcher: "global",
+      arg: "proteus:focus-cycle"
+    },
+    {
       id: "enter-console",
       category: "Session",
       label: "Enter Console",
@@ -113,110 +122,164 @@ Singleton {
     {
       id: "ws1",
       category: "Workspaces",
-      label: "Workspace 1",
+      label: "Space 1",
       mods: "SUPER",
       key: "1",
-      dispatcher: "workspace",
-      arg: "1"
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 1"
     },
     {
       id: "ws2",
       category: "Workspaces",
-      label: "Workspace 2",
+      label: "Space 2",
       mods: "SUPER",
       key: "2",
-      dispatcher: "workspace",
-      arg: "2"
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 2"
     },
     {
       id: "ws3",
       category: "Workspaces",
-      label: "Workspace 3",
+      label: "Space 3",
       mods: "SUPER",
       key: "3",
-      dispatcher: "workspace",
-      arg: "3"
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 3"
     },
     {
       id: "ws4",
       category: "Workspaces",
-      label: "Workspace 4",
+      label: "Space 4",
       mods: "SUPER",
       key: "4",
-      dispatcher: "workspace",
-      arg: "4"
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 4"
     },
     {
       id: "ws5",
       category: "Workspaces",
-      label: "Workspace 5",
+      label: "Space 5",
       mods: "SUPER",
       key: "5",
-      dispatcher: "workspace",
-      arg: "5"
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 5"
     },
     {
       id: "ws6",
       category: "Workspaces",
-      label: "Workspace 6",
+      label: "Space 6",
       mods: "SUPER",
       key: "6",
-      dispatcher: "workspace",
-      arg: "6"
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 6"
+    },
+    {
+      id: "ws1-local",
+      category: "Workspaces",
+      label: "Space 1 (this display)",
+      mods: "SUPER CTRL",
+      key: "1",
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 1 --local"
+    },
+    {
+      id: "ws2-local",
+      category: "Workspaces",
+      label: "Space 2 (this display)",
+      mods: "SUPER CTRL",
+      key: "2",
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 2 --local"
+    },
+    {
+      id: "ws3-local",
+      category: "Workspaces",
+      label: "Space 3 (this display)",
+      mods: "SUPER CTRL",
+      key: "3",
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 3 --local"
+    },
+    {
+      id: "ws4-local",
+      category: "Workspaces",
+      label: "Space 4 (this display)",
+      mods: "SUPER CTRL",
+      key: "4",
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 4 --local"
+    },
+    {
+      id: "ws5-local",
+      category: "Workspaces",
+      label: "Space 5 (this display)",
+      mods: "SUPER CTRL",
+      key: "5",
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 5 --local"
+    },
+    {
+      id: "ws6-local",
+      category: "Workspaces",
+      label: "Space 6 (this display)",
+      mods: "SUPER CTRL",
+      key: "6",
+      dispatcher: "exec",
+      arg: "proteus-workspace goto 6 --local"
     },
     {
       id: "move1",
       category: "Workspaces",
-      label: "Move Window to Workspace 1",
+      label: "Move Window to Space 1",
       mods: "SUPER SHIFT",
       key: "1",
-      dispatcher: "movetoworkspace",
-      arg: "1"
+      dispatcher: "exec",
+      arg: "proteus-workspace move 1"
     },
     {
       id: "move2",
       category: "Workspaces",
-      label: "Move Window to Workspace 2",
+      label: "Move Window to Space 2",
       mods: "SUPER SHIFT",
       key: "2",
-      dispatcher: "movetoworkspace",
-      arg: "2"
+      dispatcher: "exec",
+      arg: "proteus-workspace move 2"
     },
     {
       id: "move3",
       category: "Workspaces",
-      label: "Move Window to Workspace 3",
+      label: "Move Window to Space 3",
       mods: "SUPER SHIFT",
       key: "3",
-      dispatcher: "movetoworkspace",
-      arg: "3"
+      dispatcher: "exec",
+      arg: "proteus-workspace move 3"
     },
     {
       id: "move4",
       category: "Workspaces",
-      label: "Move Window to Workspace 4",
+      label: "Move Window to Space 4",
       mods: "SUPER SHIFT",
       key: "4",
-      dispatcher: "movetoworkspace",
-      arg: "4"
+      dispatcher: "exec",
+      arg: "proteus-workspace move 4"
     },
     {
       id: "move5",
       category: "Workspaces",
-      label: "Move Window to Workspace 5",
+      label: "Move Window to Space 5",
       mods: "SUPER SHIFT",
       key: "5",
-      dispatcher: "movetoworkspace",
-      arg: "5"
+      dispatcher: "exec",
+      arg: "proteus-workspace move 5"
     },
     {
       id: "move6",
       category: "Workspaces",
-      label: "Move Window to Workspace 6",
+      label: "Move Window to Space 6",
       mods: "SUPER SHIFT",
       key: "6",
-      dispatcher: "movetoworkspace",
-      arg: "6"
+      dispatcher: "exec",
+      arg: "proteus-workspace move 6"
     },
     {
       id: "screenshot-region",

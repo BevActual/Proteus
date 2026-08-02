@@ -54,6 +54,13 @@ Scope {
 
   GlobalShortcut {
     appid: "proteus"
+    name: "focus-cycle"
+    description: "Cycle Focus Mode"
+    onPressed: FocusMode.cycle()
+  }
+
+  GlobalShortcut {
+    appid: "proteus"
     name: "volume-up"
     description: "Raise volume"
     onPressed: Audio.stepVolume(5)
@@ -111,8 +118,16 @@ Scope {
       ShellState.toggleControlCenter()
     }
 
+    function focusCycle(): void {
+      FocusMode.cycle()
+    }
+
     function calendar(): void {
       ShellState.toggleCalendar()
+    }
+
+    function weather(): void {
+      ShellState.toggleWeather()
     }
 
     function customizeDesktop(): void {
@@ -146,6 +161,7 @@ Scope {
         surface: "desktop",
         controlCenter: ShellState.controlCenterOpen,
         calendar: ShellState.calendarOpen,
+        weather: ShellState.weatherOpen,
         launcher: ShellState.launcherOpen,
         customize: ShellState.desktopCustomizeMode,
         locked: ShellState.sessionLocked,
@@ -409,6 +425,7 @@ Scope {
 
       TopBar {
         anchors.fill: parent
+        screen: modelData
       }
     }
   }
@@ -504,6 +521,7 @@ Scope {
       }
 
       readonly property bool active: ShellState.launcherOpen && isFocused
+          && !ShellState.sessionStartLockPending
 
       visible: active
       exclusionMode: ExclusionMode.Ignore
@@ -556,12 +574,25 @@ Scope {
         return mon ? mon.focused : (modelData === Quickshell.screens[0])
       }
 
+      // Multi-monitor CC: prefer the monitor that opened it; else focused.
+      readonly property bool hostsControlCenter: {
+        const want = String(ShellState.controlCenterMonitor || "")
+        if (!want.length)
+          return isFocused
+        const mon = Hyprland.monitorFor(modelData)
+        const name = mon ? String(mon.name || "") : String(modelData.name || "")
+        return name === want
+      }
+
       readonly property bool showToast: Notifications.showToast
 
       // stillVisible keeps the window mapped while close animations play
-      // (ControlCenter / CalendarPanel own their open/close motion).
-      visible: !ShellState.sessionLocked && isFocused
-          && (ccView.stillVisible || calView.stillVisible || showToast)
+      // (ControlCenter / CalendarPanel / WeatherPanel own their open/close motion).
+      // Gate on sessionStartLockPending so toasts/CC/calendar cannot peek
+      // before cold-boot auto-lock (bar/dock already do this).
+      visible: !ShellState.sessionLocked && !ShellState.sessionStartLockPending
+          && (hostsControlCenter || (!ShellState.controlCenterOpen && isFocused))
+          && (ccView.stillVisible || calView.stillVisible || wxView.stillVisible || showToast)
       exclusionMode: ExclusionMode.Ignore
       color: "transparent"
 
@@ -589,15 +620,20 @@ Scope {
         anchors.fill: parent
       }
 
+      WeatherPanel {
+        id: wxView
+        anchors.fill: parent
+      }
+
       NotificationToast {
         id: toastLayer
         anchors.fill: parent
         visible: ccWin.showToast
       }
 
-      // Full input while CC / calendar is open; toast-only shows click-through
-      // except the card; during exit animations the surface is click-through.
-      mask: ShellState.controlCenterOpen || ShellState.calendarOpen
+      // Full input while CC / calendar / weather is open; toast-only shows
+      // click-through except the card; during exit animations click-through.
+      mask: ShellState.controlCenterOpen || ShellState.calendarOpen || ShellState.weatherOpen
           ? null
           : (showToast ? toastMask : emptyMask)
 
@@ -626,7 +662,8 @@ Scope {
         return mon ? mon.focused : (modelData === Quickshell.screens[0])
       }
 
-      visible: !ShellState.sessionLocked && isFocused && Hud.hudVisible
+      visible: !ShellState.sessionLocked && !ShellState.sessionStartLockPending
+          && isFocused && Hud.hudVisible
       exclusionMode: ExclusionMode.Ignore
       color: "transparent"
 

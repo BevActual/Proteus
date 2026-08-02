@@ -64,4 +64,22 @@ if command -v xdg-settings >/dev/null 2>&1; then
   proteus_as_user xdg-settings set default-web-browser chromium.desktop 2>/dev/null || true
 fi
 
+# Desktop video UI — Celluloid (mpv stays for console / yt-dlp).
+CELLULOID_DESKTOP=""
+for cand in io.github.celluloid_player.Celluloid.desktop celluloid.desktop; do
+  if [[ -f "/usr/share/applications/${cand}" ]]; then
+    CELLULOID_DESKTOP="${cand}"
+    break
+  fi
+done
+if [[ -n "${CELLULOID_DESKTOP}" ]]; then
+  DEFAULTS="${PROTEUS_ROOT}/shell/scripts/proteus-defaults.py"
+  if [[ -f "${DEFAULTS}" ]]; then
+    proteus_as_user python3 "${DEFAULTS}" set video "${CELLULOID_DESKTOP}" 2>/dev/null \
+      || proteus_log "warn: could not set video default via proteus-defaults"
+  else
+    proteus_as_user xdg-mime default "${CELLULOID_DESKTOP}" video/mp4 2>/dev/null || true
+  fi
+fi
+
 proteus_log "desktop OK"

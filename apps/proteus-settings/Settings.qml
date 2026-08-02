@@ -59,6 +59,22 @@ Item {
       label: "Dock & menu bar"
     },
     {
+      key: "desktop-spaces",
+      label: "Spaces"
+    },
+    {
+      key: "desktop-defaults",
+      label: "Default apps"
+    },
+    {
+      key: "desktop-focus",
+      label: "Focus"
+    },
+    {
+      key: "desktop-control-center",
+      label: "Control Center"
+    },
+    {
       key: "desktop-launcher",
       label: "Beacon"
     }
@@ -168,10 +184,45 @@ Item {
     }
   ]
 
+  readonly property var privacyChildren: [
+    {
+      key: "privacy-activity",
+      label: "In use now"
+    },
+    {
+      key: "privacy-microphone",
+      label: "Microphone"
+    },
+    {
+      key: "privacy-camera",
+      label: "Camera"
+    },
+    {
+      key: "privacy-location",
+      label: "Location"
+    },
+    {
+      key: "privacy-notifications",
+      label: "Notifications"
+    },
+    {
+      key: "privacy-screen",
+      label: "Screen recording"
+    },
+    {
+      key: "privacy-diagnostics",
+      label: "Diagnostics"
+    },
+    {
+      key: "privacy-flatpak",
+      label: "Flatpak apps"
+    }
+  ]
+
   // Every hub's leaf pages, flattened — the title lookup used to walk each
   // list separately, so adding a hub meant another near-identical loop.
   readonly property var allChildren: styleChildren
-      .concat(desktopChildren, peripheralsChildren, packagesChildren, soundChildren, networkChildren)
+      .concat(desktopChildren, peripheralsChildren, packagesChildren, soundChildren, networkChildren, privacyChildren)
 
   readonly property string pageTitle: {
     const p = page
@@ -564,6 +615,11 @@ Item {
               onLoaded: item.active = Qt.binding(() => root.page === "power")
             }
             StickyPaneLoader {
+              want: root.page === "notifications"
+              source: "panes/NotificationsPane.qml"
+              onLoaded: item.active = Qt.binding(() => root.page === "notifications")
+            }
+            StickyPaneLoader {
               want: root.page === "users"
               source: "panes/UsersPane.qml"
               onLoaded: {
@@ -582,10 +638,10 @@ Item {
               onLoaded: item.active = Qt.binding(() => root.page === "datetime")
             }
             StickyPaneLoader {
-              want: root.page === "privacy"
+              want: root.section === "privacy"
               source: "panes/PrivacyPane.qml"
               onLoaded: {
-                item.active = Qt.binding(() => root.page === "privacy")
+                item.page = Qt.binding(() => root.page)
                 item.requestGo.connect(id => SettingsNav.go(id))
               }
             }

@@ -89,7 +89,7 @@ if [[ -f "${PAM_SRC}" ]]; then
   fi
 fi
 
-# Lock auth uses shell/scripts/check-password.py (ctypes → libpam; no extra pkgs)
+# Lock auth uses shell/scripts/check-unlock.py (PAM password + optional unlock PIN)
 
 # Keybinds: replace if missing, corrupt (NULs), or missing required binds
 KB="${HOME}/.config/hypr/proteus-keybinds.conf"

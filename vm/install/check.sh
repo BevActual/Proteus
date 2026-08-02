@@ -16,8 +16,9 @@ echo "==> proteus install tree check (${ROOT})"
 [[ -f "${INSTALL}/helpers.sh" ]] && ok helpers.sh || bad helpers.sh
 [[ -f "${INSTALL}/proteus-base.packages" ]] && ok proteus-base.packages || bad proteus-base.packages
 [[ -f "${INSTALL}/proteus-desktop.packages" ]] && ok proteus-desktop.packages || bad proteus-desktop.packages
+[[ -f "${INSTALL}/proteus-console.packages" ]] && ok proteus-console.packages || bad proteus-console.packages
 
-for stage in preflight packaging config hardware login apps desktop post-install; do
+for stage in preflight packaging config hardware login apps desktop console post-install; do
   if [[ -f "${INSTALL}/${stage}.sh" ]]; then
     if bash -n "${INSTALL}/${stage}.sh" 2>/dev/null; then
       ok "stage ${stage}.sh"
@@ -35,9 +36,62 @@ done
 
 base_n="$(grep -cEv '^\s*(#|$)' "${INSTALL}/proteus-base.packages" || true)"
 desk_n="$(grep -cEv '^\s*(#|$)' "${INSTALL}/proteus-desktop.packages" || true)"
+cons_n="$(grep -cEv '^\s*(#|$)' "${INSTALL}/proteus-console.packages" 2>/dev/null || true)"
 ok "base packages: ${base_n}"
 ok "desktop packages: ${desk_n}"
+ok "console packages: ${cons_n}"
 [[ "${base_n}" -ge 5 ]] || bad "base package list looks too thin"
+[[ "${cons_n:-0}" -ge 5 ]] || bad "console package list looks too thin"
+
+# Roster split: console seats live in proteus-console.packages (multilib),
+# never in the desktop list where steam silently fails.
+for pkg in steam retroarch gamescope game-devices-udev; do
+  grep -qE "^${pkg}\$" "${INSTALL}/proteus-console.packages" 2>/dev/null \
+    && ok "console list has ${pkg}" || bad "console list missing ${pkg}"
+done
+for pkg in steam retroarch gamescope; do
+  grep -qE "^${pkg}\$" "${INSTALL}/proteus-desktop.packages" \
+    && bad "desktop list still carries ${pkg} (belongs in proteus-console.packages)" \
+    || ok "desktop list free of ${pkg}"
+done
+
+# Repair preset + update pass + console stage wired into bootstrap
+grep -q 'PROTEUS_INSTALL_REPAIR' "${INSTALL}/bootstrap.sh" \
+  && ok "bootstrap repair preset" || bad "bootstrap missing PROTEUS_INSTALL_REPAIR"
+grep -q 'PROTEUS_INSTALL_UPDATE' "${INSTALL}/bootstrap.sh" \
+  && ok "bootstrap update pass" || bad "bootstrap missing PROTEUS_INSTALL_UPDATE"
+grep -qE 'STAGES=\(.*console.*\)' "${INSTALL}/bootstrap.sh" \
+  && ok "bootstrap stage list has console" || bad "bootstrap stage list missing console"
+
+# Shared helper linker (live-tree symlinks; stale /usr/local/bin bug class)
+grep -q 'proteus_install_helper' "${INSTALL}/helpers.sh" \
+  && ok "helpers.sh proteus_install_helper" || bad "helpers.sh missing proteus_install_helper"
+grep -q 'proteus_install_helper' "${INSTALL}/apps.sh" \
+  && ok "apps.sh uses proteus_install_helper" || bad "apps.sh must use proteus_install_helper"
+grep -q 'proteus_install_helper' "${ROOT}/vm/guest/apply-console-kit.sh" \
+  && ok "apply-console-kit uses shared helper" || bad "apply-console-kit must use proteus_install_helper"
+
+# Console stage contents: multilib + kit + posture/profile drift fix
+grep -q 'multilib' "${INSTALL}/console.sh" \
+  && ok "console.sh multilib" || bad "console.sh missing multilib enable"
+grep -q 'apply-console-kit.sh' "${INSTALL}/console.sh" \
+  && ok "console.sh applies console kit" || bad "console.sh missing apply-console-kit"
+grep -q 'set-hypr-profile.sh' "${INSTALL}/console.sh" \
+  && ok "console.sh drift fix" || bad "console.sh missing posture/profile drift fix"
+grep -q 'console.sh' "${ROOT}/vm/guest/install-console-software.sh" \
+  && ok "install-console-software → console stage" || bad "install-console-software must wrap console stage"
+
+# Host provision: read-only status mode; qemu-img must not choke on a running VM
+grep -q '^  status) status ;;' "${ROOT}/vm/provision.sh" \
+  && ok "provision.sh status mode" || bad "provision.sh missing status mode"
+grep -q 'qemu-img info -U' "${ROOT}/vm/provision.sh" \
+  && ok "provision.sh qemu-img -U (running-VM safe)" || bad "provision.sh qemu-img needs -U"
+
+# Install path SoT doc
+[[ -f "${ROOT}/docs/proteus/INSTALL.md" ]] && ok docs/proteus/INSTALL.md || bad "missing docs/proteus/INSTALL.md"
+grep -q 'guest-install.sh' "${ROOT}/docs/proteus/INSTALL.md" 2>/dev/null \
+  && grep -q 'bootstrap.sh repair' "${ROOT}/docs/proteus/INSTALL.md" 2>/dev/null \
+  && ok "INSTALL.md covers layers + repair" || bad "INSTALL.md must cover three layers + repair"
 
 [[ -f "${ROOT}/env/hypr/hyprland.conf" ]] && ok env/hypr/hyprland.conf || bad env/hypr/hyprland.conf
 [[ -f "${ROOT}/env/hypr/proteus-profile.conf" ]] && ok env/hypr/proteus-profile.conf || bad env/hypr/proteus-profile.conf
@@ -47,6 +101,9 @@ ok "desktop packages: ${desk_n}"
 [[ -x "${ROOT}/vm/guest/proteus-guide" ]] && ok vm/guest/proteus-guide || bad vm/guest/proteus-guide
 [[ -x "${ROOT}/vm/guest/apply-console-kit.sh" ]] && ok vm/guest/apply-console-kit.sh || bad vm/guest/apply-console-kit.sh
 [[ -x "${ROOT}/shell/scripts/proteus-console-launch" ]] && ok shell/scripts/proteus-console-launch || bad shell/scripts/proteus-console-launch
+[[ -x "${ROOT}/shell/scripts/proteus-console-seat" ]] && ok shell/scripts/proteus-console-seat || bad shell/scripts/proteus-console-seat
+[[ -x "${ROOT}/shell/scripts/proteus-workspace" ]] && ok shell/scripts/proteus-workspace || bad shell/scripts/proteus-workspace
+[[ -x "${ROOT}/shell/scripts/proteus-console-capabilities" ]] && ok shell/scripts/proteus-console-capabilities || bad shell/scripts/proteus-console-capabilities
 if bash -n "${ROOT}/vm/guest/apply-console-kit.sh" 2>/dev/null; then
   ok "apply-console-kit.sh bash -n"
 else
@@ -56,6 +113,21 @@ if bash -n "${ROOT}/shell/scripts/proteus-console-launch" 2>/dev/null; then
   ok "proteus-console-launch bash -n"
 else
   bad "proteus-console-launch (bash -n)"
+fi
+if bash -n "${ROOT}/shell/scripts/proteus-console-seat" 2>/dev/null; then
+  ok "proteus-console-seat bash -n"
+else
+  bad "proteus-console-seat (bash -n)"
+fi
+if bash -n "${ROOT}/shell/scripts/proteus-workspace" 2>/dev/null; then
+  ok "proteus-workspace bash -n"
+else
+  bad "proteus-workspace (bash -n)"
+fi
+if bash -n "${ROOT}/shell/scripts/proteus-console-capabilities" 2>/dev/null; then
+  ok "proteus-console-capabilities bash -n"
+else
+  bad "proteus-console-capabilities (bash -n)"
 fi
 [[ -f "${ROOT}/env/hypr/profiles/host.conf" ]] && ok env/hypr/profiles/host.conf || bad env/hypr/profiles/host.conf
 [[ -f "${ROOT}/env/hypr/profiles/home.conf" ]] && ok env/hypr/profiles/home.conf || bad env/hypr/profiles/home.conf

@@ -21,12 +21,22 @@ Item {
     return live
   }
 
+  readonly property string seatBin: {
+    return root.rootDir + "/shell/scripts/proteus-console-seat"
+  }
+
+  readonly property string capabilitiesBin: {
+    return root.rootDir + "/shell/scripts/proteus-console-capabilities"
+  }
+
   readonly property string sampleLoop: root.rootDir + "/shell/assets/sample-loop.mp4"
 
   property bool hasBrowser: false
   property bool hasMpv: false
   property bool hasTerminal: false
-  property bool hasGamescope: false
+  property bool hasGamescope: false // usable Gamescope (Vulkan), not merely installed
+  property bool hasGamescopeBin: false
+  property bool isVm: false
   property bool hasSteam: false
   property bool hasRetroarch: false
   property string browserBin: "chromium"
@@ -106,9 +116,10 @@ Item {
       out.push(root.seatMedia())
     if (root.hasTerminal)
       out.push(root.seatTerminal())
+    // Web apps live on Home as their own row (proteus-web-*); keep Install escape.
     out.push({
-      id: "webapps",
-      title: "Web apps",
+      id: "webapps-install",
+      title: "Install Web apps",
       tag: "WEB",
       color0: "#1a3a4a",
       color1: "#0d1c22",
@@ -117,6 +128,36 @@ Item {
       settingsPage: "packages-webapps",
       commandArgs: []
     })
+    out.push({
+      id: "desktop",
+      title: "Desktop",
+      tag: "POSTURE",
+      color0: "#2a2a2e",
+      color1: "#141416",
+      kind: "posture",
+      needsGamescope: false,
+      commandArgs: []
+    })
+    return out
+  }
+
+  // Curated seats without the Install Web apps / Desktop escapes (Home APPS row).
+  readonly property var appSeats: {
+    const out = []
+    if (root.hasSteam)
+      out.push(root.seatSteam())
+    else
+      out.push(root.seatMissing("steam", "Steam", "GAMES", "Install Steam (apply-console-kit)"))
+    if (root.hasRetroarch)
+      out.push(root.seatRetro())
+    else
+      out.push(root.seatMissing("retroarch", "RetroArch", "GAMES", "Install RetroArch (apply-console-kit)"))
+    if (root.hasBrowser)
+      out.push(root.seatBrowser())
+    if (root.hasMpv)
+      out.push(root.seatMedia())
+    if (root.hasTerminal)
+      out.push(root.seatTerminal())
     out.push({
       id: "desktop",
       title: "Desktop",
@@ -190,6 +231,14 @@ Item {
     }
   }
 
+  function seatMetaSuffix() {
+    if (root.hasGamescope)
+      return " · gamescope"
+    if (root.isVm)
+      return " · bare · kiosk"
+    return " · bare"
+  }
+
   function seatSteam() {
     return {
       id: "steam",
@@ -197,9 +246,10 @@ Item {
       tag: "GAMES",
       color0: "#1a2a4a",
       color1: "#0c1424",
-      meta: "gamepadui" + (root.hasGamescope ? " · gamescope" : ""),
+      meta: "gamepadui" + root.seatMetaSuffix(),
       kind: "steam",
-      needsGamescope: true,
+      needsGamescope: root.hasGamescope,
+      expectClass: "steam",
       commandArgs: ["steam", "-gamepadui"]
     }
   }
@@ -211,9 +261,10 @@ Item {
       tag: "GAMES",
       color0: "#3a1a2a",
       color1: "#1c0d14",
-      meta: root.hasGamescope ? "gamescope" : "bare",
+      meta: root.hasGamescope ? ("gamescope" + root.seatMetaSuffix()) : ("bare" + (root.isVm ? " · kiosk" : "")),
       kind: "retroarch",
-      needsGamescope: true,
+      needsGamescope: root.hasGamescope,
+      expectClass: "com.libretro.RetroArch|retroarch",
       commandArgs: ["retroarch"]
     }
   }
@@ -260,7 +311,8 @@ Item {
   }
 
   function recordRecent(item) {
-    if (!item || !item.id || item.kind === "missing" || item.kind === "empty" || item.kind === "posture" || item.kind === "settings")
+    if (!item || !item.id || item.kind === "missing" || item.kind === "empty"
+        || item.kind === "posture" || item.kind === "settings" || item.kind === "action")
       return
     const entry = {
       id: String(item.id),
@@ -290,21 +342,132 @@ Item {
     statusHint = ""
   }
 
+  function removeRecent(id) {
+    const rid = String(id || "")
+    if (!rid.length)
+      return false
+    const prev = Config.consoleRecents || []
+    const next = []
+    for (let i = 0; i < prev.length; i++) {
+      if (prev[i] && String(prev[i].id) !== rid)
+        next.push(prev[i])
+    }
+    if (next.length === prev.length)
+      return false
+    Config.consoleRecents = next
+    statusHint = "Removed from Jump Back In"
+    return true
+  }
+
+  function hasResumeMedia() {
+    const last = String(Config.consoleLastMediaPath || "").trim()
+    return last.length > 0 && last !== root.sampleLoop
+  }
+
+  function resumeMediaLabel() {
+    const last = String(Config.consoleLastMediaPath || "").trim()
+    if (!last.length)
+      return "Resume last"
+    const parts = last.split("/")
+    return "Resume · " + (parts[parts.length - 1] || last)
+  }
+
+  function launchMediaPath(path, title) {
+    const p = String(path || "").trim()
+    if (!p.length) {
+      statusHint = "No media path"
+      return
+    }
+    if (p !== root.sampleLoop)
+      Config.consoleLastMediaPath = p
+    const item = {
+      id: "media",
+      title: title || (p === root.sampleLoop ? "Sample reel" : "Media"),
+      tag: "MEDIA",
+      color0: "#1a3a5c",
+      color1: "#0d1828",
+      meta: p,
+      kind: "media-play",
+      needsGamescope: root.hasGamescope,
+      commandArgs: ["mpv", "--player-operation-mode=pseudo-gui", "--loop=inf", p]
+    }
+    root.activate(item)
+  }
+
+  function pickMediaFile() {
+    const bin = root.rootDir + "/shell/scripts/proteus-pick-media"
+    statusHint = "Choose a media file…"
+    pickProc.command = ["bash", "-lc", "bin=\"" + bin + "\"; [[ -x \"$bin\" ]] || bin=$(command -v proteus-pick-media); \"$bin\""]
+    pickProc.running = false
+    pickProc.running = true
+  }
+
   function refreshAvailability() {
     probeProc.running = false
     probeProc.running = true
   }
 
   function launchBinPath() {
-    if (Quickshell.env("PATH"))
-      return "proteus-console-launch"
-    return root.launchBin
+    // Always prefer the live tree script when present (stale /usr/local/bin copies
+    // used to hard-exec gamescope and die in QEMU).
+    if (root.launchBin && root.launchBin.indexOf("/") === 0)
+      return root.launchBin
+    return "proteus-console-launch"
+  }
+
+  function seatBinPath() {
+    if (root.seatBin && root.seatBin.indexOf("/") === 0)
+      return root.seatBin
+    return "proteus-console-seat"
+  }
+
+  function expectClassFor(item) {
+    if (item && item.expectClass)
+      return String(item.expectClass)
+    const id = String((item && (item.id || item.desktopId)) || "").toLowerCase()
+    if (id.indexOf("steam") >= 0)
+      return "steam"
+    if (id.indexOf("retroarch") >= 0 || id.indexOf("libretro") >= 0)
+      return "com.libretro.RetroArch|retroarch"
+    if (id.indexOf("chromium") >= 0 || id.indexOf("chrome") >= 0)
+      return "chromium|google-chrome|Chromium"
+    if (id.indexOf("firefox") >= 0)
+      return "firefox"
+    if (id.indexOf("mpv") >= 0)
+      return "mpv"
+    return id.replace(/\.desktop$/, "")
+  }
+
+  function runSeat(seatArgs, title) {
+    ShellState.consoleLaunchPending = true
+    ShellState.hideConsoleNav()
+    pendingLaunchTitle = title || "App"
+    statusHint = "Opening " + pendingLaunchTitle + "…"
+    const pathPrefix = "export PATH=\"" + root.rootDir
+        + "/shell/scripts:$HOME/.local/bin:/usr/local/bin:$PATH\"; "
+    const cmd = [root.seatBinPath()].concat(seatArgs)
+    Quickshell.execDetached({
+      command: [
+        "bash", "-lc",
+        pathPrefix
+            + cmd.map(c => "'" + String(c).replace(/'/g, "'\\''") + "'").join(" ")
+            + " &"
+      ]
+    })
+    // Seat waits for map + fullscreen; UI timeout is honesty-only.
+    launchWatch.interval = 12000
+    launchWatch.restart()
   }
 
   function activate(item) {
     if (!item)
       return
-    if (item.kind === "posture" || item.id === "desktop") {
+    // Media seat opens a submenu in ConsoleHome — do not launch directly.
+    // media-play is the submenu's confirmed path.
+    if (item.kind === "media")
+      return
+    // Only explicit posture seats flip chrome — never match kind:"desktop" (DesktopEntries).
+    if (item.kind === "posture") {
       statusHint = "Returning to Desktop…"
       pendingLaunchTitle = ""
       launchWatch.stop()
@@ -319,8 +482,14 @@ Item {
       return
     }
     if (item.kind === "settings") {
-      statusHint = "Opening Software → Web apps…"
-      ShellState.openSettings(item.settingsPage || "packages-webapps")
+      const page = item.settingsPage || item.paneId || "packages-webapps"
+      statusHint = "Opening Settings…"
+      ShellState.openSettings(page)
+      return
+    }
+    if (item.kind === "action") {
+      statusHint = item.title || "Action"
+      UniversalSearch.runAction(item.actionId || item.id)
       return
     }
     if (item.kind === "missing") {
@@ -344,29 +513,14 @@ Item {
       return
     }
 
-    // Release Exclusive keyboard grab so Hyprland can focus the new client
-    // (otherwise apps stay tiled/unfocused under console chrome).
-    ShellState.consoleLaunchPending = true
-    ShellState.hideConsoleNav()
-
-    const cmd = [root.launchBinPath()]
-    if (item.needsGamescope)
-      cmd.push("--gamescope")
+    // Supervised seat: never calls proteus-posture; Gamescope only when usable.
+    const seatArgs = ["--expect-class", root.expectClassFor(item)]
+    if (item.needsGamescope === false)
+      seatArgs.push("--no-gamescope")
+    seatArgs.push("--")
     for (let i = 0; i < args.length; i++)
-      cmd.push(String(args[i]))
-
-    pendingLaunchTitle = item.title || "App"
-    statusHint = "Opening " + pendingLaunchTitle + "…"
-    Quickshell.execDetached({
-      command: [
-        "bash", "-lc",
-        "export PATH=\"/usr/local/bin:" + root.rootDir + "/shell/scripts:$PATH\"; "
-            + cmd.map(c => "'" + String(c).replace(/'/g, "'\\''") + "'").join(" ")
-            + " &"
-      ]
-    })
-    launchWatch.restart()
-    fullscreenAssist.restart()
+      seatArgs.push(String(args[i]))
+    root.runSeat(seatArgs, item.title || "App")
   }
 
   function activateDesktopId(desktopId, title, item) {
@@ -385,41 +539,11 @@ Item {
         desktopId: id,
         tag: "APP"
       })
-    ShellState.consoleLaunchPending = true
-    ShellState.hideConsoleNav()
-    pendingLaunchTitle = title || id
-    statusHint = "Opening " + pendingLaunchTitle + "…"
-    Quickshell.execDetached({
-      command: [
-        "bash", "-lc",
-        "export PATH=\"/usr/local/bin:" + root.rootDir + "/shell/scripts:$PATH\"; "
-            + "proteus-console-launch --desktop '" + id.replace(/'/g, "'\\''") + "' &"
-      ]
-    })
-    launchWatch.restart()
-    fullscreenAssist.restart()
-  }
-
-  // After launch, force fullscreen on the focused client (windowrule can race).
-  Timer {
-    id: fullscreenAssist
-    interval: 450
-    repeat: false
-    onTriggered: {
-      Quickshell.execDetached({
-        command: [
-          "bash", "-lc",
-          "command -v hyprctl >/dev/null || exit 0; "
-              + "for i in 1 2 3 4 5; do "
-              + "  aw=$(hyprctl activewindow -j 2>/dev/null || true); "
-              + "  echo \"$aw\" | grep -q '\"class\"' || { sleep 0.25; continue; }; "
-              + "  echo \"$aw\" | grep -qE 'quickshell|Proteus Settings' && exit 0; "
-              + "  hyprctl dispatch fullscreen 0 >/dev/null 2>&1 || hyprctl dispatch fullscreen 1 >/dev/null 2>&1; "
-              + "  exit 0; "
-              + "done"
-        ]
-      })
-    }
+    const seatArgs = [
+      "--expect-class", root.expectClassFor(item || { id: id, desktopId: id }),
+      "--desktop", id
+    ]
+    root.runSeat(seatArgs, title || id)
   }
 
   function cancelLaunchWatch() {
@@ -445,7 +569,7 @@ Item {
 
   Timer {
     id: launchWatch
-    interval: 2200
+    interval: 12000
     repeat: false
     onTriggered: root.onLaunchWatchFired()
   }
@@ -454,26 +578,60 @@ Item {
     id: probeProc
     command: [
       "bash", "-c",
-      "browser=; for b in chromium chromium-browser brave firefox; do "
+      "export PATH=\"" + root.rootDir + "/shell/scripts:$HOME/.local/bin:/usr/local/bin:$PATH\"; "
+          + "browser=; for b in chromium chromium-browser brave firefox; do "
           + "command -v \"$b\" >/dev/null 2>&1 && browser=$b && break; done; "
           + "mpv=0; command -v mpv >/dev/null 2>&1 && mpv=1; "
           + "term=0; (command -v proteus-terminal >/dev/null 2>&1 || command -v ghostty >/dev/null 2>&1 || command -v foot >/dev/null 2>&1) && term=1; "
-          + "gs=0; command -v gamescope >/dev/null 2>&1 && gs=1; "
-          + "st=0; command -v steam >/dev/null 2>&1 && st=1; "
-          + "ra=0; command -v retroarch >/dev/null 2>&1 && ra=1; "
-          + "printf '%s %s %s %s %s %s\\n' \"${browser:-}\" \"$mpv\" \"$term\" \"$gs\" \"$st\" \"$ra\""
+          + "caps=$(\"" + root.capabilitiesBin + "\" 2>/dev/null || echo '{}'); "
+          + "printf '%s\\t%s\\t%s\\t%s\\n' \"${browser:-}\" \"$mpv\" \"$term\" \"$caps\""
     ]
     stdout: StdioCollector {
       onStreamFinished: {
-        const parts = text.trim().split(/\s+/)
+        const line = text.trim()
+        // browser \t mpv \t term \t {json}
+        const parts = line.split("\t")
         root.browserBin = parts[0] && parts[0].length ? parts[0] : "chromium"
         root.hasBrowser = !!(parts[0] && parts[0].length)
         root.hasMpv = parts[1] === "1"
         root.hasTerminal = parts[2] === "1"
-        root.hasGamescope = parts[3] === "1"
-        root.hasSteam = parts[4] === "1"
-        root.hasRetroarch = parts[5] === "1"
+        let caps = {}
+        try {
+          caps = JSON.parse(parts.slice(3).join("\t") || "{}")
+        } catch (e) {
+          caps = {}
+        }
+        root.hasGamescope = !!caps.gamescopeUsable
+        root.hasGamescopeBin = !!caps.gamescope
+        root.isVm = !!caps.isVm
+        root.hasSteam = !!caps.steam
+        root.hasRetroarch = !!caps.retroarch
       }
+    }
+  }
+
+  Process {
+    id: pickProc
+    running: false
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const path = String(this.text || "").trim()
+        if (path.length)
+          root.launchMediaPath(path, "Media")
+      }
+    }
+    stderr: StdioCollector {
+      onStreamFinished: {
+        const t = String(this.text || "").trim()
+        if (t.indexOf("zenity") >= 0 || t.indexOf("kdialog") >= 0)
+          root.statusHint = "Install zenity or kdialog to choose media"
+      }
+    }
+    onExited: (code, status) => {
+      if (code === 1)
+        root.statusHint = "Media pick cancelled"
+      else if (code === 2)
+        root.statusHint = "Install zenity or kdialog to choose media"
     }
   }
 

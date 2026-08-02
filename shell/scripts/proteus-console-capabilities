@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# proteus-console-capabilities — JSON probe for console seat honesty.
+# Usage: proteus-console-capabilities
+# stdout: one JSON object (vulkan, gamescopeUsable, isVm, steam, retroarch, pad, gamescope)
+set -euo pipefail
+
+is_vm() {
+  local vendor product
+  vendor="$(tr -d '\0' </sys/class/dmi/id/sys_vendor 2>/dev/null || true)"
+  product="$(tr -d '\0' </sys/class/dmi/id/product_name 2>/dev/null || true)"
+  [[ "${vendor}${product}" =~ [Qq][Ee][Mm][Uu]|[Vv]irtual|[Vv]Mware|[Bb]ox|[Xx]en|[Bb]ochs ]]
+}
+
+has_vulkan() {
+  # Non-empty physical device list — not merely a Vulkan ICD stub.
+  if command -v vulkaninfo >/dev/null 2>&1; then
+    local n
+    n="$(vulkaninfo --summary 2>/dev/null | grep -cE 'GPU[0-9]+|deviceName' || true)"
+    [[ "${n}" -gt 0 ]] && return 0
+  fi
+  # Fallback: enumerate via python if available
+  python3 - <<'PY' 2>/dev/null && return 0
+import sys
+try:
+    import vulkan  # type: ignore
+except Exception:
+    sys.exit(1)
+sys.exit(1)
+PY
+  return 1
+}
+
+gamescope_bin=0
+command -v gamescope >/dev/null 2>&1 && gamescope_bin=1
+
+vulkan=0
+has_vulkan && vulkan=1
+
+isvm=0
+is_vm && isvm=1
+
+# Usable = binary + Vulkan device; VMs opt out unless forced.
+gamescope_usable=0
+if [[ "${gamescope_bin}" -eq 1 && "${vulkan}" -eq 1 ]]; then
+  if [[ "${isvm}" -eq 0 || "${PROTEUS_FORCE_GAMESCOPE:-}" == "1" ]]; then
+    gamescope_usable=1
+  fi
+fi
+
+steam=0
+command -v steam >/dev/null 2>&1 && steam=1
+retroarch=0
+command -v retroarch >/dev/null 2>&1 && retroarch=1
+
+pad=0
+if python3 - <<'PY' 2>/dev/null; then
+import sys
+try:
+    import evdev
+    from evdev import ecodes
+except Exception:
+    sys.exit(1)
+markers = {ecodes.BTN_MODE, ecodes.BTN_GAMEPAD, getattr(ecodes, "BTN_SOUTH", 0x130)}
+for path in evdev.list_devices():
+    try:
+        d = evdev.InputDevice(path)
+        keys = set(d.capabilities().get(ecodes.EV_KEY, []))
+        if keys & markers:
+            sys.exit(0)
+    except Exception:
+        continue
+sys.exit(1)
+PY
+  pad=1
+fi
+
+python3 - <<PY
+import json
+print(json.dumps({
+    "vulkan": bool(${vulkan}),
+    "gamescope": bool(${gamescope_bin}),
+    "gamescopeUsable": bool(${gamescope_usable}),
+    "isVm": bool(${isvm}),
+    "steam": bool(${steam}),
+    "retroarch": bool(${retroarch}),
+    "pad": bool(${pad}),
+}))
+PY

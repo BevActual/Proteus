@@ -4,27 +4,389 @@ import QtQuick.Layouts
 import "../../shared"
 import "../desktop"
 
-// Console navigation layer root — home + library/search + switcher + CC.
+// Console navigation — tvOS-inspired shelf Home + Library/Search destinations.
 Item {
   id: root
   anchors.fill: parent
   focus: true
 
-  // focusZone: bar | hero | jump | apps | library | search
-  property string focusZone: "jump"
+  property real navOpacity: 1
+
+  // focusZone: chrome | hero | shelf | libSection | library | search
+  property string focusZone: "hero"
   property int barSlot: 0
   property int heroAction: 0
-  property int jumpIndex: 0
-  property int appsIndex: 0
+  property int shelfIndex: 0
+  property int cardIndex: 0
   property int libraryIndex: 0
+  property int libSectionIndex: 0
   property string tab: "home"
   property string searchQuery: ""
+  property string sheetReturnZone: "hero"
+
+  readonly property var libSections: appsModel.sectionLabels
+  readonly property string libSectionId: {
+    const s = libSections[Math.max(0, Math.min(libSectionIndex, libSections.length - 1))]
+    return s ? s.id : "all"
+  }
 
   ConsoleLibrary { id: library }
-  ConsoleAppsModel { id: appsModel; query: root.searchQuery }
+  ConsoleAppsModel {
+    id: appsModel
+    query: root.searchQuery
+    section: root.libSectionId
+  }
+
+  // Home Web shelf: browsers + proteus-web-* (not Library's full web section dump).
+  readonly property var webItems: {
+    const out = []
+    for (let i = 0; i < appsModel.allApps.length; i++) {
+      const a = appsModel.allApps[i]
+      const id = String(a.id || "").toLowerCase()
+      if (id.indexOf("proteus-web-") === 0) {
+        out.push(a)
+        continue
+      }
+      if (id.indexOf("firefox") >= 0 || id.indexOf("chromium") >= 0 || id.indexOf("chrome") >= 0
+          || id.indexOf("brave") >= 0 || id.indexOf("librewolf") >= 0)
+        out.push(a)
+    }
+    if (out.length)
+      return out
+    return [{
+      id: "webapps-install",
+      title: "Install Web apps",
+      tag: "WEB",
+      kind: "settings",
+      settingsPage: "packages-webapps",
+      chromeStyle: true,
+      color0: Theme.elevatedFill,
+      color1: Theme.bgElevated,
+      meta: "Software → Web apps"
+    }]
+  }
+
+  // Media lean-sheet entry (console play path) — not a DesktopEntry card.
+  readonly property var mediaPlayCard: {
+    if (!library.hasMpv)
+      return null
+    return library.seatMedia()
+  }
+
+  readonly property var mediaShelfItems: {
+    const out = []
+    if (root.mediaPlayCard)
+      out.push(root.mediaPlayCard)
+    const apps = appsModel.mediaShelf
+    for (let i = 0; i < apps.length; i++)
+      out.push(apps[i])
+    return out
+  }
+
+  // Home shelves: one card per application / web app (DesktopEntries).
+  // Jump Back In = recent launches; Media play card opens the lean sheet.
+  readonly property var homeShelves: {
+    const shelves = []
+    shelves.push({
+      id: "jump",
+      title: "Jump Back In",
+      items: library.games,
+      chromeStyle: false,
+      allowRemove: true,
+      cardWidth: 240,
+      cardHeight: 140
+    })
+    if (appsModel.appsShelf.length) {
+      shelves.push({
+        id: "apps",
+        title: "Apps",
+        items: appsModel.appsShelf,
+        chromeStyle: true,
+        allowRemove: false,
+        cardWidth: 160,
+        cardHeight: 120
+      })
+    }
+    shelves.push({
+      id: "web",
+      title: "Web Apps",
+      items: root.webItems,
+      chromeStyle: true,
+      allowRemove: false,
+      cardWidth: 160,
+      cardHeight: 120
+    })
+    if (appsModel.gamesShelf.length) {
+      shelves.push({
+        id: "games",
+        title: "Games",
+        items: appsModel.gamesShelf,
+        chromeStyle: false,
+        allowRemove: false,
+        cardWidth: 180,
+        cardHeight: 120
+      })
+    }
+    if (root.mediaShelfItems.length) {
+      shelves.push({
+        id: "media",
+        title: "Media",
+        items: root.mediaShelfItems,
+        chromeStyle: false,
+        allowRemove: false,
+        cardWidth: 180,
+        cardHeight: 120
+      })
+    }
+    return shelves
+  }
+
+  readonly property var currentShelf: {
+    if (!homeShelves.length)
+      return null
+    return homeShelves[Math.max(0, Math.min(shelfIndex, homeShelves.length - 1))]
+  }
+
+  readonly property string currentShelfId: currentShelf ? currentShelf.id : ""
+
+  readonly property string featuredShelfTitle: currentShelf ? (currentShelf.title || "") : ""
+
+  // Hero always tracks the focused card on the active shelf (any shelf).
+  readonly property var featured: {
+    if (focusZone === "shelf" || focusZone === "hero") {
+      const items = shelfItemsAt(shelfIndex)
+      if (items.length) {
+        const i = Math.max(0, Math.min(cardIndex, items.length - 1))
+        return items[i]
+      }
+    }
+    if (library.games.length)
+      return library.games[0]
+    const apps = appsModel.appsShelf
+    if (apps.length)
+      return apps[0]
+    return library.featured
+  }
+
+  readonly property string featuredMetaLine: {
+    const it = featured
+    if (!it)
+      return ""
+    const bits = []
+    if (featuredShelfTitle.length && focusZone === "shelf")
+      bits.push(featuredShelfTitle)
+    else if (featuredShelfTitle.length && focusZone === "hero")
+      bits.push(featuredShelfTitle)
+    const tag = String(it.tag || "").toUpperCase()
+    if (tag === "GAMES" || tag === "WEB" || tag === "MEDIA" || tag === "TOOLS")
+      bits.push(tag)
+    if (it.meta && String(it.meta).length && String(it.meta) !== String(it.id))
+      bits.push(String(it.meta))
+    else if (it.id && String(it.id) !== String(it.title))
+      bits.push(String(it.id))
+    return bits.join(" · ")
+  }
+
+  readonly property var libraryItems: appsModel.sectionedApps
+  readonly property var searchItems: appsModel.filtered
+
+  readonly property string emptyLibraryCopy: {
+    switch (libSectionId) {
+    case "games":
+      return "No games yet"
+    case "media":
+      return "No media apps yet"
+    case "web":
+      return "No web apps yet"
+    case "apps":
+      return "No apps in this section"
+    default:
+      return "No applications found"
+    }
+  }
+
+  readonly property string padHintLine: {
+    if (mediaSheet.open)
+      return "◎ Media · ↑/↓ options · Ⓐ Open · Ⓑ Menu"
+    if (detailsSheet.open)
+      return "◎ Details · Ⓐ Open · Ⓑ Menu"
+    if (ShellState.controlCenterOpen)
+      return "◎ Control Center · pad moves tiles · Ⓑ Menu"
+    if (ShellState.consoleSwitcherOpen)
+      return "◎ Switcher · ←/→ pick · Ⓐ focus · Ⓑ Menu"
+    if (ShellState.consoleExitConfirmOpen)
+      return "◎ Return to Desktop? · Ⓐ confirm · Ⓑ Menu"
+    if (focusZone === "chrome")
+      return "◎ Menu · Library (all apps) · Search · Control Center · Ⓐ open"
+    if (focusZone === "hero")
+      return "◎ Featured · Ⓐ Open · Ⓨ Details · ↓ shelves · Ⓑ Menu"
+    if (focusZone === "shelf") {
+      if (currentShelfId === "jump")
+        return "◎ Jump Back In · ←/→ · Ⓐ Open · Ⓨ Details · ✕ remove"
+      return "◎ " + (currentShelf ? currentShelf.title : "Shelf")
+          + " · ←/→ · Ⓐ Open · ↑/↓ · Library for all apps"
+    }
+    if (focusZone === "libSection")
+      return "◎ Library (all apps) · ←/→ filter · ↓ cards · Ⓑ Home"
+    if (focusZone === "library")
+      return "◎ Library · ←/→ · Ⓐ Open · Ⓑ Home"
+    if (focusZone === "search")
+      return searchQuery.length
+          ? "◎ Results · ←/→ · Ⓐ Open · Ⓑ Menu"
+          : "◎ Shortcuts · ←/→ · type to search · Ⓑ Home"
+    return "◎ Ⓐ Open · Ⓑ Menu · Ⓨ Details"
+  }
+
+  readonly property var mediaOptions: {
+    const opts = []
+    if (library.hasResumeMedia()) {
+      opts.push({
+        id: "resume",
+        label: library.resumeMediaLabel(),
+        hint: Config.consoleLastMediaPath
+      })
+    }
+    opts.push({
+      id: "sample",
+      label: "Sample reel",
+      hint: "Built-in loop"
+    })
+    opts.push({
+      id: "pick",
+      label: "Choose file…",
+      hint: "zenity / kdialog"
+    })
+    return opts
+  }
+
+  function openMediaSheet() {
+    sheetReturnZone = focusZone
+    mediaSheet.options = mediaOptions
+    mediaSheet.title = "Media"
+    mediaSheet.subtitle = "Play with mpv" + (library.hasGamescope ? " · gamescope when available" : "")
+    mediaSheet.openSheet()
+  }
+
+  function openDetailsSheet() {
+    const it = featured
+    if (!it)
+      return
+    sheetReturnZone = focusZone
+    detailsSheet.title = it.title || "Details"
+    detailsSheet.subtitle = [it.tag, it.meta].filter(function (s) {
+      return s && String(s).length
+    }).join(" · ")
+    const opts = []
+    if (it.kind === "media")
+      opts.push({ id: "media", label: "Open Media menu", hint: "Resume · Sample · Choose file" })
+    else
+      opts.push({ id: "open", label: "Open", hint: it.meta || it.kind || "" })
+    detailsSheet.options = opts
+    detailsSheet.openSheet()
+  }
+
+  function activateItem(item) {
+    if (!item)
+      return
+    if (item.kind === "media") {
+      openMediaSheet()
+      return
+    }
+    library.activate(item)
+  }
+
+  function shelfItemsAt(i) {
+    const s = homeShelves[i]
+    return s && s.items ? s.items : []
+  }
+
+  function clampCardIndex() {
+    const items = shelfItemsAt(shelfIndex)
+    if (!items.length) {
+      cardIndex = 0
+      return
+    }
+    cardIndex = Math.max(0, Math.min(cardIndex, items.length - 1))
+  }
+
+  function ensureActiveShelfVisible() {
+    if (tab !== "home" || !homeFlick)
+      return
+    // Approximate scroll so the active shelf sits near the top of the shelf pane.
+    let y = 0
+    for (let i = 0; i < shelfIndex && i < homeShelves.length; i++) {
+      const s = homeShelves[i]
+      const h = Math.round((s.cardHeight || 120) * 0.72) + 36
+      y += h + Theme.spaceMd
+    }
+    const maxY = Math.max(0, homeFlick.contentHeight - homeFlick.height)
+    homeFlick.contentY = Math.max(0, Math.min(maxY, y - 8))
+  }
+
+  onShelfIndexChanged: Qt.callLater(ensureActiveShelfVisible)
+  onFocusZoneChanged: {
+    if (focusZone === "shelf" || focusZone === "hero")
+      Qt.callLater(ensureActiveShelfVisible)
+  }
+
+  function removeJumpFocused() {
+    if (!library.games.length)
+      return
+    const i = Math.max(0, Math.min(cardIndex, library.games.length - 1))
+    const item = library.games[i]
+    if (!item)
+      return
+    if (library.removeRecent(item.id))
+      clampCardIndex()
+  }
+
+  function goHomeShelves() {
+    tab = "home"
+    focusZone = "hero"
+    heroAction = 0
+    barSlot = 0
+  }
 
   function handlePad(button) {
     const b = String(button || "")
+    if (mediaSheet.open) {
+      if (b === "b" || b === "select") {
+        mediaSheet.closeSheet()
+        return
+      }
+      if (b === "a" || b === "start") {
+        mediaSheet.activateFocused()
+        return
+      }
+      if (b === "up") {
+        mediaSheet.move(-1)
+        return
+      }
+      if (b === "down") {
+        mediaSheet.move(1)
+        return
+      }
+      return
+    }
+    if (detailsSheet.open) {
+      if (b === "b" || b === "select") {
+        detailsSheet.closeSheet()
+        return
+      }
+      if (b === "a" || b === "start") {
+        detailsSheet.activateFocused()
+        return
+      }
+      if (b === "up") {
+        detailsSheet.move(-1)
+        return
+      }
+      if (b === "down") {
+        detailsSheet.move(1)
+        return
+      }
+      return
+    }
     if (ShellState.consoleExitConfirmOpen) {
       if (b === "a" || b === "start") {
         ShellState.consoleExitConfirmOpen = false
@@ -34,10 +396,8 @@ Item {
       }
       return
     }
-    if (ShellState.controlCenterOpen) {
-      // CC owns pad via its own Connections
+    if (ShellState.controlCenterOpen)
       return
-    }
     if (b === "a") {
       root.activateCurrent()
       return
@@ -49,11 +409,13 @@ Item {
     if (b === "x") {
       if (ShellState.consoleSwitcherOpen)
         switcher.closeFocused()
+      else if (focusZone === "shelf" && currentShelfId === "jump")
+        root.removeJumpFocused()
       return
     }
     if (b === "y") {
-      if (focusZone === "hero")
-        library.statusHint = (featured.title || "Item") + " — open from Library for details"
+      if (focusZone === "hero" || focusZone === "shelf")
+        openDetailsSheet()
       return
     }
     if (b === "start") {
@@ -77,68 +439,78 @@ Item {
     }
   }
 
-  readonly property var featured: {
-    if (library.games.length && jumpIndex >= 0 && jumpIndex < library.games.length)
-      return library.games[jumpIndex]
-    return library.featured
-  }
-
-  readonly property var libraryItems: appsModel.allApps
-  readonly property var searchItems: appsModel.filtered
-
   function activateCurrent() {
+    if (mediaSheet.open) {
+      mediaSheet.activateFocused()
+      return
+    }
+    if (detailsSheet.open) {
+      detailsSheet.activateFocused()
+      return
+    }
     if (ShellState.consoleSwitcherOpen) {
       switcher.activateFocused()
       return
     }
-    if (focusZone === "bar") {
+    if (focusZone === "chrome") {
       if (barSlot === 3) {
         ShellState.toggleControlCenter()
         return
       }
-      const tabs = ["home", "library", "search"]
-      tab = tabs[Math.max(0, Math.min(barSlot, 2))]
-      if (tab === "library")
-        focusZone = "library"
-      else if (tab === "search")
+      if (barSlot === 0) {
+        goHomeShelves()
+        return
+      }
+      if (barSlot === 1) {
+        tab = "library"
+        focusZone = "libSection"
+        libraryIndex = 0
+        return
+      }
+      if (barSlot === 2) {
+        tab = "search"
         focusZone = "search"
+        libraryIndex = 0
+      }
       return
     }
     if (focusZone === "hero") {
       if (heroAction === 0)
-        library.activate(featured)
+        activateItem(featured)
       else
-        library.statusHint = (featured.title || "Item") + " — open from Library for details"
+        openDetailsSheet()
       return
     }
-    if (focusZone === "jump") {
-      if (library.games.length)
-        library.activate(library.games[jumpIndex])
+    if (focusZone === "shelf") {
+      const items = shelfItemsAt(shelfIndex)
+      if (items.length)
+        activateItem(items[Math.max(0, Math.min(cardIndex, items.length - 1))])
       return
     }
-    if (focusZone === "apps") {
-      if (library.apps.length)
-        library.activate(library.apps[appsIndex])
+    if (focusZone === "libSection") {
+      focusZone = "library"
+      libraryIndex = 0
       return
     }
     if (focusZone === "library") {
       if (libraryItems.length)
-        library.activate(libraryItems[libraryIndex])
+        activateItem(libraryItems[libraryIndex])
       return
     }
     if (focusZone === "search") {
       if (searchItems.length)
-        library.activate(searchItems[libraryIndex])
-      return
+        activateItem(searchItems[libraryIndex])
     }
   }
 
   function moveHorizontal(delta) {
+    if (mediaSheet.open || detailsSheet.open)
+      return
     if (ShellState.consoleSwitcherOpen) {
       switcher.moveFocus(delta)
       return
     }
-    if (focusZone === "bar") {
+    if (focusZone === "chrome") {
       barSlot = Math.max(0, Math.min(3, barSlot + delta))
       return
     }
@@ -146,16 +518,16 @@ Item {
       heroAction = Math.max(0, Math.min(1, heroAction + delta))
       return
     }
-    if (focusZone === "jump") {
-      if (!library.games.length)
+    if (focusZone === "shelf") {
+      const items = shelfItemsAt(shelfIndex)
+      if (!items.length)
         return
-      jumpIndex = Math.max(0, Math.min(library.games.length - 1, jumpIndex + delta))
+      cardIndex = Math.max(0, Math.min(items.length - 1, cardIndex + delta))
       return
     }
-    if (focusZone === "apps") {
-      if (!library.apps.length)
-        return
-      appsIndex = Math.max(0, Math.min(library.apps.length - 1, appsIndex + delta))
+    if (focusZone === "libSection") {
+      libSectionIndex = Math.max(0, Math.min(libSections.length - 1, libSectionIndex + delta))
+      libraryIndex = 0
       return
     }
     if (focusZone === "library") {
@@ -172,25 +544,68 @@ Item {
   }
 
   function moveVertical(delta) {
-    if (ShellState.consoleSwitcherOpen)
+    if (mediaSheet.open || detailsSheet.open || ShellState.consoleSwitcherOpen)
       return
     if (tab === "library") {
-      focusZone = "library"
+      if (delta < 0) {
+        if (focusZone === "library")
+          focusZone = "libSection"
+        else
+          focusZone = "chrome"
+      } else {
+        if (focusZone === "chrome" || focusZone === "libSection")
+          focusZone = focusZone === "chrome" ? "libSection" : "library"
+        else
+          focusZone = "library"
+      }
       return
     }
     if (tab === "search") {
-      focusZone = delta < 0 ? "bar" : "search"
+      focusZone = delta < 0 ? "chrome" : "search"
       return
     }
-    const zones = ["bar", "hero", "jump", "apps"]
-    let i = zones.indexOf(focusZone)
-    if (i < 0)
-      i = 0
-    i = Math.max(0, Math.min(zones.length - 1, i + delta))
-    focusZone = zones[i]
+    // Home: chrome ↔ hero ↔ shelves
+    if (delta < 0) {
+      if (focusZone === "shelf") {
+        if (shelfIndex > 0) {
+          shelfIndex--
+          clampCardIndex()
+        } else {
+          focusZone = "hero"
+        }
+      } else if (focusZone === "hero") {
+        focusZone = "chrome"
+        barSlot = 0
+      }
+      return
+    }
+    if (focusZone === "chrome") {
+      focusZone = "hero"
+      return
+    }
+    if (focusZone === "hero") {
+      focusZone = "shelf"
+      shelfIndex = 0
+      clampCardIndex()
+      return
+    }
+    if (focusZone === "shelf") {
+      if (shelfIndex < homeShelves.length - 1) {
+        shelfIndex++
+        clampCardIndex()
+      }
+    }
   }
 
   function handleBack() {
+    if (mediaSheet.open) {
+      mediaSheet.closeSheet()
+      return
+    }
+    if (detailsSheet.open) {
+      detailsSheet.closeSheet()
+      return
+    }
     if (ShellState.controlCenterOpen) {
       ShellState.closeControlCenter()
       return
@@ -201,12 +616,20 @@ Item {
     }
     if (tab === "search" && searchQuery.length) {
       searchQuery = ""
+      libraryIndex = 0
       return
     }
     if (tab !== "home") {
-      tab = "home"
-      focusZone = "jump"
+      goHomeShelves()
       return
+    }
+    if (focusZone === "shelf") {
+      focusZone = "hero"
+      return
+    }
+    if (focusZone === "hero") {
+      focusZone = "chrome"
+      barSlot = 0
     }
   }
 
@@ -221,41 +644,42 @@ Item {
     libraryIndex = 0
   }
 
+  function selectDestination(id) {
+    root.tab = id
+    if (id === "home") {
+      root.focusZone = "hero"
+      root.barSlot = 0
+    } else if (id === "library") {
+      root.focusZone = "libSection"
+      root.libraryIndex = 0
+      root.barSlot = 1
+    } else if (id === "search") {
+      root.focusZone = "search"
+      root.libraryIndex = 0
+      root.barSlot = 2
+    }
+  }
+
   Rectangle {
     anchors.fill: parent
     color: Theme.bg
   }
 
-  Rectangle {
-    anchors.fill: parent
-    gradient: Gradient {
-      GradientStop { position: 0.0; color: Theme.bg }
-      GradientStop { position: 1.0; color: Qt.rgba(Theme.bgElevated.r, Theme.bgElevated.g, Theme.bgElevated.b, 0.55) }
-    }
-  }
-
   ColumnLayout {
     anchors.fill: parent
     spacing: 0
-    visible: ShellState.consoleNavVisible && !ShellState.consoleSwitcherOpen
+    visible: !ShellState.consoleSwitcherOpen
+    opacity: root.navOpacity
+    transform: Translate {
+      y: 10 * (1 - root.navOpacity)
+    }
 
     ConsoleBar {
       id: bar
       Layout.fillWidth: true
       tab: root.tab
-      focusedSlot: root.focusZone === "bar" ? root.barSlot : -1
-      onTabSelected: id => {
-        root.tab = id
-        root.focusZone = id === "home" ? "jump" : id
-        if (id === "library" || id === "search")
-          root.libraryIndex = 0
-        if (id === "home")
-          root.barSlot = 0
-        else if (id === "library")
-          root.barSlot = 1
-        else if (id === "search")
-          root.barSlot = 2
-      }
+      focusedSlot: root.focusZone === "chrome" ? root.barSlot : -1
+      onTabSelected: id => root.selectDestination(id)
       onControlCenterRequested: ShellState.toggleControlCenter()
     }
 
@@ -263,53 +687,99 @@ Item {
       Layout.fillWidth: true
       Layout.fillHeight: true
 
-      // Home
-      ColumnLayout {
+      // Home — pinned cinematic hero + scrolling shelf stack
+      Item {
+        id: homeRoot
         anchors.fill: parent
-        anchors.margins: Theme.spaceXl
-        spacing: Theme.spaceXl
         visible: root.tab === "home"
 
         ConsoleHero {
-          Layout.fillWidth: true
+          id: homeHero
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
+          bandHeight: Math.max(280, Math.min(420, homeRoot.height * 0.5))
           item: root.featured
+          metaLine: root.featuredMetaLine
+          bandFocused: root.focusZone === "hero"
           focusedAction: root.focusZone === "hero" ? root.heroAction : -1
-          onResumeRequested: library.activate(root.featured)
-          onDetailsRequested: library.statusHint = (root.featured.title || "Item") + " — open from Library for details"
+          onResumeRequested: root.activateItem(root.featured)
+          onDetailsRequested: root.openDetailsSheet()
         }
 
-        ConsoleRow {
-          Layout.fillWidth: true
-          title: "JUMP BACK IN"
-          items: library.games
-          focusedIndex: root.focusZone === "jump" ? root.jumpIndex : -1
-          cardWidth: 188
-          cardHeight: 112
-          onFocusRequested: i => {
-            root.focusZone = "jump"
-            root.jumpIndex = i
+        Flickable {
+          id: homeFlick
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: homeHero.bottom
+          anchors.bottom: parent.bottom
+          contentWidth: width
+          contentHeight: shelfCol.implicitHeight + Theme.spaceXl
+          clip: true
+          boundsBehavior: Flickable.StopAtBounds
+          interactive: contentHeight > height
+
+          ColumnLayout {
+            id: shelfCol
+            width: homeFlick.width
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.leftMargin: Theme.spaceXl
+            anchors.rightMargin: Theme.spaceXl
+            anchors.topMargin: Theme.spaceMd
+            spacing: Theme.spaceMd
+
+            Text {
+              visible: root.currentShelfId === "jump" && !library.games.length
+                  && root.focusZone === "shelf" && root.shelfIndex === 0
+              text: "Nothing to jump back into yet — open something from Apps or Library."
+              color: Theme.textMute
+              font.family: Theme.fontFamily
+              font.pixelSize: Theme.fontSize
+              Layout.fillWidth: true
+              wrapMode: Text.WordWrap
+            }
+
+            Repeater {
+              id: shelfRepeater
+              model: root.homeShelves
+
+              ConsoleShelf {
+                id: shelfItem
+                required property var modelData
+                required property int index
+                Layout.fillWidth: true
+                title: modelData.title
+                items: modelData.items
+                chromeStyle: !!modelData.chromeStyle
+                allowRemove: !!modelData.allowRemove
+                focusScale: true
+                cardWidth: modelData.cardWidth
+                cardHeight: modelData.cardHeight
+                peekScale: 0.72
+                shelfActive: root.shelfIndex === index
+                    && (root.focusZone === "shelf" || root.focusZone === "hero")
+                focusedIndex: root.focusZone === "shelf" && root.shelfIndex === index
+                    ? root.cardIndex
+                    : -1
+                onFocusRequested: i => {
+                  root.focusZone = "shelf"
+                  root.shelfIndex = index
+                  root.cardIndex = i
+                }
+                onItemActivated: item => root.activateItem(item)
+                onRemoveRequested: item => {
+                  if (library.removeRecent(item.id))
+                    root.clampCardIndex()
+                }
+              }
+            }
           }
-          onItemActivated: item => library.activate(item)
         }
-
-        ConsoleRow {
-          Layout.fillWidth: true
-          title: "APPS"
-          items: library.apps
-          focusedIndex: root.focusZone === "apps" ? root.appsIndex : -1
-          cardWidth: 128
-          cardHeight: 96
-          onFocusRequested: i => {
-            root.focusZone = "apps"
-            root.appsIndex = i
-          }
-          onItemActivated: item => library.activate(item)
-        }
-
-        Item { Layout.fillHeight: true }
       }
 
-      // Library
+      // Library destination
       ColumnLayout {
         anchors.fill: parent
         anchors.margins: Theme.spaceXl
@@ -325,33 +795,84 @@ Item {
           font.weight: Font.DemiBold
         }
 
-        Text {
-          visible: !libraryItems.length
-          text: "No applications found"
-          color: Theme.textMute
-          font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSize
+        Row {
+          spacing: Theme.spaceSm
+          Repeater {
+            model: root.libSections
+            Rectangle {
+              required property var modelData
+              required property int index
+              width: secLbl.implicitWidth + 22
+              height: 32
+              radius: Theme.radiusPill
+              color: root.libSectionId === modelData.id
+                  ? Theme.accent
+                  : (root.focusZone === "libSection" && root.libSectionIndex === index
+                      ? Theme.chromeHover
+                      : Theme.elevatedFill)
+              border.width: root.focusZone === "libSection" && root.libSectionIndex === index
+                  && root.libSectionId !== modelData.id ? 1 : 0
+              border.color: Theme.accent
+              scale: root.focusZone === "libSection" && root.libSectionIndex === index ? 1.06 : 1
+              Behavior on scale {
+                NumberAnimation {
+                  duration: 180
+                  easing.type: Easing.OutCubic
+                }
+              }
+              Text {
+                id: secLbl
+                anchors.centerIn: parent
+                text: modelData.label
+                color: root.libSectionId === modelData.id ? "#ffffff" : Theme.text
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSize + 1
+                font.weight: root.libSectionId === modelData.id ? Font.DemiBold : Font.Normal
+              }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  root.libSectionIndex = index
+                  root.focusZone = "libSection"
+                  root.libraryIndex = 0
+                }
+              }
+            }
+          }
         }
 
-        ConsoleRow {
+        Text {
+          visible: !libraryItems.length
+          text: root.emptyLibraryCopy
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSize + 2
+        }
+
+        ConsoleShelf {
           Layout.fillWidth: true
           visible: libraryItems.length > 0
           title: ""
           items: libraryItems
+          chromeStyle: true
+          focusScale: true
+          shelfActive: root.focusZone === "library"
           focusedIndex: root.focusZone === "library" ? root.libraryIndex : -1
-          cardWidth: 148
-          cardHeight: 100
+          cardWidth: 168
+          cardHeight: 112
+          peekScale: 1
           onFocusRequested: i => {
             root.focusZone = "library"
             root.libraryIndex = i
           }
-          onItemActivated: item => library.activate(item)
+          onItemActivated: item => root.activateItem(item)
         }
 
         Item { Layout.fillHeight: true }
       }
 
-      // Search
+      // Search destination
       ColumnLayout {
         anchors.fill: parent
         anchors.margins: Theme.spaceXl
@@ -369,7 +890,7 @@ Item {
 
         Rectangle {
           Layout.fillWidth: true
-          Layout.preferredHeight: 44
+          Layout.preferredHeight: 52
           radius: Theme.radiusLg
           color: Theme.elevatedFill
           border.width: root.focusZone === "search" && !searchItems.length ? 2 : 1
@@ -379,35 +900,39 @@ Item {
             anchors.fill: parent
             anchors.margins: Theme.spaceMd
             verticalAlignment: Text.AlignVCenter
-            text: root.searchQuery.length ? root.searchQuery : "Type to filter apps…"
+            text: root.searchQuery.length ? root.searchQuery : "Type to search apps, settings, and actions…"
             color: root.searchQuery.length ? Theme.text : Theme.textMute
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSize + 2
+            font.pixelSize: Theme.fontSize + 4
             elide: Text.ElideRight
           }
         }
 
         Text {
           visible: root.searchQuery.length > 0 && !searchItems.length
-          text: "No matches"
+          text: "No apps, settings, or actions match."
           color: Theme.textMute
           font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSize
+          font.pixelSize: Theme.fontSize + 2
         }
 
-        ConsoleRow {
+        ConsoleShelf {
           Layout.fillWidth: true
           visible: searchItems.length > 0
-          title: root.searchQuery.length ? "RESULTS" : "ALL APPS"
+          title: root.searchQuery.length ? "Results" : "Shortcuts"
           items: searchItems
+          chromeStyle: true
+          focusScale: true
+          shelfActive: root.focusZone === "search"
           focusedIndex: root.focusZone === "search" ? root.libraryIndex : -1
-          cardWidth: 148
-          cardHeight: 100
+          cardWidth: 168
+          cardHeight: 112
+          peekScale: 1
           onFocusRequested: i => {
             root.focusZone = "search"
             root.libraryIndex = i
           }
-          onItemActivated: item => library.activate(item)
+          onItemActivated: item => root.activateItem(item)
         }
 
         Item { Layout.fillHeight: true }
@@ -417,6 +942,7 @@ Item {
     ConsoleFooter {
       Layout.fillWidth: true
       hint: library.statusHint
+      contextLine: root.padHintLine
     }
   }
 
@@ -431,7 +957,80 @@ Item {
     z: 20
   }
 
+  ConsoleLeanSheet {
+    id: mediaSheet
+    title: "Media"
+    onClosed: {
+      root.focusZone = root.sheetReturnZone
+      root.forceActiveFocus()
+    }
+    onOptionActivated: opt => {
+      mediaSheet.closeSheet()
+      if (!opt)
+        return
+      if (opt.id === "resume")
+        library.launchMediaPath(Config.consoleLastMediaPath, "Media")
+      else if (opt.id === "sample")
+        library.launchMediaPath(library.sampleLoop, "Sample reel")
+      else if (opt.id === "pick")
+        library.pickMediaFile()
+    }
+  }
+
+  ConsoleLeanSheet {
+    id: detailsSheet
+    title: "Details"
+    showPrimary: false
+    onClosed: {
+      root.focusZone = root.sheetReturnZone
+      root.forceActiveFocus()
+    }
+    onOptionActivated: opt => {
+      detailsSheet.closeSheet()
+      if (!opt)
+        return
+      if (opt.id === "media")
+        root.openMediaSheet()
+      else
+        root.activateItem(root.featured)
+    }
+    onPrimaryActivated: {
+      detailsSheet.closeSheet()
+      root.activateItem(root.featured)
+    }
+  }
+
   Keys.onPressed: event => {
+    if (mediaSheet.open || detailsSheet.open) {
+      if (event.key === Qt.Key_Escape) {
+        root.handleBack()
+        event.accepted = true
+        return
+      }
+      if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+        root.activateCurrent()
+        event.accepted = true
+        return
+      }
+      if (event.key === Qt.Key_Up) {
+        if (mediaSheet.open)
+          mediaSheet.move(-1)
+        else
+          detailsSheet.move(-1)
+        event.accepted = true
+        return
+      }
+      if (event.key === Qt.Key_Down) {
+        if (mediaSheet.open)
+          mediaSheet.move(1)
+        else
+          detailsSheet.move(1)
+        event.accepted = true
+        return
+      }
+      event.accepted = true
+      return
+    }
     if (event.key === Qt.Key_C && !(event.modifiers & Qt.ControlModifier) && tab !== "search") {
       ShellState.toggleControlCenter()
       event.accepted = true
@@ -482,10 +1081,12 @@ Item {
       if (ShellState.consoleSwitcherOpen) {
         switcher.closeFocused()
         event.accepted = true
+      } else if (focusZone === "shelf" && currentShelfId === "jump") {
+        root.removeJumpFocused()
+        event.accepted = true
       }
       return
     }
-    // Printable → search
     if (event.text && event.text.length === 1 && event.text >= " " && !(event.modifiers & Qt.ControlModifier)) {
       const ch = event.text
       if (/^[a-zA-Z0-9 ._\-#]$/.test(ch)) {
@@ -504,7 +1105,8 @@ Item {
   Connections {
     target: library
     function onStatusHintChanged() {
-      if (library.statusHint.length && library.statusHint.indexOf("Opening") !== 0)
+      if (library.statusHint.length && library.statusHint.indexOf("Opening") !== 0
+          && library.statusHint.indexOf("Choose") !== 0)
         hintClear.restart()
     }
   }
@@ -530,13 +1132,13 @@ Item {
         return
       if (ShellState.controlCenterOpen)
         return
-      if (!ShellState.consoleNavVisible && !ShellState.consoleSwitcherOpen && !ShellState.consoleExitConfirmOpen)
+      if (!ShellState.consoleNavVisible && !ShellState.consoleSwitcherOpen
+          && !ShellState.consoleExitConfirmOpen && !mediaSheet.open && !detailsSheet.open)
         return
       root.handlePad(button)
     }
   }
 
-  // Return-to-desktop confirm (Guide Start / pad Start)
   Rectangle {
     anchors.fill: parent
     z: 30
@@ -572,7 +1174,7 @@ Item {
         }
         Text {
           Layout.fillWidth: true
-          text: "Ⓐ Confirm   Ⓑ Cancel"
+          text: "Ⓐ Confirm   Ⓑ Menu"
           color: Theme.textMute
           font.family: Theme.fontFamily
           font.pixelSize: Theme.fontSizeSm

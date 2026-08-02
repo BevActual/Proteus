@@ -1,0 +1,32 @@
+# Proteus console kit — seats, wrap, pads. Installed by console.sh (which
+# enables [multilib] first — steam + lib32 live there). Per-package
+# best-effort: missing mirror packages warn, never fail the stage.
+# Keep out of proteus-desktop.packages.
+
+# Per-title wrap + Guide-button listener
+gamescope
+python-evdev
+
+# Steam (multilib) — UI font + 32-bit GL. Real hardware also wants the matching
+# lib32 Vulkan driver (lib32-vulkan-radeon / lib32-vulkan-intel); the VM has no
+# Vulkan under VirGL, so seats run bare there (capabilities reports it).
+ttf-liberation
+lib32-mesa
+steam
+
+# Pad udev rules (Xbox / DualSense / Switch …) without Steam running.
+# AUR-only — console.sh falls back to yay/paru (steam's own rules cover the
+# Steam path meanwhile; VM virtio pads work regardless).
+game-devices-udev
+
+# RetroArch + lean core set for dogfood
+retroarch
+retroarch-assets-ozone
+libretro-core-info
+libretro-gambatte
+libretro-nestopia
+libretro-snes9x
+libretro-mgba
+
+# Optional / deferred (not installed):
+#   mangohud lib32-mangohud — perf overlay once Gamescope runs on real hardware

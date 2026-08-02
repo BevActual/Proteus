@@ -2,7 +2,7 @@
 doc: config-schema
 role: reference
 audience: coding agents, contributors
-last_updated: "2026-07-29"
+last_updated: "2026-08-01"
 doc_status: active
 scope: settings.json key groups (documentation of existing FileView — not a new format)
 related:
@@ -20,9 +20,9 @@ One schema for all postures; panes enable/disable by capability.
 
 | Group | Keys (representative) | Behaviour façade |
 |-------|----------------------|------------------|
-| Desktop / Hypr | `gapsIn`, `gapsOut`, `borderSize`, `rounding`, `animationsEnabled`, `mouse*` | `Config` / `ConfigHypr` → `proteus-general.conf` |
+| Desktop / Hypr | `gapsIn`, `gapsOut`, `borderSize`, `rounding`, `animationsEnabled`, `mouse*`, `workspaceMode` (`synced` \| `perDisplay`) | `Config` / `ConfigHypr` → `proteus-general.conf` · Spaces via `proteus-workspace` |
 | Gamepads | `gamepadsGuideSingle`, `gamepadsGuideDouble` (`nav` \| `cc` \| `off`) | Settings → Peripherals → Gamepads · `proteus-guide` |
-| Console | `consoleRecents`, `consoleLastMediaPath` | ConsoleShell Jump Back In / Media seat |
+| Console | `consoleRecents`, `consoleLastMediaPath` | Jump Back In (✕ / pad X remove) · Media lean sheet resume path |
 | Chrome | `accentId`, `accentCustom`, `chromeMode`, `chromeOpacity`, `chromeBlur`, `dock*`, `bar*`, `iconPlateMode`, `iconPlateCustom`, `iconOverrides` | Theme + ConfigHypr + DockApps |
 | Lock prefs | `lockOnSessionStart`, `lockDim`, `lockBackgroundMode`, `lockWallpaper*`, `lockDaily*` | Background |
 | Lock/desktop applets | `lockWidgets[]`, `desktopWidgets[]`, `desktopWidgetsSnapToGrid`, `lockShowClock` | Widgets |
@@ -34,11 +34,19 @@ One schema for all postures; panes enable/disable by capability.
 | Beacon | `launcherRecents`, `launcherFileRecents`, `launcherTagCatalog`, `launcherAppTags` | Beacon (system search; keys keep the legacy `launcher` prefix — persisted) |
 | Dock pins | `dockPins` (comma desktop ids; `""` defaults; `-` empty) | DockApps |
 | Icon plates / overrides | `iconPlateMode` (`default` \| `dark` \| `clear` \| `tinted`), `iconPlateCustom`, `iconOverrides` (`id=path;…`) | Theme + DockApps / EnvGate |
-| Notifications | `notificationsDnd` | Notifications |
+| Notifications | `notificationsDnd` | Notifications (hard quiet) |
+| Focus Mode | `focusAllowedApps`, `focusBreakCritical`, `focusProfiles`, `focusActiveProfileId` | FocusMode — soft quiet + allowlist / keywords / schedules (not a posture) |
+| Control Center layout | `controlCenterLayout` | ControlCenterLayout — `{ version, columns, plates, tiles[{id,visible,span,size}] }` Customize foundation |
 
 **Not account secrets:** OAuth tokens live under
 `~/.local/share/proteus/accounts/tokens/` (0600) via `proteus-accounts`; public
-seat metadata in `~/.config/proteus/accounts.json`. Never in `settings.json`.
+seat metadata in `~/.config/proteus/accounts.json`. Lock-screen unlock PIN hash
+lives under `~/.local/share/proteus/auth/pin` (0600) via `proteus-pin.py` /
+`check-unlock.py` — never in `settings.json`.
+
+**Not permission grants:** App permission categories + per-app Allow/Ask/Deny live
+in `~/.config/proteus/permissions.json` (0600) via `proteus-permissions.py` /
+`Permissions.qml` — never in `settings.json` (parallel to `keybinds.json`).
 
 Arrays (`lockWidgets`, `desktopWidgets`, `wallpaperAlbums`, `wallpaperDailySources`)
 are JSON lists; normalizers live on Widgets / Background. Widget instances carry

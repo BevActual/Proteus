@@ -38,9 +38,9 @@ Item {
       cursorShape: Qt.PointingHandCursor
       onClicked: {
         if (Weather.hasLocation)
-          ShellState.toggleCalendar()
+          ShellState.toggleWeather()
         else
-          ShellState.openSettings("datetime")
+          ShellState.openDateTimeSettings()
       }
       onPressAndHold: ShellState.enterDesktopCustomize()
     }

@@ -16,32 +16,6 @@ ColumnLayout {
     return Config.chromeScreenOptions()
   }
 
-  function screenIndex(sel) {
-    const opts = screenOpts
-    for (let i = 0; i < opts.length; i++) {
-      if (opts[i].id === sel)
-        return i
-    }
-    return 0
-  }
-
-  function syncMonitors() {
-    dockMonBox.currentIndex = root.screenIndex(Config.dockMonitor)
-    barMonBox.currentIndex = root.screenIndex(Config.barMonitor)
-  }
-
-  Connections {
-    target: Config
-    function onDockMonitorChanged() {
-      dockMonBox.currentIndex = root.screenIndex(Config.dockMonitor)
-    }
-    function onBarMonitorChanged() {
-      barMonBox.currentIndex = root.screenIndex(Config.barMonitor)
-    }
-  }
-
-  Component.onCompleted: syncMonitors()
-
   SettingsGroup {
     title: "Dock"
 
@@ -71,14 +45,14 @@ ColumnLayout {
       hint: !Config.dockEnabled ? "Requires Show dock"
           : (Config.dockMonitor === "all" ? "Every display" : Config.dockMonitor)
       showSeparator: true
-      ComboBox {
-        id: dockMonBox
-        Layout.preferredWidth: 168
+      SettingsCombo {
+        preferredWidth: 168
         enabled: Config.dockEnabled
-        textRole: "label"
-        valueRole: "id"
         model: root.screenOpts
-        onActivated: Config.dockMonitor = String(currentValue || "all")
+        currentValue: Config.dockMonitor
+        onActivated: v => {
+          Config.dockMonitor = String(v || "all")
+        }
       }
     }
 
@@ -115,13 +89,13 @@ ColumnLayout {
       label: "Show on"
       hint: Config.barMonitor === "all" ? "Every display" : Config.barMonitor
       showSeparator: true
-      ComboBox {
-        id: barMonBox
-        Layout.preferredWidth: 168
-        textRole: "label"
-        valueRole: "id"
+      SettingsCombo {
+        preferredWidth: 168
         model: root.screenOpts
-        onActivated: Config.barMonitor = String(currentValue || "all")
+        currentValue: Config.barMonitor
+        onActivated: v => {
+          Config.barMonitor = String(v || "all")
+        }
       }
     }
 

@@ -34,6 +34,22 @@ ColumnLayout {
       label: "Dock & menu bar"
     },
     {
+      key: "desktop-spaces",
+      label: "Spaces"
+    },
+    {
+      key: "desktop-defaults",
+      label: "Default apps"
+    },
+    {
+      key: "desktop-focus",
+      label: "Focus"
+    },
+    {
+      key: "desktop-control-center",
+      label: "Control Center"
+    },
+    {
       key: "desktop-launcher",
       label: "Beacon"
     }
@@ -63,6 +79,26 @@ ColumnLayout {
   StickyPaneLoader {
     want: root.page === "desktop-dock"
     source: "DesktopDockLeaf.qml"
+  }
+
+  StickyPaneLoader {
+    want: root.page === "desktop-spaces"
+    source: "DesktopSpacesLeaf.qml"
+  }
+
+  StickyPaneLoader {
+    want: root.page === "desktop-defaults"
+    source: "DesktopDefaultsLeaf.qml"
+  }
+
+  StickyPaneLoader {
+    want: root.page === "desktop-focus"
+    source: "DesktopFocusLeaf.qml"
+  }
+
+  StickyPaneLoader {
+    want: root.page === "desktop-control-center"
+    source: "DesktopControlCenterLeaf.qml"
   }
 
   StickyPaneLoader {

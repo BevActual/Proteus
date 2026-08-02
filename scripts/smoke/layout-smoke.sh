@@ -44,6 +44,8 @@ REQUIRED=(
   LockLayoutZones.qml
   Notifications.qml
   KeepAwake.qml
+  FocusMode.qml
+  ControlCenterLayout.qml
   LocalSend.qml
   HyprProfile.qml
   SystemInfo.qml
@@ -57,6 +59,7 @@ REQUIRED=(
   DockApps.qml
   Time.qml
   ActiveWindow.qml
+  UniversalSearch.qml
 )
 
 for f in "${REQUIRED[@]}"; do

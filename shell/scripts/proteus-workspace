@@ -1,0 +1,282 @@
+#!/usr/bin/env bash
+# proteus-workspace — macOS-adjacent Spaces for Hyprland.
+#
+# Logical spaces 1–10 map to per-monitor ID bands:
+#   physical = logical + monitorIndex * 10
+# Mode from ~/.config/proteus/settings.json workspaceMode:
+#   synced     — Super+N / goto switches every display together (default)
+#   perDisplay — switch only the focused (or --monitor) display
+# --local / --synced override the setting for one invocation.
+set -euo pipefail
+
+STRIDE=10
+MAX_LOGICAL=10
+SETTINGS="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/settings.json"
+
+usage() {
+  echo "Usage: proteus-workspace {goto|next|prev|move} [N] [--local|--synced] [--monitor NAME]" >&2
+  exit 2
+}
+
+need_hyprctl() {
+  command -v hyprctl >/dev/null 2>&1 || {
+    echo "proteus-workspace: hyprctl not found" >&2
+    exit 1
+  }
+}
+
+read_mode() {
+  python3 - "$SETTINGS" <<'PY'
+import json, sys
+path = sys.argv[1]
+mode = "synced"
+try:
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    m = data.get("workspaceMode") or "synced"
+    if m in ("synced", "perDisplay"):
+        mode = m
+except Exception:
+    pass
+print(mode)
+PY
+}
+
+# Sorted monitor rows: "id\tname\tfocused\tactiveWorkspaceId"
+monitor_rows() {
+  python3 - <<'PY'
+import json, subprocess, sys
+try:
+    raw = subprocess.check_output(["hyprctl", "-j", "monitors"], text=True)
+    mons = json.loads(raw)
+except Exception as e:
+    print(f"proteus-workspace: monitors: {e}", file=sys.stderr)
+    sys.exit(1)
+mons.sort(key=lambda m: int(m.get("id", 0)))
+for m in mons:
+    aw = m.get("activeWorkspace") or {}
+    wid = aw.get("id", 1)
+    focused = 1 if m.get("focused") else 0
+    print(f"{m.get('id', 0)}\t{m.get('name', '')}\t{focused}\t{wid}")
+PY
+}
+
+logical_of() {
+  local physical="$1"
+  if [[ "${physical}" -lt 1 ]]; then
+    echo 1
+    return
+  fi
+  echo $(( ((physical - 1) % STRIDE) + 1 ))
+}
+
+physical_of() {
+  local logical="$1"
+  local index="$2"
+  echo $(( logical + index * STRIDE ))
+}
+
+clamp_logical() {
+  local n="$1"
+  if [[ "${n}" -lt 1 ]]; then
+    echo 1
+  elif [[ "${n}" -gt "${MAX_LOGICAL}" ]]; then
+    echo "${MAX_LOGICAL}"
+  else
+    echo "${n}"
+  fi
+}
+
+dispatch_batch() {
+  # Join with ; for hyprctl --batch
+  local cmds="$1"
+  if [[ -z "${cmds}" ]]; then
+    return 0
+  fi
+  hyprctl --batch "${cmds}" >/dev/null
+}
+
+goto_synced() {
+  local logical
+  logical="$(clamp_logical "$1")"
+  local rows restore="" batch="" i=0 name focused wid
+  while IFS=$'\t' read -r _id name focused _aw; do
+    [[ -n "${name}" ]] || continue
+    if [[ "${focused}" == "1" ]]; then
+      restore="${name}"
+    fi
+    wid="$(physical_of "${logical}" "${i}")"
+    batch+="dispatch moveworkspacetomonitor ${wid} ${name};"
+    batch+="dispatch focusmonitor ${name};"
+    batch+="dispatch workspace ${wid};"
+    i=$((i + 1))
+  done < <(monitor_rows)
+  if [[ -n "${restore}" ]]; then
+    batch+="dispatch focusmonitor ${restore};"
+  fi
+  dispatch_batch "${batch}"
+}
+
+goto_local() {
+  local logical
+  logical="$(clamp_logical "$1")"
+  local want_mon="${2:-}"
+  local rows i=0 name focused aw target_index=-1 target_name="" restore=""
+  while IFS=$'\t' read -r _id name focused aw; do
+    [[ -n "${name}" ]] || continue
+    if [[ "${focused}" == "1" ]]; then
+      restore="${name}"
+      if [[ -z "${want_mon}" ]]; then
+        target_index="${i}"
+        target_name="${name}"
+      fi
+    fi
+    if [[ -n "${want_mon}" && "${name}" == "${want_mon}" ]]; then
+      target_index="${i}"
+      target_name="${name}"
+    fi
+    i=$((i + 1))
+  done < <(monitor_rows)
+
+  if [[ "${target_index}" -lt 0 || -z "${target_name}" ]]; then
+    # Fallback: focused monitor via relative workspace
+    hyprctl dispatch workspace "$(physical_of "${logical}" 0)" >/dev/null
+    return 0
+  fi
+
+  local wid
+  wid="$(physical_of "${logical}" "${target_index}")"
+  local batch=""
+  batch+="dispatch moveworkspacetomonitor ${wid} ${target_name};"
+  batch+="dispatch focusmonitor ${target_name};"
+  batch+="dispatch workspace ${wid};"
+  if [[ -n "${restore}" && "${restore}" != "${target_name}" && -z "${want_mon}" ]]; then
+    batch+="dispatch focusmonitor ${restore};"
+  fi
+  dispatch_batch "${batch}"
+}
+
+current_logical_on() {
+  local want_mon="${1:-}"
+  local i=0 name focused aw
+  while IFS=$'\t' read -r _id name focused aw; do
+    [[ -n "${name}" ]] || continue
+    if [[ -n "${want_mon}" ]]; then
+      if [[ "${name}" == "${want_mon}" ]]; then
+        logical_of "${aw}"
+        return 0
+      fi
+    elif [[ "${focused}" == "1" ]]; then
+      logical_of "${aw}"
+      return 0
+    fi
+    i=$((i + 1))
+  done < <(monitor_rows)
+  echo 1
+}
+
+move_to_logical() {
+  local logical
+  logical="$(clamp_logical "$1")"
+  local i=0 name focused
+  while IFS=$'\t' read -r _id name focused _aw; do
+    [[ -n "${name}" ]] || continue
+    if [[ "${focused}" == "1" ]]; then
+      local wid
+      wid="$(physical_of "${logical}" "${i}")"
+      hyprctl dispatch movetoworkspace "${wid}" >/dev/null
+      return 0
+    fi
+    i=$((i + 1))
+  done < <(monitor_rows)
+  hyprctl dispatch movetoworkspace "$(physical_of "${logical}" 0)" >/dev/null
+}
+
+main() {
+  need_hyprctl
+  [[ $# -ge 1 ]] || usage
+
+  local cmd="$1"
+  shift
+
+  local force=""
+  local monitor=""
+  local num=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --local)
+        force="local"
+        shift
+        ;;
+      --synced)
+        force="synced"
+        shift
+        ;;
+      --monitor)
+        [[ $# -ge 2 ]] || usage
+        monitor="$2"
+        shift 2
+        ;;
+      --monitor=*)
+        monitor="${1#--monitor=}"
+        shift
+        ;;
+      -*)
+        usage
+        ;;
+      *)
+        if [[ -z "${num}" ]]; then
+          num="$1"
+        else
+          usage
+        fi
+        shift
+        ;;
+    esac
+  done
+
+  local mode
+  mode="$(read_mode)"
+  if [[ "${force}" == "local" ]]; then
+    mode="perDisplay"
+  elif [[ "${force}" == "synced" ]]; then
+    mode="synced"
+  fi
+  # Explicit --monitor implies this-display switch unless --synced forced.
+  if [[ -n "${monitor}" && "${force}" != "synced" ]]; then
+    mode="perDisplay"
+  fi
+
+  case "${cmd}" in
+    goto)
+      [[ -n "${num}" ]] || usage
+      if [[ "${mode}" == "synced" ]]; then
+        goto_synced "${num}"
+      else
+        goto_local "${num}" "${monitor}"
+      fi
+      ;;
+    next|prev)
+      local cur delta=1
+      cur="$(current_logical_on "${monitor}")"
+      if [[ "${cmd}" == "prev" ]]; then
+        delta=-1
+      fi
+      local target=$((cur + delta))
+      if [[ "${mode}" == "synced" ]]; then
+        goto_synced "${target}"
+      else
+        goto_local "${target}" "${monitor}"
+      fi
+      ;;
+    move)
+      [[ -n "${num}" ]] || usage
+      move_to_logical "${num}"
+      ;;
+    *)
+      usage
+      ;;
+  esac
+}
+
+main "$@"

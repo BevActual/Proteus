@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install the Proteus lock-screen PAM service to /etc/pam.d/proteus-lock.
 #
-# Without this the lock screen still works — check-password.py falls back to
+# Without this the lock screen still works — check-unlock.py falls back to
 # the "login" stack — but it bypasses whatever the distro configures in
 # system-auth (faillock lockout, fail delay). Run once per guest.
 set -euo pipefail

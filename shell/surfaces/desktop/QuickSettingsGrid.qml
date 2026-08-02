@@ -26,6 +26,10 @@ ColumnLayout {
   // Display brightness (Brightness singleton; hidden without a backlight).
   property int brightnessPct: -1
   property bool brightnessSliding: false
+  property var sinkOptions: []
+  property string defaultSinkName: ""
+  property var wifiNetworks: []
+  property var btDevices: []
 
   signal volumeChangedByUser(int pct)
   signal muteToggled()
@@ -86,6 +90,28 @@ ColumnLayout {
   function refreshNetwork() {
     netProc.running = false
     netProc.running = true
+  }
+
+  function refreshSinks() {
+    Audio.listSinks(list => {
+      root.sinkOptions = Array.isArray(list) ? list : []
+      for (let i = 0; i < root.sinkOptions.length; i++) {
+        if (root.sinkOptions[i] && root.sinkOptions[i].isDefault) {
+          root.defaultSinkName = String(root.sinkOptions[i].name || root.sinkOptions[i].id || "")
+          break
+        }
+      }
+    })
+  }
+
+  function refreshWifiNetworks() {
+    wifiListProc.running = false
+    wifiListProc.running = true
+  }
+
+  function refreshBtDevices() {
+    btListProc.running = false
+    btListProc.running = true
   }
 
   // Mix strip lifecycle (CC open → resident serve + input peaks).
@@ -238,8 +264,10 @@ ColumnLayout {
   Connections {
     target: ShellState
     function onControlCenterOpenChanged() {
-      if (ShellState.controlCenterOpen)
+      if (ShellState.controlCenterOpen) {
         Power.refreshProfiles()
+        root.refreshSinks()
+      }
       root.syncMixLifecycle()
     }
   }
@@ -338,6 +366,7 @@ ColumnLayout {
   Rectangle {
     id: soundPlate
     Layout.fillWidth: true
+    visible: ControlCenterLayout.plateVisible("sound")
     implicitHeight: soundCol.implicitHeight + Theme.spaceSm * 2
     radius: Theme.radiusLg
     color: Theme.elevatedFill
@@ -930,12 +959,114 @@ ColumnLayout {
           horizontalAlignment: Text.AlignRight
         }
       }
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: Theme.spaceSm
+        Text {
+          text: "Output"
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: 12
+          Layout.preferredWidth: 52
+        }
+        Rectangle {
+          id: sinkChip
+          Layout.fillWidth: true
+          Layout.preferredHeight: 28
+          radius: Theme.radiusSm
+          color: sinkPopup.visible || sinkChipMa.containsMouse ? Theme.bgHover : Theme.bgElevated
+          border.width: 1
+          border.color: sinkPopup.visible ? Theme.accent : Theme.chromeBorder
+          Text {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.margins: Theme.spaceSm
+            text: {
+              const list = root.sinkOptions || []
+              for (let i = 0; i < list.length; i++) {
+                if (list[i] && list[i].isDefault)
+                  return Audio.formatAudioDeviceName(list[i].label || list[i].name || "Output") + " ▾"
+              }
+              return list.length ? "Output ▾" : "No outputs"
+            }
+            color: Theme.text
+            font.family: Theme.fontFamily
+            font.pixelSize: 12
+            elide: Text.ElideRight
+          }
+          MouseArea {
+            id: sinkChipMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              if (sinkPopup.visible)
+                sinkPopup.close()
+              else {
+                root.refreshSinks()
+                sinkPopup.open()
+              }
+            }
+          }
+          Popup {
+            id: sinkPopup
+            y: sinkChip.height + 4
+            width: Math.max(220, sinkChip.width)
+            padding: 4
+            closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+            background: Rectangle {
+              radius: Theme.radiusMd
+              color: Theme.bgElevated
+              border.width: 1
+              border.color: Theme.border
+            }
+            contentItem: ListView {
+              clip: true
+              implicitHeight: Math.min(contentHeight, 220)
+              model: root.sinkOptions
+              spacing: 1
+              delegate: Rectangle {
+                required property var modelData
+                width: ListView.view.width
+                height: 32
+                radius: Theme.radiusSm
+                color: modelData.isDefault ? Theme.accentSoft : (sinkRowMa.containsMouse ? Theme.bgHover : "transparent")
+                Text {
+                  anchors.fill: parent
+                  anchors.leftMargin: Theme.spaceSm
+                  anchors.rightMargin: Theme.spaceSm
+                  verticalAlignment: Text.AlignVCenter
+                  text: Audio.formatAudioDeviceName(modelData.label || modelData.name || modelData.id)
+                  color: Theme.text
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 12
+                  elide: Text.ElideRight
+                }
+                MouseArea {
+                  id: sinkRowMa
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    Audio.setDefaultSink(modelData.name || modelData.id)
+                    sinkPopup.close()
+                    root.refreshSinks()
+                    root.refreshAudio()
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 
   // Display plate — brightness slider (only with a real backlight; VM hides it).
   Rectangle {
-    visible: Brightness.available && root.brightnessPct >= 0
+    visible: ControlCenterLayout.plateVisible("display") && Brightness.available && root.brightnessPct >= 0
     Layout.fillWidth: true
     implicitHeight: brightCol.implicitHeight + Theme.spaceSm * 2
     radius: Theme.radiusLg
@@ -1002,103 +1133,170 @@ ColumnLayout {
   // Tile grid
   GridLayout {
     Layout.fillWidth: true
-    columns: 2
+    columns: {
+      const _ = ControlCenterLayout.layoutRev
+      return ControlCenterLayout.resolvedLayout().columns || 2
+    }
     rowSpacing: Theme.spaceSm
     columnSpacing: Theme.spaceSm
 
     Repeater {
       model: {
+        const _lay = ControlCenterLayout.layoutRev
+        const lay = ControlCenterLayout.resolvedLayout()
         const connected = root.netSummary !== "No connection" && root.netSummary !== "Checking…"
+        const order = lay.tiles || []
         const tiles = []
-        tiles.push({
-          id: "net",
-          glyph: "⇅",
-          title: root.wifiSupported ? "Wi‑Fi" : "Network",
-          subtitle: root.wifiSupported && !root.wifiEnabled
-              ? "Wi‑Fi off"
-              : (root.netSummary === "No connection" ? "Not connected" : root.netSummary),
-          accent: connected && (!root.wifiSupported || root.wifiEnabled),
-          interactive: true,
-          trailing: "›",
-          span: root.btAvailable ? 1 : 2
-        })
-        if (root.btAvailable) {
-          tiles.push({
-            id: "bt",
-            glyph: "ᛒ",
-            title: "Bluetooth",
-            subtitle: root.btPowered ? "On" : "Off",
-            accent: root.btPowered,
-            interactive: true,
-            trailing: root.btPowered ? "On" : "Off"
-          })
+        function metaFor(id) {
+          for (let i = 0; i < order.length; i++) {
+            if (order[i] && order[i].id === id)
+              return order[i]
+          }
+          return { id: id, visible: true, span: 1, size: "md" }
         }
-        tiles.push({
-          id: "localsend",
-          glyph: "➤",
-          title: "LocalSend",
-          subtitle: !LocalSend.available
-              ? "Not installed · tap for options"
-              : (LocalSend.running
-                  ? LocalSend.hint
-                  : (LocalSend.receiveEndpoint.length
-                      ? ("Share nearby · " + LocalSend.receiveEndpoint)
-                      : "Share files nearby")),
-          accent: LocalSend.available && LocalSend.running,
-          interactive: true,
-          trailing: LocalSend.available ? (LocalSend.shortLabel + " ›") : "›"
-        })
-        tiles.push({
-          id: "power",
-          glyph: "⏻",
-          title: "Power",
-          subtitle: !Power.profilesAvailable
-              ? (root.batteryText.length ? root.batteryText : "Profiles unavailable")
-              : (root.batteryText.length
-                  ? (root.batteryText + " · " + Power.activeProfileLabel)
-                  : Power.activeProfileLabel),
-          accent: Power.profilesAvailable && Power.activeProfile === "performance",
-          interactive: Power.profilesAvailable && Power.profileOptions.length > 0,
-          trailing: Power.profilesAvailable ? "›" : ""
-        })
-        tiles.push({
-          id: "dnd",
-          glyph: "☾",
-          title: "Do Not Disturb",
-          // State lives on the accent disc — no trailing text (room for title).
-          subtitle: Config.notificationsDnd ? "Toasts off" : "Toasts on",
-          accent: Config.notificationsDnd,
-          interactive: true,
-          trailing: ""
-        })
-        tiles.push({
-          id: "awake",
-          glyph: "✦",
-          title: "Keep Awake",
-          subtitle: KeepAwake.active ? KeepAwake.label : "Off",
-          accent: KeepAwake.active,
-          interactive: true,
-          trailing: "›"
-        })
-        tiles.push({
-          id: "console",
-          glyph: "▶",
-          title: "Console",
-          subtitle: "Hard switch · lean-back",
-          accent: false,
-          interactive: true,
-          trailing: "›",
-          span: 2
-        })
+        function pushTile(spec) {
+          const meta = metaFor(spec.id)
+          if (meta.visible === false)
+            return
+          let span = Number(meta.span) === 2 ? 2 : 1
+          if (spec.forceSpan)
+            span = spec.forceSpan
+          tiles.push(Object.assign({}, spec, {
+            span: span,
+            size: meta.size || "md",
+            tileHeight: ControlCenterLayout.heightForSize(meta.size || "md")
+          }))
+        }
+        for (let i = 0; i < order.length; i++) {
+          const id = order[i] && order[i].id
+          if (!id || order[i].visible === false)
+            continue
+          if (id === "net") {
+            pushTile({
+              id: "net",
+              glyph: "⇅",
+              title: root.wifiSupported ? "Wi‑Fi" : "Network",
+              subtitle: root.wifiSupported && !root.wifiEnabled
+                  ? "Wi‑Fi off"
+                  : (root.netSummary === "No connection" ? "Not connected" : root.netSummary),
+              accent: connected && (!root.wifiSupported || root.wifiEnabled),
+              interactive: true,
+              trailing: "›",
+              forceSpan: root.btAvailable ? 0 : 2
+            })
+          } else if (id === "bt") {
+            if (!root.btAvailable)
+              continue
+            pushTile({
+              id: "bt",
+              glyph: "ᛒ",
+              title: "Bluetooth",
+              subtitle: root.btPowered ? "On" : "Off",
+              accent: root.btPowered,
+              interactive: true,
+              trailing: root.btPowered ? "On" : "Off"
+            })
+          } else if (id === "localsend") {
+            pushTile({
+              id: "localsend",
+              glyph: "➤",
+              title: "LocalSend",
+              subtitle: !LocalSend.available
+                  ? "Not installed · tap for options"
+                  : (LocalSend.running
+                      ? LocalSend.hint
+                      : (LocalSend.receiveEndpoint.length
+                          ? ("Share nearby · " + LocalSend.receiveEndpoint)
+                          : "Share files nearby")),
+              accent: LocalSend.available && LocalSend.running,
+              interactive: true,
+              trailing: LocalSend.available ? (LocalSend.shortLabel + " ›") : "›"
+            })
+          } else if (id === "power") {
+            pushTile({
+              id: "power",
+              glyph: "⏻",
+              title: "Power",
+              subtitle: !Power.profilesAvailable
+                  ? (root.batteryText.length ? root.batteryText : "Profiles unavailable")
+                  : (root.batteryText.length
+                      ? (root.batteryText + " · " + Power.activeProfileLabel)
+                      : Power.activeProfileLabel),
+              accent: Power.profilesAvailable && Power.activeProfile === "performance",
+              interactive: Power.profilesAvailable && Power.profileOptions.length > 0,
+              trailing: Power.profilesAvailable ? "›" : ""
+            })
+          } else if (id === "focus" || id === "dnd") {
+            const prof = FocusMode.activeProfile()
+            pushTile({
+              id: "focus",
+              glyph: "☾",
+              title: "Focus",
+              subtitle: FocusMode.active
+                  ? (FocusMode.label + (prof && prof.name ? (" · " + prof.name) : ""))
+                  : "Off",
+              accent: FocusMode.active,
+              interactive: true,
+              trailing: "›"
+            })
+          } else if (id === "appearance") {
+            pushTile({
+              id: "appearance",
+              glyph: Config.chromeMode === "light" ? "☀" : "◐",
+              title: "Appearance",
+              subtitle: Config.chromeMode === "light" ? "Light" : "Dark",
+              accent: Config.chromeMode === "light",
+              interactive: true,
+              trailing: ""
+            })
+          } else if (id === "awake") {
+            pushTile({
+              id: "awake",
+              glyph: "✦",
+              title: "Keep Awake",
+              subtitle: KeepAwake.active ? KeepAwake.label : "Off",
+              accent: KeepAwake.active,
+              interactive: true,
+              trailing: "›"
+            })
+          } else if (id === "console") {
+            if (ShellState.consoleSurfaceActive)
+              continue
+            pushTile({
+              id: "console",
+              glyph: "▶",
+              title: "Console",
+              subtitle: "Hard switch · lean-back",
+              accent: false,
+              interactive: true,
+              trailing: "›",
+              forceSpan: 2
+            })
+          } else if (id === "desktop") {
+            if (!ShellState.consoleSurfaceActive)
+              continue
+            pushTile({
+              id: "desktop",
+              glyph: "⌂",
+              title: "Desktop",
+              subtitle: "Hard switch · desk",
+              accent: false,
+              interactive: true,
+              trailing: "›",
+              forceSpan: 2
+            })
+          }
+        }
         return tiles
       }
+
 
       Rectangle {
         id: tile
         required property var modelData
         Layout.fillWidth: true
         Layout.columnSpan: modelData.span || 1
-        Layout.preferredHeight: 64
+        Layout.preferredHeight: modelData.tileHeight || 64
         radius: Theme.radiusLg
         // Same hover language as rows/menus — tiles brighten, accent stays selection.
         color: {
@@ -1205,20 +1403,32 @@ ColumnLayout {
               }
               if (wifiPopup.visible)
                 wifiPopup.close()
-              else
+              else {
+                root.refreshWifiNetworks()
                 wifiPopup.open()
-            } else if (modelData.id === "bt")
-              root.toggleBluetooth()
-            else if (modelData.id === "localsend") {
+              }
+            } else if (modelData.id === "bt") {
+              if (btPopup.visible)
+                btPopup.close()
+              else {
+                root.refreshBtDevices()
+                btPopup.open()
+              }
+            } else if (modelData.id === "localsend") {
               if (localSendPopup.visible)
                 localSendPopup.close()
               else {
                 LocalSend.refresh()
                 localSendPopup.open()
               }
-            } else if (modelData.id === "dnd")
-              root.dndToggled()
-            else if (modelData.id === "power") {
+            } else if (modelData.id === "focus") {
+              if (focusPopup.visible)
+                focusPopup.close()
+              else
+                focusPopup.open()
+            } else if (modelData.id === "appearance") {
+              Config.setChromeMode(Config.chromeMode === "light" ? "dark" : "light")
+            } else if (modelData.id === "power") {
               if (powerPopup.visible)
                 powerPopup.close()
               else {
@@ -1331,6 +1541,50 @@ ColumnLayout {
                 cursorShape: Qt.PointingHandCursor
                 z: -1
                 onClicked: root.toggleWifi()
+              }
+            }
+
+            Repeater {
+              model: root.wifiNetworks
+              Rectangle {
+                required property var modelData
+                width: wifiPopup.width - 8
+                height: 32
+                radius: Theme.radiusSm
+                color: wifiNetMa.containsMouse ? Theme.bgHover : "transparent"
+                RowLayout {
+                  anchors.fill: parent
+                  anchors.leftMargin: Theme.spaceSm
+                  anchors.rightMargin: Theme.spaceSm
+                  Text {
+                    Layout.fillWidth: true
+                    text: modelData.ssid
+                    color: Theme.text
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 12
+                    elide: Text.ElideRight
+                  }
+                  Text {
+                    text: modelData.active ? "Connected" : "Join"
+                    color: modelData.active ? Theme.accent : Theme.textMute
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 11
+                  }
+                }
+                MouseArea {
+                  id: wifiNetMa
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    if (modelData.active)
+                      return
+                    Quickshell.execDetached({
+                      command: ["nmcli", "connection", "up", "id", modelData.ssid]
+                    })
+                    wifiPopup.close()
+                  }
+                }
               }
             }
 
@@ -1682,6 +1936,393 @@ ColumnLayout {
             }
           }
         }
+        Popup {
+          id: btPopup
+          visible: false
+          enabled: modelData.id === "bt"
+          y: tile.height + 4
+          x: Math.max(0, tile.width - width)
+          width: Math.max(220, tile.width)
+          padding: 4
+          closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
+          modal: false
+          background: Rectangle {
+            radius: Theme.radiusMd
+            color: Theme.bgElevated
+            border.width: 1
+            border.color: Theme.border
+          }
+          contentItem: Column {
+            spacing: 1
+            Rectangle {
+              width: btPopup.width - 8
+              height: 36
+              radius: Theme.radiusSm
+              RowLayout {
+                anchors.fill: parent
+                anchors.margins: Theme.spaceSm
+                Text {
+                  Layout.fillWidth: true
+                  text: "Bluetooth"
+                  color: Theme.text
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 12
+                }
+                ThemeSwitch {
+                  checked: root.btPowered
+                  onToggled: {
+                    root.toggleBluetooth()
+                    checked = Qt.binding(() => root.btPowered)
+                  }
+                }
+              }
+            }
+            Repeater {
+              model: root.btDevices
+              Rectangle {
+                required property var modelData
+                width: btPopup.width - 8
+                height: 32
+                radius: Theme.radiusSm
+                color: btDevMa.containsMouse ? Theme.bgHover : "transparent"
+                RowLayout {
+                  anchors.fill: parent
+                  anchors.leftMargin: Theme.spaceSm
+                  anchors.rightMargin: Theme.spaceSm
+                  Text {
+                    Layout.fillWidth: true
+                    text: modelData.name
+                    color: Theme.text
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 12
+                    elide: Text.ElideRight
+                  }
+                  Text {
+                    text: modelData.connected ? "Connected" : "Connect"
+                    color: modelData.connected ? Theme.accent : Theme.textMute
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 11
+                  }
+                }
+                MouseArea {
+                  id: btDevMa
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    const mac = modelData.mac
+                    if (!mac.length)
+                      return
+                    Quickshell.execDetached({
+                      command: ["bash", "-lc", (modelData.connected ? "bluetoothctl disconnect " : "bluetoothctl connect ") + mac]
+                    })
+                    btPopup.close()
+                  }
+                }
+              }
+            }
+            Rectangle {
+              width: btPopup.width - 8
+              height: 32
+              radius: Theme.radiusSm
+              color: btSetMa.containsMouse ? Theme.bgHover : "transparent"
+              Text {
+                anchors.left: parent.left
+                anchors.leftMargin: Theme.spaceSm
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Bluetooth Settings ›"
+                color: Theme.accent
+                font.family: Theme.fontFamily
+                font.pixelSize: 12
+                font.weight: Font.Medium
+              }
+              MouseArea {
+                id: btSetMa
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  btPopup.close()
+                  ShellState.closeControlCenter()
+                  ShellState.openSettings("network-bluetooth")
+                }
+              }
+            }
+          }
+        }
+
+        Popup {
+          id: focusPopup
+          visible: false
+          enabled: modelData.id === "focus"
+          y: tile.height + 4
+          x: Math.max(0, tile.width - width)
+          width: Math.max(240, tile.width)
+          padding: 4
+          closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+          modal: false
+          background: Rectangle {
+            radius: Theme.radiusMd
+            color: Theme.bgElevated
+            border.width: 1
+            border.color: Theme.border
+          }
+          contentItem: Flickable {
+            clip: true
+            implicitHeight: Math.min(focusCol.implicitHeight, 360)
+            contentHeight: focusCol.implicitHeight
+            Column {
+              id: focusCol
+              width: focusPopup.width - 8
+              spacing: 1
+              Text {
+                leftPadding: Theme.spaceSm
+                topPadding: 4
+                text: "Duration"
+                color: Theme.textMute
+                font.family: Theme.fontFamily
+                font.pixelSize: 10
+              }
+              Repeater {
+                model: FocusMode.menuOptions
+                Rectangle {
+                  required property var modelData
+                  width: focusCol.width
+                  height: 32
+                  radius: Theme.radiusSm
+                  color: {
+                    const selected = (modelData.id === "off" && !FocusMode.active) || (modelData.id === FocusMode.mode)
+                    return selected ? Theme.accentSoft : (focusDurMa.containsMouse ? Theme.bgHover : "transparent")
+                  }
+                  Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: Theme.spaceSm
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: modelData.title
+                    color: Theme.text
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 12
+                  }
+                  MouseArea {
+                    id: focusDurMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                      FocusMode.select(modelData.id)
+                      focusPopup.close()
+                    }
+                  }
+                }
+              }
+              Text {
+                leftPadding: Theme.spaceSm
+                topPadding: 6
+                text: "Profile"
+                color: Theme.textMute
+                font.family: Theme.fontFamily
+                font.pixelSize: 10
+              }
+              Repeater {
+                model: FocusMode.profiles()
+                Rectangle {
+                  required property var modelData
+                  width: focusCol.width
+                  height: 28
+                  radius: Theme.radiusSm
+                  color: String(modelData.id) === FocusMode.activeProfileId() ? Theme.accentSoft : (focusProfMa.containsMouse ? Theme.bgHover : "transparent")
+                  Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: Theme.spaceSm
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: modelData.name || modelData.id
+                    color: Theme.text
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 12
+                  }
+                  MouseArea {
+                    id: focusProfMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: FocusMode.setActiveProfileId(modelData.id)
+                  }
+                }
+              }
+              Rectangle {
+                width: focusCol.width
+                height: 36
+                radius: Theme.radiusSm
+                RowLayout {
+                  anchors.fill: parent
+                  anchors.margins: Theme.spaceSm
+                  Text {
+                    Layout.fillWidth: true
+                    text: "Break through critical"
+                    color: Theme.text
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 12
+                  }
+                  ThemeSwitch {
+                    checked: FocusMode.breakCritical()
+                    onToggled: {
+                      FocusMode.setBreakCritical(checked)
+                      checked = Qt.binding(() => FocusMode.breakCritical())
+                    }
+                  }
+                }
+              }
+              Repeater {
+                model: FocusMode.recentApps
+                Rectangle {
+                  required property var modelData
+                  width: focusCol.width
+                  height: 28
+                  radius: Theme.radiusSm
+                  color: focusAllowMa.containsMouse ? Theme.bgHover : "transparent"
+                  readonly property bool allowed: {
+                    const list = FocusMode.allowedAppsList()
+                    const key = FocusMode.normalizeAppKey(modelData.id)
+                    for (let i = 0; i < list.length; i++) {
+                      if (FocusMode.normalizeAppKey(list[i]) === key)
+                        return true
+                    }
+                    return false
+                  }
+                  Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: Theme.spaceSm
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: (parent.allowed ? "Allowed · " : "Allow · ") + (modelData.name || modelData.id)
+                    color: Theme.text
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 11
+                  }
+                  MouseArea {
+                    id: focusAllowMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                      if (parent.allowed)
+                        FocusMode.removeAllowedApp(modelData.id)
+                      else
+                        FocusMode.addAllowedApp(modelData.id)
+                    }
+                  }
+                }
+              }
+              Rectangle {
+                width: focusCol.width
+                height: 32
+                radius: Theme.radiusSm
+                color: focusSetMa.containsMouse ? Theme.bgHover : "transparent"
+                Text {
+                  anchors.left: parent.left
+                  anchors.leftMargin: Theme.spaceSm
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Focus Settings ›"
+                  color: Theme.accent
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 12
+                  font.weight: Font.Medium
+                }
+                MouseArea {
+                  id: focusSetMa
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    focusPopup.close()
+                    ShellState.closeControlCenter()
+                    ShellState.openSettings("desktop-focus")
+                  }
+                }
+              }
+              Rectangle {
+                width: focusCol.width
+                height: 32
+                radius: Theme.radiusSm
+                color: focusDndMa.containsMouse ? Theme.bgHover : "transparent"
+                Text {
+                  anchors.left: parent.left
+                  anchors.leftMargin: Theme.spaceSm
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Hard quiet (DND)"
+                  color: Theme.text
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 12
+                }
+                MouseArea {
+                  id: focusDndMa
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    Notifications.setDnd(true)
+                    focusPopup.close()
+                  }
+                }
+              }
+            }
+          }
+        }
+
+      }
+    }
+  }
+
+  Process {
+    id: wifiListProc
+    command: ["bash", "-lc", "nmcli -t -f ACTIVE,SSID,SIGNAL dev wifi list 2>/dev/null | head -n 24 || true"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const lines = String(text || "").split("\n")
+        const out = []
+        const seen = {}
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim()
+          if (!line.length)
+            continue
+          const parts = line.split(":")
+          if (parts.length < 2)
+            continue
+          const ssid = parts[1]
+          if (!ssid.length || seen[ssid])
+            continue
+          seen[ssid] = true
+          out.push({ ssid: ssid, active: parts[0] === "yes" })
+        }
+        root.wifiNetworks = out
+      }
+    }
+  }
+
+  Process {
+    id: btListProc
+    command: ["bash", "-lc", "bluetoothctl devices 2>/dev/null | head -n 20; echo '---'; bluetoothctl devices Connected 2>/dev/null"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const raw = String(text || "")
+        const bits = raw.split("---")
+        const connected = {}
+        if (bits.length > 1) {
+          const cl = bits[1].split("\n")
+          for (let i = 0; i < cl.length; i++) {
+            const p = cl[i].trim().split(/\s+/)
+            if (p.length >= 3 && p[0] === "Device")
+              connected[p[1]] = true
+          }
+        }
+        const lines = bits[0].split("\n")
+        const out = []
+        for (let i = 0; i < lines.length; i++) {
+          const p = lines[i].trim().split(/\s+/)
+          if (p.length < 3 || p[0] !== "Device")
+            continue
+          out.push({ mac: p[1], name: p.slice(2).join(" "), connected: !!connected[p[1]] })
+        }
+        root.btDevices = out
       }
     }
   }

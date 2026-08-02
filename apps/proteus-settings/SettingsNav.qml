@@ -43,6 +43,10 @@ Singleton {
     {
       id: "network",
       label: "Network"
+    },
+    {
+      id: "privacy",
+      label: "Privacy & security"
     }
   ]
 

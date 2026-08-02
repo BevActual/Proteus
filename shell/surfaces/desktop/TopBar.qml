@@ -1,5 +1,7 @@
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Services.SystemTray
+import Quickshell.Widgets
 import QtQuick
 import QtQuick.Window
 import "../../shared"
@@ -9,6 +11,9 @@ Item {
   id: root
   anchors.fill: parent
 
+  // Owning PanelWindow screen (Spaces strip is monitor-aware).
+  property var screen: null
+
   readonly property real dpr: Math.max(1, Screen.devicePixelRatio || 1)
   readonly property int controlH: Math.max(20, Theme.barHeight - 10)
   readonly property int sidePad: 14
@@ -16,6 +21,9 @@ Item {
   // Only a real battery earns a percent in the bar — a VM / desktop UPower
   // display device reports 0% and would read as a dying laptop.
   readonly property string batteryHint: Power.hasBattery ? (Power.percent + "%") : ""
+  readonly property color statusGlyphColor: Theme.light
+      ? Qt.rgba(0.11, 0.11, 0.12, 0.88)
+      : Qt.rgba(0.96, 0.96, 0.97, 0.92)
 
   // Glass plate
   Rectangle {
@@ -148,56 +156,190 @@ Item {
 
       Workspaces {
         anchors.verticalCenter: parent.verticalCenter
+        screen: root.screen
       }
     }
 
-    // Center: date · time · weather — click opens the calendar / today popover
+    // Center: date · time · weather — click opens the calendar / today popover.
+    // True viewport center; fades when left/right chrome crowds the mid band.
     Rectangle {
       id: centerCluster
       anchors.horizontalCenter: parent.horizontalCenter
       anchors.verticalCenter: parent.verticalCenter
       height: root.controlH
-      width: centerRow.implicitWidth + 18
+      // Natural content width; cap so a long weather string can't eat the bar.
+      width: Math.min(centerRow.implicitWidth + 22, Math.max(72, root.width * 0.42))
       radius: height / 2
       z: 3
-      color: centerMa.containsMouse || ShellState.calendarOpen
-          ? (Theme.light ? Qt.rgba(0, 0, 0, 0.06) : Qt.rgba(1, 1, 1, 0.1))
+      clip: true
+
+      readonly property bool weatherVisible: Config.weatherEnabled && Weather.hasLocation
+          && (Weather.ready || Weather.loading || Weather.error.length > 0)
+      // Side chrome budget (no dependency on this cluster's width — avoids flicker).
+      readonly property real sideBudget: leftRow.implicitWidth + rightChrome.width
+          + (tileToggle.visible ? tileToggle.width + 6 : 0) + root.sidePad * 2 + 40
+      readonly property real midClear: root.width - sideBudget
+      // Hide weekday/date first when the mid band is tight; keep time (+ weather).
+      readonly property bool showDate: midClear >= 200
+      // Soft-hide the whole cluster if even a compact time chip would collide.
+      readonly property bool crowdedOut: midClear < 88
+
+      opacity: crowdedOut ? 0 : 1
+      enabled: !crowdedOut
+
+      Behavior on opacity {
+        NumberAnimation {
+          duration: 140
+          easing.type: Easing.OutCubic
+        }
+      }
+
+      readonly property bool centerHot: ShellState.calendarOpen || ShellState.weatherOpen
+          || clockMa.containsMouse || wxChipMa.containsMouse
+
+      color: centerHot
+          ? (ShellState.calendarOpen || ShellState.weatherOpen
+              ? Theme.chromeAccentSoft
+              : (Theme.light ? Qt.rgba(0, 0, 0, 0.07) : Qt.rgba(1, 1, 1, 0.12)))
           : "transparent"
+
+      Behavior on color {
+        ColorAnimation {
+          duration: 140
+          easing.type: Easing.OutCubic
+        }
+      }
 
       Row {
         id: centerRow
         anchors.centerIn: parent
-        spacing: 8
+        spacing: 0
 
-        Text {
-          anchors.verticalCenter: parent.verticalCenter
-          text: Time.text
-          color: Theme.text
-          font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSizeSm
-          font.weight: Font.Medium
-          style: root.barTextStyle
-          styleColor: root.barTextStyleColor
+        // Date · time → calendar glance
+        Item {
+          id: clockChip
+          width: clockRow.implicitWidth
+          height: root.controlH
+
+          Row {
+            id: clockRow
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 0
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              visible: centerCluster.showDate
+              text: Time.dateText
+              color: Theme.textDim
+              font.family: Theme.fontFamily
+              font.pixelSize: Theme.fontSizeSm
+              font.weight: Font.Normal
+              style: root.barTextStyle
+              styleColor: root.barTextStyleColor
+              opacity: 0.92
+            }
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              visible: centerCluster.showDate
+              text: "  ·  "
+              color: Theme.textMute
+              font.family: Theme.fontFamily
+              font.pixelSize: Theme.fontSizeSm
+              style: root.barTextStyle
+              styleColor: root.barTextStyleColor
+              opacity: 0.55
+            }
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: Time.timeText
+              color: Theme.text
+              font.family: Theme.fontFamily
+              font.pixelSize: Theme.fontSizeSm
+              font.weight: Font.DemiBold
+              style: root.barTextStyle
+              styleColor: root.barTextStyleColor
+            }
+          }
+
+          MouseArea {
+            id: clockMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: ShellState.toggleCalendar()
+          }
         }
 
         Text {
           anchors.verticalCenter: parent.verticalCenter
-          visible: Weather.ready
-          text: "·  " + Weather.temperatureText
-          color: Theme.textDim
+          visible: centerCluster.weatherVisible
+          text: "  ·  "
+          color: Theme.textMute
           font.family: Theme.fontFamily
           font.pixelSize: Theme.fontSizeSm
           style: root.barTextStyle
           styleColor: root.barTextStyleColor
+          opacity: 0.55
         }
-      }
 
-      MouseArea {
-        id: centerMa
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onClicked: ShellState.toggleCalendar()
+        // Weather chip → weather glance (Open Weather app from the panel)
+        Item {
+          id: wxChip
+          visible: centerCluster.weatherVisible
+          width: wxRow.implicitWidth
+          height: root.controlH
+
+          Row {
+            id: wxRow
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 0
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              visible: Weather.ready
+              text: Weather.glyph
+              color: Theme.textDim
+              font.family: Theme.fontFamily
+              font.pixelSize: Theme.fontSizeSm + 1
+              style: root.barTextStyle
+              styleColor: root.barTextStyleColor
+              opacity: 0.9
+            }
+
+            Item {
+              visible: Weather.ready
+              width: 5
+              height: 1
+            }
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: {
+                if (Weather.ready)
+                  return Weather.temperatureText
+                if (Weather.loading)
+                  return "…"
+                return "—"
+              }
+              color: Theme.textDim
+              font.family: Theme.fontFamily
+              font.pixelSize: Theme.fontSizeSm
+              font.weight: Font.Medium
+              style: root.barTextStyle
+              styleColor: root.barTextStyleColor
+            }
+          }
+
+          MouseArea {
+            id: wxChipMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: ShellState.toggleWeather()
+          }
+        }
       }
     }
 
@@ -205,7 +347,7 @@ Item {
     // Accent = floating (state, not decor); grid glyph = tiled.
     Rectangle {
       id: tileToggle
-      anchors.right: statusCluster.left
+      anchors.right: rightChrome.left
       anchors.rightMargin: 6
       anchors.verticalCenter: parent.verticalCenter
       height: root.controlH
@@ -282,23 +424,528 @@ Item {
       }
     }
 
-    // Right: status items — calm, not a heavy chip
-    Rectangle {
-      id: statusCluster
+    // Right chrome: app tray · privacy dots · system services · CC
+    Item {
+      id: rightChrome
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
       height: root.controlH
-      width: statusRow.implicitWidth + 14
-      radius: height / 2
+      width: rightRow.implicitWidth
       z: 2
-      color: statusMa.containsMouse || ShellState.controlCenterOpen
-          ? (Theme.light ? Qt.rgba(0, 0, 0, 0.06) : Qt.rgba(1, 1, 1, 0.1))
-          : "transparent"
 
       Row {
-        id: statusRow
-        anchors.centerIn: parent
-        spacing: 10
+        id: rightRow
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: 8
+
+        // Background apps (1Password, Discord, …) via StatusNotifier
+        Row {
+          id: trayRow
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: 6
+          visible: SystemTray.items.values.length > 0
+
+          Repeater {
+            model: SystemTray.items
+
+            Item {
+              id: trayCell
+              required property var modelData
+              width: 18
+              height: root.controlH
+
+              IconImage {
+                anchors.centerIn: parent
+                source: trayCell.modelData.icon
+                implicitSize: 16
+                asynchronous: true
+              }
+
+              MouseArea {
+                anchors.fill: parent
+                anchors.margins: -2
+                hoverEnabled: true
+                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+                cursorShape: Qt.PointingHandCursor
+                onClicked: mouse => {
+                  if (mouse.button === Qt.LeftButton) {
+                    if (trayCell.modelData.onlyMenu && trayCell.modelData.hasMenu)
+                      trayMenu.open()
+                    else
+                      trayCell.modelData.activate()
+                  } else if (mouse.button === Qt.RightButton && trayCell.modelData.hasMenu) {
+                    trayMenu.open()
+                  } else if (mouse.button === Qt.MiddleButton) {
+                    trayCell.modelData.secondaryActivate()
+                  }
+                }
+              }
+
+              WheelHandler {
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                onWheel: event => trayCell.modelData.scroll(event.angleDelta.y, false)
+              }
+
+              QsMenuAnchor {
+                id: trayMenu
+                menu: trayCell.modelData.menu
+                anchor.item: trayCell
+                anchor.edges: Edges.Bottom | Edges.Left
+                anchor.gravity: Edges.Bottom | Edges.Left
+              }
+            }
+          }
+        }
+
+        // Privacy indicators — mic / camera / screen icons (tinted, not bare dots)
+        Row {
+          id: privacyRow
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: 4
+          visible: PrivacyIndicators.anyActive
+
+          // Microphone
+          Item {
+            visible: PrivacyIndicators.mic
+            width: 18
+            height: root.controlH
+
+            // Capsule + stand
+            Item {
+              anchors.centerIn: parent
+              width: 12
+              height: 14
+
+              Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: 0
+                width: 7
+                height: 9
+                radius: 3.5
+                color: PrivacyIndicators.micColor
+              }
+              Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: 7
+                width: 10
+                height: 5
+                radius: 5
+                color: "transparent"
+                border.width: 1.4
+                border.color: PrivacyIndicators.micColor
+              }
+              Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: 11.5
+                width: 1.6
+                height: 2.5
+                color: PrivacyIndicators.micColor
+              }
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: PrivacyIndicators.openPrivacySettings()
+            }
+          }
+
+          // Camera
+          Item {
+            visible: PrivacyIndicators.camera
+            width: 20
+            height: root.controlH
+
+            Item {
+              anchors.centerIn: parent
+              width: 16
+              height: 11
+
+              Rectangle {
+                x: 0
+                y: 1
+                width: 11
+                height: 9
+                radius: 2
+                color: PrivacyIndicators.cameraColor
+              }
+              // Lens
+              Rectangle {
+                x: 3
+                y: 3.2
+                width: 5
+                height: 5
+                radius: 2.5
+                color: Theme.light ? Qt.rgba(1, 1, 1, 0.35) : Qt.rgba(0, 0, 0, 0.35)
+              }
+              // Viewfinder wedge
+              Canvas {
+                x: 10
+                y: 2
+                width: 6
+                height: 7
+                onPaint: {
+                  const ctx = getContext("2d")
+                  ctx.reset()
+                  ctx.fillStyle = PrivacyIndicators.cameraColor
+                  ctx.beginPath()
+                  ctx.moveTo(0, 0)
+                  ctx.lineTo(6, 3.5)
+                  ctx.lineTo(0, 7)
+                  ctx.closePath()
+                  ctx.fill()
+                }
+                Component.onCompleted: requestPaint()
+              }
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: PrivacyIndicators.openPrivacySettings()
+            }
+          }
+
+          // Screen capture
+          Item {
+            visible: PrivacyIndicators.screen
+            width: 18
+            height: root.controlH
+
+            Item {
+              anchors.centerIn: parent
+              width: 14
+              height: 12
+
+              Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: 0
+                width: 14
+                height: 9
+                radius: 1.5
+                color: "transparent"
+                border.width: 1.5
+                border.color: PrivacyIndicators.screenColor
+
+                // Record pip
+                Rectangle {
+                  anchors.right: parent.right
+                  anchors.top: parent.top
+                  anchors.margins: 1.5
+                  width: 3.5
+                  height: 3.5
+                  radius: 1.75
+                  color: PrivacyIndicators.screenColor
+                }
+              }
+              Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: 9
+                width: 6
+                height: 1.5
+                color: PrivacyIndicators.screenColor
+              }
+              Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: 10.5
+                width: 9
+                height: 1.5
+                radius: 0.5
+                color: PrivacyIndicators.screenColor
+              }
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: PrivacyIndicators.openPrivacySettings()
+            }
+          }
+        }
+
+        // System services + status — click opens Control Center
+        Rectangle {
+          id: statusCluster
+          height: root.controlH
+          width: statusRow.implicitWidth + 14
+          radius: height / 2
+          color: statusMa.containsMouse || ShellState.controlCenterOpen
+              ? (Theme.light ? Qt.rgba(0, 0, 0, 0.06) : Qt.rgba(1, 1, 1, 0.1))
+              : "transparent"
+
+          Behavior on color {
+            ColorAnimation {
+              duration: 140
+              easing.type: Easing.OutCubic
+            }
+          }
+
+          Row {
+            id: statusRow
+            anchors.centerIn: parent
+            spacing: 9
+
+        // —— System services (network · bluetooth · sound · battery) ——
+        Item {
+          id: netChip
+          anchors.verticalCenter: parent.verticalCenter
+          visible: SystemServices.networkVisible
+          width: 16
+          height: root.controlH
+
+          readonly property bool hot: SystemServices.wifiSupported
+              ? (SystemServices.wifiEnabled && SystemServices.connected && SystemServices.netKind === "wifi")
+              : SystemServices.connected
+          readonly property color ink: hot ? root.statusGlyphColor : Theme.textMute
+          opacity: (SystemServices.wifiSupported && !SystemServices.wifiEnabled) ? 0.4 : 0.92
+
+          // Wi‑Fi arcs (or ethernet link when no radio)
+          Canvas {
+            id: netCanvas
+            anchors.centerIn: parent
+            width: 14
+            height: 12
+            onPaint: {
+              const ctx = getContext("2d")
+              ctx.reset()
+              ctx.strokeStyle = netChip.ink
+              ctx.fillStyle = netChip.ink
+              ctx.lineWidth = 1.4
+              ctx.lineCap = "round"
+              if (SystemServices.wifiSupported) {
+                const cx = 7, cy = 11
+                for (let i = 0; i < 3; i++) {
+                  const r = 3 + i * 3
+                  ctx.beginPath()
+                  ctx.arc(cx, cy, r, Math.PI * 1.2, Math.PI * 1.8)
+                  ctx.stroke()
+                }
+                ctx.beginPath()
+                ctx.arc(cx, cy - 1, 1.2, 0, Math.PI * 2)
+                ctx.fill()
+                if (!SystemServices.wifiEnabled) {
+                  ctx.strokeStyle = netChip.ink
+                  ctx.beginPath()
+                  ctx.moveTo(2, 2)
+                  ctx.lineTo(12, 10)
+                  ctx.stroke()
+                }
+              } else {
+                // Ethernet: two ports + link
+                ctx.strokeRect(1, 2, 5, 4)
+                ctx.strokeRect(8, 6, 5, 4)
+                ctx.beginPath()
+                ctx.moveTo(6, 4)
+                ctx.lineTo(8, 8)
+                ctx.stroke()
+              }
+            }
+            Connections {
+              target: SystemServices
+              function onWifiEnabledChanged() { netCanvas.requestPaint() }
+              function onWifiSupportedChanged() { netCanvas.requestPaint() }
+              function onConnectedChanged() { netCanvas.requestPaint() }
+              function onNetKindChanged() { netCanvas.requestPaint() }
+            }
+            Connections {
+              target: Theme
+              function onLightChanged() { netCanvas.requestPaint() }
+            }
+            Component.onCompleted: requestPaint()
+          }
+        }
+
+        Item {
+          id: btChip
+          anchors.verticalCenter: parent.verticalCenter
+          visible: SystemServices.bluetoothVisible
+          width: 12
+          height: root.controlH
+          opacity: SystemServices.btPowered ? 0.92 : 0.4
+
+          readonly property color ink: SystemServices.btPowered
+              ? root.statusGlyphColor
+              : Theme.textMute
+
+          Canvas {
+            id: btCanvas
+            anchors.centerIn: parent
+            width: 10
+            height: 14
+            onPaint: {
+              const ctx = getContext("2d")
+              ctx.reset()
+              ctx.strokeStyle = btChip.ink
+              ctx.lineWidth = 1.5
+              ctx.lineCap = "round"
+              ctx.lineJoin = "round"
+              // Bluetooth rune
+              ctx.beginPath()
+              ctx.moveTo(5, 1)
+              ctx.lineTo(5, 13)
+              ctx.moveTo(5, 1)
+              ctx.lineTo(9, 4)
+              ctx.lineTo(5, 7)
+              ctx.lineTo(9, 10)
+              ctx.lineTo(5, 13)
+              ctx.moveTo(5, 7)
+              ctx.lineTo(1, 4)
+              ctx.moveTo(5, 7)
+              ctx.lineTo(1, 10)
+              ctx.stroke()
+            }
+            Connections {
+              target: SystemServices
+              function onBtPoweredChanged() { btCanvas.requestPaint() }
+            }
+            Connections {
+              target: Theme
+              function onLightChanged() { btCanvas.requestPaint() }
+            }
+            Component.onCompleted: requestPaint()
+          }
+        }
+
+        Item {
+          id: volChip
+          anchors.verticalCenter: parent.verticalCenter
+          width: 16
+          height: root.controlH
+
+          readonly property bool quiet: SystemServices.muted || SystemServices.volume <= 0
+          readonly property color ink: quiet ? Theme.textMute : root.statusGlyphColor
+          opacity: quiet ? 0.5 : 0.92
+
+          Canvas {
+            id: volCanvas
+            anchors.centerIn: parent
+            width: 15
+            height: 12
+            onPaint: {
+              const ctx = getContext("2d")
+              ctx.reset()
+              ctx.fillStyle = volChip.ink
+              ctx.strokeStyle = volChip.ink
+              ctx.lineWidth = 1.3
+              ctx.lineCap = "round"
+              // Speaker body
+              ctx.beginPath()
+              ctx.moveTo(1, 4)
+              ctx.lineTo(4, 4)
+              ctx.lineTo(8, 1)
+              ctx.lineTo(8, 11)
+              ctx.lineTo(4, 8)
+              ctx.lineTo(1, 8)
+              ctx.closePath()
+              ctx.fill()
+              if (volChip.quiet) {
+                ctx.beginPath()
+                ctx.moveTo(10, 3)
+                ctx.lineTo(14, 9)
+                ctx.moveTo(14, 3)
+                ctx.lineTo(10, 9)
+                ctx.stroke()
+              } else {
+                const rings = SystemServices.volume < 34 ? 1 : (SystemServices.volume < 67 ? 2 : 3)
+                for (let i = 0; i < rings; i++) {
+                  const r = 3 + i * 2.2
+                  ctx.beginPath()
+                  ctx.arc(8, 6, r, -Math.PI * 0.35, Math.PI * 0.35)
+                  ctx.stroke()
+                }
+              }
+            }
+            Connections {
+              target: SystemServices
+              function onVolumeChanged() { volCanvas.requestPaint() }
+              function onMutedChanged() { volCanvas.requestPaint() }
+            }
+            Connections {
+              target: Theme
+              function onLightChanged() { volCanvas.requestPaint() }
+            }
+            Component.onCompleted: requestPaint()
+          }
+
+          WheelHandler {
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            onWheel: event => {
+              const d = event.angleDelta.y
+              if (d > 0)
+                Audio.stepVolume(5)
+              else if (d < 0)
+                Audio.stepVolume(-5)
+              SystemServices.refresh()
+            }
+          }
+        }
+
+        Item {
+          id: battChip
+          anchors.verticalCenter: parent.verticalCenter
+          visible: Power.hasBattery && Power.percent >= 0
+          width: battRow.implicitWidth
+          height: root.controlH
+
+          Row {
+            id: battRow
+            anchors.centerIn: parent
+            spacing: 4
+
+            // Tiny battery outline + fill level
+            Item {
+              anchors.verticalCenter: parent.verticalCenter
+              width: 16
+              height: 9
+
+              Rectangle {
+                anchors.fill: parent
+                anchors.rightMargin: 2
+                radius: 1.5
+                color: "transparent"
+                border.width: 1.2
+                border.color: Power.percent <= 15 && Power.onBattery
+                    ? Theme.accent
+                    : root.statusGlyphColor
+                opacity: 0.85
+
+                Rectangle {
+                  anchors.left: parent.left
+                  anchors.leftMargin: 1.5
+                  anchors.verticalCenter: parent.verticalCenter
+                  height: parent.height - 3
+                  width: Math.max(1, (parent.width - 3) * Math.max(0.08, Power.percent / 100))
+                  radius: 0.8
+                  color: Power.percent <= 15 && Power.onBattery
+                      ? Theme.accent
+                      : root.statusGlyphColor
+                  opacity: 0.9
+                }
+              }
+
+              Rectangle {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                width: 1.5
+                height: 4
+                radius: 0.5
+                color: root.statusGlyphColor
+                opacity: 0.7
+              }
+            }
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: root.batteryHint
+              color: Theme.textDim
+              font.family: Theme.fontFamily
+              font.pixelSize: Theme.fontSizeSm
+              style: root.barTextStyle
+              styleColor: root.barTextStyleColor
+            }
+          }
+        }
 
         Rectangle {
           // Unread clears when Control Center opens (Notifications.markAllRead).
@@ -320,12 +967,14 @@ Item {
 
         Text {
           anchors.verticalCenter: parent.verticalCenter
-          visible: Config.notificationsDnd
-          text: "DND"
+          visible: FocusMode.active || Config.notificationsDnd
+          text: FocusMode.active ? ("Focus" + (FocusMode.shortLabel !== "On" && FocusMode.shortLabel !== "Off" ? (" " + FocusMode.shortLabel) : "")) : "DND"
           color: Theme.accent
           font.family: Theme.fontFamily
           font.pixelSize: 10
           font.weight: Font.DemiBold
+          style: root.barTextStyle
+          styleColor: root.barTextStyleColor
         }
 
         Text {
@@ -336,15 +985,6 @@ Item {
           font.family: Theme.fontFamily
           font.pixelSize: 10
           font.weight: Font.DemiBold
-        }
-
-        Text {
-          anchors.verticalCenter: parent.verticalCenter
-          visible: root.batteryHint.length > 0
-          text: root.batteryHint
-          color: Theme.textDim
-          font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSizeSm
           style: root.barTextStyle
           styleColor: root.barTextStyleColor
         }
@@ -416,12 +1056,17 @@ Item {
         }
       }
 
-      MouseArea {
-        id: statusMa
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onClicked: ShellState.toggleControlCenter()
+          MouseArea {
+            id: statusMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              const mon = Hyprland.monitorFor(root.screen)
+              ShellState.toggleControlCenter(mon ? mon.name : "")
+            }
+          }
+        }
       }
     }
   }

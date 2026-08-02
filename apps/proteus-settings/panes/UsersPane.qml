@@ -35,6 +35,37 @@ ColumnLayout {
   property string greeterHint: "Checking greetd…"
   property string greeterConf: "/etc/greetd/config.toml"
 
+  // Lock-screen PIN (hashed under ~/.local/share/proteus/auth — not settings.json)
+  property bool pinConfigured: false
+  property int pinLength: 0
+  property bool pinBusy: false
+  property bool pinLoaded: false
+  property string pinForm: "" // "" | "set" | "clear"
+  property string pinPasswordDraft: ""
+  property string pinDraft: ""
+  property string pinConfirmDraft: ""
+  property string pinStatusMsg: ""
+  property bool pinStatusError: false
+
+  readonly property string pinCliPath: {
+    const u = Qt.resolvedUrl("../../../shell/scripts/proteus-pin.py")
+    const fromUrl = String(u).replace(/^file:\/\//, "")
+    const rootEnv = String(Quickshell.env("PROTEUS_ROOT") || "").trim()
+    if (rootEnv.length)
+      return rootEnv + "/shell/scripts/proteus-pin.py"
+    return fromUrl
+  }
+
+  readonly property string pinStatusTrailing: {
+    if (root.pinBusy && !root.pinLoaded)
+      return "…"
+    if (!root.pinLoaded)
+      return "…"
+    if (root.pinConfigured)
+      return "On · " + root.pinLength + " digits"
+    return "Off"
+  }
+
   readonly property string greeterStatusTrailing: {
     if (root.greeterBusy || !root.greeterLoaded)
       return "…"
@@ -92,6 +123,86 @@ ColumnLayout {
     usersProc.running = false
     usersProc.running = true
     root.refreshGreeter()
+    root.refreshPin()
+  }
+
+  function refreshPin() {
+    root.pinBusy = true
+    pinStatusProc.running = false
+    pinStatusProc.running = true
+  }
+
+  function openPinSet() {
+    root.pinForm = "set"
+    root.pinPasswordDraft = ""
+    root.pinDraft = ""
+    root.pinConfirmDraft = ""
+    root.pinStatusMsg = ""
+    root.pinStatusError = false
+  }
+
+  function openPinClear() {
+    root.pinForm = "clear"
+    root.pinPasswordDraft = ""
+    root.pinDraft = ""
+    root.pinConfirmDraft = ""
+    root.pinStatusMsg = ""
+    root.pinStatusError = false
+  }
+
+  function cancelPinForm() {
+    root.pinForm = ""
+    root.pinPasswordDraft = ""
+    root.pinDraft = ""
+    root.pinConfirmDraft = ""
+    root.pinStatusMsg = ""
+    root.pinStatusError = false
+  }
+
+  function submitPinSet() {
+    if (root.pinBusy)
+      return
+    const pw = String(root.pinPasswordDraft || "")
+    const pin = String(root.pinDraft || "")
+    const conf = String(root.pinConfirmDraft || "")
+    if (!pw.length) {
+      root.pinStatusMsg = "Enter your account password"
+      root.pinStatusError = true
+      return
+    }
+    if (!/^\d{4,8}$/.test(pin)) {
+      root.pinStatusMsg = "PIN must be 4–8 digits"
+      root.pinStatusError = true
+      return
+    }
+    if (pin !== conf) {
+      root.pinStatusMsg = "PINs do not match"
+      root.pinStatusError = true
+      return
+    }
+    root.pinBusy = true
+    root.pinStatusMsg = "Saving…"
+    root.pinStatusError = false
+    pinSetProc.stdinPayload = pw + "\n" + pin + "\n" + conf + "\n"
+    pinSetProc.running = false
+    pinSetProc.running = true
+  }
+
+  function submitPinClear() {
+    if (root.pinBusy)
+      return
+    const secret = String(root.pinPasswordDraft || "")
+    if (!secret.length) {
+      root.pinStatusMsg = "Enter your password or current PIN"
+      root.pinStatusError = true
+      return
+    }
+    root.pinBusy = true
+    root.pinStatusMsg = "Turning off…"
+    root.pinStatusError = false
+    pinClearProc.stdinPayload = secret + "\n"
+    pinClearProc.running = false
+    pinClearProc.running = true
   }
 
   function refreshGreeter() {
@@ -207,6 +318,295 @@ ColumnLayout {
     footnote: "Confirm here first — then systemctl runs."
     onCancelled: root.cancelPower()
     onConfirmed: root.confirmPower()
+  }
+
+  SettingsGroup {
+    title: "Lock screen PIN"
+
+    SettingsFormRow {
+      label: "PIN unlock"
+      hint: root.pinConfigured
+          ? "Unlock desktop and console lock screens with a short PIN · password still works"
+          : "Optional short PIN for couch or desk unlock · does not replace your account password"
+      showSeparator: true
+      Text {
+        text: root.pinStatusTrailing
+        color: root.pinConfigured ? Theme.accent : Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+
+    SettingsFormRow {
+      visible: root.pinForm.length === 0 && !root.pinConfigured
+      label: "Set PIN"
+      hint: "Requires your account password · 4–8 digits"
+      showSeparator: false
+      interactive: !root.pinBusy
+      onActivated: root.openPinSet()
+      Text {
+        text: "Set"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+
+    SettingsFormRow {
+      visible: root.pinForm.length === 0 && root.pinConfigured
+      label: "Change PIN"
+      hint: "Requires your account password"
+      showSeparator: true
+      interactive: !root.pinBusy
+      onActivated: root.openPinSet()
+      Text {
+        text: "Change"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+
+    SettingsFormRow {
+      visible: root.pinForm.length === 0 && root.pinConfigured
+      label: "Turn off PIN"
+      hint: "Confirm with password or current PIN"
+      showSeparator: false
+      interactive: !root.pinBusy
+      onActivated: root.openPinClear()
+      Text {
+        text: "Off"
+        color: Theme.danger
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+    }
+
+    // Set / change form
+    ColumnLayout {
+      visible: root.pinForm === "set"
+      Layout.fillWidth: true
+      spacing: Theme.spaceSm
+
+      Text {
+        Layout.fillWidth: true
+        Layout.leftMargin: Theme.spaceMd
+        Layout.rightMargin: Theme.spaceMd
+        text: "Account password"
+        color: Theme.textDim
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 40
+        Layout.leftMargin: Theme.spaceMd
+        Layout.rightMargin: Theme.spaceMd
+        radius: Theme.radiusMd
+        color: Theme.bgHover
+        border.width: 1
+        border.color: pinPassInput.activeFocus ? Theme.accent : Theme.border
+        TextInput {
+          id: pinPassInput
+          anchors.fill: parent
+          anchors.leftMargin: 10
+          anchors.rightMargin: 10
+          color: Theme.text
+          font.family: Theme.fontFamily
+          font.pixelSize: 13
+          echoMode: TextInput.Password
+          verticalAlignment: TextInput.AlignVCenter
+          clip: true
+          text: root.pinPasswordDraft
+          onTextChanged: root.pinPasswordDraft = text
+        }
+      }
+
+      Text {
+        Layout.fillWidth: true
+        Layout.leftMargin: Theme.spaceMd
+        Layout.rightMargin: Theme.spaceMd
+        text: "New PIN (4–8 digits)"
+        color: Theme.textDim
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 40
+        Layout.leftMargin: Theme.spaceMd
+        Layout.rightMargin: Theme.spaceMd
+        radius: Theme.radiusMd
+        color: Theme.bgHover
+        border.width: 1
+        border.color: pinNewInput.activeFocus ? Theme.accent : Theme.border
+        TextInput {
+          id: pinNewInput
+          anchors.fill: parent
+          anchors.leftMargin: 10
+          anchors.rightMargin: 10
+          color: Theme.text
+          font.family: Theme.fontFamily
+          font.pixelSize: 13
+          echoMode: TextInput.Password
+          inputMethodHints: Qt.ImhDigitsOnly
+          verticalAlignment: TextInput.AlignVCenter
+          clip: true
+          text: root.pinDraft
+          onTextChanged: {
+            const d = text.replace(/\D/g, "").slice(0, 8)
+            if (d !== text)
+              text = d
+            root.pinDraft = d
+          }
+        }
+      }
+
+      Text {
+        Layout.fillWidth: true
+        Layout.leftMargin: Theme.spaceMd
+        Layout.rightMargin: Theme.spaceMd
+        text: "Confirm PIN"
+        color: Theme.textDim
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 40
+        Layout.leftMargin: Theme.spaceMd
+        Layout.rightMargin: Theme.spaceMd
+        radius: Theme.radiusMd
+        color: Theme.bgHover
+        border.width: 1
+        border.color: pinConfirmInput.activeFocus ? Theme.accent : Theme.border
+        TextInput {
+          id: pinConfirmInput
+          anchors.fill: parent
+          anchors.leftMargin: 10
+          anchors.rightMargin: 10
+          color: Theme.text
+          font.family: Theme.fontFamily
+          font.pixelSize: 13
+          echoMode: TextInput.Password
+          inputMethodHints: Qt.ImhDigitsOnly
+          verticalAlignment: TextInput.AlignVCenter
+          clip: true
+          text: root.pinConfirmDraft
+          onTextChanged: {
+            const d = text.replace(/\D/g, "").slice(0, 8)
+            if (d !== text)
+              text = d
+            root.pinConfirmDraft = d
+          }
+          Keys.onReturnPressed: root.submitPinSet()
+        }
+      }
+
+      SettingsFormRow {
+        label: "Save PIN"
+        hint: "Writes ~/.local/share/proteus/auth/pin (0600) · never settings.json"
+        showSeparator: true
+        interactive: !root.pinBusy
+        onActivated: root.submitPinSet()
+        Text {
+          text: root.pinBusy ? "…" : "Save"
+          color: Theme.accent
+          font.family: Theme.fontFamily
+          font.pixelSize: 12
+        }
+      }
+
+      SettingsFormRow {
+        label: "Cancel"
+        hint: ""
+        showSeparator: false
+        interactive: !root.pinBusy
+        onActivated: root.cancelPinForm()
+      }
+    }
+
+    // Clear form
+    ColumnLayout {
+      visible: root.pinForm === "clear"
+      Layout.fillWidth: true
+      spacing: Theme.spaceSm
+
+      Text {
+        Layout.fillWidth: true
+        Layout.leftMargin: Theme.spaceMd
+        Layout.rightMargin: Theme.spaceMd
+        text: "Password or current PIN"
+        color: Theme.textDim
+        font.family: Theme.fontFamily
+        font.pixelSize: 12
+      }
+
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 40
+        Layout.leftMargin: Theme.spaceMd
+        Layout.rightMargin: Theme.spaceMd
+        radius: Theme.radiusMd
+        color: Theme.bgHover
+        border.width: 1
+        border.color: pinClearInput.activeFocus ? Theme.accent : Theme.border
+        TextInput {
+          id: pinClearInput
+          anchors.fill: parent
+          anchors.leftMargin: 10
+          anchors.rightMargin: 10
+          color: Theme.text
+          font.family: Theme.fontFamily
+          font.pixelSize: 13
+          echoMode: TextInput.Password
+          verticalAlignment: TextInput.AlignVCenter
+          clip: true
+          text: root.pinPasswordDraft
+          onTextChanged: root.pinPasswordDraft = text
+          Keys.onReturnPressed: root.submitPinClear()
+        }
+      }
+
+      SettingsFormRow {
+        label: "Turn off PIN"
+        hint: "Removes the unlock PIN hash"
+        showSeparator: true
+        interactive: !root.pinBusy
+        labelColor: Theme.danger
+        onActivated: root.submitPinClear()
+        Text {
+          text: root.pinBusy ? "…" : "Off"
+          color: Theme.danger
+          font.family: Theme.fontFamily
+          font.pixelSize: 12
+        }
+      }
+
+      SettingsFormRow {
+        label: "Cancel"
+        hint: ""
+        showSeparator: false
+        interactive: !root.pinBusy
+        onActivated: root.cancelPinForm()
+      }
+    }
+
+    Text {
+      visible: root.pinStatusMsg.length > 0
+      Layout.fillWidth: true
+      Layout.leftMargin: Theme.spaceMd
+      Layout.rightMargin: Theme.spaceMd
+      Layout.bottomMargin: Theme.spaceSm
+      text: root.pinStatusMsg
+      color: root.pinStatusError ? Theme.danger : Theme.textMute
+      font.family: Theme.fontFamily
+      font.pixelSize: 12
+      wrapMode: Text.WordWrap
+    }
   }
 
   SettingsGroup {
@@ -363,11 +763,127 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Fact: Config.session · id/getent (GECOS/home) · greetd unit + config.toml. Reboot/shutdown confirm in-pane. No useradd / greeter write from Settings."
+    text: "Fact: Config.session · id/getent · greetd unit + config.toml · lock PIN via proteus-pin.py (~/.local/share/proteus/auth/pin). Reboot/shutdown confirm in-pane. No useradd / greeter write from Settings."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11
     wrapMode: Text.WordWrap
+  }
+
+  Process {
+    id: pinStatusProc
+    command: ["python3", root.pinCliPath, "status"]
+    running: false
+    stdout: StdioCollector {
+      onStreamFinished: {
+        root.pinBusy = false
+        root.pinLoaded = true
+        try {
+          const o = JSON.parse(String(this.text || "").trim() || "{}")
+          root.pinConfigured = !!o.configured
+          root.pinLength = o.configured ? (parseInt(o.length, 10) || 0) : 0
+        } catch (e) {
+          root.pinConfigured = false
+          root.pinLength = 0
+        }
+      }
+    }
+  }
+
+  Process {
+    id: pinSetProc
+    property string stdinPayload: ""
+    command: ["python3", root.pinCliPath, "set"]
+    stdinEnabled: true
+    running: false
+    stdout: StdioCollector {
+      onStreamFinished: {
+        root.pinBusy = false
+        const raw = String(this.text || "").trim()
+        try {
+          const o = JSON.parse(raw || "{}")
+          if (o.ok) {
+            root.pinConfigured = true
+            root.pinLength = parseInt(o.length, 10) || root.pinDraft.length
+            root.cancelPinForm()
+            root.pinStatusMsg = "PIN saved"
+            root.pinStatusError = false
+          } else {
+            const err = o.error || "failed"
+            if (err === "wrong_password")
+              root.pinStatusMsg = "Wrong account password"
+            else if (err === "pin_mismatch")
+              root.pinStatusMsg = "PINs do not match"
+            else
+              root.pinStatusMsg = String(err)
+            root.pinStatusError = true
+            root.pinPasswordDraft = ""
+          }
+        } catch (e) {
+          root.pinStatusMsg = "Could not save PIN"
+          root.pinStatusError = true
+        }
+      }
+    }
+    onStarted: {
+      write(stdinPayload)
+      stdinPayload = ""
+      stdinEnabled = false
+    }
+    onExited: (exitCode, exitStatus) => {
+      stdinEnabled = true
+      stdinPayload = ""
+      if (exitCode === 2 && root.pinBusy) {
+        root.pinBusy = false
+        root.pinStatusMsg = "PIN helper failed"
+        root.pinStatusError = true
+      }
+    }
+  }
+
+  Process {
+    id: pinClearProc
+    property string stdinPayload: ""
+    command: ["python3", root.pinCliPath, "clear"]
+    stdinEnabled: true
+    running: false
+    stdout: StdioCollector {
+      onStreamFinished: {
+        root.pinBusy = false
+        const raw = String(this.text || "").trim()
+        try {
+          const o = JSON.parse(raw || "{}")
+          if (o.ok) {
+            root.pinConfigured = false
+            root.pinLength = 0
+            root.cancelPinForm()
+            root.pinStatusMsg = "PIN turned off"
+            root.pinStatusError = false
+          } else {
+            root.pinStatusMsg = "Wrong password or PIN"
+            root.pinStatusError = true
+            root.pinPasswordDraft = ""
+          }
+        } catch (e) {
+          root.pinStatusMsg = "Could not turn off PIN"
+          root.pinStatusError = true
+        }
+      }
+    }
+    onStarted: {
+      write(stdinPayload)
+      stdinPayload = ""
+      stdinEnabled = false
+    }
+    onExited: (exitCode, exitStatus) => {
+      stdinEnabled = true
+      stdinPayload = ""
+      if (exitCode === 2 && root.pinBusy) {
+        root.pinBusy = false
+        root.pinStatusMsg = "PIN helper failed"
+        root.pinStatusError = true
+      }
+    }
   }
 
   Process {

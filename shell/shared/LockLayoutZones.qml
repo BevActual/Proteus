@@ -8,12 +8,17 @@ QtObject {
   property real surfaceHeight: 800
   property var stripWidgets: []
   property var clockWidget: null
+  // Pixels reserved at the bottom for unlock UI (PIN pad is taller than password).
+  property real authReserve: 220
 
   readonly property real margin: Math.max(16, surfaceWidth * 0.05)
-  readonly property real gap: 12
+  // Strip widgets need clear air — 12px read as one fused card on dogfood.
+  readonly property real gap: Math.max(22, Math.round(surfaceHeight * 0.024))
+  // Extra breath under the clock before the first strip tile.
+  readonly property real clockGap: Math.max(32, Math.round(surfaceHeight * 0.036))
   // Keep lower band free for unlock UI
-  readonly property real stackTop: Math.max(28, surfaceHeight * 0.08)
-  readonly property real stackBottom: surfaceHeight * 0.62
+  readonly property real stackTop: Math.max(40, surfaceHeight * 0.1)
+  readonly property real stackBottom: Math.max(stackTop + 80, surfaceHeight - Math.max(160, authReserve))
   readonly property real maxTileW: Math.min(surfaceWidth - margin * 2, Math.min(420, surfaceWidth * 0.88))
 
   function tileWidth(size) {
@@ -90,14 +95,14 @@ QtObject {
     const frames = []
     let y = stackTop
     if (clockFrame)
-      y = clockFrame.y + clockFrame.height + gap
+      y = clockFrame.y + clockFrame.height + clockGap
 
     for (let i = 0; i < widgets.length; i++) {
       const w = widgets[i]
       const width = tileWidth(w.size || "md")
       const height = tileHeight(w.type, w.size || "md")
-      // Stop before auth band
-      if (y + height > stackBottom && i > 0)
+      // Never place a tile into the auth band (including the first strip widget).
+      if (y + height > stackBottom)
         break
       frames.push({
         id: String(w.id),
@@ -117,7 +122,7 @@ QtObject {
   // Alias used by empty-state hint
   readonly property real stripTop: {
     if (clockFrame)
-      return clockFrame.y + clockFrame.height + gap
+      return clockFrame.y + clockFrame.height + clockGap
     return stackTop
   }
 }

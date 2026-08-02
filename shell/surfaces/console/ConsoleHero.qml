@@ -2,133 +2,160 @@ import QtQuick
 import QtQuick.Layouts
 import "../../shared"
 
+// Cinematic featured band — tracks focused shelf card (Theme poster art).
 Item {
   id: root
-  height: 200
+  height: bandHeight
 
+  property real bandHeight: 320
   property var item: null
-  property int focusedAction: -1 // 0 resume, 1 details
+  property string metaLine: ""
+  property int focusedAction: -1 // 0 open, 1 details
+  property bool bandFocused: false
 
   signal resumeRequested()
   signal detailsRequested()
 
   readonly property string title: item ? (item.title || "") : ""
-  readonly property string tag: item ? (item.tag || "") : ""
-  readonly property string meta: item ? (item.meta || "") : ""
+  readonly property string meta: metaLine.length ? metaLine : (item ? (item.meta || "") : "")
   readonly property color color0: item && item.color0 ? item.color0 : Theme.bgElevated
   readonly property color color1: item && item.color1 ? item.color1 : Theme.bg
+  readonly property string iconSource: item && item.iconSource ? String(item.iconSource) : ""
 
-  RowLayout {
+  // Full wash — reduces dead black space
+  Rectangle {
     anchors.fill: parent
-    spacing: Theme.spaceXl
+    gradient: Gradient {
+      orientation: Gradient.Horizontal
+      GradientStop { position: 0.0; color: root.color0 }
+      GradientStop { position: 0.4; color: root.color1 }
+      GradientStop { position: 1.0; color: Qt.rgba(Theme.bg.r, Theme.bg.g, Theme.bg.b, 0.92) }
+    }
+  }
 
-    Rectangle {
-      Layout.preferredWidth: Math.min(360, parent.width * 0.38)
-      Layout.fillHeight: true
-      radius: Theme.radiusXl
-      clip: true
-      border.width: 1
-      border.color: Theme.chromeBorder
+  Rectangle {
+    anchors.fill: parent
+    gradient: Gradient {
+      GradientStop { position: 0.0; color: Qt.rgba(Theme.bg.r, Theme.bg.g, Theme.bg.b, 0.12) }
+      GradientStop { position: 0.5; color: Qt.rgba(Theme.bg.r, Theme.bg.g, Theme.bg.b, 0.35) }
+      GradientStop { position: 1.0; color: Qt.rgba(Theme.bg.r, Theme.bg.g, Theme.bg.b, 0.88) }
+    }
+  }
 
-      gradient: Gradient {
-        GradientStop { position: 0.0; color: root.color0 }
-        GradientStop { position: 1.0; color: root.color1 }
-      }
+  Rectangle {
+    anchors.fill: parent
+    border.width: root.bandFocused ? 2 : 0
+    border.color: Theme.accent
+    color: "transparent"
+  }
+
+  SquircleIcon {
+    visible: root.iconSource.length > 0
+    anchors.right: parent.right
+    anchors.rightMargin: Theme.spaceXl * 2
+    anchors.verticalCenter: parent.verticalCenter
+    width: Math.min(140, root.bandHeight * 0.38)
+    pixelSize: width
+    source: root.iconSource
+    opacity: 0.9
+  }
+
+  ColumnLayout {
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    anchors.leftMargin: Theme.spaceXl
+    anchors.rightMargin: Theme.spaceXl + 160
+    anchors.bottomMargin: Theme.spaceLg
+    spacing: Theme.spaceMd
+
+    Text {
+      Layout.fillWidth: true
+      text: root.title.length ? root.title : "Console"
+      color: Theme.text
+      font.family: Theme.fontFamily
+      font.pixelSize: 52
+      font.weight: Font.Bold
+      elide: Text.ElideRight
+      maximumLineCount: 2
+      wrapMode: Text.WordWrap
     }
 
-    ColumnLayout {
+    Text {
       Layout.fillWidth: true
-      Layout.fillHeight: true
+      visible: root.meta.length > 0
+      text: root.meta
+      color: Theme.textDim
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.fontSize + 2
+      elide: Text.ElideRight
+    }
+
+    Row {
       spacing: Theme.spaceMd
 
       Rectangle {
-        visible: root.tag.length > 0
-        Layout.preferredHeight: 22
-        Layout.preferredWidth: tagLbl.implicitWidth + 14
-        radius: Theme.radiusSm
-        color: Theme.accentSoft
+        width: openLbl.implicitWidth + 32
+        height: 44
+        radius: Theme.radiusLg
+        color: Theme.accent
+        border.width: root.focusedAction === 0 ? 2 : 0
+        border.color: "#ffffff"
+        scale: root.focusedAction === 0 ? 1.04 : 1
+        Behavior on scale {
+          NumberAnimation {
+            duration: 180
+            easing.type: Easing.OutCubic
+          }
+        }
 
         Text {
-          id: tagLbl
+          id: openLbl
           anchors.centerIn: parent
-          text: root.tag
-          color: Theme.accent
+          text: "Ⓐ  Open"
+          color: "#ffffff"
           font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSizeSm
-          font.letterSpacing: 0.6
+          font.pixelSize: Theme.fontSize + 1
           font.weight: Font.DemiBold
         }
-      }
 
-      Text {
-        text: root.title
-        color: Theme.text
-        font.family: Theme.fontFamily
-        font.pixelSize: 36
-        font.weight: Font.Bold
-      }
-
-      Text {
-        text: root.meta
-        color: Theme.textDim
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
-      }
-
-      Row {
-        spacing: Theme.spaceMd
-
-        Rectangle {
-          width: resumeLbl.implicitWidth + 28
-          height: 36
-          radius: Theme.radiusLg
-          color: Theme.accent
-          border.width: root.focusedAction === 0 ? 2 : 0
-          border.color: "#ffffff"
-
-          Text {
-            id: resumeLbl
-            anchors.centerIn: parent
-            text: "Ⓐ  Resume"
-            color: "#ffffff"
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSize
-            font.weight: Font.DemiBold
-          }
-
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.resumeRequested()
-          }
-        }
-
-        Rectangle {
-          width: detailsLbl.implicitWidth + 28
-          height: 36
-          radius: Theme.radiusLg
-          color: Theme.elevatedFill
-          border.width: root.focusedAction === 1 ? 2 : 1
-          border.color: root.focusedAction === 1 ? Theme.accent : Theme.chromeBorder
-
-          Text {
-            id: detailsLbl
-            anchors.centerIn: parent
-            text: "Ⓨ  Details"
-            color: Theme.text
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSize
-          }
-
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.detailsRequested()
-          }
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.resumeRequested()
         }
       }
 
-      Item { Layout.fillHeight: true }
+      Rectangle {
+        width: detailsLbl.implicitWidth + 32
+        height: 44
+        radius: Theme.radiusLg
+        color: Theme.elevatedFill
+        border.width: root.focusedAction === 1 ? 2 : 1
+        border.color: root.focusedAction === 1 ? Theme.accent : Theme.chromeBorder
+        scale: root.focusedAction === 1 ? 1.04 : 1
+        Behavior on scale {
+          NumberAnimation {
+            duration: 180
+            easing.type: Easing.OutCubic
+          }
+        }
+
+        Text {
+          id: detailsLbl
+          anchors.centerIn: parent
+          text: "Ⓨ  Details"
+          color: Theme.text
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSize + 1
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.detailsRequested()
+        }
+      }
     }
   }
 }

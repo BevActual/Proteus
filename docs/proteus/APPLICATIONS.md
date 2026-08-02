@@ -137,6 +137,13 @@ with a clear reason (“needs libvirt”, “needs display”).
 Code: `shell/shared/EnvGate.qml`. Fail-open until `Hardware.ready`. Missing
 catalog → heuristics only (`manifestsReady` false).
 
+**User grants:** manifests may list `permissions` (`microphone` · `camera` ·
+`location` · `notifications` · `screen` · `diagnostics`). EnvGate requires
+`Permissions.granted` (Allow only; Ask/Deny block). Store:
+`~/.config/proteus/permissions.json` via `Permissions.qml`. Fail-open until the
+store is ready. Native OS sandbox for pacman apps stays Out — Flatpak overrides
+are separate (Settings → Privacy → Flatpak apps).
+
 This avoids pretending every creative app belongs on a vitals band or that every
 ops tool belongs on the console.
 

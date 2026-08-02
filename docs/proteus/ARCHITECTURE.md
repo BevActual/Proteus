@@ -127,7 +127,7 @@ Proteus/
   apps/
     proteus-settings/ # Settings.qml + kit/ + panes/*; shared/ → ../../shell/shared
   env/                # seeds: hypr/ · ghostty/ · fastfetch/ (see env/README.md)
-  vm/                 # QEMU harness + guest/ mutators + install/ overlay; ISO/qcow in PROTEUS_VM_CACHE
+  vm/                 # QEMU harness + guest/ mutators + install/ overlay; ISO/qcow in PROTEUS_VM_CACHE (install path SoT: INSTALL.md)
   services/           # proteus-hw-probe (read) · proteus-pkg · proteus-logind · proteus-audio-mix · proteus-accounts
   scripts/            # runners + tools: run-nested, run-desktop, smoke-all (entry)
     smoke/            # all *-smoke.sh gates (host + guest); run via ./scripts/smoke-all.sh

@@ -16,7 +16,7 @@ Singleton {
   readonly property int count: server.trackedNotifications ? server.trackedNotifications.values.length : 0
   readonly property bool dnd: Config.notificationsDnd
 
-  // Single SoT for toast suppress (DND · Control Center open).
+  // Single SoT for toast suppress (hard DND · Control Center open · Focus filters).
   readonly property bool toastsSuppressed: dnd || ShellState.controlCenterOpen
   readonly property bool showToast: !!toastNotification && !toastsSuppressed
 
@@ -31,6 +31,42 @@ Singleton {
     return t ? t : 0
   }
 
+  function shouldToast(n) {
+    if (ShellState.controlCenterOpen)
+      return false
+    if (Config.notificationsDnd)
+      return false
+    if (FocusMode.active)
+      return FocusMode.allows(n)
+    return true
+  }
+
+  // Grouped view for CC (Phase 2d) — [{ appName, items: [...] }, ...]
+  function groupedList() {
+    const vals = server.trackedNotifications ? server.trackedNotifications.values : []
+    const order = []
+    const map = {}
+    for (let i = 0; i < vals.length; i++) {
+      const n = vals[i]
+      if (!n)
+        continue
+      const name = String(n.appName || "App")
+      if (!map[name]) {
+        map[name] = []
+        order.push(name)
+      }
+      map[name].push(n)
+    }
+    const out = []
+    for (let i = 0; i < order.length; i++) {
+      out.push({
+        appName: order[i],
+        items: map[order[i]]
+      })
+    }
+    return out
+  }
+
   NotificationServer {
     id: server
     keepOnReload: true
@@ -42,11 +78,14 @@ Singleton {
     onNotification: notification => {
       notification.tracked = true
       root.receivedTimes[notification.id] = Date.now()
+      try {
+        FocusMode.rememberRecent(notification)
+      } catch (e) {
+      }
       // Unread badge only when CC is closed (open clears / stays at 0).
       if (!ShellState.controlCenterOpen)
         root.unreadCount += 1
-      // Toasts suppressed while DND or CC open — alerts still queue in the list.
-      if (!root.toastsSuppressed) {
+      if (root.shouldToast(notification)) {
         root.toastNotification = notification
         root.toastSeq += 1
       }
@@ -57,8 +96,12 @@ Singleton {
     const next = !!on
     Config.notificationsDnd = next
     Config.flushSettings()
-    if (next)
+    if (next) {
       root.clearToast()
+      // Hard quiet ends Focus so filters aren't confusingly "on" under DND.
+      if (FocusMode.active)
+        FocusMode.stop()
+    }
   }
 
   function toggleDnd() {
@@ -84,7 +127,6 @@ Singleton {
 
   function clearAll() {
     const vals = server.trackedNotifications.values
-    // Copy ids first — mutating while iterating is unsafe
     const copy = []
     for (let i = 0; i < vals.length; i++)
       copy.push(vals[i])

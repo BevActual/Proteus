@@ -1,0 +1,335 @@
+#!/usr/bin/env bash
+# proteus-console-seat — supervised console title launch (Valve reaper-lite).
+# Usage:
+#   proteus-console-seat [--expect-class REGEX] [--expect-title REGEX] [--timeout SECS]
+#                        [--] <proteus-console-launch args...>
+#   proteus-console-seat --desktop <desktop-id> [--expect-class REGEX] ...
+#   proteus-console-seat stop
+#
+# Launches via proteus-console-launch, waits for a Hyprland client map, forces
+# fullscreen by window address, writes pid/address under XDG_RUNTIME_DIR.
+set -euo pipefail
+
+RUNTIME="${XDG_RUNTIME_DIR:-/tmp}"
+LOG="${RUNTIME}/proteus-console-seat.log"
+PIDFILE="${RUNTIME}/proteus-console-seat.pid"
+ADDRFILE="${RUNTIME}/proteus-console-seat.address"
+PGIDFILE="${RUNTIME}/proteus-console-seat.pgid"
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LAUNCH="${HERE}/proteus-console-launch"
+if [[ ! -x "${LAUNCH}" ]]; then
+  LAUNCH="$(command -v proteus-console-launch || true)"
+fi
+
+EXPECT_CLASS=""
+EXPECT_TITLE=""
+TIMEOUT=20
+DESKTOP_ID=""
+STOP=0
+GAMESCOPE_FLAG="" # --gamescope | --no-gamescope | empty=auto
+
+usage() {
+  echo "usage: $0 [--expect-class REGEX] [--expect-title REGEX] [--timeout SECS] [--desktop ID | --] launch-args..." >&2
+  echo "       $0 stop" >&2
+  exit 2
+}
+
+log() {
+  printf '%s proteus-console-seat: %s\n' "$(date -Iseconds 2>/dev/null || date)" "$*" | tee -a "${LOG}" >&2
+}
+
+is_vm() {
+  local vendor product
+  vendor="$(tr -d '\0' </sys/class/dmi/id/sys_vendor 2>/dev/null || true)"
+  product="$(tr -d '\0' </sys/class/dmi/id/product_name 2>/dev/null || true)"
+  [[ "${vendor}${product}" =~ [Qq][Ee][Mm][Uu]|[Vv]irtual|[Vv]Mware|[Bb]ox|[Xx]en|[Bb]ochs ]]
+}
+
+# If Fact says console but hypr pointer still sources desktop.conf, apps tile
+# like desktop — resync profile without flipping chrome (no proteus-posture).
+ensure_console_hypr_profile() {
+  local fact_file profile_ptr root helper
+  fact_file="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/posture"
+  profile_ptr="${XDG_CONFIG_HOME:-${HOME}/.config}/hypr/proteus-profile.conf"
+  [[ -f "${fact_file}" ]] || return 0
+  [[ "$(tr -d '[:space:]' <"${fact_file}")" == "console" ]] || return 0
+  if [[ -f "${profile_ptr}" ]] && grep -q 'profiles/console\.conf' "${profile_ptr}" 2>/dev/null; then
+    return 0
+  fi
+  root="${PROTEUS_ROOT:-/mnt/proteus}"
+  helper="${root}/vm/guest/set-hypr-profile.sh"
+  if [[ -x "${helper}" ]]; then
+    log "hypr profile out of sync with Fact=console — running set-hypr-profile.sh console"
+    bash "${helper}" console >/dev/null 2>&1 || true
+  elif command -v set-hypr-profile.sh >/dev/null 2>&1; then
+    log "hypr profile out of sync with Fact=console — running set-hypr-profile.sh console"
+    set-hypr-profile.sh console >/dev/null 2>&1 || true
+  else
+    log "WARN: Fact=console but proteus-profile.conf not console and helper missing"
+  fi
+}
+
+stop_seat() {
+  local pid pgid
+  if [[ -f "${PIDFILE}" ]]; then
+    pid="$(cat "${PIDFILE}" 2>/dev/null || true)"
+    if [[ -n "${pid}" ]] && kill -0 "${pid}" 2>/dev/null; then
+      # Kill process group if we recorded one
+      if [[ -f "${PGIDFILE}" ]]; then
+        pgid="$(cat "${PGIDFILE}" 2>/dev/null || true)"
+        if [[ -n "${pgid}" ]]; then
+          kill -TERM -- "-${pgid}" 2>/dev/null || true
+          sleep 0.3
+          kill -KILL -- "-${pgid}" 2>/dev/null || true
+        fi
+      fi
+      kill -TERM -- "-${pid}" 2>/dev/null || kill -TERM "${pid}" 2>/dev/null || true
+      sleep 0.2
+      kill -KILL -- "-${pid}" 2>/dev/null || kill -KILL "${pid}" 2>/dev/null || true
+      log "stopped seat pid=${pid}"
+    fi
+  fi
+  rm -f "${PIDFILE}" "${ADDRFILE}" "${PGIDFILE}"
+}
+
+infer_expect() {
+  # Best-effort class hints from launch argv
+  local a
+  for a in "$@"; do
+    case "${a}" in
+      steam)
+        EXPECT_CLASS="${EXPECT_CLASS:-steam}"
+        ;;
+      retroarch)
+        EXPECT_CLASS="${EXPECT_CLASS:-com.libretro.RetroArch|retroarch}"
+        ;;
+      chromium|chromium-browser|brave|firefox|librewolf)
+        EXPECT_CLASS="${EXPECT_CLASS:-${a}|${a%-browser}}"
+        ;;
+      mpv)
+        EXPECT_CLASS="${EXPECT_CLASS:-mpv}"
+        ;;
+      proteus-terminal|ghostty|foot)
+        EXPECT_CLASS="${EXPECT_CLASS:-ghostty|foot|com.mitchellh.ghostty}"
+        ;;
+    esac
+  done
+  if [[ -n "${DESKTOP_ID}" && -z "${EXPECT_CLASS}" ]]; then
+    local id="${DESKTOP_ID%.desktop}"
+    EXPECT_CLASS="${id}"
+    case "${id}" in
+      *team*|*Steam*) EXPECT_CLASS="steam" ;;
+      *etroArch*|*retroarch*) EXPECT_CLASS="com.libretro.RetroArch|retroarch" ;;
+    esac
+  fi
+}
+
+find_client_address() {
+  # Prints hypr address of first matching client, or empty
+  command -v hyprctl >/dev/null 2>&1 || return 1
+  PROTEUS_SEAT_EXPECT_CLASS="${EXPECT_CLASS}" \
+  PROTEUS_SEAT_EXPECT_TITLE="${EXPECT_TITLE}" \
+  python3 - <<'PY' 2>/dev/null || true
+import json, os, re, subprocess, sys
+cls_re = os.environ.get("PROTEUS_SEAT_EXPECT_CLASS") or ""
+title_re = os.environ.get("PROTEUS_SEAT_EXPECT_TITLE") or ""
+try:
+    raw = subprocess.check_output(["hyprctl", "clients", "-j"], text=True, timeout=3)
+    clients = json.loads(raw)
+except Exception:
+    sys.exit(0)
+cre = re.compile(cls_re, re.I) if cls_re else None
+tre = re.compile(title_re, re.I) if title_re else None
+for c in clients:
+    cls = str(c.get("class") or "")
+    title = str(c.get("title") or "")
+    if "quickshell" in cls.lower():
+        continue
+    if title.startswith("Proteus Settings"):
+        continue
+    if cre and not cre.search(cls):
+        continue
+    if tre and not tre.search(title):
+        continue
+    print(c.get("address") or "")
+    sys.exit(0)
+PY
+}
+
+client_still_mapped() {
+  local addr="$1"
+  [[ -n "${addr}" ]] || return 1
+  hyprctl clients -j 2>/dev/null | grep -Fq "\"address\": \"${addr}\"" \
+    || hyprctl clients -j 2>/dev/null | grep -Fq "\"address\":\"${addr}\""
+}
+
+park_quickshell_chrome() {
+  # Free the tiled monitor for the seat client (see console.conf special:proteus-chrome).
+  hyprctl dispatch movetoworkspacesilent "special:proteus-chrome,class:org.quickshell" >/dev/null 2>&1 || true
+  hyprctl clients -j 2>/dev/null | python3 - <<'PY' 2>/dev/null || true
+import json, subprocess, sys
+try:
+    clients = json.loads(sys.stdin.read() or "[]")
+except Exception:
+    raise SystemExit(0)
+for c in clients:
+    cls = str(c.get("class") or "")
+    if "quickshell" not in cls.lower():
+        continue
+    addr = c.get("address")
+    if not addr:
+        continue
+    subprocess.run(
+        ["hyprctl", "dispatch", "movetoworkspacesilent", f"special:proteus-chrome,address:{addr}"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+PY
+}
+
+fullscreen_address() {
+  local addr="$1"
+  [[ -n "${addr}" ]] || return 1
+  park_quickshell_chrome
+  # Batch focus + fullscreen so the rule applies to the seat client, not QS.
+  hyprctl --batch "\
+dispatch focuswindow address:${addr};\
+dispatch fullscreenstate 2 2;\
+dispatch fullscreen 2" >/dev/null 2>&1 || true
+  # Fallbacks if batch rejected a keyword
+  hyprctl dispatch focuswindow "address:${addr}" >/dev/null 2>&1 || true
+  hyprctl dispatch fullscreenstate 2 2 >/dev/null 2>&1 || true
+  hyprctl dispatch fullscreen 2 >/dev/null 2>&1 || true
+  hyprctl dispatch fullscreen 1 >/dev/null 2>&1 || true
+  # Pin to workspace 1 and bring to top
+  hyprctl dispatch movetoworkspacesilent "1,address:${addr}" >/dev/null 2>&1 || true
+  hyprctl dispatch alterzorder "top,address:${addr}" >/dev/null 2>&1 || true
+}
+
+# --- argv ---
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    stop)
+      STOP=1
+      shift
+      ;;
+    --expect-class)
+      EXPECT_CLASS="${2:-}"
+      shift 2
+      ;;
+    --expect-title)
+      EXPECT_TITLE="${2:-}"
+      shift 2
+      ;;
+    --timeout)
+      TIMEOUT="${2:-20}"
+      shift 2
+      ;;
+    --desktop)
+      DESKTOP_ID="${2:-}"
+      shift 2
+      ;;
+    --gamescope|--no-gamescope)
+      GAMESCOPE_FLAG="$1"
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -h|--help)
+      usage
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+if [[ "${STOP}" -eq 1 ]]; then
+  stop_seat
+  exit 0
+fi
+
+if [[ -z "${LAUNCH}" || ! -x "${LAUNCH}" ]]; then
+  echo "proteus-console-seat: proteus-console-launch not found" >&2
+  exit 127
+fi
+
+LAUNCH_ARGS=()
+if [[ -n "${GAMESCOPE_FLAG}" ]]; then
+  LAUNCH_ARGS+=("${GAMESCOPE_FLAG}")
+fi
+if [[ -n "${DESKTOP_ID}" ]]; then
+  LAUNCH_ARGS+=(--desktop "${DESKTOP_ID}")
+fi
+if [[ $# -gt 0 ]]; then
+  LAUNCH_ARGS+=("$@")
+fi
+if [[ ${#LAUNCH_ARGS[@]} -eq 0 ]]; then
+  usage
+fi
+
+infer_expect "${LAUNCH_ARGS[@]}"
+
+# Steam seat env (Valve-shaped; avoid Gamescope -e/--steam outside gamescope)
+export STEAM_RUNTIME_PREFER_HOST_LIBRARIES="${STEAM_RUNTIME_PREFER_HOST_LIBRARIES:-1}"
+if is_vm; then
+  export MESA_GL_VERSION_OVERRIDE="${MESA_GL_VERSION_OVERRIDE:-4.3}"
+  export MESA_GLSL_VERSION_OVERRIDE="${MESA_GLSL_VERSION_OVERRIDE:-430}"
+fi
+
+stop_seat
+: >"${LOG}"
+ensure_console_hypr_profile
+log "launch: ${LAUNCH} ${LAUNCH_ARGS[*]}"
+log "expect class='${EXPECT_CLASS}' title='${EXPECT_TITLE}' timeout=${TIMEOUT}s"
+
+# New process group so stop can reap children
+set -m
+(
+  exec "${LAUNCH}" "${LAUNCH_ARGS[@]}"
+) &
+CHILD=$!
+echo "${CHILD}" >"${PIDFILE}"
+# PGID of the background job
+echo "$(ps -o pgid= -p "${CHILD}" 2>/dev/null | tr -d ' ')" >"${PGIDFILE}" || true
+log "child pid=${CHILD}"
+
+deadline=$((SECONDS + TIMEOUT))
+ADDR=""
+CHILD_GONE=0
+while [[ "${SECONDS}" -lt "${deadline}" ]]; do
+  if [[ "${CHILD_GONE}" -eq 0 ]] && ! kill -0 "${CHILD}" 2>/dev/null; then
+    wait "${CHILD}" 2>/dev/null || true
+    CHILD_GONE=1
+    log "launch helper exited (ok if gtk-launch); still waiting for window"
+  fi
+  ADDR="$(find_client_address || true)"
+  if [[ -n "${ADDR}" ]]; then
+    echo "${ADDR}" >"${ADDRFILE}"
+    fullscreen_address "${ADDR}"
+    # Second pass after focus settles
+    sleep 0.25
+    fullscreen_address "${ADDR}"
+    log "mapped address=${ADDR} — fullscreen applied"
+    # Supervise until the window leaves (gtk-launch exits early; steam stays)
+    while client_still_mapped "${ADDR}"; do
+      if [[ "${CHILD_GONE}" -eq 0 ]] && ! kill -0 "${CHILD}" 2>/dev/null; then
+        wait "${CHILD}" 2>/dev/null || true
+        CHILD_GONE=1
+      fi
+      sleep 0.8
+    done
+    log "seat window gone — done"
+    # Reap leftover process group
+    stop_seat
+    exit 0
+  fi
+  # If helper died and no window yet, keep waiting until timeout
+  sleep 0.35
+done
+
+log "FAIL: timed out waiting for window (class~${EXPECT_CLASS})"
+stop_seat
+exit 1

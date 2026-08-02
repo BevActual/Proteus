@@ -23,6 +23,8 @@ Singleton {
   property alias barHeight: adapter.barHeight
   property alias barAutoHide: adapter.barAutoHide
   property alias barMonitor: adapter.barMonitor
+  // Spaces: synced (all displays) | perDisplay (this display only)
+  property alias workspaceMode: adapter.workspaceMode
   property alias mouseSensitivity: adapter.mouseSensitivity
   property alias mouseAccelFlat: adapter.mouseAccelFlat
   // Console Guide button (BTN_MODE) — nav | cc | off
@@ -46,6 +48,13 @@ Singleton {
   property alias chromeBlur: adapter.chromeBlur
   property alias lockOnSessionStart: adapter.lockOnSessionStart
   property alias notificationsDnd: adapter.notificationsDnd
+  // Focus Mode — allowlist + profiles (soft quiet; not a posture)
+  property alias focusAllowedApps: adapter.focusAllowedApps
+  property alias focusBreakCritical: adapter.focusBreakCritical
+  property alias focusProfiles: adapter.focusProfiles
+  property alias focusActiveProfileId: adapter.focusActiveProfileId
+  // Control Center tile layout (order / visibility / span / size)
+  property alias controlCenterLayout: adapter.controlCenterLayout
   property alias lockBackgroundMode: adapter.lockBackgroundMode
   property alias lockWallpaperId: adapter.lockWallpaperId
   property alias lockWallpaperCustomPath: adapter.lockWallpaperCustomPath
@@ -751,6 +760,19 @@ Singleton {
     }
   }
 
+  function focusAllowedAppsList() {
+    const raw = focusAllowedApps
+    if (!Array.isArray(raw))
+      return []
+    const out = []
+    for (let i = 0; i < raw.length; i++) {
+      const s = String(raw[i] || "").trim().toLowerCase()
+      if (s.length)
+        out.push(s)
+    }
+    return out
+  }
+
   function launcherRecentList() {
     const raw = String(launcherRecents || "")
     if (!raw.length)
@@ -1154,6 +1176,8 @@ Singleton {
       property int barHeight: 34
       property bool barAutoHide: false
       property string barMonitor: "all"
+      // synced | perDisplay — macOS-adjacent Spaces (see proteus-workspace)
+      property string workspaceMode: "synced"
       property real mouseSensitivity: 0
       property bool mouseAccelFlat: false
       // Guide button in console posture: nav | cc | off
@@ -1182,6 +1206,13 @@ Singleton {
       property bool chromeBlur: true
       property bool lockOnSessionStart: true
       property bool notificationsDnd: false
+      // Focus Mode filters (flat keys stay in sync with active profile)
+      property var focusAllowedApps: []
+      property bool focusBreakCritical: true
+      property var focusProfiles: []
+      property string focusActiveProfileId: "work"
+      // Control Center layout: { version, columns, plates[], tiles[{id,visible,span,size}] }
+      property var controlCenterLayout: ({})
       // match | color | image | daily | video | reactive
       property string lockBackgroundMode: "match"
       property string lockWallpaperId: "default"

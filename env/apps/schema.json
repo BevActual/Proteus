@@ -31,6 +31,21 @@
       "items": { "type": "string", "minLength": 1 },
       "description": "At least one of these capabilities must be present."
     },
+    "permissions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "microphone",
+          "camera",
+          "location",
+          "notifications",
+          "screen",
+          "diagnostics"
+        ]
+      },
+      "description": "User grants required via Permissions.qml (allow only; ask/deny block). Fail-open until store ready."
+    },
     "reason": {
       "type": "string",
       "description": "Human string shown when search surfaces a blocked app."

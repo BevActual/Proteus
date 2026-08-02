@@ -9,6 +9,8 @@ xdg-desktop-portal-hyprland
 xdg-desktop-portal
 xdg-desktop-portal-gtk
 xdg-utils
+# ~/Downloads, ~/Pictures, … — Chromium/Nautilus expect these
+xdg-user-dirs
 seatd
 polkit
 # GUI auth prompts for pkexec (proteus-pkg / proteus-logind / timedatectl …)

@@ -98,6 +98,13 @@ Singleton {
       requiresAny: []
     },
     {
+      id: "notifications",
+      label: "Notifications",
+      status: "partial",
+      requires: [],
+      requiresAny: []
+    },
+    {
       id: "privacy",
       label: "Privacy & security",
       status: "partial",
@@ -187,6 +194,30 @@ Singleton {
       label: "Dock & menu bar",
       hubId: "desktop",
       keywords: "dock bar auto-hide"
+    },
+    {
+      id: "desktop-spaces",
+      label: "Spaces",
+      hubId: "desktop",
+      keywords: "workspaces virtual desktops displays share spaces"
+    },
+    {
+      id: "desktop-defaults",
+      label: "Default apps",
+      hubId: "desktop",
+      keywords: "default applications mime browser files images pdf music video celluloid mpv video player open with"
+    },
+    {
+      id: "desktop-focus",
+      label: "Focus",
+      hubId: "desktop",
+      keywords: "focus quiet dnd filter allowlist schedule profile work sleep personal"
+    },
+    {
+      id: "desktop-control-center",
+      label: "Control Center",
+      hubId: "desktop",
+      keywords: "control center quick settings tiles layout customize plates sound display"
     },
     {
       id: "desktop-launcher",
@@ -330,13 +361,67 @@ Singleton {
       id: "datetime",
       label: "Date, time & weather",
       hubId: "datetime",
-      keywords: "clock timezone ntp locale weather forecast location"
+      keywords: "clock timezone ntp locale weather forecast location weather location forecast timezone"
+    },
+    {
+      id: "notifications",
+      label: "Notifications",
+      hubId: "notifications",
+      keywords: "notifications alerts toasts dnd do not disturb banner"
     },
     {
       id: "privacy",
       label: "Privacy & security",
       hubId: "privacy",
       keywords: "privacy security permissions camera mic clipboard lock"
+    },
+    {
+      id: "privacy-activity",
+      label: "In use now",
+      hubId: "privacy",
+      keywords: "mic camera screen recording capture active privacy"
+    },
+    {
+      id: "privacy-microphone",
+      label: "Microphone",
+      hubId: "privacy",
+      keywords: "mic microphone permission grant"
+    },
+    {
+      id: "privacy-camera",
+      label: "Camera",
+      hubId: "privacy",
+      keywords: "camera webcam permission grant"
+    },
+    {
+      id: "privacy-location",
+      label: "Location",
+      hubId: "privacy",
+      keywords: "location weather place permission"
+    },
+    {
+      id: "privacy-notifications",
+      label: "Notifications",
+      hubId: "privacy",
+      keywords: "notifications dnd toasts permission"
+    },
+    {
+      id: "privacy-screen",
+      label: "Screen recording",
+      hubId: "privacy",
+      keywords: "screen recording capture portal permission"
+    },
+    {
+      id: "privacy-diagnostics",
+      label: "Diagnostics",
+      hubId: "privacy",
+      keywords: "diagnostics telemetry leave machine"
+    },
+    {
+      id: "privacy-flatpak",
+      label: "Flatpak apps",
+      hubId: "privacy",
+      keywords: "flatpak sandbox override permissions sandbox overrides camera microphone"
     },
     {
       id: "packages",
@@ -469,6 +554,7 @@ Singleton {
     const isPeripheralsDrill = p === "peripherals" || p.startsWith("peripherals-") || p === "keyboard"
     const isPackagesDrill = p === "packages" || p.startsWith("packages-")
     const isSoundDrill = p === "sound" || p.startsWith("sound-")
+    const isPrivacyDrill = p === "privacy" || p.startsWith("privacy-")
     if (isStyleDrill) {
       if (!paneAvailable("style"))
         nav.page = firstAvailablePane()
@@ -491,6 +577,11 @@ Singleton {
     }
     if (isSoundDrill) {
       if (!paneAvailable("sound"))
+        nav.page = firstAvailablePane()
+      return
+    }
+    if (isPrivacyDrill) {
+      if (!paneAvailable("privacy"))
         nav.page = firstAvailablePane()
       return
     }
@@ -583,8 +674,62 @@ Singleton {
     return {
       requires: m.requires || [],
       requiresAny: m.requiresAny || [],
+      permissions: m.permissions || [],
       reason: m.reason || "Unavailable on this device"
     }
+  }
+
+  function permissionDeniedReason(entry, rule) {
+    const perms = (rule && rule.permissions) ? rule.permissions : []
+    if (!perms.length)
+      return ""
+    // Fail-open until Permissions store is ready (mirror Hardware).
+    try {
+      if (!Permissions.ready)
+        return ""
+    } catch (e) {
+      return ""
+    }
+    const id = entry && entry.id ? entry.id : ""
+    for (let i = 0; i < perms.length; i++) {
+      const cat = String(perms[i] || "")
+      if (!cat.length)
+        continue
+      try {
+        if (!Permissions.granted(id, cat))
+          return "Blocked by Privacy · " + Permissions.categoryLabel(cat)
+      } catch (e2) {
+        return ""
+      }
+    }
+    return ""
+  }
+
+  // Pane id for the first denied privacy category (e.g. privacy-camera), or "".
+  function appPrivacyBlockPane(entry) {
+    const rule = ruleForApp(entry)
+    const perms = (rule && rule.permissions) ? rule.permissions : []
+    if (!perms.length)
+      return ""
+    try {
+      if (!Permissions.ready)
+        return ""
+    } catch (e) {
+      return ""
+    }
+    const id = entry && entry.id ? entry.id : ""
+    for (let i = 0; i < perms.length; i++) {
+      const cat = String(perms[i] || "")
+      if (!cat.length)
+        continue
+      try {
+        if (!Permissions.granted(id, cat))
+          return "privacy-" + cat
+      } catch (e2) {
+        return ""
+      }
+    }
+    return ""
   }
 
   function ruleForApp(entry) {
@@ -720,6 +865,8 @@ Singleton {
       return false
     if (rule.requiresAny && !hasAny(rule.requiresAny))
       return false
+    if (permissionDeniedReason(entry, rule).length)
+      return false
     return true
   }
 
@@ -727,6 +874,9 @@ Singleton {
     if (appAvailable(entry))
       return ""
     const rule = ruleForApp(entry)
+    const perm = permissionDeniedReason(entry, rule)
+    if (perm.length)
+      return perm
     return (rule && rule.reason) ? rule.reason : "Unavailable on this device"
   }
 

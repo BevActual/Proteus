@@ -7,6 +7,7 @@ Item {
   height: 36
 
   property string hint: ""
+  property string contextLine: ""
 
   RowLayout {
     anchors.fill: parent
@@ -15,11 +16,15 @@ Item {
     spacing: Theme.spaceLg
 
     Text {
-      text: "Ⓐ Open   Ⓑ Back   Guide nav / switcher   ← ↑ ↓ → move   C Control Center"
-      color: Theme.textMute
+      text: root.contextLine.length
+          ? root.contextLine
+          : "◎ Guide nav · Ⓐ Open · C Control Center"
+      color: Theme.accent
       font.family: Theme.fontFamily
       font.pixelSize: Theme.fontSizeSm
+      font.weight: Font.Medium
       Layout.fillWidth: true
+      elide: Text.ElideRight
     }
 
     Text {

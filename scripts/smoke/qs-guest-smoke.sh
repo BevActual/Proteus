@@ -103,6 +103,16 @@ if kill -0 "$SP" 2>/dev/null; then
   else
     echo BEACON_FAIL
   fi
+  qs -p /mnt/proteus/shell ipc call chrome beacon focus >/dev/null 2>&1
+  sleep 0.5
+  focus_state="$(qs -p /mnt/proteus/shell ipc call chrome beaconState 2>/dev/null || echo '')"
+  echo "FOCUS_STATE=${focus_state}"
+  if [[ "${focus_state}" == *'focus'* ]] || [[ "${focus_state}" == *'"action"'* ]]; then
+    echo FOCUS_OK
+  else
+    echo FOCUS_FAIL
+  fi
+  qs -p /mnt/proteus/shell ipc call chrome focusCycle >/dev/null 2>&1 || true
 fi
 
 # Calendar popover — toggle open via IPC, assert chrome state reflects it,
@@ -240,6 +250,7 @@ echo "${out}" | grep -q SETTINGS_OK || { echo "qs-guest-smoke: FAIL Settings did
 echo "${out}" | grep -q POLKIT_AGENT_OK || { echo "qs-guest-smoke: FAIL hyprpolkitagent not running (pkexec auth prompts will fail)" >&2; exit 1; }
 echo "${out}" | grep -q NAV_OK || { echo "qs-guest-smoke: FAIL Install… deep link (nav installSearch) did not land on packages-search" >&2; exit 1; }
 echo "${out}" | grep -q BEACON_OK || { echo "qs-guest-smoke: FAIL Beacon universal search (chrome beacon reboot) returned no action row" >&2; exit 1; }
+echo "${out}" | grep -q FOCUS_OK || { echo "qs-guest-smoke: FAIL Beacon Focus action (chrome beacon focus) not found" >&2; exit 1; }
 echo "${out}" | grep -q CALENDAR_OK || { echo "qs-guest-smoke: FAIL calendar popover (chrome calendar) did not open" >&2; exit 1; }
 echo "${out}" | grep -q CUSTOMIZE_OK || { echo "qs-guest-smoke: FAIL Customize mode (chrome customizeDesktop) did not open" >&2; exit 1; }
 echo "${out}" | grep -q WIDGETS_ADD_OK || { echo "qs-guest-smoke: FAIL widgets add (worldclock probe)" >&2; exit 1; }

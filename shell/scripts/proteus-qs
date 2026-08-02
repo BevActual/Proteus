@@ -87,18 +87,35 @@ kill_other_wrappers() {
   sleep 0.2
 }
 
-if [[ "${RESTART}" -eq 1 ]]; then
-  log "restart requested for ${SHELL_PATH}"
-  kill_other_wrappers
-  reap_chrome
-  sleep 0.3
-  exec "${SELF}" "${SHELL_PATH}"
-fi
-
 # Single-instance: one wrapper per shell path (prevents doubled bar/dock).
 LOCK_DIR="${XDG_RUNTIME_DIR:-/tmp}"
 LOCK_HASH="$(printf '%s' "${SHELL_PATH}" | sha256sum 2>/dev/null | awk '{print $1}' | cut -c1-16)"
 LOCK="${LOCK_DIR}/proteus-qs-${LOCK_HASH:-shell}.lock"
+
+if [[ "${RESTART}" -eq 1 ]]; then
+  log "restart requested for ${SHELL_PATH}"
+  kill_other_wrappers
+  reap_chrome
+  # Wait for the previous wrapper to drop the flock — a short fixed sleep
+  # races and the new wrapper exits 0 ("refusing double chrome"), leaving
+  # a blank session with no chrome at all.
+  for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+    if [[ ! -e "${LOCK}" ]] || ! fuser "${LOCK}" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 0.15
+  done
+  if fuser "${LOCK}" >/dev/null 2>&1; then
+    log "force-clearing stale flock ${LOCK}"
+    pkill -f "proteus-qs( --restart)? ${SHELL_PATH}" 2>/dev/null || true
+    pkill -f "/usr/local/bin/proteus-qs( --restart)? ${SHELL_PATH}" 2>/dev/null || true
+    reap_chrome
+    rm -f "${LOCK}"
+    sleep 0.2
+  fi
+  exec "${SELF}" "${SHELL_PATH}"
+fi
+
 exec 9>"${LOCK}"
 if ! flock -n 9; then
   log "already running for ${SHELL_PATH}; exit (refusing double chrome)"

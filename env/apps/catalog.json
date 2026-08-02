@@ -29,6 +29,28 @@
       "match": "virt-manager|gnome-boxes",
       "requiresAny": ["libvirt", "containers"],
       "reason": "Needs virtualization"
+    },
+    {
+      "id": "snapshot",
+      "desktopIds": ["org.gnome.Snapshot", "snapshot"],
+      "match": "gnome-snapshot|org\\.gnome\\.Snapshot",
+      "permissions": ["camera"],
+      "reason": "Needs camera permission"
+    },
+    {
+      "id": "cheese",
+      "desktopIds": ["org.gnome.Cheese", "cheese"],
+      "match": "cheese",
+      "permissions": ["camera"],
+      "reason": "Needs camera permission"
+    },
+    {
+      "id": "obs",
+      "desktopIds": ["com.obsproject.Studio", "obs", "obs-studio"],
+      "match": "obs-studio|com\\.obsproject",
+      "requiresAny": ["speaker", "mic", "qs_pipewire"],
+      "permissions": ["microphone", "screen"],
+      "reason": "Needs audio / screen capture permission"
     }
   ]
 }

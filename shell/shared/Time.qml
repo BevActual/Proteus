@@ -4,13 +4,11 @@ import Quickshell
 import QtQuick
 
 Singleton {
-  // Menu-bar clock — weekday + date + 12h time (macOS-adjacent, not 24h military)
-  readonly property string text: {
-    const d = clock.date
-    const day = Qt.formatDateTime(d, "ddd MMM d")
-    const time = Qt.formatDateTime(d, "h:mm AP")
-    return day + "  " + time
-  }
+  // Menu-bar clock pieces — weekday + date + 12h time (macOS-adjacent).
+  readonly property string dateText: Qt.formatDateTime(clock.date, "ddd MMM d")
+  readonly property string timeText: Qt.formatDateTime(clock.date, "h:mm AP")
+  // Combined form (legacy / single-line callers)
+  readonly property string text: dateText + "  " + timeText
 
   SystemClock {
     id: clock

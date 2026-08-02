@@ -86,7 +86,7 @@ Compositor engines: [COMPOSITOR.md](./COMPOSITOR.md).
 | Posture | Job | Chrome / engines | Status |
 |---------|-----|------------------|--------|
 | **desktop** | Create / windowed work (desk + laptop) | Full shell (bar, dock, Beacon); Hyprland tiling backend | `partial` — primary spine |
-| **console** | Lean-back consume + play (TV, film, games) | Sparse ConsoleShell (nav/switcher/CC) over Hyprland kiosk rules; **per-title Gamescope** wraps; Guide button / Super+Home | `partial` — hard enter/exit shipped; full Gamescope session later |
+| **console** | Lean-back consume + play (TV, film, games) | Sparse ConsoleShell — tvOS-style shelf Home (cinematic Featured tracks focus, curated shelves, Library = full catalog), lean sheets; Hyprland kiosk + **supervised seat** (`proteus-console-seat`); **per-title Gamescope** when Vulkan usable; Guide / Super+Home | `partial` — Phase 1 seat/capabilities shipped; full Gamescope *session* later |
 | **host** | Operate the box (VMs, containers, services, updates) | Default lean/headless; **UI on demand** (local or remote) — not a DE clone; little/no creative chrome | `planned` (hypr stub: `host.conf`) |
 
 **Naming:** **Console** is the locked product name for lean-back. Legacy docs /
@@ -119,6 +119,11 @@ Soft helper: `vm/guest/set-hypr-profile.sh desktop|console|media|host|home`
 via `HyprProfile.qml` (soft≠hard). **Hard console switch:**
 `vm/guest/proteus-posture console|desktop` — Fact + chrome restart + profile;
 Beacon / Control Center / `Super+Shift+C` enter; console Desktop tile exits.
+CC / Quick Settings prefer the **live tree** helper (`$PROTEUS_ROOT/vm/guest/…`)
+over a stale `/usr/local` copy. Posture flips set
+`PROTEUS_SKIP_SESSION_LOCK=1` so chrome does not re-lock mid-session (cold boot
+still honors `lockOnSessionStart`). `proteus-qs --restart` waits for the flock
+so a flip cannot leave a blank session with no chrome.
 
 ---
 
@@ -311,7 +316,7 @@ posture only, no capability profile; hypr profile helper is soft-only.
 | Focus posture | `PROTEUS_SURFACE` today | Hypr profile file | Notes |
 |---------------|-------------------------|-------------------|--------|
 | desktop | `desktop` | `profiles/desktop.conf` | Default |
-| console | `console` (`couch` alias) | `profiles/console.conf` | Hard flip: `proteus-posture`; layered ConsoleShell |
+| console | `console` (`couch` alias) | `profiles/console.conf` | Hard flip: `proteus-posture` (skip re-lock); shelf Home + Library/Search destinations + lean sheets |
 | host | — | `profiles/host.conf` | Stub; no QS surface loader yet |
 
 | Parked / other | `PROTEUS_SURFACE` | Notes |

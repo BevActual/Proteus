@@ -13,6 +13,7 @@
 | [proteus/CHROME.md](proteus/CHROME.md) | Company chrome design lock (tokens + patterns) |
 | [proteus/FACTS.md](proteus/FACTS.md) | On-disk truth + façade vs services |
 | [proteus/CONFIG-SCHEMA.md](proteus/CONFIG-SCHEMA.md) | settings.json key groups |
+| [proteus/INSTALL.md](proteus/INSTALL.md) | Dogfood install path SoT (three layers, overlay knobs, repair) |
 | [proteus/CURRENT.md](proteus/CURRENT.md) | What’s built today (honest status) |
 | [shared/ECOSYSTEM.md](shared/ECOSYSTEM.md) | Proteus among Bevington products |
 | [ISSUES.md](ISSUES.md) | Thin pointer → Mobius company queue |

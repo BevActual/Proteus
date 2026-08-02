@@ -66,6 +66,41 @@ Scope {
     onPressed: ShellState.toggleControlCenter()
   }
 
+  GlobalShortcut {
+    appid: "proteus"
+    name: "volume-up"
+    description: "Raise volume"
+    onPressed: Audio.stepVolume(5)
+  }
+
+  GlobalShortcut {
+    appid: "proteus"
+    name: "volume-down"
+    description: "Lower volume"
+    onPressed: Audio.stepVolume(-5)
+  }
+
+  GlobalShortcut {
+    appid: "proteus"
+    name: "volume-mute"
+    description: "Toggle mute"
+    onPressed: Audio.toggleMuteHud()
+  }
+
+  GlobalShortcut {
+    appid: "proteus"
+    name: "brightness-up"
+    description: "Raise brightness"
+    onPressed: Brightness.stepBrightness(5)
+  }
+
+  GlobalShortcut {
+    appid: "proteus"
+    name: "brightness-down"
+    description: "Lower brightness"
+    onPressed: Brightness.stepBrightness(-5)
+  }
+
   IpcHandler {
     target: "lock"
     function lock(): void {
@@ -101,6 +136,34 @@ Scope {
 
     function pad(button: string): void {
       ShellState.handlePad(button)
+    }
+
+    function volume(value: int): void {
+      Hud.show("volume", value, "")
+    }
+
+    function brightness(value: int): void {
+      Hud.show("brightness", value, "")
+    }
+
+    function volumeUp(): void {
+      Audio.stepVolume(5)
+    }
+
+    function volumeDown(): void {
+      Audio.stepVolume(-5)
+    }
+
+    function volumeMute(): void {
+      Audio.toggleMuteHud()
+    }
+
+    function brightnessUp(): void {
+      Brightness.stepBrightness(5)
+    }
+
+    function brightnessDown(): void {
+      Brightness.stepBrightness(-5)
     }
 
     function state(): string {
@@ -157,9 +220,35 @@ Scope {
         console.warn("session lock skipped — PROTEUS_SKIP_SESSION_LOCK is set")
         ShellState.sessionStartLockPending = false
         ShellState.consoleNavVisible = true
+        root.syncNavFade()
         return
       }
+      // Keep pending TRUE while locked (same as DesktopShell) so nav stays
+      // unmapped under the lock. Engage WlSessionLock explicitly — binding
+      // alone can race on first lock after a chrome restart.
       ShellState.lockSession()
+      sessionLock.locked = true
+    }
+  }
+
+  // If Wayland session lock never maps, unlock + show nav so console is not
+  // permanently blank (bg layer only, overlay hidden).
+  Timer {
+    id: lockWatchdog
+    interval: 2500
+    running: true
+    repeat: false
+    onTriggered: {
+      if (!ShellState.sessionLocked || !ShellState.sessionStartLockPending)
+        return
+      if (sessionLock.locked) {
+        // Still locked with compositor — leave LockSurface as SoT.
+        return
+      }
+      console.warn("console session lock failed to engage — showing nav")
+      ShellState.unlockSession()
+      ShellState.showConsoleNav()
+      root.syncNavFade()
     }
   }
 
@@ -170,8 +259,34 @@ Scope {
     }
   }
 
+  // Nav fade — keep layer mapped briefly so hide/show can animate (CC stillVisible).
+  property real navFade: 0
+  readonly property bool navLayerWanted: !ShellState.sessionLocked && !ShellState.sessionStartLockPending
+      && (ShellState.consoleNavVisible || ShellState.controlCenterOpen || ShellState.consoleSwitcherOpen)
+
+  Behavior on navFade {
+    NumberAnimation {
+      duration: 220
+      easing.type: Easing.OutCubic
+    }
+  }
+
+  function syncNavFade() {
+    root.navFade = root.navLayerWanted ? 1 : 0
+  }
+
+  Connections {
+    target: ShellState
+    function onConsoleNavVisibleChanged() { root.syncNavFade() }
+    function onControlCenterOpenChanged() { root.syncNavFade() }
+    function onConsoleSwitcherOpenChanged() { root.syncNavFade() }
+    function onSessionLockedChanged() { root.syncNavFade() }
+    function onSessionStartLockPendingChanged() { root.syncNavFade() }
+  }
+
   Component.onCompleted: {
     ShellState.consoleSurfaceActive = true
+    root.syncNavFade()
   }
 
   // Background canvas layer (calm; not desktop wallpaper config)
@@ -226,7 +341,7 @@ Scope {
       screen: modelData
 
       visible: !ShellState.sessionLocked && !ShellState.sessionStartLockPending
-          && (ShellState.consoleNavVisible || ShellState.controlCenterOpen || ShellState.consoleSwitcherOpen)
+          && (root.navLayerWanted || root.navFade > 0.01)
       exclusionMode: ExclusionMode.Ignore
       exclusiveZone: 0
       color: "transparent"
@@ -266,7 +381,103 @@ Scope {
 
       ConsoleHome {
         anchors.fill: parent
-        visible: navWin.visible
+        navOpacity: root.navFade
+      }
+    }
+  }
+
+  // Toasts — same suppress rules as desktop (DND / CC-open)
+  Variants {
+    model: Quickshell.screens
+
+    PanelWindow {
+      id: toastWin
+      required property var modelData
+      screen: modelData
+
+      readonly property bool isFocused: {
+        const mon = Hyprland.monitorFor(modelData)
+        return mon ? mon.focused : (modelData === Quickshell.screens[0])
+      }
+      readonly property bool showToast: isFocused && Notifications.showToast && !ShellState.sessionLocked
+
+      visible: showToast
+      exclusionMode: ExclusionMode.Ignore
+      color: "transparent"
+
+      anchors {
+        top: true
+        left: true
+        right: true
+        bottom: true
+      }
+
+      Component.onCompleted: {
+        if (toastWin.WlrLayershell != null) {
+          toastWin.WlrLayershell.namespace = "proteus-console-toast"
+          toastWin.WlrLayershell.layer = WlrLayer.Overlay
+        }
+      }
+
+      NotificationToast {
+        id: toastLayer
+        anchors.fill: parent
+        visible: toastWin.showToast
+      }
+
+      mask: toastWin.showToast ? toastMask : emptyMask
+      Region {
+        id: toastMask
+        item: toastLayer.cardItem
+      }
+      Region {
+        id: emptyMask
+      }
+    }
+  }
+
+  // Status HUD (volume / brightness)
+  Variants {
+    model: Quickshell.screens
+
+    PanelWindow {
+      id: hudWin
+      required property var modelData
+      screen: modelData
+
+      readonly property bool isFocused: {
+        const mon = Hyprland.monitorFor(modelData)
+        return mon ? mon.focused : (modelData === Quickshell.screens[0])
+      }
+
+      visible: !ShellState.sessionLocked && isFocused && Hud.hudVisible
+          && !ShellState.controlCenterOpen
+      exclusionMode: ExclusionMode.Ignore
+      color: "transparent"
+
+      anchors {
+        top: true
+        left: true
+        right: true
+        bottom: true
+      }
+
+      Component.onCompleted: {
+        if (hudWin.WlrLayershell != null) {
+          hudWin.WlrLayershell.namespace = "proteus-console-hud"
+          hudWin.WlrLayershell.layer = WlrLayer.Overlay
+        }
+      }
+
+      StatusHud {
+        id: hudLayer
+        anchors.fill: parent
+      }
+
+      mask: hudMask
+      Region {
+        id: hudMask
+        item: hudLayer.cardItem
       }
     }
   }

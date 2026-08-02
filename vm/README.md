@@ -33,7 +33,72 @@ Default cache: **`~/.cache/proteus-vm`** (`$XDG_CACHE_HOME/proteus-vm`). Overrid
 ./vm/run.sh               # daily boot
 ```
 
+### Gamepad / pad (console dogfood)
+
+**Preferred:** pass the host joystick evdev into the guest (works when you are in
+the `input` group; no root USB claim):
+
+```bash
+# Stop the running guest first (close the QEMU window or kill qemu-system-x86_64)
+PROTEUS_VM_PAD=auto ./vm/run.sh
+# or pin a node:
+PROTEUS_VM_PAD=/dev/input/event20 ./vm/run.sh
+```
+
+**Alternate:** full USB passthrough (`usb-host`) — needs **write** on
+`/dev/bus/usb/BBB/DDD` (often root-only). Add a udev rule `MODE="0660",
+GROUP="input"` for the pad, or use `PROTEUS_VM_PAD` instead:
+
+```bash
+PROTEUS_VM_USB=auto ./vm/run.sh          # first Xbox/Sony/Razer/… from lsusb
+PROTEUS_VM_USB=1532:0a45 ./vm/run.sh     # e.g. Razer Wolverine V3 TE
+```
+
+In the guest: `python-evdev` + `proteus-guide` (via `apply-console-kit.sh`);
+`tail -f /run/user/\$UID/proteus-guide.log` should show `watching 1 gamepad(s)`.
+Guide button → nav; face buttons / D-pad while console nav is up.
+
+### Steam / RetroArch (console seats)
+
+**Phase 1:** Hyprland kiosk + supervised `proteus-console-seat` (wait for map →
+fullscreen by address → reaper). Gamescope only when Vulkan is usable.
+**Phase 2 (later):** optional Gamescope *session* on bare metal.
+
+Console software lives in `vm/install/proteus-console.packages` — the overlay
+`console` stage installs it (multilib included). Re-apply by hand:
+
+```bash
+sudo bash /mnt/proteus/vm/guest/install-console-software.sh   # → console stage
+# helpers/seed only:
+sudo bash /mnt/proteus/vm/guest/apply-console-kit.sh
+proteus-posture console
+```
+
+Without sudo, user-local RetroArch cores work under `~/.config/retroarch/cores`
+(buildbot zip or Online Updater). Launch from console Games / Library, or:
+
+```bash
+proteus-console-seat --expect-class steam -- steam -gamepadui
+proteus-console-seat --expect-class 'com.libretro.RetroArch|retroarch' -- retroarch
+```
+
+Dogfood checks after launch:
+
+```bash
+qs -p /mnt/proteus/shell ipc call chrome state   # surface must stay "console"
+tail -f /run/user/$UID/proteus-console-seat.log  # mapped address + fullscreen
+hyprctl activewindow -j | head                  # ~fullscreen size
+```
+
+`proteus-console-launch` skips Gamescope inside QEMU (no Vulkan); override with
+`PROTEUS_FORCE_GAMESCOPE=1` on real hardware. Steam still needs an interactive
+login the first time.
+
 ### Recommended: base + light overlay
+
+Install path SoT (three layers, knobs, repair, failure table):
+[docs/proteus/INSTALL.md](../docs/proteus/INSTALL.md). VM-specific pad / Steam /
+audio detail stays in this file.
 
 ```bash
 ./vm/provision.sh prepare     # ISO + disk in PROTEUS_VM_CACHE
@@ -45,7 +110,8 @@ PROTEUS_GUEST=1 ./scripts/smoke-all.sh
 ```
 
 Overlay stages: [`vm/install/`](install/). Knobs: `PROTEUS_INSTALL_DESKTOP=0`,
-`PROTEUS_INSTALL_SKIP=…`, `PROTEUS_INSTALL_RESUME=1`.
+`PROTEUS_INSTALL_SKIP=…`, `PROTEUS_INSTALL_RESUME=1`; fast re-apply:
+`sudo bash /mnt/proteus/vm/install/bootstrap.sh repair` (+`PROTEUS_INSTALL_UPDATE=1`).
 `./vm/bootstrap.sh` requires **SSH public-key** auth (no password polling).
 Empty qcow → `./vm/provision.sh` exits before overlay (`PROTEUS_PROVISION_FORCE=1` to override).
 Existing [`vm/guest/`](guest/) scripts remain the mutators the stages call.
@@ -99,7 +165,8 @@ Guest config lives under `~/.config/hypr/hyprland.conf` (andrew). A convenience 
 
 Cold boot uses **greetd autologin** (`andrew` → `proteus-session`), then Quickshell
 shows the **Proteus lock screen** (`lockOnSessionStart`, default on). Unlock with
-your user password. `Super+L` locks again anytime.
+your user password, or an optional **unlock PIN** (Settings → Users → Lock screen
+PIN — numpad on the lock for desktop and console). `Super+L` locks again anytime.
 
 - Config: [`vm/guest/greetd-config.toml`](guest/greetd-config.toml) (`initial_session`)
 - Re-apply: `sudo bash /mnt/proteus/vm/guest/apply-greeter.sh && sudo systemctl restart greetd`
@@ -110,11 +177,26 @@ or set `"lockOnSessionStart": false` in `~/.config/proteus/settings.json`.
 
 ### Quickshell chrome supervisor
 
-Default: Hyprland `exec-once` → `proteus-qs` (flock / backoff / `--restart`).
-Optional: `bash /mnt/proteus/vm/guest/install-proteus-qs-user-unit.sh` then
+Default: Hyprland `exec-once` → `proteus-qs` (flock / backoff / `--restart`;
+restart waits for the prior flock so posture flips cannot leave a blank
+chrome-less session). Optional:
+`bash /mnt/proteus/vm/guest/install-proteus-qs-user-unit.sh` then
 `systemctl --user enable --now proteus-qs.service` (comment out the hypr
 `exec-once` line). After upgrading Quickshell: `PROTEUS_GUEST=1 ./scripts/smoke-all.sh`
 (records version; do not IgnorePkg-pin on rolling Arch).
+
+### Console posture (dogfood)
+
+```bash
+sudo bash /mnt/proteus/vm/guest/apply-console-kit.sh   # once
+/mnt/proteus/vm/guest/proteus-posture console         # prefer live tree
+```
+
+Hard flip writes `~/.config/proteus/posture`, reloads `console.conf`, and
+restarts chrome with `PROTEUS_SKIP_SESSION_LOCK=1` (cold boot still locks).
+Return via console Desktop seat / CC Desktop tile / `proteus-posture desktop`.
+See [docs/proteus/POSTURES.md](../docs/proteus/POSTURES.md) ·
+[CURRENT.md](../docs/proteus/CURRENT.md).
 
 ### Start a graphical session (manual / debug)
 

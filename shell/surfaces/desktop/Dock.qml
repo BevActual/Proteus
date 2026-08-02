@@ -275,7 +275,10 @@ Item {
     holdTimer.stop()
     root.dragging = true
     root.dragIndex = index
-    root.dragItemX = padX + index * (iconSize + spacing)
+    // cellLefts accounts for the pins‖running separator width; index * pitch does not.
+    root.dragItemX = index < cellLefts.length
+        ? cellLefts[index]
+        : (padX + index * (iconSize + spacing))
     root.dragGrabX = root.pressX
     root.dragGrabY = root.pressY
     root.dragX = root.dragItemX

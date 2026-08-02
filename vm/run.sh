@@ -21,6 +21,11 @@
 #   PROTEUS_VM_QMP=1                unix QMP at $PROTEUS_VM_CACHE/runtime/qmp.sock
 #   PROTEUS_VM_SERIAL=1             unix serial at $PROTEUS_VM_CACHE/runtime/serial.sock
 #   PROTEUS_VM_DIRECT_KERNEL=1      install: boot extracted kernel + ttyS0
+#   PROTEUS_VM_USB=auto|VID:PID     USB host passthrough (needs write on /dev/bus/usb/…)
+#                                   auto = first Xbox/Sony/Nintendo/Razer pad from lsusb
+#   PROTEUS_VM_PAD=auto|/dev/input/eventN
+#                                   virtio-input-host from host joystick evdev (preferred —
+#                                   works with input group; no USB usbfs claim)
 set -euo pipefail
 
 # shellcheck source=lib.sh
@@ -166,6 +171,113 @@ ARGS=(
   -device usb-tablet
   -virtfs local,path="${ROOT}",mount_tag=proteus,security_model=mapped-xattr,id=proteus
 )
+
+# Optional USB host passthrough (gamepads for console pad dogfood).
+resolve_usb_vid_pid() {
+  local spec="${1:-}"
+  case "${spec}" in
+    ""|0|none|off|false) return 1 ;;
+    auto|gamepad|1)
+      # Prefer known pad vendors; fall back to first joystick-ish USB device.
+      local line
+      line="$(lsusb 2>/dev/null | grep -iE 'xbox|sony|nintendo|razor|razer|8bitdo|gamepad|controller|dualshock|dualsense|wolverine' | head -1 || true)"
+      if [[ -z "${line}" ]]; then
+        echo "proteus-vm: PROTEUS_VM_USB=auto — no gamepad found via lsusb" >&2
+        return 1
+      fi
+      # "Bus 001 Device 010: ID 1532:0a45 Razer …"
+      echo "${line}" | sed -n 's/.*ID \([0-9a-fA-F]\{4\}\):\([0-9a-fA-F]\{4\}\).*/\1:\2/p'
+      return 0
+      ;;
+    *:*)
+      echo "${spec}" | tr 'A-F' 'a-f'
+      return 0
+      ;;
+    *)
+      echo "proteus-vm: PROTEUS_VM_USB=${spec} — use auto or VID:PID (e.g. 1532:0a45)" >&2
+      return 1
+      ;;
+  esac
+}
+
+USB_SPEC="${PROTEUS_VM_USB:-}"
+if USB_VP="$(resolve_usb_vid_pid "${USB_SPEC}")"; then
+  USB_VID="${USB_VP%%:*}"
+  USB_PID="${USB_VP##*:}"
+  if [[ -n "${USB_VID}" && -n "${USB_PID}" && "${USB_VID}" != "${USB_PID}" ]]; then
+    ARGS+=(-device "usb-host,vendorid=0x${USB_VID},productid=0x${USB_PID}")
+    echo "  usb:   host passthrough ${USB_VID}:${USB_PID} (PROTEUS_VM_USB)"
+    # usbfs is often root:root 0664 — warn so silent "no pad in guest" is diagnosable.
+    for _usbdev in /sys/bus/usb/devices/*; do
+      [[ -f "${_usbdev}/idVendor" && -f "${_usbdev}/idProduct" ]] || continue
+      if [[ "$(cat "${_usbdev}/idVendor")" == "${USB_VID}" && "$(cat "${_usbdev}/idProduct")" == "${USB_PID}" ]]; then
+        _bus="$(printf '%03d' "$(cat "${_usbdev}/busnum")")"
+        _dev="$(printf '%03d' "$(cat "${_usbdev}/devnum")")"
+        _node="/dev/bus/usb/${_bus}/${_dev}"
+        if [[ -e "${_node}" && ! -w "${_node}" ]]; then
+          echo "proteus-vm: ${_node} not writable — USB claim will fail; use PROTEUS_VM_PAD=auto or udev MODE=0660 GROUP=input" >&2
+        fi
+        break
+      fi
+    done
+  fi
+fi
+
+# Preferred pad path: grab host joystick evdev (input group) → virtio in guest.
+resolve_pad_evdev() {
+  local spec="${1:-}"
+  case "${spec}" in
+    ""|0|none|off|false) return 1 ;;
+    auto|gamepad|1)
+      local p
+      # Prefer by-id joystick nodes (skip mouse/kbd siblings on multi-interface pads).
+      for p in /dev/input/by-id/*-event-joystick /dev/input/by-id/*Joystick*-event-joystick; do
+        [[ -e "${p}" ]] || continue
+        readlink -f "${p}"
+        return 0
+      done
+      # Fallback: first jsN → matching event via /sys
+      for p in /dev/input/js*; do
+        [[ -e "${p}" ]] || continue
+        local base sys
+        base="$(basename "${p}")"
+        sys="/sys/class/input/${base}/device"
+        if [[ -d "${sys}" ]]; then
+          local ev
+          for ev in "${sys}"/event*; do
+            [[ -e "${ev}" ]] || continue
+            echo "/dev/input/$(basename "${ev}")"
+            return 0
+          done
+        fi
+      done
+      echo "proteus-vm: PROTEUS_VM_PAD=auto — no joystick evdev found" >&2
+      return 1
+      ;;
+    /dev/input/*)
+      if [[ -e "${spec}" ]]; then
+        echo "${spec}"
+        return 0
+      fi
+      echo "proteus-vm: PROTEUS_VM_PAD=${spec} — device missing" >&2
+      return 1
+      ;;
+    *)
+      echo "proteus-vm: PROTEUS_VM_PAD=${spec} — use auto or /dev/input/eventN" >&2
+      return 1
+      ;;
+  esac
+}
+
+PAD_SPEC="${PROTEUS_VM_PAD:-}"
+if PAD_EVDEV="$(resolve_pad_evdev "${PAD_SPEC}")"; then
+  if [[ -r "${PAD_EVDEV}" ]]; then
+    ARGS+=(-device "virtio-input-host-pci,evdev=${PAD_EVDEV}")
+    echo "  pad:   virtio-input-host ${PAD_EVDEV} (PROTEUS_VM_PAD)"
+  else
+    echo "proteus-vm: cannot read ${PAD_EVDEV} — join the input group / re-login" >&2
+  fi
+fi
 
 echo "  cache: ${PROTEUS_VM_CACHE}"
 echo "  gpu:   ${VGA_DEV}  display: ${DISPLAY_OPT}"

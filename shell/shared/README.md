@@ -18,6 +18,7 @@ Do not put them in domain subdirs (`chrome/`, `config/`, …) or behind
 | `Config` / `ConfigHypr` | `settings.json` FileView + Hypr apply |
 | `Background*` | Wallpaper / lock backdrop (Catalog · Daily · Apply) |
 | `Widgets*` | Lock / desktop applets (Lock · Desktop) |
+| `UniversalSearch` | Shared Apps-mode allowlist + scoring (Beacon + console Search) |
 | Others | System / session façades (`Hardware`, `EnvGate`, `Keybinds`, …) |
 
 **Ownership:** Config owns FileView only — no `property alias` to Background.

@@ -60,10 +60,20 @@ ColumnLayout {
     return ""
   }
 
-  readonly property string emptyTitle: Config.notificationsDnd ? "Do Not Disturb is on" : "No notifications"
-  readonly property string emptyHint: Config.notificationsDnd
-      ? "Toasts are suppressed · alerts still queue here when apps send them"
-      : "Alerts from apps appear here"
+  readonly property string emptyTitle: {
+    if (Config.notificationsDnd)
+      return "Do Not Disturb is on"
+    if (FocusMode.active)
+      return "Focus is on"
+    return "No notifications"
+  }
+  readonly property string emptyHint: {
+    if (Config.notificationsDnd)
+      return "Hard quiet · toasts suppressed · alerts still queue here"
+    if (FocusMode.active)
+      return "Only allowed apps toast · alerts still queue here"
+    return "Alerts from apps appear here"
+  }
 
   function actionList(n) {
     if (!n)
@@ -158,6 +168,20 @@ ColumnLayout {
     }
   }
 
+  // Flat rows: section headers + notification cards (grouped by app).
+  readonly property var displayRows: {
+    const groups = Notifications.groupedList()
+    const out = []
+    for (let i = 0; i < groups.length; i++) {
+      const g = groups[i]
+      out.push({ kind: "section", appName: g.appName, notification: null })
+      const items = g.items || []
+      for (let j = 0; j < items.length; j++)
+        out.push({ kind: "item", appName: g.appName, notification: items[j] })
+    }
+    return out
+  }
+
   Flickable {
     visible: !root.empty
     Layout.fillWidth: true
@@ -175,20 +199,33 @@ ColumnLayout {
       spacing: Theme.spaceSm
 
       Repeater {
-        model: Notifications.list
+        model: root.displayRows
 
         Rectangle {
           id: row
           required property var modelData
+          readonly property bool isSection: modelData.kind === "section"
+          readonly property var notification: modelData.notification
           Layout.fillWidth: true
-          implicitHeight: bodyCol.implicitHeight + Theme.spaceMd * 2
-          radius: Theme.radiusLg
-          color: Theme.elevatedFill
-          border.width: 1
+          implicitHeight: isSection ? 22 : (bodyCol.implicitHeight + Theme.spaceMd * 2)
+          radius: isSection ? 0 : Theme.radiusLg
+          color: isSection ? "transparent" : Theme.elevatedFill
+          border.width: isSection ? 0 : 1
           border.color: Theme.chromeBorder
 
-          readonly property var actions: root.actionList(modelData)
-          readonly property string iconSrc: root.appIconSource(modelData)
+          readonly property var actions: root.actionList(notification)
+          readonly property string iconSrc: root.appIconSource(notification)
+
+          Text {
+            visible: row.isSection
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            text: modelData.appName || "App"
+            color: Theme.textMute
+            font.family: Theme.fontFamily
+            font.pixelSize: 11
+            font.weight: Font.Medium
+          }
 
           // Slide-out before the server-side dismiss removes the card.
           function dismissAnimated() {
@@ -216,12 +253,13 @@ ColumnLayout {
               }
             }
             ScriptAction {
-              script: Notifications.dismiss(row.modelData)
+              script: Notifications.dismiss(row.notification)
             }
           }
 
           ColumnLayout {
             id: bodyCol
+            visible: !row.isSection
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
@@ -255,7 +293,7 @@ ColumnLayout {
                   anchors.centerIn: parent
                   visible: !appIcon.visible
                   text: {
-                    const n = String(row.modelData.appName || "A")
+                    const n = String((row.notification && row.notification.appName) || "A")
                     return n.length ? n.charAt(0).toUpperCase() : "A"
                   }
                   color: Theme.textDim
@@ -266,7 +304,10 @@ ColumnLayout {
               }
 
               Text {
-                text: modelData.appName && String(modelData.appName).length ? modelData.appName : "App"
+                text: {
+                  const n = row.notification
+                  return n && n.appName && String(n.appName).length ? n.appName : "App"
+                }
                 color: Theme.textDim
                 font.family: Theme.fontFamily
                 font.pixelSize: 11
@@ -274,7 +315,7 @@ ColumnLayout {
                 elide: Text.ElideRight
               }
               Text {
-                text: root.timeLabel(row.modelData)
+                text: root.timeLabel(row.notification)
                 visible: text.length > 0
                 color: Theme.textMute
                 font.family: Theme.fontFamily
@@ -295,8 +336,8 @@ ColumnLayout {
             }
 
             Text {
-              visible: !!(modelData.summary && String(modelData.summary).length)
-              text: modelData.summary || ""
+              visible: !!(row.notification && row.notification.summary && String(row.notification.summary).length)
+              text: (row.notification && row.notification.summary) || ""
               color: Theme.text
               font.family: Theme.fontFamily
               font.pixelSize: 13
@@ -306,8 +347,8 @@ ColumnLayout {
             }
 
             Text {
-              visible: !!(modelData.body && String(modelData.body).length)
-              text: modelData.body || ""
+              visible: !!(row.notification && row.notification.body && String(row.notification.body).length)
+              text: (row.notification && row.notification.body) || ""
               color: Theme.textDim
               font.family: Theme.fontFamily
               font.pixelSize: 12
@@ -343,7 +384,7 @@ ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: -4
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: root.invokeAction(row.modelData, modelData)
+                    onClicked: root.invokeAction(row.notification, modelData)
                   }
                 }
               }

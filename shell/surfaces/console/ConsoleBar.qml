@@ -2,15 +2,22 @@ import QtQuick
 import QtQuick.Layouts
 import "../../shared"
 
+// Slim top chrome — destinations (Library / Search) + status + CC (not tab pills).
 Item {
   id: root
-  height: Math.max(40, Theme.barHeight + 8)
+  height: Math.max(44, Theme.barHeight + 4)
 
   property string tab: "home" // home | library | search
-  property int focusedSlot: -1 // 0 home, 1 library, 2 search, 3 cc
+  // focusedSlot: 0 home, 1 library, 2 search, 3 cc
+  property int focusedSlot: -1
 
   signal tabSelected(string id)
   signal controlCenterRequested()
+
+  readonly property int barTextStyle: Theme.menuBarNeedsLegibility ? Text.Outline : Text.Normal
+  readonly property color barTextStyleColor: Theme.light
+      ? Qt.rgba(1, 1, 1, 0.72)
+      : Qt.rgba(0, 0, 0, 0.55)
 
   readonly property string clockText: {
     const d = clock.date
@@ -44,7 +51,7 @@ Item {
 
   Rectangle {
     anchors.fill: parent
-    color: Theme.menuBarFill
+    color: Qt.rgba(Theme.bg.r, Theme.bg.g, Theme.bg.b, 0.55)
   }
 
   Rectangle {
@@ -53,6 +60,7 @@ Item {
     anchors.bottom: parent.bottom
     height: 1
     color: Theme.chromeHairline
+    opacity: 0.35
   }
 
   RowLayout {
@@ -66,9 +74,9 @@ Item {
       Layout.alignment: Qt.AlignVCenter
 
       Rectangle {
-        width: 22
-        height: 22
-        radius: 6
+        width: 10
+        height: 10
+        radius: 5
         color: Theme.accent
         anchors.verticalCenter: parent.verticalCenter
       }
@@ -79,27 +87,14 @@ Item {
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSize + 1
         font.weight: Font.DemiBold
+        style: root.barTextStyle
+        styleColor: root.barTextStyleColor
         anchors.verticalCenter: parent.verticalCenter
-      }
-
-      Rectangle {
-        width: badge.implicitWidth + 16
-        height: 22
-        radius: Theme.radiusPill
-        color: Theme.elevatedFill
-        border.width: 1
-        border.color: Theme.chromeBorder
-        anchors.verticalCenter: parent.verticalCenter
-
-        Text {
-          id: badge
-          anchors.centerIn: parent
-          text: "CONSOLE"
-          color: Theme.textDim
-          font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSizeSm - 1
-          font.letterSpacing: 0.8
-          font.weight: Font.DemiBold
+        opacity: root.focusedSlot === 0 ? 1 : 0.9
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.tabSelected("home")
         }
       }
     }
@@ -110,29 +105,38 @@ Item {
 
       Repeater {
         model: [
-          { id: "home", label: "Home" },
-          { id: "library", label: "Library" },
-          { id: "search", label: "Search" }
+          { id: "library", label: "Library", slot: 1 },
+          { id: "search", label: "Search", slot: 2 }
         ]
 
-        Rectangle {
+        Text {
           required property var modelData
           required property int index
-          width: tabLabel.implicitWidth + 20
-          height: 28
-          radius: Theme.radiusPill
-          color: root.tab === modelData.id ? Theme.accent : (root.focusedSlot === index ? Theme.chromeHover : "transparent")
-          border.width: root.focusedSlot === index && root.tab !== modelData.id ? 1 : 0
-          border.color: Theme.accent
+          text: modelData.label
+          color: root.tab === modelData.id
+              ? Theme.accent
+              : (root.focusedSlot === modelData.slot ? Theme.text : Theme.textDim)
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSize + 1
+          font.weight: root.tab === modelData.id || root.focusedSlot === modelData.slot
+              ? Font.DemiBold
+              : Font.Normal
+          style: root.barTextStyle
+          styleColor: root.barTextStyleColor
+          leftPadding: 10
+          rightPadding: 10
+          topPadding: 6
+          bottomPadding: 6
 
-          Text {
-            id: tabLabel
-            anchors.centerIn: parent
-            text: modelData.label
-            color: root.tab === modelData.id ? "#ffffff" : Theme.text
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSize
-            font.weight: root.tab === modelData.id ? Font.DemiBold : Font.Normal
+          Rectangle {
+            anchors.fill: parent
+            z: -1
+            radius: Theme.radiusPill
+            color: root.focusedSlot === modelData.slot
+                ? Theme.chromeHover
+                : "transparent"
+            border.width: root.focusedSlot === modelData.slot && root.tab !== modelData.id ? 1 : 0
+            border.color: Theme.accent
           }
 
           MouseArea {
@@ -146,11 +150,78 @@ Item {
 
     Item { Layout.fillWidth: true }
 
+    Rectangle {
+      Layout.alignment: Qt.AlignVCenter
+      Layout.preferredHeight: 28
+      Layout.preferredWidth: statusRow.implicitWidth + 14
+      radius: 14
+      color: statusMa.containsMouse || ShellState.controlCenterOpen
+          ? Theme.chromeHover
+          : "transparent"
+
+      Row {
+        id: statusRow
+        anchors.centerIn: parent
+        spacing: 10
+
+        Rectangle {
+          visible: Notifications.unreadCount > 0 && !ShellState.controlCenterOpen
+          anchors.verticalCenter: parent.verticalCenter
+          width: Math.max(16, badgeLabel.implicitWidth + 8)
+          height: 16
+          radius: 8
+          color: Theme.accent
+          Text {
+            id: badgeLabel
+            anchors.centerIn: parent
+            text: Notifications.unreadCount > 9 ? "9+" : String(Notifications.unreadCount)
+            color: "#fff"
+            font.pixelSize: 10
+            font.weight: Font.DemiBold
+          }
+        }
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          visible: FocusMode.active || Config.notificationsDnd
+          text: FocusMode.active ? "Focus" : "DND"
+          color: Theme.accent
+          font.family: Theme.fontFamily
+          font.pixelSize: 10
+          font.weight: Font.DemiBold
+          style: root.barTextStyle
+          styleColor: root.barTextStyleColor
+        }
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          visible: KeepAwake.active
+          text: KeepAwake.mode === "indefinite" ? "Awake" : ("Awake " + KeepAwake.remainingLabel)
+          color: Theme.accent
+          font.family: Theme.fontFamily
+          font.pixelSize: 10
+          font.weight: Font.DemiBold
+          style: root.barTextStyle
+          styleColor: root.barTextStyleColor
+        }
+      }
+
+      MouseArea {
+        id: statusMa
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.controlCenterRequested()
+      }
+    }
+
     Text {
       text: root.clockText + root.weatherBit
       color: Theme.textDim
       font.family: Theme.fontFamily
       font.pixelSize: Theme.fontSize
+      style: root.barTextStyle
+      styleColor: root.barTextStyleColor
       Layout.alignment: Qt.AlignVCenter
     }
 

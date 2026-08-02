@@ -5,6 +5,7 @@
 #   proteus-console-launch [--gamescope|--no-gamescope] --desktop <desktop-id>
 set -euo pipefail
 
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 USE_GAMESCOPE=-1 # -1 auto, 0 off, 1 on
 DESKTOP_ID=""
 
@@ -90,14 +91,33 @@ if [[ -n "${DESKTOP_ID}" ]]; then
   fi
 fi
 
+gamescope_usable() {
+  command -v gamescope >/dev/null 2>&1 || return 1
+  # QEMU/VirGL guests usually have GL but no Vulkan → gamescope dies at startup.
+  # Opt in with PROTEUS_FORCE_GAMESCOPE=1 once a Vulkan ICD works in-guest.
+  if is_vm && [[ "${PROTEUS_FORCE_GAMESCOPE:-}" != "1" ]]; then
+    return 1
+  fi
+  # Prefer live capabilities probe when present
+  local caps="${HERE:-}/proteus-console-capabilities"
+  if [[ -x "${caps}" ]]; then
+    "${caps}" 2>/dev/null | grep -q '"gamescopeUsable": true' && return 0
+    return 1
+  fi
+  if command -v vulkaninfo >/dev/null 2>&1; then
+    vulkaninfo --summary 2>/dev/null | grep -qE 'GPU[0-9]+|deviceName' || return 1
+  fi
+  return 0
+}
+
 if [[ "${USE_GAMESCOPE}" -eq 1 ]]; then
-  if command -v gamescope >/dev/null 2>&1; then
+  if gamescope_usable; then
     if ((${#ENV_ARGS[@]})); then
       exec env "${ENV_ARGS[@]}" gamescope -f -- "$@"
     fi
     exec gamescope -f -- "$@"
   else
-    echo "proteus-console-launch: gamescope missing — running bare" >&2
+    echo "proteus-console-launch: gamescope unavailable (no Vulkan / VM) — running bare" >&2
   fi
 fi
 

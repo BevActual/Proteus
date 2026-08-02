@@ -52,6 +52,34 @@ proteus_as_user() {
   fi
 }
 
+# Install a helper onto PATH. Symlink when the tree is live under /mnt/proteus
+# (dogfood tracks the share — cannot go stale); install a copy otherwise.
+# Also links a per-user fallback under ~/.local/bin.
+proteus_install_helper() {
+  local src="$1"
+  local name dest user_name user_home
+  name="$(basename "${src}")"
+  dest="/usr/local/bin/${name}"
+  [[ -f "${src}" ]] || return 0
+  proteus_root install -d /usr/local/bin
+  if [[ "${src}" == /mnt/proteus/* ]]; then
+    proteus_root ln -sfn "${src}" "${dest}"
+    proteus_log "linked ${dest} -> ${src}"
+  else
+    proteus_root install -m 755 "${src}" "${dest}"
+    proteus_log "installed ${dest}"
+  fi
+  user_name="$(proteus_session_user)"
+  user_home="$(getent passwd "${user_name}" 2>/dev/null | cut -d: -f6 || true)"
+  [[ -n "${user_home}" ]] || user_home="/home/${user_name}"
+  if [[ -d "${user_home}" ]]; then
+    proteus_as_user mkdir -p "${user_home}/.local/bin" 2>/dev/null || true
+    proteus_as_user ln -sfn "${src}" "${user_home}/.local/bin/${name}" 2>/dev/null \
+      || proteus_as_user install -m 755 "${src}" "${user_home}/.local/bin/${name}" 2>/dev/null \
+      || true
+  fi
+}
+
 # Load package names from a list file (comments/blank ignored).
 proteus_read_pkg_list() {
   local list="$1"
@@ -184,6 +212,24 @@ proteus_stage_already_done() {
   [[ "${PROTEUS_INSTALL_RESUME:-0}" == "1" ]] || return 1
   proteus_status_ensure 2>/dev/null || true
   [[ -f "$(proteus_status_dir)/${stage}.done" ]]
+}
+
+# Best-effort refresh: bring every repo package from a list current (--needed).
+# Skips packages not in repos (AUR names) and logs failures without aborting —
+# used by the PROTEUS_INSTALL_UPDATE=1 pass after stages.
+proteus_pacman_refresh_list() {
+  local list="$1"
+  local pkg
+  command -v pacman >/dev/null 2>&1 || return 0
+  while IFS= read -r pkg; do
+    [[ -n "${pkg}" ]] || continue
+    if ! pacman -Si "${pkg}" >/dev/null 2>&1 && ! pacman -Q "${pkg}" >/dev/null 2>&1; then
+      proteus_log "update skip ${pkg} (not in repos — AUR/manual)"
+      continue
+    fi
+    proteus_root pacman -S --needed --noconfirm "${pkg}" >/dev/null 2>&1 \
+      || proteus_log "warn: update failed for ${pkg}"
+  done < <(proteus_read_pkg_list "${list}")
 }
 
 # True if every package in a list is installed (pacman -Q).

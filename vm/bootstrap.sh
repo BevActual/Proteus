@@ -68,6 +68,8 @@ q_env() {
 remote_cmd="sudo env"
 remote_cmd+=" PROTEUS_INSTALL_DESKTOP=$(q_env "${PROTEUS_INSTALL_DESKTOP:-1}")"
 remote_cmd+=" PROTEUS_INSTALL_RESUME=$(q_env "${PROTEUS_INSTALL_RESUME:-0}")"
+remote_cmd+=" PROTEUS_INSTALL_REPAIR=$(q_env "${PROTEUS_INSTALL_REPAIR:-0}")"
+remote_cmd+=" PROTEUS_INSTALL_UPDATE=$(q_env "${PROTEUS_INSTALL_UPDATE:-0}")"
 remote_cmd+=" PROTEUS_USER=$(q_env "${USER}")"
 [[ -n "${PROTEUS_INSTALL_SKIP:-}" ]] && \
   remote_cmd+=" PROTEUS_INSTALL_SKIP=$(q_env "${PROTEUS_INSTALL_SKIP}")"

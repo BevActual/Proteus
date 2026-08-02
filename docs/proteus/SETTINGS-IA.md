@@ -82,7 +82,8 @@ Examples:
 | Timezone / network time | `timedatectl set-timezone` / `set-ntp` (polkit-gated; errors surfaced in-pane) |
 | Locale | `localectl list-locales` / `set-locale LANG=…` (polkit-gated; stderr in-pane) + `/etc/locale.conf` escape |
 | Location | Explicit place search → precise lat/lon + place timezone in `settings.json` (**never IP-inferred**); Open-Meteo geocoding; optional Match time zone to place |
-| Weather | `api.open-meteo.com` current + 5-day daily forecast for the stored location — no API key; only those coordinates are sent; mute via `weatherEnabled` (Privacy & security) |
+| Weather | `api.open-meteo.com` current + 5-day daily forecast for the stored location — no API key; only those coordinates are sent; mute via `weatherEnabled` (Privacy & security); Location category Deny also mutes fetch |
+| App permissions | Category + per-app Allow/Ask/Deny in `permissions.json`; Flatpak mic/camera overrides; EnvGate `permissions` on manifests |
 | Battery charge / health / estimate | UPower display device (`Quickshell.Services.UPower`) |
 | Power mode (Performance / Balanced / Eco) | `powerprofilesctl` → `power-profiles-daemon` (`power-saver` labeled Eco); only profiles the driver advertises |
 | Idle / lid policy | `pkexec proteus-logind` → `/etc/systemd/logind.conf.d/99-proteus.conf` (+ **reload** logind — never restart, which drops the seat); effective merge with main conf; escape hatch still opens `logind.conf` |
@@ -103,16 +104,17 @@ Left-nav + content pane (macOS System Settings style).
 | Category | Holds | Backend | Status |
 |----------|-------|---------|--------|
 | **Appearance** (`style`) | Category → Accent, Background, Lock screen, Icons (style compare + dock pins), Font (searchable + Add) | `settings.json`, Theme, `proteus-bg`; shared Kind/color/font/icon kit | `shipped` |
-| **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Beacon (system search: Apps/Files/Clipboard/Actions · tags/recents) — leaf files + FormRow kit | json + hyprctl + `proteus-general.conf` · `launcherRecents` / `launcherFileRecents` / `launcherTagCatalog` / `launcherAppTags` | `shipped` |
+| **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Spaces, Default apps, **Focus**, **Control Center** layout, Beacon | json + hypr · FocusMode · ControlCenterLayout · `proteus-defaults.py` · launcher* | `shipped` |
 | **Displays** (`displays`) | Layout canvas + per-monitor scale/mode/orientation; 10s Revert; Refresh/hotplug honesty; conf escape | hyprctl + `proteus-monitors.conf` | `shipped` |
 | **Sound** (`sound`) | Category → Output / Input / Applications / Mixer / Latency — leaf files + FormRow kit | pactl + `proteus-audio-mix` / `audio-peak.py` + `pw-metadata` + `pw-link` | `shipped` |
 | **Network** (`network`) | Category → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN — password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG import | hostnamectl / nmcli / bluetoothctl / localsend / tailscale / `NetworkDiagnostics` | `shipped` |
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse, Gamepads (Guide Facts); later touchpad / tablet | keybinds + input hyprctl + `gamepadsGuide*` | `shipped` |
 | **Power** (`power`) | Power mode segmented (PPD); battery (UPower); idle / lid FormRows via `proteus-logind` drop-in + conf escape | `powerprofilesctl` / UPower / `proteus-logind` | `shipped` |
-| **Users** (`users`) | Session Lock/Logout + confirm Reboot/Shutdown; current user (GECOS/home) + other local users read-only; Online accounts jump; greetd status + conf escape | `Config.session` · id/getent · greetd/`/etc/greetd/config.toml` | `shipped` |
+| **Users** (`users`) | Session Lock/Logout + confirm Reboot/Shutdown; lock screen PIN set/change/clear; current user (GECOS/home) + other local users read-only; Online accounts jump; greetd status + conf escape | `Config.session` · `proteus-pin.py` (hash under `~/.local/share/proteus/auth/`) · id/getent · greetd/`/etc/greetd/config.toml` | `shipped` |
 | **Online accounts** (`accounts`) | Connector catalog + Google PKCE seats (`proteus-accounts` vault); Microsoft/Nextcloud/… listed | `proteus-accounts` + `Accounts.qml` (mail/contacts apps Out) | `partial` |
 | **Date, time & weather** (`datetime`) | Live clock, searchable timezone + locale pickers, NTP, **Location** (place + units + 5-day forecast + Match TZ) | `timedatectl` / `localectl set-locale` / Open-Meteo | `shipped` |
-| **Privacy & security** (`privacy`) | What leaves + weather mute + session (DND / Lock / clear clipboard / LocalSend); permission categories listed, grants not enforced | Config · Weather · Notifications · EnvGate later | `partial` |
+| **Notifications** (`notifications`) | Prefs: hard DND · jump to Focus · live list stays Control Center | `notificationsDnd` · FocusMode | `shipped` |
+| **Privacy & security** (`privacy`) | Hub → What leaves + weather mute + session; **In use now**; category leaves (Allow/Deny + per-app Allow/Ask/Deny); Flatpak overrides | `permissions.json` · `proteus-permissions.py` · PrivacyIndicators · EnvGate grants · Flatpak override | `partial` |
 | **Software** (`packages`) | Hub → Updates; Repos / AUR / Flathub (Install\|Installed mode-safe, per-mode search, op narrative); AppImages; **Web apps** (URL → `proteus-web-*.desktop` via `proteus-webapp`, no polkit); Orphans — helper honesty when yay/paru/flatpak missing | `pacman` + `proteus-pkg` · yay/paru · flatpak + Flathub · local AppImages · `proteus-webapp` | `shipped` |
 | **About** (`system`) | OS/kernel/hostname · QS/Hypr · load/mem/storage · battery when present · Mission Center (Install… → Flathub · `io.missioncenter.MissionCenter`) · Check for updates → Software; hardware caps; soft Hyprland profile; Copy + Copied | `SystemInfo` · `SystemLoad` · `MissionCenter` · `Power` · probe · `HyprProfile` | `shipped` |
 
@@ -190,7 +192,8 @@ terminal, workspaces, etc. (`env/hypr/proteus-keybinds.conf` template).
 
 Desktop: click sidebar → heading **Desktop** + sub-settings list, then leaf
 pages via `kit/StickyPaneLoader` (`DesktopGapsLeaf`, `DesktopChromeLeaf`,
-`DesktopMotionLeaf`, `DesktopDockLeaf`, `DesktopLauncherLeaf`).
+`DesktopMotionLeaf`, `DesktopDockLeaf`, `DesktopSpacesLeaf`, `DesktopDefaultsLeaf`,
+`DesktopLauncherLeaf`).
 
 | Sub-setting | Role |
 |-------------|------|
@@ -198,7 +201,10 @@ pages via `kit/StickyPaneLoader` (`DesktopGapsLeaf`, `DesktopChromeLeaf`,
 | Borders & rounding | Border size + window rounding FormRows; live hypr |
 | Motion | Window animations switch |
 | Dock & menu bar | Show/hide/monitor/size FormRows; Advanced → `proteus-general.conf` |
-| Beacon | Beacon help (universal Apps search incl. Settings + Actions; Tab / Ctrl+1–4 Apps/Files/Clipboard/Actions); empty Apps = Recents section or honest empty; empty Files = Recents + Places (or honest empty); Files search = Folders then Files · depth ≤5 · 40-cap; Clear recent apps / recent files; app tag catalog FormRows |
+| Spaces | Displays share Spaces (`workspaceMode` synced \| perDisplay); Super+Ctrl+N always this display; bands via `proteus-workspace` |
+| Default apps | Browser / Files / Images / Music / Video / PDF / Text / Archives / Mail / Calendar via `proteus-defaults.py` + `xdg-mime`; mimeapps.list escape |
+| Beacon | Universal Apps (+ Windows · Privacy · **focus-cycle** Action); Files index; Clipboard `wtype`; tags / clear recents |
+| Focus | Soft quiet profiles (Work/Sleep/Personal); allowlist · keywords · schedule · critical breakthrough; CC menu + Desktop → Focus leaf |
 
 | Pane | Live apply | On-disk fragment | Guest seed |
 |------|------------|------------------|----------|
@@ -314,19 +320,19 @@ locale set + 5-day forecast + Match TZ shipped; manual time / RTC writers Out.
 
 **Online accounts** seats are `partial` — catalog + Google PKCE when configured;
 mail/contacts/Drive **apps** stay Out. **Privacy & security** ships transparency + weather
-mute + session controls; **permission grant model** still Out until adaptive
-apps need it. **Users** session/greeter status shipped (add-remove + writing
-greeter prefs stay Out).
+mute + session + **permissions store** (adaptive EnvGate + Flatpak overrides;
+native capture observed, not sandboxed). **Users** session/greeter status shipped
+(add-remove + writing greeter prefs stay Out).
 
 Depth order for what’s left:
 
 1. **Users depth** — write greeter/autologin prefs; add-remove stays Out of Settings  
 2. **Online accounts depth** — Microsoft / Nextcloud connect; consumers stay Out  
-3. **Privacy & security grant model** — when adaptive apps need it (transparency/mute/session shipped)  
+3. **Privacy native enforcement** — PipeWire/v4l2 policy / portal store write stay Out  
 4. **Network polish** — largely shipped (IPv4 on Devices · Diagnostics ss/firewall); Headscale admin / OpenVPN wizard stay Out  
 5. **Peripherals** — touchpad / tablet  
 6. **Software depth** — dependency graphs later; Snap stays Out (hub + six leaves + smoke matrix shipped)  
-7. **Settings Notifications pane** — optional later; shell Control Center is the SoT today  
+7. ~~Settings Notifications pane~~ — shipped (prefs-only; CC remains live list)  
 
 *(Displays layout + Revert follow-ups shipped — removed from growth depth.)*
 *(Network hub + FormRow polish shipped — depth wizards stay on the list.)*
@@ -334,13 +340,14 @@ Depth order for what’s left:
 *(Network depth: password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG import shipped — Headscale admin / OpenVPN wizard Out.)*
 *(Control Center notifications + QS depth shipped — Settings Notifications pane stays Out.)*
 *(Users session + greetd status shipped — writing greeter prefs / useradd stay Out.)*
-*(Users polish: Reboot/Shutdown confirm · GECOS/home · Online accounts jump shipped.)*
+*(Users polish: Reboot/Shutdown confirm · GECOS/home · Online accounts jump · lock screen PIN shipped.)*
 *(Power mode PPD + logind writer shipped — charge thresholds / TLP stay Out.)*
 *(Software hub + six leaves + reliability/guest smoke shipped — dep graphs / Snap stay Out.)*
 *(Appearance hub + Date, time & weather locale/forecast shipped — manual time/RTC Out.)*
 *(About OS/kernel/hostname · load strip · Mission Center escape · Copy+Copied ·
 soft profile shipped — hard posture switch via proteus-posture / Beacon / CC (not About picker); no in-Settings live dashboard.)*
-*(Privacy & security transparency · weather mute · session shipped — grant model still Out.)*
+*(Privacy & security hub · In use now · category grants · Flatpak overrides shipped —
+native OS sandbox / portal store write still Out.)*
 
 Virt / container setup stays a **separate app**, not a Settings growth item.
 

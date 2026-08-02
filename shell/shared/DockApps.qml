@@ -605,6 +605,67 @@ Singleton {
     return false
   }
 
+  function focusWindowAddress(addr) {
+    let a = String(addr || "").trim()
+    if (!a.length)
+      return false
+    if (a.indexOf("0x") !== 0)
+      a = "0x" + a
+    // Restore if parked on special:minimized.
+    const tops = Hyprland.toplevels.values
+    for (let i = 0; i < tops.length; i++) {
+      if (windowAddress(tops[i]) === a) {
+        return focusToplevel(tops[i])
+      }
+    }
+    Hyprland.dispatch("focuswindow address:" + a)
+    return true
+  }
+
+  // Beacon / Search — running windows (skips Quickshell chrome).
+  function listSearchableWindows() {
+    const tops = Hyprland.toplevels.values
+    const out = []
+    const seen = {}
+    for (let i = 0; i < tops.length; i++) {
+      const t = tops[i]
+      if (!t)
+        continue
+      const cls = classOf(t)
+      const title = titleOf(t)
+      const clsL = cls.toLowerCase()
+      if (clsL === "quickshell" || clsL.indexOf("quickshell") >= 0)
+        continue
+      if (!title.length && !cls.length)
+        continue
+      const addr = windowAddress(t)
+      if (!addr.length || seen[addr])
+        continue
+      seen[addr] = true
+      const ws = workspaceNameOf(t)
+      const minimized = isMinimizedToplevel(t)
+      let subtitle = cls.length ? cls : "Window"
+      if (ws.length)
+        subtitle += " · " + (minimized ? "Hidden" : ws)
+      else if (minimized)
+        subtitle += " · Hidden"
+      // Best-effort desktop icon via class / title match
+      let icon = "preferences-system-windows"
+      const entry = entryFromWindowClass(cls)
+      if (entry)
+        icon = EnvGate.resolveAppIcon(entry)
+      out.push({
+        address: addr,
+        title: title.length ? title : cls,
+        className: cls,
+        subtitle: subtitle,
+        icon: icon,
+        minimized: minimized
+      })
+    }
+    return out
+  }
+
   // Quit = close every window of the app (Hyprland closewindow; apps with
   // unsaved state get their own prompt). Not exposed for the Beacon pin.
   function canQuit(entry) {

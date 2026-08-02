@@ -2,6 +2,7 @@
 
 Not a product ISO. After bare Arch (`guest-install.sh` or manual), this
 pipeline turns the guest into a Hyprland + Quickshell dogfood session.
+Full install path (all three layers): [docs/proteus/INSTALL.md](../../docs/proteus/INSTALL.md).
 
 ```
 # Host (after guest has Arch + SSH + 9p):
@@ -21,16 +22,19 @@ sudo bash /mnt/proteus/vm/install/bootstrap.sh
 | `config.sh` | seatd, QS symlink, hypr/ghostty/fastfetch seeds, hypridle |
 | `hardware.sh` | Detect GPU → optional drivers (`hardware/*`) |
 | `login.sh` | greetd / `proteus-session` |
-| `apps.sh` | Settings, keybinds, desktop conf, PAM, `hide-system-apps`, optional `proteus-qs` user-unit install (not enabled), interim capture bins |
+| `apps.sh` | Settings, keybinds, desktop conf, PAM, `hide-system-apps`, optional `proteus-qs` user-unit install (not enabled), helper bins (symlinked to the live tree under `/mnt/proteus`) |
 | `desktop.sh` | [`proteus-desktop.packages`](./proteus-desktop.packages) (default on) |
+| `console.sh` | multilib + [`proteus-console.packages`](./proteus-console.packages) (Steam/RetroArch/cores/pads), `apply-console-kit` seed, posture↔profile drift fix |
 | `post-install.sh` | status file + next steps; refresh `hide-system-apps` |
 
 ## Knobs
 
-| Env | Effect |
-|-----|--------|
+| Env / arg | Effect |
+|-----------|--------|
+| `bootstrap.sh repair` / `PROTEUS_INSTALL_REPAIR=1` | Fast preset: only `config → apps → console` (configs/helpers/drift; no pacman stages) |
+| `PROTEUS_INSTALL_UPDATE=1` | After stages: `pacman -Syu` + re-apply package lists (`--needed`) |
 | `PROTEUS_INSTALL_DESKTOP=0` | Skip Chromium/Nautilus kit |
-| `PROTEUS_INSTALL_SKIP=hardware,desktop` | Skip named stages |
+| `PROTEUS_INSTALL_SKIP=hardware,console` | Skip named stages |
 | `PROTEUS_INSTALL_ONLY=desktop` | Run one stage |
 | `PROTEUS_INSTALL_RESUME=1` | Skip stages with `/var/lib/proteus/install/*.done` |
 | `PROTEUS_INSTALL_LOG=` | Override log path (default `/var/log/proteus-install.log`) |
@@ -49,8 +53,9 @@ Host tree check (no guest):
 
 | File | Contents |
 |------|----------|
-| `proteus-base.packages` | Hyprland, QS, Ghostty, portals, PipeWire, NM, BT, capture tools, fastfetch, … |
-| `proteus-desktop.packages` | **Chromium**, Nautilus (interim Files), gnome-calculator, imv, mpv, evince, mousepad, **localsend-bin** (AUR prebuilt via yay/paru), … (pavucontrol/blueman/nm-editor hidden — Settings) |
+| `proteus-base.packages` | Hyprland, QS, Ghostty, portals, PipeWire, NM, BT, capture tools, xdg-user-dirs, fastfetch, … |
+| `proteus-desktop.packages` | **Chromium**, Nautilus (interim Files), gnome-calculator/calendar/weather/clocks, loupe, amberol, snapshot, gnome-disk-utility, imv, **celluloid** (desktop video; mpv + yt-dlp stay for console/CLI), **wtype** + **fd** (Beacon clipboard paste + Files search), evince, mousepad, wf-recorder, p7zip, noto-fonts-cjk, **localsend-bin** (AUR prebuilt via yay/paru), mission-center, … (pavucontrol/blueman/nm-editor hidden — Settings) |
+| `proteus-console.packages` | Gamescope, **Steam** (+ ttf-liberation, lib32-mesa), RetroArch + lean cores, game-devices-udev — needs multilib (console stage enables) |
 
 ## Hardware (detect-and-install)
 

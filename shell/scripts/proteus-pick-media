@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# proteus-pick-media — print a chosen media path to stdout.
+# Exit: 0 ok, 1 cancelled, 2 no picker available.
+set -euo pipefail
+FILTER='Media files | *.mp4 *.mkv *.webm *.avi *.mov *.m4v *.mp3 *.flac *.ogg *.m4a *.wav'
+if command -v zenity >/dev/null 2>&1; then
+  out="$(zenity --file-selection --title="Choose media" --file-filter="${FILTER}" 2>/dev/null || true)"
+  [[ -n "${out}" ]] || exit 1
+  printf '%s\n' "${out}"
+  exit 0
+fi
+if command -v kdialog >/dev/null 2>&1; then
+  out="$(kdialog --getopenfilename "${HOME}" "${FILTER}" 2>/dev/null || true)"
+  [[ -n "${out}" ]] || exit 1
+  printf '%s\n' "${out}"
+  exit 0
+fi
+echo "proteus-pick-media: install zenity or kdialog" >&2
+exit 2

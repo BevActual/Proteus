@@ -121,7 +121,7 @@ Blur flag: `Config.chromeBlur`. Liquid Glass v1: menu bar is wallpaper-first
 a straight specular strip); Beacon Apps empty home is Recents hierarchy or
 honest empty; Files empty home is Recents + Places (or honest empty), search
 groups Folders then Files. Status HUD (volume/brightness) uses the same elevated plate as
-notification toasts — top-right chip; suppressed while Control Center is open.
+notification toasts — top-right chip; suppressed while Control Center is open. Control Center tiles resolve via `ControlCenterLayout` (`controlCenterLayout` in settings.json — order/visibility/span/size). Soft Focus Mode filters toasts; hard DND ignores filters. Customize tiles in Settings → Desktop → Control Center (CC footer Edit ›).
 
 | Token | Recipe | Use |
 |-------|--------|-----|

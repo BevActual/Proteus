@@ -5,43 +5,50 @@ import QtQuick.Layouts
 import "../shared"
 import "../kit"
 
-// Privacy & security: what leaves the machine · weather mute · session · honest
-// permission categories (not enforced — SETTINGS-IA · APPLICATIONS).
+// Privacy & security hub → activity / category / Flatpak leaves.
 ColumnLayout {
   id: root
   Layout.fillWidth: true
   spacing: Theme.spaceMd
 
-  property bool active: false
+  property string page: "privacy"
   signal requestGo(string id)
 
   property string clipHint: ""
   property bool clipBusy: false
 
-  readonly property var categories: [
+  readonly property var sections: [
     {
-      label: "Microphone",
-      hint: "App access to capture audio"
+      key: "privacy-activity",
+      label: "In use now"
     },
     {
-      label: "Camera",
-      hint: "App access to capture video"
+      key: "privacy-microphone",
+      label: "Microphone"
     },
     {
-      label: "Location",
-      hint: "Precise place from Date, time & weather — not IP-inferred"
+      key: "privacy-camera",
+      label: "Camera"
     },
     {
-      label: "Notifications",
-      hint: "Toast / portal notification grants"
+      key: "privacy-location",
+      label: "Location"
     },
     {
-      label: "Screen recording",
-      hint: "Portal / capture grants"
+      key: "privacy-notifications",
+      label: "Notifications"
     },
     {
-      label: "Diagnostics",
-      hint: "What leaves the machine"
+      key: "privacy-screen",
+      label: "Screen recording"
+    },
+    {
+      key: "privacy-diagnostics",
+      label: "Diagnostics"
+    },
+    {
+      key: "privacy-flatpak",
+      label: "Flatpak apps"
     }
   ]
 
@@ -63,11 +70,17 @@ ColumnLayout {
     return "Open-Meteo gets stored lat/lon only · never IP-inferred"
   }
 
-  onActiveChanged: {
-    if (active) {
+  onPageChanged: {
+    if (page === "privacy" || page.startsWith("privacy-")) {
       Accounts.refresh()
+      Permissions.refresh()
       root.clipHint = ""
     }
+  }
+
+  Component.onCompleted: {
+    Accounts.refresh()
+    Permissions.refresh()
   }
 
   function clearClipboard() {
@@ -128,195 +141,205 @@ ColumnLayout {
     onTriggered: root.clipHint = ""
   }
 
-  SettingsGroup {
-    title: "What leaves this machine"
-
-    SettingsFormRow {
-      label: "Weather"
-      hint: root.weatherLeaveHint
-      showSeparator: true
-    }
-
-    SettingsFormRow {
-      label: "Location"
-      hint: Config.locationName.length
-          ? (Config.locationName + " · Date, time & weather")
-          : "Not set · Date, time & weather"
-      showSeparator: true
-      interactive: true
-      onActivated: root.requestGo("datetime")
-      Text {
-        text: "›"
-        color: Theme.textMute
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
-      }
-    }
-
-    SettingsFormRow {
-      label: "Online accounts"
-      hint: root.accountsHint
-      showSeparator: true
-      interactive: true
-      onActivated: root.requestGo("accounts")
-      Text {
-        text: "›"
-        color: Theme.textMute
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
-      }
-    }
-
-    SettingsFormRow {
-      label: "Hardware probe"
-      hint: "Local cache only · ~/.config/proteus/hw-probe.json"
-      showSeparator: true
-    }
-
-    SettingsFormRow {
-      label: "Telemetry"
-      hint: "Proteus does not phone home — no crash or analytics pipeline"
-      showSeparator: false
-    }
-  }
-
-  SettingsGroup {
-    title: "Weather network"
-
-    SettingsFormRow {
-      label: "Fetch conditions"
-      hint: Config.weatherEnabled
-          ? "Open-Meteo when a place is set"
-          : "Muted — place stays; no forecast traffic"
-      showSeparator: false
-      SettingsSegmented {
-        Layout.preferredWidth: 140
-        options: [
-          {
-            id: "on",
-            label: "On"
-          },
-          {
-            id: "off",
-            label: "Off"
-          }
-        ]
-        selected: Config.weatherEnabled ? "on" : "off"
-        onActivated: id => Weather.setEnabled(id === "on")
-      }
-    }
-  }
-
-  SettingsGroup {
-    title: "Session"
-
-    SettingsFormRow {
-      label: "Do Not Disturb"
-      hint: Notifications.dnd
-          ? "Toasts suppressed · alerts still queue"
-          : "Toasts allowed"
-      showSeparator: true
-      SettingsSegmented {
-        Layout.preferredWidth: 140
-        options: [
-          {
-            id: "off",
-            label: "Off"
-          },
-          {
-            id: "on",
-            label: "On"
-          }
-        ]
-        selected: Notifications.dnd ? "on" : "off"
-        onActivated: id => Notifications.setDnd(id === "on")
-      }
-    }
-
-    SettingsFormRow {
-      label: "Lock now"
-      hint: "Lock screen"
-      showSeparator: true
-      interactive: true
-      onActivated: ShellState.lockSession()
-      Text {
-        text: "Lock"
-        color: Theme.accent
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
-      }
-    }
-
-    SettingsFormRow {
-      label: "Clear clipboard history"
-      hint: root.clipHint.length
-          ? root.clipHint
-          : "cliphist wipe + clear primary selection"
-      showSeparator: true
-      interactive: !root.clipBusy
-      onActivated: root.clearClipboard()
-      Text {
-        text: root.clipBusy ? "…" : "Clear"
-        color: Theme.accent
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
-      }
-    }
-
-    SettingsFormRow {
-      label: "LocalSend"
-      hint: "LAN share · Network"
-      showSeparator: false
-      interactive: true
-      onActivated: root.requestGo("network-localsend")
-      Text {
-        text: "›"
-        color: Theme.textMute
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
-      }
-    }
-  }
-
-  Text {
+  // ── Hub ──────────────────────────────────────────────────────────
+  ColumnLayout {
     Layout.fillWidth: true
-    Layout.maximumWidth: 480
-    text: "Permissions will gate adaptive apps when a grant model exists. Today EnvGate hides unavailable apps by capability — this pane does not enforce grants."
-    color: Theme.textDim
-    font.family: Theme.fontFamily
-    font.pixelSize: 13
-    wrapMode: Text.WordWrap
-  }
+    spacing: Theme.spaceMd
+    visible: root.page === "privacy"
 
-  SettingsGroup {
-    title: "App permissions"
-
-    Repeater {
-      model: root.categories
+    SettingsGroup {
+      title: "What leaves this machine"
 
       SettingsFormRow {
-        required property var modelData
-        required property int index
-        label: modelData.label
-        hint: modelData.hint
-        showSeparator: index < root.categories.length - 1
+        label: "Weather"
+        hint: root.weatherLeaveHint
+        showSeparator: true
+      }
+
+      SettingsFormRow {
+        label: "Location"
+        hint: Config.locationName.length
+            ? (Config.locationName + " · Date, time & weather")
+            : "Not set · Date, time & weather"
+        showSeparator: true
+        interactive: true
+        onActivated: root.requestGo("datetime")
         Text {
-          text: "Not enforced"
+          text: "›"
           color: Theme.textMute
           font.family: Theme.fontFamily
-          font.pixelSize: 12
+          font.pixelSize: Theme.fontSize
+        }
+      }
+
+      SettingsFormRow {
+        label: "Online accounts"
+        hint: root.accountsHint
+        showSeparator: true
+        interactive: true
+        onActivated: root.requestGo("accounts")
+        Text {
+          text: "›"
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSize
+        }
+      }
+
+      SettingsFormRow {
+        label: "Hardware probe"
+        hint: "Local cache only · ~/.config/proteus/hw-probe.json"
+        showSeparator: true
+      }
+
+      SettingsFormRow {
+        label: "Telemetry"
+        hint: "Proteus does not phone home — no crash or analytics pipeline"
+        showSeparator: false
+      }
+    }
+
+    SettingsGroup {
+      title: "Weather network"
+
+      SettingsFormRow {
+        label: "Fetch conditions"
+        hint: Config.weatherEnabled
+            ? "Open-Meteo when a place is set"
+            : "Muted — place stays; no forecast traffic"
+        showSeparator: false
+        SettingsSegmented {
+          Layout.preferredWidth: 140
+          options: [
+            {
+              id: "on",
+              label: "On"
+            },
+            {
+              id: "off",
+              label: "Off"
+            }
+          ]
+          selected: Config.weatherEnabled ? "on" : "off"
+          onActivated: id => Weather.setEnabled(id === "on")
         }
       }
     }
+
+    SettingsGroup {
+      title: "Session"
+
+      SettingsFormRow {
+        label: "Do Not Disturb"
+        hint: Notifications.dnd
+            ? "Toasts suppressed · alerts still queue"
+            : "Toasts allowed"
+        showSeparator: true
+        SettingsSegmented {
+          Layout.preferredWidth: 140
+          options: [
+            {
+              id: "off",
+              label: "Off"
+            },
+            {
+              id: "on",
+              label: "On"
+            }
+          ]
+          selected: Notifications.dnd ? "on" : "off"
+          onActivated: id => Notifications.setDnd(id === "on")
+        }
+      }
+
+      SettingsFormRow {
+        label: "Lock now"
+        hint: "Lock screen"
+        showSeparator: true
+        interactive: true
+        onActivated: ShellState.lockSession()
+        Text {
+          text: "Lock"
+          color: Theme.accent
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSize
+        }
+      }
+
+      SettingsFormRow {
+        label: "Clear clipboard history"
+        hint: root.clipHint.length
+            ? root.clipHint
+            : "cliphist wipe + clear primary selection"
+        showSeparator: true
+        interactive: !root.clipBusy
+        onActivated: root.clearClipboard()
+        Text {
+          text: root.clipBusy ? "…" : "Clear"
+          color: Theme.accent
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSize
+        }
+      }
+
+      SettingsFormRow {
+        label: "LocalSend"
+        hint: "LAN share · Network"
+        showSeparator: false
+        interactive: true
+        onActivated: root.requestGo("network-localsend")
+        Text {
+          text: "›"
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSize
+        }
+      }
+    }
+
+    Text {
+      Layout.fillWidth: true
+      Layout.maximumWidth: 520
+      text: "App permissions gate adaptive apps and Flatpak overrides. Native capture is observed in In use now — not sandboxed."
+      color: Theme.textDim
+      font.family: Theme.fontFamily
+      font.pixelSize: 13
+      wrapMode: Text.WordWrap
+    }
+
+    SettingsHubList {
+      items: root.sections
+      onActivated: key => root.requestGo(key)
+    }
   }
 
-  Text {
-    Layout.fillWidth: true
-    Layout.maximumWidth: 480
-    text: "Fact: docs/proteus/APPLICATIONS.md · shell/shared/EnvGate.qml — no per-app grant store."
-    color: Theme.textMute
-    font.family: Theme.fontFamily
-    font.pixelSize: 11
-    wrapMode: Text.WordWrap
+  // ── Leaves ───────────────────────────────────────────────────────
+  StickyPaneLoader {
+    want: root.page === "privacy-activity"
+    source: "PrivacyActivityLeaf.qml"
+    onLoaded: item.requestGo.connect(id => root.requestGo(id))
+  }
+
+  StickyPaneLoader {
+    want: root.page === "privacy-microphone"
+        || root.page === "privacy-camera"
+        || root.page === "privacy-location"
+        || root.page === "privacy-notifications"
+        || root.page === "privacy-screen"
+        || root.page === "privacy-diagnostics"
+    source: "PrivacyCategoryLeaf.qml"
+    onLoaded: {
+      item.categoryId = Qt.binding(() => {
+        const p = String(root.page || "")
+        if (p.indexOf("privacy-") === 0)
+          return p.slice("privacy-".length)
+        return "microphone"
+      })
+    }
+  }
+
+  StickyPaneLoader {
+    want: root.page === "privacy-flatpak"
+    source: "PrivacyFlatpakLeaf.qml"
   }
 }

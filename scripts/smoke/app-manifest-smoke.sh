@@ -31,7 +31,7 @@ for i, m in enumerate(mans):
     assert m.get("id"), f"manifest[{i}].id"
     unknown = set(m.keys()) - allowed
     assert not unknown, f"manifest[{i}] unknown keys: {unknown}"
-    for key in ("requires", "requiresAny", "desktopIds", "prefers", "postures", "device_classes"):
+    for key in ("requires", "requiresAny", "desktopIds", "prefers", "postures", "device_classes", "permissions"):
         if key in m:
             assert isinstance(m[key], list), f"manifest[{i}].{key} list"
 print("validate ok", len(mans), "manifests")

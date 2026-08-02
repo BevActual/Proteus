@@ -1068,11 +1068,20 @@ ColumnLayout {
       SettingsFormRow {
         label: "Resolution"
         showSeparator: true
-        ComboBox {
-          Layout.preferredWidth: 180
-          model: root.modesFor(monGroup.modelData)
-          currentIndex: monGroup.modelData.modeIndex
-          onActivated: idx => {
+        SettingsCombo {
+          preferredWidth: 180
+          model: {
+            const modes = root.modesFor(monGroup.modelData)
+            const out = []
+            for (let i = 0; i < modes.length; i++)
+              out.push({ id: String(i), label: String(modes[i]) })
+            return out
+          }
+          currentValue: String(monGroup.modelData.modeIndex)
+          onActivated: v => {
+            const idx = Number(v)
+            if (!isFinite(idx))
+              return
             const copy = root.monitors.slice()
             const row = Object.assign({}, copy[monGroup.index])
             row.modeIndex = idx
@@ -1086,11 +1095,20 @@ ColumnLayout {
       SettingsFormRow {
         label: "Scale"
         showSeparator: true
-        ComboBox {
-          Layout.preferredWidth: 120
-          model: monGroup.modelData.scaleChoices.map(s => Number(s).toFixed(2))
-          currentIndex: monGroup.modelData.scaleIndex
-          onActivated: idx => {
+        SettingsCombo {
+          preferredWidth: 120
+          model: {
+            const scales = monGroup.modelData.scaleChoices || []
+            const out = []
+            for (let i = 0; i < scales.length; i++)
+              out.push({ id: String(i), label: Number(scales[i]).toFixed(2) })
+            return out
+          }
+          currentValue: String(monGroup.modelData.scaleIndex)
+          onActivated: v => {
+            const idx = Number(v)
+            if (!isFinite(idx))
+              return
             const copy = root.monitors.slice()
             const row = Object.assign({}, copy[monGroup.index])
             row.scaleIndex = idx
@@ -1104,11 +1122,20 @@ ColumnLayout {
       SettingsFormRow {
         label: "Orientation"
         showSeparator: true
-        ComboBox {
-          Layout.preferredWidth: 120
-          model: root.transformChoices.map(t => t.label)
-          currentIndex: monGroup.modelData.transformIndex
-          onActivated: idx => {
+        SettingsCombo {
+          preferredWidth: 120
+          model: {
+            const choices = root.transformChoices
+            const out = []
+            for (let i = 0; i < choices.length; i++)
+              out.push({ id: String(i), label: String(choices[i].label) })
+            return out
+          }
+          currentValue: String(monGroup.modelData.transformIndex)
+          onActivated: v => {
+            const idx = Number(v)
+            if (!isFinite(idx) || idx < 0 || idx >= root.transformChoices.length)
+              return
             const copy = root.monitors.slice()
             const row = Object.assign({}, copy[monGroup.index])
             row.transformIndex = idx
