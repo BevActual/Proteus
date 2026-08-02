@@ -52,9 +52,26 @@ Item {
     out += "animations {\n"
     out += "  enabled = " + (host.animationsEnabled ? "true" : "false") + "\n"
     out += "}\n\n"
+    const scroll = Math.max(0.1, Math.min(3.0, Number(host.touchpadScrollFactor) || 1))
+    const txf = Math.max(0, Math.min(7, Math.round(Number(host.tabletTransform) || 0)))
+    const tabOut = String(host.tabletOutput || "").trim()
     out += "input {\n"
     out += "  sensitivity = " + host.mouseSensitivity + "\n"
     out += "  accel_profile = " + (host.mouseAccelFlat ? "flat" : "adaptive") + "\n"
+    out += "  touchpad {\n"
+    out += "    natural_scroll = " + (host.touchpadNaturalScroll ? "true" : "false") + "\n"
+    out += "    tap-to-click = " + (host.touchpadTapToClick ? "true" : "false") + "\n"
+    out += "    disable_while_typing = " + (host.touchpadDisableWhileTyping ? "true" : "false") + "\n"
+    out += "    clickfinger_behavior = " + (host.touchpadClickfinger ? "true" : "false") + "\n"
+    out += "    scroll_factor = " + scroll + "\n"
+    out += "  }\n"
+    out += "  tablet {\n"
+    out += "    transform = " + txf + "\n"
+    out += "    relative_input = " + (host.tabletRelativeInput ? "true" : "false") + "\n"
+    out += "    left_handed = " + (host.tabletLeftHanded ? "true" : "false") + "\n"
+    if (tabOut.length)
+      out += "    output = " + tabOut + "\n"
+    out += "  }\n"
     out += "}\n\n"
     if (blurOn) {
       out += "# Proteus chrome blur (Settings → Appearance) — Hyprland ≥0.56\n"
@@ -104,6 +121,44 @@ Item {
     Quickshell.execDetached({
       command: ["hyprctl", "keyword", "input:accel_profile", host.mouseAccelFlat ? "flat" : "adaptive"]
     })
+    const scroll = Math.max(0.1, Math.min(3.0, Number(host.touchpadScrollFactor) || 1))
+    const txf = Math.max(0, Math.min(7, Math.round(Number(host.tabletTransform) || 0)))
+    const tabOut = String(host.tabletOutput || "").trim()
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "input:touchpad:natural_scroll",
+                 host.touchpadNaturalScroll ? "true" : "false"]
+    })
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "input:touchpad:tap-to-click",
+                 host.touchpadTapToClick ? "true" : "false"]
+    })
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "input:touchpad:disable_while_typing",
+                 host.touchpadDisableWhileTyping ? "true" : "false"]
+    })
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "input:touchpad:clickfinger_behavior",
+                 host.touchpadClickfinger ? "true" : "false"]
+    })
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "input:touchpad:scroll_factor", String(scroll)]
+    })
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "input:tablet:transform", String(txf)]
+    })
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "input:tablet:relative_input",
+                 host.tabletRelativeInput ? "true" : "false"]
+    })
+    Quickshell.execDetached({
+      command: ["hyprctl", "keyword", "input:tablet:left_handed",
+                 host.tabletLeftHanded ? "true" : "false"]
+    })
+    if (tabOut.length) {
+      Quickshell.execDetached({
+        command: ["hyprctl", "keyword", "input:tablet:output", tabOut]
+      })
+    }
   }
 
   function persistGeneralConf() {

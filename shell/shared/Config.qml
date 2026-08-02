@@ -27,6 +27,16 @@ Singleton {
   property alias workspaceMode: adapter.workspaceMode
   property alias mouseSensitivity: adapter.mouseSensitivity
   property alias mouseAccelFlat: adapter.mouseAccelFlat
+  // Touchpad / tablet (Settings → Peripherals; hypr input:touchpad / input:tablet)
+  property alias touchpadNaturalScroll: adapter.touchpadNaturalScroll
+  property alias touchpadTapToClick: adapter.touchpadTapToClick
+  property alias touchpadDisableWhileTyping: adapter.touchpadDisableWhileTyping
+  property alias touchpadClickfinger: adapter.touchpadClickfinger
+  property alias touchpadScrollFactor: adapter.touchpadScrollFactor
+  property alias tabletRelativeInput: adapter.tabletRelativeInput
+  property alias tabletLeftHanded: adapter.tabletLeftHanded
+  property alias tabletOutput: adapter.tabletOutput
+  property alias tabletTransform: adapter.tabletTransform
   // Console Guide button (BTN_MODE) — nav | cc | off
   property alias gamepadsGuideSingle: adapter.gamepadsGuideSingle
   property alias gamepadsGuideDouble: adapter.gamepadsGuideDouble
@@ -1180,6 +1190,16 @@ Singleton {
       property string workspaceMode: "synced"
       property real mouseSensitivity: 0
       property bool mouseAccelFlat: false
+      property bool touchpadNaturalScroll: false
+      property bool touchpadTapToClick: true
+      property bool touchpadDisableWhileTyping: true
+      property bool touchpadClickfinger: false
+      property real touchpadScrollFactor: 1.0
+      property bool tabletRelativeInput: false
+      property bool tabletLeftHanded: false
+      // "" = unbound / compositor default; else Hyprland monitor name
+      property string tabletOutput: ""
+      property int tabletTransform: 0
       // Guide button in console posture: nav | cc | off
       property string gamepadsGuideSingle: "nav"
       property string gamepadsGuideDouble: "cc"
@@ -1289,6 +1309,15 @@ Singleton {
       onAnimationsEnabledChanged: root.applyHyprland()
       onMouseSensitivityChanged: root.applyHyprland()
       onMouseAccelFlatChanged: root.applyHyprland()
+      onTouchpadNaturalScrollChanged: root.applyHyprland()
+      onTouchpadTapToClickChanged: root.applyHyprland()
+      onTouchpadDisableWhileTypingChanged: root.applyHyprland()
+      onTouchpadClickfingerChanged: root.applyHyprland()
+      onTouchpadScrollFactorChanged: root.applyHyprland()
+      onTabletRelativeInputChanged: root.applyHyprland()
+      onTabletLeftHandedChanged: root.applyHyprland()
+      onTabletOutputChanged: root.applyHyprland()
+      onTabletTransformChanged: root.applyHyprland()
       onAccentIdChanged: root.applyHyprland()
       onAudioLatencyChanged: Audio.applyAudioLatency()
     }
