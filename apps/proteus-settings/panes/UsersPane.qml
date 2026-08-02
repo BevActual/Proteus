@@ -34,6 +34,11 @@ ColumnLayout {
   property string greeterUser: ""
   property string greeterHint: "Checking greetd…"
   property string greeterConf: "/etc/greetd/config.toml"
+  property string greeterCommand: ""
+  property bool greeterHelperInstalled: false
+  property string greeterWriteMsg: ""
+  property bool greeterWriteError: false
+  property var greeterPendingArgs: []
 
   // Lock-screen PIN (hashed under ~/.local/share/proteus/auth — not settings.json)
   property bool pinConfigured: false
@@ -53,6 +58,15 @@ ColumnLayout {
     const rootEnv = String(Quickshell.env("PROTEUS_ROOT") || "").trim()
     if (rootEnv.length)
       return rootEnv + "/shell/scripts/proteus-pin.py"
+    return fromUrl
+  }
+
+  readonly property string greetdStatusFallback: {
+    const u = Qt.resolvedUrl("../../../shell/scripts/proteus-greetd-status.py")
+    const fromUrl = String(u).replace(/^file:\/\//, "")
+    const rootEnv = String(Quickshell.env("PROTEUS_ROOT") || "").trim()
+    if (rootEnv.length)
+      return rootEnv + "/shell/scripts/proteus-greetd-status.py"
     return fromUrl
   }
 
@@ -207,8 +221,57 @@ ColumnLayout {
 
   function refreshGreeter() {
     root.greeterBusy = true
+    greeterHelperProbe.running = false
+    greeterHelperProbe.running = true
     greeterProc.running = false
     greeterProc.running = true
+  }
+
+  function _greetdResolveScript() {
+    return "BIN=\"\"; "
+        + "if [ -x /usr/local/libexec/proteus-greetd ]; then BIN=/usr/local/libexec/proteus-greetd; "
+        + "elif command -v proteus-greetd >/dev/null 2>&1; then BIN=$(command -v proteus-greetd); fi; "
+        + "printf '%s' \"$BIN\""
+  }
+
+  function setAutologin(enabled) {
+    root.greeterWriteMsg = ""
+    root.greeterWriteError = false
+    if (!root.greeterHelperInstalled) {
+      root.greeterWriteMsg = "Install proteus-greetd first (polkit writer)"
+      root.greeterWriteError = true
+      return
+    }
+    if (enabled) {
+      const u = root.currentName.length ? root.currentName : ""
+      if (!u.length) {
+        root.greeterWriteMsg = "Current user unknown — cannot enable autologin"
+        root.greeterWriteError = true
+        return
+      }
+      root.greeterPendingArgs = ["set-autologin", u]
+    } else {
+      root.greeterPendingArgs = ["clear-autologin"]
+    }
+    root.greeterBusy = true
+    greeterResolveProc.command = ["bash", "-c", root._greetdResolveScript()]
+    greeterResolveProc.running = false
+    greeterResolveProc.running = true
+  }
+
+  function installGreeterHelper() {
+    const proot = String(Quickshell.env("PROTEUS_ROOT") || "/mnt/proteus")
+    Quickshell.execDetached({
+      command: [
+        "bash", "-lc",
+        "if [[ -x " + JSON.stringify(proot + "/vm/guest/install-proteus-greetd.sh") + " ]]; then "
+            + "pkexec bash " + JSON.stringify(proot + "/vm/guest/install-proteus-greetd.sh") + "; "
+            + "elif [[ -x /mnt/proteus/vm/guest/install-proteus-greetd.sh ]]; then "
+            + "pkexec bash /mnt/proteus/vm/guest/install-proteus-greetd.sh; fi"
+      ]
+    })
+    root.greeterWriteMsg = "Install started — re-open Users after auth"
+    root.greeterWriteError = false
   }
 
   function openGreeterConf() {
@@ -745,9 +808,67 @@ ColumnLayout {
     }
 
     SettingsFormRow {
+      label: "Autologin"
+      hint: {
+        if (!root.greeterHelperInstalled)
+          return "Needs proteus-greetd (polkit) · writes [initial_session] only; no greetd restart"
+        if (root.greeterAutologin)
+          return "On · " + (root.greeterUser || "user") + " → proteus-session (next boot / greeter cycle)"
+        return "Off · cold boot uses tuigreet · enable for this user (" + (root.currentName || "?") + ")"
+      }
+      showSeparator: true
+      RowLayout {
+        spacing: Theme.spaceSm
+        Text {
+          text: root.greeterAutologin ? "On" : "Off"
+          color: root.greeterAutologin ? Theme.accent : Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: 12
+        }
+        Rectangle {
+          visible: root.greeterHelperInstalled
+          Layout.preferredHeight: 28
+          Layout.preferredWidth: autoLoginBtn.implicitWidth + 20
+          radius: Theme.radiusPill - 8
+          color: root.greeterBusy ? Theme.bgHover : Theme.accent
+          Text {
+            id: autoLoginBtn
+            anchors.centerIn: parent
+            text: root.greeterBusy ? "…" : (root.greeterAutologin ? "Turn off" : "Turn on")
+            color: "#ffffff"
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeSm
+            font.weight: Font.Medium
+          }
+          MouseArea {
+            anchors.fill: parent
+            enabled: !root.greeterBusy
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.setAutologin(!root.greeterAutologin)
+          }
+        }
+      }
+    }
+
+    SettingsFormRow {
+      visible: !root.greeterHelperInstalled && root.greeterLoaded
+      label: "Install proteus-greetd…"
+      hint: "pkexec · polkit writer for greetd autologin"
+      showSeparator: true
+      interactive: true
+      onActivated: root.installGreeterHelper()
+      Text {
+        text: "›"
+        color: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+      }
+    }
+
+    SettingsFormRow {
       label: "Edit greetd config…"
-      hint: "Read-only escape · " + (root.greeterConf.length ? root.greeterConf : "/etc/greetd/config.toml")
-          + " · Settings does not write greeter prefs"
+      hint: "Escape · " + (root.greeterConf.length ? root.greeterConf : "/etc/greetd/config.toml")
+          + " · Settings writes only [initial_session] via proteus-greetd"
       showSeparator: false
       interactive: true
       onActivated: root.openGreeterConf()
@@ -761,9 +882,20 @@ ColumnLayout {
   }
 
   Text {
+    visible: root.greeterWriteMsg.length > 0
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Fact: Config.session · id/getent · greetd unit + config.toml · lock PIN via proteus-pin.py (~/.local/share/proteus/auth/pin). Reboot/shutdown confirm in-pane. No useradd / greeter write from Settings."
+    text: root.greeterWriteMsg
+    color: root.greeterWriteError ? Theme.danger : Theme.accent
+    font.family: Theme.fontFamily
+    font.pixelSize: Theme.fontSizeSm
+    wrapMode: Text.WordWrap
+  }
+
+  Text {
+    Layout.fillWidth: true
+    Layout.maximumWidth: 480
+    text: "Fact: Config.session · id/getent · greetd via proteus-greetd (pkexec [initial_session]) · lock PIN via proteus-pin.py (~/.local/share/proteus/auth/pin). Reboot/shutdown confirm in-pane. No useradd from Settings."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11
@@ -889,38 +1021,14 @@ ColumnLayout {
   Process {
     id: greeterProc
     command: [
-      "python3",
-      "-c",
-      "import json,shutil,subprocess,pathlib,re\n"
-          + "o={'active':False,'enabled':False,'autologin':False,'user':'','command':'','hint':'greetd not installed','conf':'/etc/greetd/config.toml'}\n"
-          + "conf=pathlib.Path('/etc/greetd/config.toml')\n"
-          + "o['conf']=str(conf)\n"
-          + "has_systemctl=bool(shutil.which('systemctl'))\n"
-          + "if has_systemctl:\n"
-          + "  a=subprocess.run(['systemctl','is-active','greetd'],capture_output=True,text=True)\n"
-          + "  o['active']=(a.stdout or '').strip()=='active'\n"
-          + "  e=subprocess.run(['systemctl','is-enabled','greetd'],capture_output=True,text=True)\n"
-          + "  o['enabled']=(e.stdout or '').strip() in ('enabled','enabled-runtime','static')\n"
-          + "if conf.is_file():\n"
-          + "  t=conf.read_text(errors='replace')\n"
-          + "  m=re.search(r'\\[initial_session\\](.*?)(?=\\n\\[|\\Z)',t,re.S)\n"
-          + "  if m:\n"
-          + "    block=m.group(1)\n"
-          + "    um=re.search(r'^\\s*user\\s*=\\s*\"([^\"]+)\"',block,re.M)\n"
-          + "    cm=re.search(r'^\\s*command\\s*=\\s*\"([^\"]+)\"',block,re.M)\n"
-          + "    if um: o['user']=um.group(1)\n"
-          + "    if cm: o['command']=cm.group(1)\n"
-          + "    o['autologin']=bool(o['user'] and o['command'])\n"
-          + "  bits=[]\n"
-          + "  if o['active']: bits.append('active')\n"
-          + "  elif o['enabled']: bits.append('enabled')\n"
-          + "  elif has_systemctl: bits.append('inactive')\n"
-          + "  if o['autologin']: bits.append('autologin '+o['user'])\n"
-          + "  elif conf.is_file(): bits.append('no initial_session')\n"
-          + "  o['hint']=' · '.join(bits) if bits else 'config present'\n"
-          + "elif has_systemctl:\n"
-          + "  o['hint']='greetd unit '+('active' if o['active'] else ('enabled' if o['enabled'] else 'inactive'))+' · no config.toml'\n"
-          + "print(json.dumps(o))"
+      "bash", "-lc",
+      "P=" + JSON.stringify(String(Quickshell.env("PROTEUS_ROOT") || "/mnt/proteus")) + "; "
+          + "for c in /usr/local/libexec/proteus-greetd "
+          + "\"$P/services/proteus-greetd/target/release/proteus-greetd\" "
+          + "\"$P/services/proteus-greetd/bin/proteus-greetd\"; do "
+          + "if [[ -x \"$c\" ]]; then exec \"$c\" show; fi; done; "
+          + "if command -v proteus-greetd >/dev/null 2>&1; then exec proteus-greetd show; fi; "
+          + "exec python3 " + JSON.stringify(root.greetdStatusFallback)
     ]
     running: false
     stdout: StdioCollector {
@@ -933,6 +1041,7 @@ ColumnLayout {
           root.greeterEnabled = !!o.enabled
           root.greeterAutologin = !!o.autologin
           root.greeterUser = o.user || ""
+          root.greeterCommand = o.command || ""
           root.greeterHint = o.hint || "Unknown"
           root.greeterConf = o.conf || "/etc/greetd/config.toml"
         } catch (e) {
@@ -942,6 +1051,73 @@ ColumnLayout {
           root.greeterAutologin = false
         }
       }
+    }
+  }
+
+  Process {
+    id: greeterHelperProbe
+    command: [
+      "bash", "-c",
+      "if [ -x /usr/local/libexec/proteus-greetd ] || command -v proteus-greetd >/dev/null 2>&1; then echo 1; else echo 0; fi"
+    ]
+    running: false
+    stdout: StdioCollector {
+      onStreamFinished: {
+        root.greeterHelperInstalled = String(this.text || "").trim() === "1"
+      }
+    }
+  }
+
+  Process {
+    id: greeterResolveProc
+    command: ["true"]
+    running: false
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const bin = String(this.text || "").trim()
+        if (!bin.length) {
+          root.greeterBusy = false
+          root.greeterHelperInstalled = false
+          root.greeterWriteMsg = "proteus-greetd not installed"
+          root.greeterWriteError = true
+          return
+        }
+        const args = ["pkexec", bin]
+        for (let i = 0; i < root.greeterPendingArgs.length; i++)
+          args.push(root.greeterPendingArgs[i])
+        greeterWriteProc.command = args
+        greeterWriteProc.running = false
+        greeterWriteProc.running = true
+      }
+    }
+  }
+
+  Process {
+    id: greeterWriteProc
+    command: ["true"]
+    running: false
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const o = JSON.parse(String(this.text || "").trim() || "{}")
+          if (o.ok) {
+            root.greeterWriteMsg = o.hint || "Saved"
+            root.greeterWriteError = false
+          } else {
+            root.greeterWriteMsg = String(o.error || "write failed")
+            root.greeterWriteError = true
+          }
+        } catch (e) {
+          root.greeterWriteMsg = "Could not parse proteus-greetd response"
+          root.greeterWriteError = true
+        }
+      }
+    }
+    onExited: () => {
+      root.greeterBusy = false
+      root.refreshGreeter()
+      greeterHelperProbe.running = false
+      greeterHelperProbe.running = true
     }
   }
 
