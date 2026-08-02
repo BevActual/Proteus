@@ -21,6 +21,7 @@ One schema for all postures; panes enable/disable by capability.
 | Group | Keys (representative) | Behaviour façade |
 |-------|----------------------|------------------|
 | Desktop / Hypr | `gapsIn`, `gapsOut`, `borderSize`, `rounding`, `animationsEnabled`, `mouse*`, `workspaceMode` (`synced` \| `perDisplay`) | `Config` / `ConfigHypr` → `proteus-general.conf` · Spaces via `proteus-workspace` |
+| Touchpad / tablet | `touchpadNaturalScroll`, `touchpadTapToClick`, `touchpadDisableWhileTyping`, `touchpadClickfinger`, `touchpadScrollFactor`, `tabletRelativeInput`, `tabletLeftHanded`, `tabletOutput`, `tabletTransform` | Settings → Peripherals → Touchpad / Tablet · `input:touchpad:*` / `input:tablet:*` |
 | Gamepads | `gamepadsGuideSingle`, `gamepadsGuideDouble` (`nav` \| `cc` \| `off`) | Settings → Peripherals → Gamepads · `proteus-guide` |
 | Console | `consoleRecents`, `consoleLastMediaPath` | Jump Back In (✕ / pad X remove) · Media lean sheet resume path |
 | Chrome | `accentId`, `accentCustom`, `chromeMode`, `chromeOpacity`, `chromeBlur`, `dock*`, `bar*`, `iconPlateMode`, `iconPlateCustom`, `iconOverrides` | Theme + ConfigHypr + DockApps |

@@ -108,7 +108,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Displays** (`displays`) | Layout canvas + per-monitor scale/mode/orientation; 10s Revert; Refresh/hotplug honesty; conf escape | hyprctl + `proteus-monitors.conf` | `shipped` |
 | **Sound** (`sound`) | Category → Output / Input / Applications / Mixer / Latency — leaf files + FormRow kit | pactl + `proteus-audio-mix` / `audio-peak.py` + `pw-metadata` + `pw-link` | `shipped` |
 | **Network** (`network`) | Category → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN — password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG import | hostnamectl / nmcli / bluetoothctl / localsend / tailscale / `NetworkDiagnostics` | `shipped` |
-| **Peripherals** (`peripherals`) | Category → Keyboard, Mouse, Gamepads (Guide Facts); later touchpad / tablet | keybinds + input hyprctl + `gamepadsGuide*` | `shipped` |
+| **Peripherals** (`peripherals`) | Category → Keyboard, Mouse, Touchpad, Tablet, Gamepads (Guide Facts) | keybinds + input hyprctl (`mouse*` · `touchpad*` · `tablet*`) + `gamepadsGuide*` | `shipped` |
 | **Power** (`power`) | Power mode segmented (PPD); battery (UPower); idle / lid FormRows via `proteus-logind` drop-in + conf escape | `powerprofilesctl` / UPower / `proteus-logind` | `shipped` |
 | **Users** (`users`) | Session Lock/Logout + confirm Reboot/Shutdown; lock screen PIN set/change/clear; current user (GECOS/home) + other local users read-only; Online accounts jump; greetd status + autologin write + conf escape | `Config.session` · `proteus-pin.py` · id/getent · `proteus-greetd` (pkexec `[initial_session]`) | `shipped` |
 | **Online accounts** (`accounts`) | Connector catalog + Google/Microsoft PKCE + Nextcloud app-password seats (`proteus-accounts` vault); Apple/Exchange/… listed | `proteus-accounts` + `Accounts.qml` (mail/contacts apps Out) | `partial` |
@@ -180,8 +180,12 @@ Reference hybrid leaf under **Peripherals → Keyboard**:
 4. UI: search, categories, record chord, conflict detection, restore defaults
 5. Guest wiring: `vm/guest/install-keybinds.sh`
 
-**Peripherals** category (same drill-in as Appearance): Keyboard · Mouse.
-Headphones/speakers stay under **Sound**, not Peripherals.
+**Peripherals** category (same drill-in as Appearance): Keyboard · Mouse ·
+Touchpad · Tablet · Gamepads. Headphones/speakers stay under **Sound**, not
+Peripherals. Touchpad/tablet Facts live in `settings.json` and apply via
+`hyprctl input:touchpad:*` / `input:tablet:*` + `proteus-general.conf`.
+Per-device `device {}` blocks, gesture maps, and tablet active-area/pressure
+stay Out.
 
 Defaults include Beacon (`Super+Space` / `Super+D`), Settings (`Super+,`),
 terminal, workspaces, etc. (`env/hypr/proteus-keybinds.conf` template).
@@ -332,7 +336,7 @@ Depth order for what’s left:
 2. ~~Online accounts depth~~ — Microsoft / Nextcloud connect shipped; Apple/Exchange/IMAP/CalDAV/CardDAV + consumers stay Out  
 3. **Privacy native enforcement** — PipeWire/v4l2 policy / portal store write stay Out  
 4. **Network polish** — largely shipped (IPv4 on Devices · Diagnostics ss/firewall); Headscale admin / OpenVPN wizard stay Out  
-5. **Peripherals** — touchpad / tablet  
+5. ~~**Peripherals** — touchpad / tablet~~ — Touchpad + Tablet leaves shipped; per-device `device {}` / active-area / pressure Out  
 6. **Software depth** — dependency graphs later; Snap stays Out (hub + six leaves + smoke matrix shipped)  
 7. ~~Settings Notifications pane~~ — shipped (prefs-only; CC remains live list)  
 
