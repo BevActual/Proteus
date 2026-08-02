@@ -98,6 +98,16 @@ if kill -0 "$TP" 2>/dev/null; then
   else
     echo DESKTOP_NAV_FAIL
   fi
+  # Spaces leaf (multi-display workspaceMode)
+  qs -p /mnt/proteus/apps/proteus-settings ipc call nav go desktop-spaces >/dev/null 2>&1
+  sleep 1.0
+  spaces_nav="$(qs -p /mnt/proteus/apps/proteus-settings ipc call nav state 2>/dev/null || echo '')"
+  echo "DESKTOP_SPACES_NAV_STATE=${spaces_nav}"
+  if [[ "${spaces_nav}" == *'"page":"desktop-spaces"'* ]]; then
+    echo DESKTOP_SPACES_NAV_OK
+  else
+    echo DESKTOP_SPACES_NAV_FAIL
+  fi
 fi
 
 # Beacon universal search — unlock first (fresh installs lock on session
@@ -260,6 +270,7 @@ echo "${out}" | grep -q SETTINGS_OK || { echo "qs-guest-smoke: FAIL Settings did
 echo "${out}" | grep -q POLKIT_AGENT_OK || { echo "qs-guest-smoke: FAIL hyprpolkitagent not running (pkexec auth prompts will fail)" >&2; exit 1; }
 echo "${out}" | grep -q NAV_OK || { echo "qs-guest-smoke: FAIL Install… deep link (nav installSearch) did not land on packages-search" >&2; exit 1; }
 echo "${out}" | grep -q DESKTOP_NAV_OK || { echo "qs-guest-smoke: FAIL Desktop nav go desktop-control-center did not land" >&2; exit 1; }
+echo "${out}" | grep -q DESKTOP_SPACES_NAV_OK || { echo "qs-guest-smoke: FAIL Desktop nav go desktop-spaces did not land" >&2; exit 1; }
 echo "${out}" | grep -q BEACON_OK || { echo "qs-guest-smoke: FAIL Beacon universal search (chrome beacon reboot) returned no action row" >&2; exit 1; }
 echo "${out}" | grep -q FOCUS_OK || { echo "qs-guest-smoke: FAIL Beacon Focus action (chrome beacon focus) not found" >&2; exit 1; }
 echo "${out}" | grep -q CALENDAR_OK || { echo "qs-guest-smoke: FAIL calendar popover (chrome calendar) did not open" >&2; exit 1; }
