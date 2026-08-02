@@ -5,8 +5,9 @@ import "../shared"
 import "../kit"
 import ".." // root module — SettingsNav singleton
 
-// About: product identity · machine facts · load strip · Mission Center · soft profile.
-// Session actions live under Users only (SETTINGS-IA §2) — not linked from About.
+// About: product identity · machine facts · load strip · Mission Center ·
+// hard Session posture + soft Hyprland profile.
+// Session power actions live under Users only (SETTINGS-IA §2) — not linked here.
 ColumnLayout {
   id: root
   Layout.fillWidth: true
@@ -26,6 +27,7 @@ ColumnLayout {
   onActiveChanged: {
     SystemLoad.watching = active
     if (active) {
+      SessionPosture.refresh()
       HyprProfile.refresh()
       SystemInfo.refresh()
       MissionCenter.refresh()
@@ -34,6 +36,7 @@ ColumnLayout {
   }
 
   Component.onCompleted: {
+    SessionPosture.refresh()
     HyprProfile.refresh()
     SystemInfo.refresh()
     MissionCenter.refresh()
@@ -320,6 +323,96 @@ ColumnLayout {
   }
 
   SettingsGroup {
+    title: "Session posture"
+
+    SettingsFormRow {
+      label: "Posture"
+      hint: SessionPosture.busy
+          ? "Switching…"
+          : SessionPosture.hardHonesty
+      showSeparator: SessionPosture.confirmOpen
+          || SessionPosture.statusNote.length > 0
+          || SessionPosture.error.length > 0
+          || SessionPosture.helperMissing
+      SettingsCombo {
+        preferredWidth: 168
+        enabled: !SessionPosture.busy && !SessionPosture.helperMissing
+            && SessionPosture.postureOptions.length > 0
+        model: SessionPosture.postureOptions
+        currentValue: SessionPosture.confirmOpen
+            ? SessionPosture.pendingPosture
+            : SessionPosture.activePosture
+        onActivated: v => {
+          if (!v.length)
+            return
+          if (v === SessionPosture.activePosture) {
+            SessionPosture.cancelPending()
+            return
+          }
+          SessionPosture.requestSwitch(v)
+        }
+      }
+    }
+
+    SettingsFormRow {
+      visible: SessionPosture.confirmOpen && !SessionPosture.busy
+      label: "Confirm hard switch"
+      hint: "Restart chrome as "
+          + SessionPosture.postureLabel(SessionPosture.pendingPosture)
+          + " — soft profile picker below will not do this"
+      showSeparator: true
+      RowLayout {
+        spacing: Theme.spaceSm
+        Text {
+          text: "Switch"
+          color: Theme.accent
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSize
+          font.weight: Font.DemiBold
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: SessionPosture.confirmSwitch()
+          }
+        }
+        Text {
+          text: "Cancel"
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.fontSize
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: SessionPosture.cancelPending()
+          }
+        }
+      }
+    }
+
+    SettingsFormRow {
+      visible: SessionPosture.statusNote.length > 0 && !SessionPosture.error.length
+      label: "Status"
+      hint: SessionPosture.statusNote
+      showSeparator: SessionPosture.error.length > 0 || SessionPosture.helperMissing
+    }
+
+    SettingsFormRow {
+      visible: SessionPosture.error.length > 0
+      label: "Error"
+      hint: SessionPosture.error
+      labelColor: Theme.danger
+      showSeparator: SessionPosture.helperMissing
+    }
+
+    SettingsFormRow {
+      visible: SessionPosture.helperMissing
+      label: "Helper missing"
+      hint: SessionPosture.helperHint
+      showSeparator: false
+    }
+  }
+
+  SettingsGroup {
     title: "Hyprland profile"
 
     SettingsFormRow {
@@ -380,8 +473,9 @@ ColumnLayout {
     Layout.fillWidth: true
     Layout.maximumWidth: 520
     text: "Fact: identity from os-release · hostname · /proc load · hw-probe.json · "
-        + "soft Hyprland profile (not a hard posture switch). Activity Monitor opens "
-        + "Mission Center when installed — Settings does not embed a live dashboard."
+        + "Session posture = hard proteus-posture (chrome restart) · Hyprland profile "
+        + "= soft window rules only. Activity Monitor opens Mission Center when "
+        + "installed — Settings does not embed a live dashboard."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11

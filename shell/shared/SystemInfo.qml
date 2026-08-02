@@ -54,6 +54,8 @@ Singleton {
       lines.push("Storage: " + SystemLoad.storageLabel)
     if (Power.hasBattery && Power.percent >= 0)
       lines.push("Battery: " + Power.percent + "% · " + Power.stateLabel)
+    if (SessionPosture.activePostureLabel && SessionPosture.activePostureLabel !== "—")
+      lines.push("Session posture: " + SessionPosture.activePostureLabel + " (hard)")
     if (HyprProfile.activeProfileLabel && HyprProfile.activeProfileLabel !== "—")
       lines.push("Hyprland profile: " + HyprProfile.activeProfileLabel + " (soft)")
     return lines.join("\n")
