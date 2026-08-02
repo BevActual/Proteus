@@ -149,7 +149,7 @@ from the slim top chrome.
 | `~/.config/proteus/settings.json` | Theme/desktop prefs (Config.qml FileView); wallpaper keys; `lockWidgets[]`, `desktopWidgets[]`, `notificationsDnd` — behaviour in Background / Widgets / Audio / … |
 | `~/.config/proteus/keybinds.json` | Shortcut overrides |
 | `~/.config/proteus/permissions.json` | App permission categories + per-app Allow/Ask/Deny (0600; `proteus-permissions.py` / `Permissions.qml`) — not in settings.json; [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md) |
-| `~/.local/share/proteus/auth/pin` | Lock-screen unlock PIN hash (0600; `proteus-pin.py` / `check-unlock.py`) — not in settings.json; [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md) |
+| `~/.local/share/proteus/auth/pin` | Lock-screen unlock PIN hash (0600; `proteus-pin.py` / `check-unlock.py` / `proteus_auth.py`) — not in settings.json; apps install helpers + optional `proteus-lock` PAM (`login` fallback); [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md) · [INSTALL.md](./INSTALL.md) |
 | `~/.config/proteus/hw-probe.json` | Cached Wave A hardware probe |
 | `~/.config/hypr/proteus-keybinds.conf` | Generated Hyprland binds (sourced) |
 | `~/.config/hypr/proteus-general.conf` | Gaps, borders, rounding, animations (sourced) |
@@ -194,7 +194,7 @@ from the slim top chrome.
 | `./scripts/smoke/software-reliability-smoke.sh` | Host static checks — all six Software leaves + hub helper honesty + op narrative / leafUi |
 | `./scripts/smoke/power-logind-smoke.sh` | Host static checks for `proteus-logind` + Power.qml wiring |
 | `./scripts/smoke/accounts-smoke.sh` | Host static checks for `proteus-accounts` + Online accounts wiring |
-| `./scripts/smoke/lock-pin-smoke.sh` | Host static checks for unlock PIN hash store + `check-unlock.py` / `proteus-pin.py` wiring (no PAM) |
+| `./scripts/smoke/lock-pin-smoke.sh` | Host static checks for unlock PIN hash store + `check-unlock.py` / `proteus-pin.py` / `proteus_auth.py` + apps.sh install + `shell/pam/proteus-lock` source (no live PAM auth) |
 | `./scripts/smoke/permissions-smoke.sh` | Host static checks for `permissions.json` store + Privacy leaves + EnvGate grant gate |
 | `./scripts/smoke/desktop-smoke.sh` | Host static checks for Desktop leaves + `proteus-defaults.py` / `beacon-file-index.py` + CC Edit › wiring |
 | `./scripts/smoke/audio-mix-serve-smoke.sh` | Host checks for `proteus-audio-mix` dump/serve + Audio.qml wiring |

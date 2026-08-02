@@ -342,6 +342,9 @@ Depth order for what’s left:
 *(Control Center notifications + QS depth shipped — Settings Notifications prefs pane shipped; live list stays CC.)*
 *(Users session + greetd status shipped — writing greeter prefs / useradd stay Out.)*
 *(Users polish: Reboot/Shutdown confirm · GECOS/home · Online accounts jump · lock screen PIN shipped.)*
+*(Lock PIN catch-up: apps/check harness · lock-pin-smoke install/PAM source ·
+INSTALL/FACTS honesty shipped — biometrics · greetd PIN · require proteus-lock
+PAM · PIN in settings.json Out.)*
 *(Power mode PPD + logind writer shipped — charge thresholds / TLP stay Out.)*
 *(Software hub + six leaves + reliability/guest smoke shipped — dep graphs / Snap stay Out.)*
 *(Appearance hub + Date, time & weather locale/forecast shipped — manual time/RTC Out.)*
