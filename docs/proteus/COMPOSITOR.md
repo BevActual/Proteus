@@ -126,10 +126,10 @@ Do **not** fork Quickshell — wrap it; upstream bugs when we hit them.
 
 ## 4. Profiles on disk
 
-`partial` — desktop + **console** profiles + active pointer `shipped`; host /
-home stubs `shipped`. Console hard switch `partial` (`proteus-posture` +
-ConsoleShell + per-title Gamescope; flip skips cold-boot re-lock); host hard
-switch still `planned`.
+`partial` — desktop + **console** + **host** profiles + active pointer
+`shipped`; home stub `shipped`. Console hard switch `partial` (`proteus-posture`
++ ConsoleShell + per-title Gamescope; flip skips cold-boot re-lock); host hard
+switch `partial` (`proteus-posture host` + HostShell + lean `host.conf`).
 Keyboard + Desktop + Displays fragments `shipped` (Displays: drag layout +
 full-snapshot Revert):
 
@@ -143,13 +143,13 @@ full-snapshot Revert):
   profiles/
     desktop.conf                # shipped (tiling defaults)
     console.conf                # shipped (fullscreen kiosk rules; soft or via proteus-posture)
-    host.conf                   # stub (ops / lean later)
+    host.conf                   # lean ops (Phase 1; hard via proteus-posture)
     home.conf                   # stub — parked posture only
 ```
 
 Soft helper: `vm/guest/set-hypr-profile.sh desktop|console|media|host|home`
 (`media` ≡ `console`). Settings → About soft-selects the same pointer.
-**Hard console flip:** `vm/guest/proteus-posture` (Fact + chrome + profile;
+**Hard console/host flip:** `vm/guest/proteus-posture` (Fact + chrome + profile;
 `PROTEUS_SKIP_SESSION_LOCK=1` on restart) — see [POSTURES.md](./POSTURES.md)
 § Hard switches.
 
@@ -207,9 +207,9 @@ compositor chrome for that unit.
 | Guest Hyprland + QS shell | `shipped` |
 | Settings → keybinds → hypr conf | `shipped` |
 | Settings → gaps/borders via hyprctl | `shipped` — incl. `resize_on_border` (floating edge/corner resize) + accent focus ring (active accent / inactive transparent) + ⌘+drag `bindm` window move |
-| Per-posture hypr profiles | `partial` — desktop + media(console alias)/host/home stubs + soft `set-hypr-profile.sh` + Settings About picker |
+| Per-posture hypr profiles | `partial` — desktop + console + host lean + home stub + soft `set-hypr-profile.sh` + Settings About picker |
 | Console hard switch | `partial` — proteus-posture + ConsoleShell + console.conf + per-title Gamescope; posture flip skips cold-boot re-lock; full Gamescope session later |
-| Host hard switch | `planned` — lean/ops session flip |
+| Host hard switch | `partial` — proteus-posture host + HostShell + host.conf; workloads/headless later |
 | QS respawn / crash policy | `shipped` — `proteus-qs` flock/backoff/`--restart` (restart waits for prior flock — avoids blank chrome-less sessions) + orphan reap (lock fd closed for the child); wallpaper runner `proteus-bg` = crash-respawn wrapper + in-shell 15s watchdog; optional `proteus-qs.service` user unit (hypr exec-once still default); version recorded in smoke (IgnorePkg/ISO pin Out) |
 | Capability resolver | `planned` |
 | Pin QS version in guest docs/ISO | `shipped` — version **recorded** in smoke; IgnorePkg/ISO pin Out |

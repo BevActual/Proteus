@@ -87,7 +87,7 @@ Compositor engines: [COMPOSITOR.md](./COMPOSITOR.md).
 |---------|-----|------------------|--------|
 | **desktop** | Create / windowed work (desk + laptop) | Full shell (bar, dock, Beacon); Hyprland tiling backend | `partial` — primary spine |
 | **console** | Lean-back consume + play (TV, film, games) | Sparse ConsoleShell — tvOS-style shelf Home (cinematic Featured tracks focus, curated shelves, Library = full catalog), lean sheets; Hyprland kiosk + **supervised seat** (`proteus-console-seat`); **per-title Gamescope** when Vulkan usable; Guide / Super+Home | `partial` — Phase 1 seat/capabilities + console-smoke / INSTALL honesty shipped; full Gamescope *session* later |
-| **host** | Operate the box (VMs, containers, services, updates) | Default lean/headless; **UI on demand** (local or remote) — not a DE clone; little/no creative chrome | `planned` (hypr stub: `host.conf`) |
+| **host** | Operate the box (VMs, containers, services, updates) | Default lean/headless; **UI on demand** (local or remote) — not a DE clone; little/no creative chrome | `partial` (HostShell + `proteus-posture host` + `host.conf`) |
 
 **Naming:** **Console** is the locked product name for lean-back. Legacy docs /
 files may still say `media` / `couch` — treat them as aliases until renamed.
@@ -117,7 +117,7 @@ fragments may still express desktop tuning; they do not define the product flip.
 Soft helper: `vm/guest/set-hypr-profile.sh desktop|console|media|host|home`
 (`media` ≡ `console` → `profiles/console.conf`); Settings → About soft select
 via `HyprProfile.qml` (soft≠hard). **Hard console switch:**
-`vm/guest/proteus-posture console|desktop` — Fact + chrome restart + profile;
+`vm/guest/proteus-posture console|desktop|host` — Fact + chrome restart + profile;
 Beacon / Control Center / `Super+Shift+C` enter; console Desktop tile exits.
 CC / Quick Settings prefer the **live tree** helper (`$PROTEUS_ROOT/vm/guest/…`)
 over a stale `/usr/local` copy. Posture flips set
@@ -317,7 +317,7 @@ posture only, no capability profile; hypr profile helper is soft-only.
 |---------------|-------------------------|-------------------|--------|
 | desktop | `desktop` | `profiles/desktop.conf` | Default |
 | console | `console` (`couch` alias) | `profiles/console.conf` | Hard flip: `proteus-posture` (skip re-lock); shelf Home + Library/Search destinations + lean sheets |
-| host | — | `profiles/host.conf` | Stub; no QS surface loader yet |
+| host | `host` | `profiles/host.conf` | Hard flip: `proteus-posture host`; lean HostShell (bar · CC · Beacon · lock); no workloads app yet |
 
 | Parked / other | `PROTEUS_SURFACE` | Notes |
 |----------------|-------------------|--------|
