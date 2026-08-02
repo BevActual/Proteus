@@ -35,7 +35,7 @@ One schema for all postures; panes enable/disable by capability.
 | Dock pins | `dockPins` (comma desktop ids; `""` defaults; `-` empty) | DockApps |
 | Icon plates / overrides | `iconPlateMode` (`default` \| `dark` \| `clear` \| `tinted`), `iconPlateCustom`, `iconOverrides` (`id=path;…`) | Theme + DockApps / EnvGate |
 | Notifications | `notificationsDnd` | Notifications (hard quiet) |
-| Focus Mode | `focusAllowedApps`, `focusBreakCritical`, `focusProfiles`, `focusActiveProfileId` | FocusMode — soft quiet + allowlist / keywords / schedules (not a posture) |
+| Focus Mode | `focusAllowedApps`, `focusBreakCritical`, `focusProfiles`, `focusActiveProfileId` | FocusMode — soft quiet + allowlist / keywords / schedules (not a posture). Profile objects: `{ id, name, allowedApps[], breakCritical, keywordAllow[], keywordDeny[], schedule? }` — entity CRUD via Settings → Desktop → Focus |
 | Control Center layout | `controlCenterLayout` | ControlCenterLayout — `{ version, columns, plates, tiles[{id,visible,span,size}] }` Customize foundation |
 
 **Not account secrets:** OAuth tokens live under
