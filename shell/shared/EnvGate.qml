@@ -4,14 +4,23 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// Gate Settings panes / launcher / dock by Hardware capabilities.
-// Spec: docs/proteus/APPLICATIONS.md · HARDWARE.md
+// Gate Settings panes / launcher / dock by Hardware capabilities + postures.
+// Spec: docs/proteus/APPLICATIONS.md · HARDWARE.md · POSTURES.md
 // App manifests: env/apps/catalog.json (preferred over appRules heuristics).
+// postures = hard allow-list; prefers = soft hint / Beacon ranking (never blocks).
 Singleton {
   id: root
 
   // When probe is not ready, fail open (show everything) so the session is usable.
   readonly property bool gatingActive: Hardware.ready
+
+  readonly property string activePosture: {
+    try {
+      return SessionPosture.normalize(SessionPosture.activePosture)
+    } catch (e) {
+      return "desktop"
+    }
+  }
 
   // Declarative manifests from env/apps/catalog.json (empty until load).
   property var appManifests: []
@@ -676,8 +685,80 @@ Singleton {
       requires: m.requires || [],
       requiresAny: m.requiresAny || [],
       permissions: m.permissions || [],
+      postures: m.postures || [],
+      prefers: m.prefers || [],
       reason: m.reason || "Unavailable on this device"
     }
+  }
+
+  function normalizePostureId(raw) {
+    let p = String(raw || "").trim().toLowerCase()
+    if (p === "couch" || p === "media")
+      p = "console"
+    if (p === "desktop" || p === "console" || p === "host")
+      return p
+    return p
+  }
+
+  // Empty postures list = allowed on any posture (fail-open).
+  function postureAllowed(rule) {
+    const list = rule && rule.postures ? rule.postures : []
+    if (!list || !list.length)
+      return true
+    const cur = root.activePosture
+    for (let i = 0; i < list.length; i++) {
+      if (normalizePostureId(list[i]) === cur)
+        return true
+    }
+    return false
+  }
+
+  function postureBlockReason(rule) {
+    if (postureAllowed(rule))
+      return ""
+    const list = (rule && rule.postures) ? rule.postures : []
+    const labels = []
+    for (let i = 0; i < list.length; i++) {
+      const id = normalizePostureId(list[i])
+      if (id.length)
+        labels.push(id)
+    }
+    if (labels.length)
+      return "Needs " + labels.join(" / ") + " posture"
+    return "Unavailable in this posture"
+  }
+
+  // Soft: true when every prefers[] cap is present, or list empty.
+  function prefersSatisfied(rule) {
+    const list = rule && rule.prefers ? rule.prefers : []
+    if (!list || !list.length)
+      return true
+    return hasAll(list)
+  }
+
+  function prefersHint(rule) {
+    if (!rule || prefersSatisfied(rule))
+      return ""
+    const list = rule.prefers || []
+    if (!list.length)
+      return ""
+    return "Prefers " + list.join(", ")
+  }
+
+  function appPrefersHint(entry) {
+    if (!gatingActive)
+      return ""
+    return prefersHint(ruleForApp(entry))
+  }
+
+  // Beacon search boost when prefers are met (soft ranking only).
+  function appPrefersBoost(entry) {
+    if (!gatingActive)
+      return 0
+    const rule = ruleForApp(entry)
+    if (!rule || !rule.prefers || !rule.prefers.length)
+      return 0
+    return prefersSatisfied(rule) ? 40 : 0
   }
 
   function permissionDeniedReason(entry, rule) {
@@ -866,6 +947,8 @@ Singleton {
       return false
     if (rule.requiresAny && !hasAny(rule.requiresAny))
       return false
+    if (!postureAllowed(rule))
+      return false
     if (permissionDeniedReason(entry, rule).length)
       return false
     return true
@@ -878,7 +961,21 @@ Singleton {
     const perm = permissionDeniedReason(entry, rule)
     if (perm.length)
       return perm
+    const posture = postureBlockReason(rule)
+    if (posture.length)
+      return posture
     return (rule && rule.reason) ? rule.reason : "Unavailable on this device"
+  }
+
+  // Subtitle helper: block reason, else soft prefers hint when available.
+  function appAvailabilitySubtitle(entry, fallback) {
+    const block = appBlockReason(entry)
+    if (block.length)
+      return block
+    const soft = appPrefersHint(entry)
+    if (soft.length)
+      return soft
+    return fallback || ""
   }
 
   function dockEntryAvailable(entry) {
