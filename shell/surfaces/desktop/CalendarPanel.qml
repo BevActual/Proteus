@@ -887,6 +887,30 @@ Item {
 
             TextField {
               Layout.fillWidth: true
+              placeholderText: "Cc"
+              text: MailGlance.composeCc
+              color: Theme.text
+              placeholderTextColor: Theme.textMute
+              font.family: Theme.fontFamily
+              font.pixelSize: 11
+              background: Item {}
+              onTextChanged: MailGlance.composeCc = text
+            }
+
+            TextField {
+              Layout.fillWidth: true
+              placeholderText: "Bcc"
+              text: MailGlance.composeBcc
+              color: Theme.text
+              placeholderTextColor: Theme.textMute
+              font.family: Theme.fontFamily
+              font.pixelSize: 11
+              background: Item {}
+              onTextChanged: MailGlance.composeBcc = text
+            }
+
+            TextField {
+              Layout.fillWidth: true
               placeholderText: "Subject"
               text: MailGlance.composeSubject
               color: Theme.text
@@ -922,7 +946,7 @@ Item {
                     return "Sending…"
                   if (MailGlance.sendError.length)
                     return MailGlance.sendError
-                  return "Plain text · To / Subject / Body"
+                  return "Plain text · To / Cc / Bcc / Subject / Body"
                 }
                 color: {
                   const _r = MailGlance.rev
@@ -962,7 +986,7 @@ Item {
             text: {
               const _r = MailGlance.rev
               if (MailGlance.canSend)
-                return "Compose thin In · Google/MS/Exchange + IMAP/Apple SMTP · Open Mail for full reading"
+                return "Compose thin In (CC/BCC) · Google/MS/Exchange + IMAP/Apple SMTP · Open Mail for full reading"
               if (MailGlance.hasSeats)
                 return ShellState.mailAppAvailable
                     ? "Open in Mail for reading · reconnect seats for send scopes"
