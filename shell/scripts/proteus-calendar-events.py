@@ -10,8 +10,8 @@ Uses `proteus-accounts token` (refresh when needed). Providers:
 
 Stdout: one JSON object. Never logs access tokens.
 Honesty: glance consumer — create/update/delete via proteus-calendar-mutate.py
-(CalDAV + Google/MS/Exchange; create may include daily/weekly/monthly RRULE).
-Series edit / COUNT/UNTIL / attendees Out.
+(CalDAV + Google/MS/Exchange; create/edit may include daily/weekly/monthly RRULE
+on the whole series). COUNT/UNTIL / this-vs-all / attendees / exceptions Out.
 """
 from __future__ import annotations
 
@@ -26,6 +26,54 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+
+
+def _normalize_rrule_freq(raw: str) -> str:
+    """Map RRULE/Graph/Google recurrence to daily|weekly|monthly|''."""
+    s = (raw or "").strip().upper()
+    if not s:
+        return ""
+    if "FREQ=DAILY" in s or s == "DAILY":
+        return "daily"
+    if "FREQ=WEEKLY" in s or s == "WEEKLY":
+        return "weekly"
+    if "FREQ=MONTHLY" in s or "ABSOLUTEMONTHLY" in s or s == "MONTHLY":
+        return "monthly"
+    low = (raw or "").strip().lower()
+    if low in ("daily", "day"):
+        return "daily"
+    if low in ("weekly", "week"):
+        return "weekly"
+    if low in ("monthly", "month", "absolutemonthly"):
+        return "monthly"
+    return ""
+
+
+def _recurrence_from_google_item(item: dict) -> str:
+    for line in item.get("recurrence") or []:
+        if not isinstance(line, str):
+            continue
+        r = _normalize_rrule_freq(line)
+        if r:
+            return r
+    return ""
+
+
+def _recurrence_from_graph_item(item: dict) -> str:
+    rec = item.get("recurrence") or {}
+    if not isinstance(rec, dict):
+        return ""
+    pattern = rec.get("pattern") or {}
+    if not isinstance(pattern, dict):
+        return ""
+    return _normalize_rrule_freq(str(pattern.get("type") or ""))
+
+
+def _recurrence_from_ics(cal_data: str) -> str:
+    for line in (cal_data or "").splitlines():
+        if line.startswith("RRULE:") or line.startswith("RRULE;"):
+            return _normalize_rrule_freq(line)
+    return ""
 
 
 def _run(cmd: list[str], timeout: float = 20.0) -> tuple[int, str, str]:
@@ -106,6 +154,7 @@ def fetch_google(access: str, day: date) -> tuple[list[dict], str]:
             "singleEvents": "true",
             "orderBy": "startTime",
             "maxResults": "20",
+            "fields": "items(id,summary,start,end,recurrence,recurringEventId)",
         }
     )
     url = f"https://www.googleapis.com/calendar/v3/calendars/primary/events?{q}"
@@ -114,27 +163,50 @@ def fetch_google(access: str, day: date) -> tuple[list[dict], str]:
     )
     if status != 200 or not isinstance(data, dict):
         return [], err or f"google HTTP {status}"
+    # Expanded instances omit RRULE — pull masters for unique series ids (cap 5).
+    master_rec: dict[str, str] = {}
+    masters_needed: list[str] = []
+    items = [i for i in (data.get("items") or []) if isinstance(i, dict)]
+    for item in items:
+        rid = str(item.get("recurringEventId") or "").strip()
+        if rid and rid not in master_rec and rid not in masters_needed:
+            masters_needed.append(rid)
+    for mid in masters_needed[:5]:
+        murl = (
+            "https://www.googleapis.com/calendar/v3/calendars/primary/events/"
+            f"{urllib.parse.quote(mid, safe='')}?fields=id,recurrence"
+        )
+        st2, mdata, _ = _http_json(
+            murl, {"Authorization": f"Bearer {access}", "Accept": "application/json"}
+        )
+        if st2 == 200 and isinstance(mdata, dict):
+            master_rec[mid] = _recurrence_from_google_item(mdata)
     out = []
-    for item in data.get("items") or []:
-        if not isinstance(item, dict):
-            continue
+    for item in items:
         st = item.get("start") or {}
         en = item.get("end") or {}
         all_day = "date" in st and "dateTime" not in st
         eid = str(item.get("id") or "")
+        series_id = str(item.get("recurringEventId") or "").strip() or eid
+        recurrence = _recurrence_from_google_item(item) or master_rec.get(
+            str(item.get("recurringEventId") or "").strip(), ""
+        )
+        mutate_id = series_id
         out.append(
             {
                 "id": eid,
+                "seriesId": series_id,
                 "title": str(item.get("summary") or "(No title)"),
                 "start": str(st.get("dateTime") or st.get("date") or ""),
                 "end": str(en.get("dateTime") or en.get("date") or ""),
                 "allDay": bool(all_day),
                 "provider": "google",
-                "mutable": bool(eid),
+                "mutable": bool(mutate_id),
+                "recurrence": recurrence,
                 "href": (
                     f"https://www.googleapis.com/calendar/v3/calendars/primary/events/"
-                    f"{urllib.parse.quote(eid, safe='')}"
-                    if eid
+                    f"{urllib.parse.quote(mutate_id, safe='')}"
+                    if mutate_id
                     else ""
                 ),
             }
@@ -150,7 +222,7 @@ def fetch_microsoft(access: str, day: date) -> tuple[list[dict], str]:
             "endDateTime": end.isoformat().replace("+00:00", "Z"),
             "$top": "20",
             "$orderby": "start/dateTime",
-            "$select": "id,subject,start,end,isAllDay",
+            "$select": "id,subject,start,end,isAllDay,recurrence,seriesMasterId,type",
         }
     )
     url = f"https://graph.microsoft.com/v1.0/me/calendarview?{q}"
@@ -164,26 +236,51 @@ def fetch_microsoft(access: str, day: date) -> tuple[list[dict], str]:
     )
     if status != 200 or not isinstance(data, dict):
         return [], err or f"microsoft HTTP {status}"
+    master_rec: dict[str, str] = {}
+    items = [i for i in (data.get("value") or []) if isinstance(i, dict)]
+    for item in items:
+        mid = str(item.get("seriesMasterId") or "").strip()
+        if mid and mid not in master_rec and not _recurrence_from_graph_item(item):
+            murl = (
+                f"https://graph.microsoft.com/v1.0/me/events/"
+                f"{urllib.parse.quote(mid, safe='')}?$select=id,recurrence"
+            )
+            st2, mdata, _ = _http_json(
+                murl,
+                {
+                    "Authorization": f"Bearer {access}",
+                    "Accept": "application/json",
+                },
+            )
+            if st2 == 200 and isinstance(mdata, dict):
+                master_rec[mid] = _recurrence_from_graph_item(mdata)
+            if len(master_rec) >= 5:
+                break
     out = []
-    for item in data.get("value") or []:
-        if not isinstance(item, dict):
-            continue
+    for item in items:
         st = item.get("start") or {}
         en = item.get("end") or {}
         eid = str(item.get("id") or "")
+        series_id = str(item.get("seriesMasterId") or "").strip() or eid
+        recurrence = _recurrence_from_graph_item(item) or master_rec.get(
+            str(item.get("seriesMasterId") or "").strip(), ""
+        )
+        mutate_id = series_id
         out.append(
             {
                 "id": eid,
+                "seriesId": series_id,
                 "title": str(item.get("subject") or "(No title)"),
                 "start": str(st.get("dateTime") or ""),
                 "end": str(en.get("dateTime") or ""),
                 "allDay": bool(item.get("isAllDay")),
                 "provider": "microsoft",
-                "mutable": bool(eid),
+                "mutable": bool(mutate_id),
+                "recurrence": recurrence,
                 "href": (
                     f"https://graph.microsoft.com/v1.0/me/events/"
-                    f"{urllib.parse.quote(eid, safe='')}"
-                    if eid
+                    f"{urllib.parse.quote(mutate_id, safe='')}"
+                    if mutate_id
                     else ""
                 ),
             }
@@ -325,6 +422,7 @@ def _fetch_caldav_home(
                         start_ev = line.split(":", 1)[-1].strip()
                     if line.startswith("UID:") or line.startswith("UID;"):
                         uid = line.split(":", 1)[-1].strip()
+                recurrence = _recurrence_from_ics(cal_data)
                 if ev_href.startswith("http"):
                     abs_href = ev_href
                 else:
@@ -333,12 +431,14 @@ def _fetch_caldav_home(
                 events.append(
                     {
                         "id": uid or abs_href,
+                        "seriesId": uid or abs_href,
                         "title": title,
                         "start": start_ev,
                         "end": "",
                         "allDay": "T" not in start_ev,
                         "provider": provider,
                         "mutable": True,
+                        "recurrence": recurrence,
                         "href": abs_href,
                     }
                 )
@@ -356,15 +456,18 @@ def _fetch_caldav_home(
                         start_ev = line.split(":", 1)[-1].strip()
                     if line.startswith("UID:") or line.startswith("UID;"):
                         uid = line.split(":", 1)[-1].strip()
+                recurrence = _recurrence_from_ics("BEGIN:VEVENT\n" + block)
                 events.append(
                     {
                         "id": uid,
+                        "seriesId": uid,
                         "title": title,
                         "start": start_ev,
                         "end": "",
                         "allDay": "T" not in start_ev,
                         "provider": provider,
                         "mutable": bool(uid),
+                        "recurrence": recurrence,
                         "href": "",
                     }
                 )
@@ -416,12 +519,14 @@ def main() -> int:
                     "events": [
                         {
                             "id": "fixture-uid-1",
+                            "seriesId": "fixture-uid-1",
                             "title": "Fixture event",
                             "start": f"{day.isoformat()}T09:00:00Z",
                             "end": f"{day.isoformat()}T10:00:00Z",
                             "allDay": False,
                             "provider": "caldav",
                             "mutable": True,
+                            "recurrence": "daily",
                             "href": "https://cal.example/dav/calendars/alice/personal/fixture-uid-1.ics",
                         }
                     ],
