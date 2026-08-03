@@ -203,6 +203,19 @@ grep -q 'findmnt -no FSTYPE /' "${INSTALL}/snapshots.sh" \
 grep -q 'snap-pac' "${INSTALL}/snapshots.sh" \
   && ok "snapshots stage installs snap-pac" || bad "snapshots stage missing snap-pac"
 
+# --- env/ must stay adjacent to shell/ ----------------------------------------
+# EnvGate resolves manifests as shellRoot + "/../env/apps/…", so env/ is a
+# runtime dependency of the shell, not an install-only seed directory. Folding
+# it into install/ would break the running shell, not just the installer.
+[[ -f "${ROOT}/env/apps/catalog.json" ]] && ok "env/apps/catalog.json present" \
+  || bad "env/apps/catalog.json missing (EnvGate resolves it at runtime)"
+grep -q 'env/apps/catalog.json' "${ROOT}/shell/shared/EnvGate.qml" \
+  && ok "EnvGate reads env/apps relative to shellRoot" \
+  || bad "EnvGate no longer reads env/apps (runtime contract changed)"
+grep -q 'env/hypr/profiles' "${ROOT}/shell/scripts/set-hypr-profile.sh" \
+  && ok "posture flip installs profiles from env/hypr (runtime consumer)" \
+  || bad "set-hypr-profile.sh no longer sources env/hypr/profiles"
+
 # --- no hardcoded usernames in the install path -------------------------------
 # A guessed username writes an entire install into the wrong home, silently,
 # because every path still exists. The shared resolver refuses to guess; nothing
