@@ -49,7 +49,7 @@ for s in proteus-screenshot proteus-clipboard proteus-colorpick proteus-terminal
          proteus-headscale.py \
          proteus-workloads.py proteus-host-metrics.py \
          proteus-defaults.py beacon-file-index.py \
-         proteus-snapshot \
+         proteus-snapshot proteus-cli-surface \
          proteus-pin.py check-unlock.py \
          proteus-session proteus-posture proteus-host-seat proteus-guide \
          proteus-bg set-hypr-profile.sh; do

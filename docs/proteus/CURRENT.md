@@ -339,6 +339,7 @@ BTN_DPAD/HAT dual-report dedupe, hold-repeat delay. Kit: `apply-console-kit.sh`.
 | `./dev/smoke/settings-backing-smoke.sh` | **Executable** — HARD RULE 2 enforced. Every settings hub declares `backsFacts` / `backsCli`; the gate resolves 46 CLI and 16 Fact declarations against helpers, services, a declared external-tool list and §5. Catches a renamed helper or an undocumented config path at gate time |
 | `./install/check.sh` | Host tree/`bash -n` gate for overlay stages + roster split + repair/status wiring + bare-metal root chain + snapshots + INSTALL.md |
 | `PROTEUS_ROOT="$PWD" sudo -E bash install/bootstrap.sh` | **Bare metal** — same overlay, no 9p; writes the root Fact ([INSTALL.md](./INSTALL.md)) |
+| `proteus-cli-surface [posture] [--facts] [--json]` | Derives a posture's inspectable command surface from the hubs' `backsCli` (desktop 44 · console 38 · host 41). Capability-gated when an hw-probe cache exists; marks each command on-PATH / in-checkout / absent. **Host is headless by default — this is its interface** |
 | `proteus-snapshot status\|list\|create\|pre-flip\|rollback` | Bare-metal rollback net (btrfs + snapper); `rollback` is a dry run without `--yes`; honest when unsupported |
 | `bash /mnt/proteus/install/machine/install-settings-app.sh` | Install Settings + keybinds + desktop/displays conf |
 | `bash /mnt/proteus/install/machine/install-keybinds.sh` | Keybinds file + hypr source (user home) |

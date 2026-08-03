@@ -239,6 +239,14 @@ Examples:
 | **Seat attached** | local display and/or `session.graphical_remote` | `proteus-host-seat attach` → lean HostShell + Workloads; detach returns to headless |
 | **Host + home radios** | above + `home_control` | May later offer parked **home** on the same box |
 
+**Headless interface.** With no seat attached there is no Settings window, so
+the command surface *is* the interface. `proteus-cli-surface host` derives it
+from what the reachable settings hubs declare (`backsCli`), rather than from a
+hand-maintained list that drifts: 41 commands today, against desktop's 44 —
+host drops the desktop-only tooling (`proteus-workspace`, `proteus-defaults.py`,
+`beacon-file-index.py`) and keeps `proteus-workloads.py`, `proteus-host-metrics.py`
+and `proteus-host-seat`. Add `--facts` for the on-disk Facts behind them.
+
 Fact: `~/.config/proteus/host-chrome` (`none` \| `full`) — seat chrome, not a
 second posture. Helper: `proteus-host-seat attach|detach|status`.
 `proteus-posture host` defaults headless; `--chrome` for sticky local ops seat.

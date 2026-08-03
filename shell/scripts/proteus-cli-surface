@@ -1,0 +1,212 @@
+#!/usr/bin/env python3
+"""Print the inspectable command surface for a posture.
+
+HARD RULE 2 says every Settings control maps to a file or CLI you can inspect.
+Each settings hub declares that mapping (backsFacts / backsCli), so the set of
+commands a posture can reach is derivable rather than folklore:
+
+    surface(posture) = union(backsCli) over hubs legal in that posture
+
+This matters most for **host**, which defaults headless — there is no Settings
+window, so this list *is* the interface. It is equally the honest answer to
+"what can I actually drive from a terminal here".
+
+Legality is the `postures` gate plus, when a hardware probe cache exists, the
+`requires` / `requiresAny` capability gate — the same rules EnvGate.paneAvailable
+applies. Face lists (settingsFaceHubs) are navigation *emphasis* and deliberately
+not used here: a hub you have to drill for is still reachable.
+
+Usage:
+  proteus-cli-surface [desktop|console|host]   default: the posture Fact
+  proteus-cli-surface --facts                  also list the on-disk Facts
+  proteus-cli-surface --json
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import shutil
+import sys
+from pathlib import Path
+
+POSTURES = ("desktop", "console", "host")
+# Wrapped, not shipped — flagged so an operator knows what Proteus owns.
+EXTERNAL = {
+    "nmcli", "bluetoothctl", "tailscale", "pactl", "wpctl", "hyprctl",
+    "powerprofilesctl", "timedatectl", "localectl", "pacman", "flatpak",
+}
+
+
+def repo_root() -> Path:
+    env = os.environ.get("PROTEUS_ROOT", "")
+    if env and (Path(env) / "shell").is_dir():
+        return Path(env)
+    here = Path(__file__).resolve()
+    cand = here.parents[2]
+    if (cand / "shell").is_dir():
+        return cand
+    fact = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "proteus/root"
+    if fact.is_file():
+        p = Path(fact.read_text().strip())
+        if (p / "shell").is_dir():
+            return p
+    return Path("/mnt/proteus")
+
+
+def current_posture() -> str:
+    fact = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "proteus/posture"
+    if fact.is_file():
+        v = fact.read_text().strip()
+        if v == "couch":
+            return "console"
+        if v in POSTURES:
+            return v
+    return "desktop"
+
+
+def load_catalog(root: Path) -> list[dict]:
+    src = (root / "shell/shared/EnvGate.qml").read_text()
+    m = re.search(r"readonly property var settingsCatalog: \[(.*?)\n  \]", src, re.S)
+    if not m:
+        sys.exit("proteus-cli-surface: could not parse settingsCatalog")
+    out = []
+    for chunk in re.split(r'\n      id: "', m.group(1))[1:]:
+        hub = chunk.split('"', 1)[0]
+
+        def arr(key: str) -> list[str]:
+            a = re.search(key + r":\s*\[(.*?)\]", chunk, re.S)
+            return re.findall(r'"([^"]+)"', a.group(1)) if a else []
+
+        pm = re.search(r"postures:\s*\[(.*?)\]", chunk, re.S)
+        out.append({
+            "id": hub,
+            "postures": re.findall(r'"([^"]+)"', pm.group(1)) if pm else [],
+            "requires": arr("requires"),
+            "requiresAny": arr("requiresAny"),
+            "cli": arr("backsCli"),
+            "facts": arr("backsFacts"),
+        })
+    return out
+
+
+def capabilities() -> tuple[set[str], bool]:
+    """Live capability set from the hw-probe cache. Second value: was it found."""
+    cache = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "proteus/hw-probe.json"
+    if not cache.is_file():
+        return set(), False
+    try:
+        data = json.loads(cache.read_text())
+    except (OSError, ValueError):
+        return set(), False
+    caps = data.get("capabilities") or data.get("caps") or []
+    if isinstance(caps, dict):
+        return {k for k, v in caps.items() if v}, True
+    return {str(c) for c in caps}, True
+
+
+def legal(hub: dict, posture: str, caps: set[str], gate_caps: bool) -> bool:
+    if hub["postures"] and posture not in hub["postures"]:
+        return False
+    if not gate_caps:
+        return True
+    if any(r not in caps for r in hub["requires"]):
+        return False
+    if hub["requiresAny"] and not any(r in caps for r in hub["requiresAny"]):
+        return False
+    return True
+
+
+def main() -> int:
+    args = [a for a in sys.argv[1:]]
+    as_json = "--json" in args
+    want_facts = "--facts" in args
+    args = [a for a in args if not a.startswith("--")]
+    posture = args[0] if args else current_posture()
+    if posture not in POSTURES:
+        sys.exit(f"proteus-cli-surface: unknown posture '{posture}' (desktop|console|host)")
+
+    root = repo_root()
+    catalog = load_catalog(root)
+    caps, have_caps = capabilities()
+
+    hubs = [h for h in catalog if legal(h, posture, caps, have_caps)]
+    cli: dict[str, list[str]] = {}
+    facts: dict[str, list[str]] = {}
+    for h in hubs:
+        for c in h["cli"]:
+            cli.setdefault(c, []).append(h["id"])
+        for f in h["facts"]:
+            facts.setdefault(f, []).append(h["id"])
+
+    if as_json:
+        print(json.dumps({
+            "posture": posture,
+            "capabilityGated": have_caps,
+            "hubs": [h["id"] for h in hubs],
+            "cli": {k: sorted(set(v)) for k, v in sorted(cli.items())},
+            "facts": {k: sorted(set(v)) for k, v in sorted(facts.items())},
+        }, indent=2))
+        return 0
+
+    print(f"Proteus command surface — posture: {posture}")
+    print(f"  hubs reachable : {len(hubs)} of {len(catalog)}")
+    if have_caps:
+        print(f"  capability gate: on ({len(caps)} capabilities from hw-probe cache)")
+    else:
+        print("  capability gate: OFF — no hw-probe cache; showing every hub this posture allows")
+    print()
+
+    proteus = sorted(c for c in cli if c not in EXTERNAL)
+    external = sorted(c for c in cli if c in EXTERNAL)
+
+    def state(name: str) -> str:
+        """installed | in-repo | MISSING — three states, not two.
+
+        "in-repo" is the normal answer on a dev checkout that has not run the
+        overlay; conflating it with MISSING would cry wolf on every box that is
+        not a live Proteus install.
+        """
+        if shutil.which(name):
+            return "installed"
+        if (root / "shell/scripts" / name).exists():
+            return "in-repo"
+        if (root / "services" / name).is_dir():
+            return "in-repo"
+        return "MISSING"
+
+    MARK = {"installed": "  ", "in-repo": " ·", "MISSING": " !"}
+
+    print(f"Proteus commands ({len(proteus)})")
+    counts: dict[str, int] = {}
+    for c in proteus:
+        st = state(c)
+        counts[st] = counts.get(st, 0) + 1
+        print(f"{MARK[st]} {c:34} {', '.join(sorted(set(cli[c])))}")
+    print()
+    print(f"Wrapped system tools ({len(external)})")
+    for c in external:
+        st = "installed" if shutil.which(c) else "MISSING"
+        counts[st] = counts.get(st, 0) + 1
+        print(f"{MARK[st]} {c:34} {', '.join(sorted(set(cli[c])))}")
+    print()
+    print("    (blank) on PATH   · in this checkout, not installed   ! absent")
+    summary = "  ".join(f"{k}: {v}" for k, v in sorted(counts.items()))
+    print(f"    {summary}")
+    if counts.get("in-repo"):
+        print("    · resolves once the overlay `apps` stage runs (install/bootstrap.sh)")
+
+    if want_facts:
+        print()
+        print(f"On-disk Facts ({len(facts)})")
+        for f in sorted(facts):
+            print(f"    {f:44} {', '.join(sorted(set(facts[f])))}")
+
+    print()
+    print("Every entry above is declared by a settings hub (backsCli / backsFacts)")
+    print("and verified by dev/smoke/settings-backing-smoke.sh — ARCHITECTURE HARD RULE 2.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

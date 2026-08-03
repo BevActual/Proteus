@@ -102,5 +102,30 @@ while IFS=$'\t' read -r _ hub; do
 done < <(grep '^HUB' "${MAP}" || true)
 [[ "${empty}" -eq 0 ]] && ok "every hub backs onto at least one Fact or CLI"
 
+# --- the derived per-posture command surface ----------------------------------
+# The point of declaring backsCli is that a posture's inspectable command set
+# becomes derivable instead of folklore. Assert the deriver works, produces a
+# non-empty surface for each posture, and actually differs between them — a
+# surface identical across postures would mean the postures gate nothing.
+SURFACE="shell/scripts/proteus-cli-surface"
+if [[ ! -x "${SURFACE}" ]]; then
+  die "missing ${SURFACE} (derives the per-posture CLI surface)"
+else
+  declare -A counts=()
+  for p in desktop console host; do
+    n="$(python3 "${SURFACE}" "${p}" --json 2>/dev/null \
+         | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["cli"]))' 2>/dev/null || echo 0)"
+    counts[$p]="${n}"
+    [[ "${n}" -gt 0 ]] || die "CLI surface for posture '${p}' is empty"
+  done
+  if [[ "${counts[desktop]}" == "${counts[console]}" && "${counts[console]}" == "${counts[host]}" ]]; then
+    die "CLI surface identical across postures (${counts[desktop]}) — posture gating is not applying"
+  fi
+  ok "CLI surface derives per posture (desktop:${counts[desktop]} console:${counts[console]} host:${counts[host]})"
+  grep -q 'proteus-cli-surface' install/apps.sh \
+    && ok "apps stage installs proteus-cli-surface" \
+    || die "proteus-cli-surface not installed to PATH (host is headless — it IS the interface)"
+fi
+
 [[ "${fail}" -eq 0 ]] || exit 1
 echo "settings-backing-smoke: OK (${hubs} hubs, HARD RULE 2 enforced)"
