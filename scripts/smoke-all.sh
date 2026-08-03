@@ -10,6 +10,7 @@ run() {
 }
 
 run shellcheck-smoke.sh
+run doc-links-smoke.sh
 run layout-smoke.sh
 run widget-layout-resolve-smoke.sh
 run ipc-contract-smoke.sh

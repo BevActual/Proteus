@@ -122,15 +122,28 @@ for h in proteus-session proteus-posture proteus-host-seat proteus-guide proteus
     && bad "install/machine still carries runtime helper ${h}" || true
 done
 
-# install/machine must hold mutators only — no runtime helper leaked back in.
+# install/machine holds executable mutators; data files live in machine/assets.
 for f in "${ROOT}"/install/machine/*; do
   base="$(basename "${f}")"
+  [[ "${base}" == "assets" ]] && continue
   case "${base}" in
-    install-*|apply-*|hide-system-apps.sh|ensure-flathub.sh|repair-*|*.toml|*.conf|*.desktop) ;;
-    *) bad "install/machine/${base} is not an install-time mutator" ;;
+    install-*.sh|apply-*.sh|hide-system-apps.sh|ensure-flathub.sh|repair-*.sh) ;;
+    *) bad "install/machine/${base} is not a mutator script (data files belong in machine/assets/)" ;;
   esac
 done
-ok "install/machine holds mutators only"
+[[ -d "${ROOT}/install/machine/assets" ]] && ok "install/machine/assets present" \
+  || bad "install/machine/assets missing"
+ok "install/machine holds mutator scripts only"
+
+# The layout split moved runtime helpers out of install/machine, but scripts
+# there resolve siblings relative to their own directory — apply-greeter.sh went
+# on installing ${ROOT}/proteus-session from a path that no longer had it.
+for h in proteus-session proteus-posture proteus-host-seat proteus-guide proteus-bg set-hypr-profile.sh; do
+  if grep -rlE '\$\{(ROOT|HERE)\}/'"${h}"'\b' "${ROOT}/install/machine" 2>/dev/null | grep -q .; then
+    bad "install/machine script resolves ${h} from its own dir (it lives in shell/scripts)"
+  fi
+done
+ok "install/machine resolves runtime helpers from shell/scripts"
 
 # Stale-symlink migration guard for installs made before the split.
 grep -q 'prune_dangling_helpers' "${INSTALL}/apps.sh" \
@@ -387,7 +400,7 @@ fi
 [[ -f "${ROOT}/install/machine/install-icons.sh" ]] && ok install/machine/install-icons.sh || bad install/machine/install-icons.sh
 [[ -f "${ROOT}/brand/proteus-mark.svg" ]] && ok brand/proteus-mark.svg || bad brand/proteus-mark.svg
 grep -q '^Icon=proteus-settings' "${ROOT}/apps/proteus-settings/proteus-settings.desktop" && ok "settings.desktop Icon" || bad "settings.desktop Icon"
-grep -q '^Icon=proteus' "${ROOT}/install/machine/proteus.desktop" && ok "session.desktop Icon" || bad "session.desktop Icon"
+grep -q '^Icon=proteus' "${ROOT}/install/machine/assets/proteus.desktop" && ok "session.desktop Icon" || bad "session.desktop Icon"
 
 # #1168 — seed hyprland.conf: qs/bg/cliphist present; no terminal exec-once
 HYPR_SEED="${ROOT}/env/hypr/hyprland.conf"

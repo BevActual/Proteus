@@ -50,7 +50,7 @@ if [[ -n "${BIN}" ]]; then
   trap 'rm -rf "${TMP}"' RETURN
   export PROTEUS_GREETD_CONF="${TMP}/config.toml"
   export PROTEUS_GREETD_TEST_WRITE=1
-  cp "${ROOT}/install/machine/greetd-config.toml" "${PROTEUS_GREETD_CONF}"
+  cp "${ROOT}/install/machine/assets/greetd-config.toml" "${PROTEUS_GREETD_CONF}"
   # neutralize production username for rewrite test
   sed -i 's/user = "andrew"/user = "sample"/' "${PROTEUS_GREETD_CONF}" || true
   "${BIN}" clear-autologin >/dev/null

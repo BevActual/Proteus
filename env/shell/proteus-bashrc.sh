@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Proteus interactive shell — fastfetch (P monogram) when a terminal opens
 # Sourced from ~/.bashrc when present. Does not change Ghostty opacity/theme.
 

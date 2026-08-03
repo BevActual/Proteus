@@ -3,7 +3,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SESSION="${ROOT}/shell/scripts/proteus-session"
-DESKTOP="${ROOT}/install/machine/proteus.desktop"
+DESKTOP="${ROOT}/install/machine/assets/proteus.desktop"
 
 fail() { echo "session-smoke: FAIL $*" >&2; exit 1; }
 

@@ -112,12 +112,12 @@ audio detail stays in this file.
 PROTEUS_GUEST=1 ./scripts/smoke-all.sh
 ```
 
-Overlay stages: [`install/`](install/). Knobs: `PROTEUS_INSTALL_DESKTOP=0`,
+Overlay stages: [`install/`](../install/). Knobs: `PROTEUS_INSTALL_DESKTOP=0`,
 `PROTEUS_INSTALL_SKIP=…`, `PROTEUS_INSTALL_RESUME=1`; fast re-apply:
 `sudo bash /mnt/proteus/install/bootstrap.sh repair` (+`PROTEUS_INSTALL_UPDATE=1`).
 `./vm/bootstrap.sh` requires **SSH public-key** auth (no password polling).
 Empty qcow → `./vm/provision.sh` exits before overlay (`PROTEUS_PROVISION_FORCE=1` to override).
-Existing [`install/machine/`](guest/) scripts remain the mutators the stages call.
+Existing [`install/machine/`](../install/machine/) scripts remain the mutators the stages call.
 
 ## Guest: first Arch install
 
@@ -171,7 +171,7 @@ shows the **Proteus lock screen** (`lockOnSessionStart`, default on). Unlock wit
 your user password, or an optional **unlock PIN** (Settings → Users → Lock screen
 PIN — numpad on the lock for desktop and console). `Super+L` locks again anytime.
 
-- Config: [`install/machine/greetd-config.toml`](guest/greetd-config.toml) (`initial_session`)
+- Config: [`install/machine/assets/greetd-config.toml`](../install/machine/assets/greetd-config.toml) (`initial_session`)
 - Re-apply: `sudo bash /mnt/proteus/install/machine/apply-greeter.sh && sudo systemctl restart greetd`
 - After logout, **tuigreet** still appears for account selection
 

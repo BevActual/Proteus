@@ -2,7 +2,7 @@
 
 Not a product ISO. After bare Arch (`guest-install.sh` or manual), this
 pipeline turns the guest into a Hyprland + Quickshell dogfood session.
-Full install path (all three layers): [docs/proteus/INSTALL.md](../../docs/proteus/INSTALL.md).
+Full install path (all three layers): [docs/proteus/INSTALL.md](../docs/proteus/INSTALL.md).
 
 ```
 # Host (after guest has Arch + SSH + 9p):
@@ -67,6 +67,6 @@ Host tree check (no guest):
 | `hardware/nvidia.sh` | Bare metal NVIDIA → open-dkms |
 | `hardware/amd.sh` / `intel.sh` | Bare metal AMD / Intel |
 
-Existing helpers under [`../guest/`](../guest/) stay the mutators.
+Existing helpers under [`../guest/`](./machine/) stay the mutators.
 Dock: Chromium / Nautilus / mousepad / Ghostty / Settings.
 Capture interim: `Super+Shift+S` · `Print` · `Super+Shift+V` · `Super+Shift+C`.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck-smoke — static analysis of every tracked shell script.
+# Static analysis of every tracked shell script (smoke: shellcheck).
 #
 # The rest of the smoke suite asserts that strings exist in files. This one
 # actually evaluates the code, which is the only kind of check that catches the
