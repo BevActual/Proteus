@@ -166,7 +166,7 @@ seed_file() {
 seed_file "${PROTEUS_ROOT}/env/ghostty/config" "${USER_HOME}/.config/ghostty/config"
 seed_file "${PROTEUS_ROOT}/env/fastfetch/config.jsonc" "${USER_HOME}/.config/fastfetch/config.jsonc"
 seed_file "${PROTEUS_ROOT}/env/fastfetch/proteus-helix.txt" "${USER_HOME}/.config/fastfetch/proteus-helix.txt"
-seed_file "${PROTEUS_ROOT}/env/shell/proteus-bashrc.sh" "${USER_HOME}/.config/proteus/proteus-bashrc.sh"
+seed_file "${PROTEUS_ROOT}/env/bash/proteus-bashrc.sh" "${USER_HOME}/.config/proteus/proteus-bashrc.sh"
 # Hypr fragments (apps stage also sources these; seed early so partial runs work)
 seed_file "${PROTEUS_ROOT}/env/hypr/proteus-keybinds.conf" "${HYPR_DIR}/proteus-keybinds.conf"
 seed_file "${PROTEUS_ROOT}/env/hypr/proteus-general.conf" "${HYPR_DIR}/proteus-general.conf"

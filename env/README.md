@@ -7,8 +7,8 @@ tree, which is why it is not folded into `install/`:
 | Consumer | Reads | When |
 |----------|-------|------|
 | **Runtime** | `apps/catalog.json` via `EnvGate.qml`; `hypr/profiles/*` via `shell/scripts/set-hypr-profile.sh` | while Proteus is running — including during a posture flip |
-| **Installer** | `hypr/` · `ghostty/` · `fastfetch/` · `shell/` · `systemd/` | `install/config.sh` seeds them into `$HOME` on first install |
-| **Dev harness** | `hypr/` · `ghostty/` · `fastfetch/` · `shell/` | `dev/run-nested.sh` seeds a nested session; smoke gates assert template content |
+| **Installer** | `hypr/` · `ghostty/` · `fastfetch/` · `bash/` · `systemd/` | `install/config.sh` seeds them into `$HOME` on first install |
+| **Dev harness** | `hypr/` · `ghostty/` · `fastfetch/` · `bash/` | `dev/run-nested.sh` seeds a nested session; smoke gates assert template content |
 
 | Path | Role |
 |------|------|
@@ -17,8 +17,15 @@ tree, which is why it is not folded into `install/`:
 | `chrome/` | Sibling chrome token export (JSON + CSS vars) |
 | `ghostty/` | Minimal Ghostty seed (no opacity/blur) |
 | `fastfetch/` | P monogram + modules on shell start |
-| `shell/proteus-bashrc.sh` | Run fastfetch when Ghostty opens |
+| `bash/proteus-bashrc.sh` | Run fastfetch when Ghostty opens. Named `bash/`, not `shell/`, because `shell/` at the repo root means Quickshell chrome |
 | `systemd/user/` | Optional `proteus-qs.service` (opt-in vs hypr exec-once) |
+
+## No tooling here
+
+`env/` is data the product ships. Anything that *generates* that data is
+maintainer tooling and lives in `dev/` — `dev/gen-helix-logo.py` rewrites
+`fastfetch/proteus-helix.txt`, and nothing at install or runtime invokes it; the
+committed `.txt` is the shipped artefact.
 
 ## Two things that must not move
 

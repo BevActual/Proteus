@@ -239,6 +239,19 @@ grep -q 'env/hypr/profiles' "${ROOT}/shell/scripts/set-hypr-profile.sh" \
   && ok "posture flip installs profiles from env/hypr (runtime consumer)" \
   || bad "set-hypr-profile.sh no longer sources env/hypr/profiles"
 
+# env/ ships data, never tooling. Keyed on the executable bit, not the file
+# extension: proteus-bashrc.sh is a .sh but is *sourced* into the user's shell,
+# so it is data; a generator that rewrites env/ content belongs in dev/.
+env_exec="$(find "${ROOT}/env" -type f -perm -u+x 2>/dev/null || true)"
+if [[ -n "${env_exec}" ]]; then
+  bad "env/ contains executable tooling (generators belong in dev/)"
+  printf '%s\n' "${env_exec}" | head -3
+else
+  ok "env/ is data only (no executables)"
+fi
+[[ -f "${ROOT}/dev/gen-helix-logo.py" ]] && ok "helix generator lives in dev/" \
+  || bad "dev/gen-helix-logo.py missing (it regenerates env/fastfetch/proteus-helix.txt)"
+
 # --- no hardcoded usernames in the install path -------------------------------
 # A guessed username writes an entire install into the wrong home, silently,
 # because every path still exists. The shared resolver refuses to guess; nothing
