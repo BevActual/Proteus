@@ -9,6 +9,7 @@ run() {
   "${ROOT}/scripts/smoke/$1"
 }
 
+run shellcheck-smoke.sh
 run layout-smoke.sh
 run widget-layout-resolve-smoke.sh
 run ipc-contract-smoke.sh

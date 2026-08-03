@@ -50,8 +50,9 @@ gnome-disk-utility
 mousepad
 file-roller
 unzip
-# 7z/rar backend for file-roller
-p7zip
+# 7z/rar backend for file-roller. `p7zip` was dropped from the Arch repos and
+# replaced by `7zip`; the stale name silently fell through to the AUR path.
+7zip
 satty
 # Screen recording (screenshots are grim/slurp/satty; this covers video)
 wf-recorder
@@ -74,5 +75,5 @@ mission-center
 # proteus-console.packages — installed by the `console` stage (needs multilib).
 
 # Optional / deferred (not installed):
-#   unrar   — proprietary rar backend if p7zip's rar support falls short
+#   unrar   — proprietary rar backend if 7zip's rar support falls short
 #   gthumb  — heavier photo browser if Loupe’s single-viewer seat isn’t enough

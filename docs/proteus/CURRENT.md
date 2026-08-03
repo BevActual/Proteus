@@ -189,6 +189,7 @@ Primary chrome is Games/Media/Search/Settings list IA; stores-as-backend locked 
 | `bash /mnt/proteus/install/machine/install-lock-pam.sh` | `/etc/pam.d/proteus-lock` (falls back to `login` if absent) |
 | `./scripts/run-nested.sh` | Nested Hyprland on host |
 | `./scripts/smoke-all.sh` | Host smokes (layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · accounts · users · lock-pin · permissions · desktop · spaces · focus · control-center · beacon · audio-mix-serve · hw-probe · install · session · posture-hard · console · host · workloads-app · qs-version); guest `qs-guest` + `software-guest` + `console-guest` + `host-guest` if SSH or `PROTEUS_GUEST=1` |
+| `./scripts/smoke/shellcheck-smoke.sh` | **Executable** static analysis of every tracked shell source (gate = severity `error`; warning/info reported as a backlog). SKIPs honestly without `shellcheck` — unlike the grep gates this one evaluates the code |
 | `./scripts/smoke/layout-smoke.sh` | Flat `shell/shared/` + Settings `kit/` structure |
 | `./scripts/smoke/widget-layout-resolve-smoke.sh` | Widget free/snap resolve capped + flush/no-overlap geometry stress |
 | `./scripts/smoke/ipc-contract-smoke.sh` | Smoke `qs ipc call` sites ⊆ shell/Settings `IpcHandler` methods |

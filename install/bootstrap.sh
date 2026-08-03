@@ -118,11 +118,28 @@ run_stage() {
   STAGE_SECS+=("${elapsed}")
 }
 
+# A stage failure must not abort before the summary. run_stage returns non-zero
+# under `set -e`, which used to kill the script here — so the FAIL row it had
+# just recorded, the stage timings and the log path were all discarded at the
+# exact moment they were needed. Stop the run (later stages depend on earlier
+# ones) but fall through to the summary and exit non-zero.
+FAILED_STAGE=""
 for stage in "${STAGES[@]}"; do
-  run_stage "${stage}"
+  if ! run_stage "${stage}"; then
+    FAILED_STAGE="${stage}"
+    break
+  fi
 done
 
-if [[ "${PROTEUS_INSTALL_UPDATE:-0}" == "1" ]]; then
+# Stages not reached after a failure still need a summary row.
+if [[ -n "${FAILED_STAGE}" ]]; then
+  while [[ "${#STAGE_RESULTS[@]}" -lt "${#STAGES[@]}" ]]; do
+    STAGE_RESULTS+=("n/a")
+    STAGE_SECS+=("0")
+  done
+fi
+
+if [[ "${PROTEUS_INSTALL_UPDATE:-0}" == "1" && -z "${FAILED_STAGE}" ]]; then
   proteus_log "── update ── pacman -Syu + package-list refresh (--needed)"
   if command -v pacman >/dev/null 2>&1; then
     proteus_root pacman -Syu --noconfirm || proteus_log "warn: pacman -Syu failed"
@@ -143,7 +160,11 @@ if [[ "${PROTEUS_INSTALL_UPDATE:-0}" == "1" ]]; then
 fi
 
 BOOT_ELAPSED=$(( $(date +%s) - BOOT_T0 ))
-proteus_log "bootstrap OK (${BOOT_ELAPSED}s)"
+if [[ -n "${FAILED_STAGE}" ]]; then
+  proteus_log "bootstrap FAILED at stage '${FAILED_STAGE}' (${BOOT_ELAPSED}s)"
+else
+  proteus_log "bootstrap OK (${BOOT_ELAPSED}s)"
+fi
 proteus_log "status=$(proteus_status_dir)"
 
 echo
@@ -157,3 +178,12 @@ done
 echo
 echo "Install log: ${PROTEUS_INSTALL_LOG}"
 echo "Status dir:  $(proteus_status_dir)"
+
+if [[ -n "${FAILED_STAGE}" ]]; then
+  echo
+  echo "FAILED at stage '${FAILED_STAGE}' — later stages did not run (n/a)."
+  echo "  inspect : tail -50 ${PROTEUS_INSTALL_LOG}"
+  echo "  retry   : PROTEUS_INSTALL_ONLY=${FAILED_STAGE} sudo -E bash ${0}"
+  echo "  resume  : PROTEUS_INSTALL_RESUME=1 sudo -E bash ${0}"
+  exit 1
+fi

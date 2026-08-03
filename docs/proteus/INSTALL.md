@@ -208,6 +208,9 @@ Steam/RetroArch specifics, and VM audio/GL caveats live in
 | Steam missing after overlay | multilib not enabled / `console` stage skipped → re-run overlay or `PROTEUS_INSTALL_ONLY=console` |
 | Gamescope exits instantly in the VM | No Vulkan under QEMU/VirGL → expected; seats run bare (`proteus-console-capabilities` reports `gamescope_usable:false`) |
 | Helpers on PATH behave stale | Copied (not linked) bins from an old run → `bootstrap.sh repair` re-links from the live tree |
+| `preflight: only NMB free on /` | Overlay needs ~6GB (console stage pulls Steam + lib32 + cores) → free space or `PROTEUS_INSTALL_SKIP=console,desktop` |
+| `preflight: cannot refresh pacman databases` | No network, dead mirror, or no sudo → fix connectivity; `bootstrap.sh repair` re-runs config/apps offline (skips preflight) |
+| Stage failed and later stages show `n/a` | Expected — the run stops at the first failure. The summary names the stage and prints `PROTEUS_INSTALL_ONLY=<stage>` to retry just it |
 | Bare metal: login lands in a bare compositor, no chrome | `proteus-session` could not resolve the root → check `cat ~/.config/proteus/root`, then `bootstrap.sh repair` |
 | Upgraded across the layout split; helpers missing | `/usr/local/bin` symlinks pointed at the old `vm/guest` path → `bootstrap.sh repair` re-points them and prunes the dangling ones |
 | Bare metal: moved the checkout, session broke | Stale root Fact → re-run `PROTEUS_ROOT="$PWD" sudo -E bash install/bootstrap.sh repair` |

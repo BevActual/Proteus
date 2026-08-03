@@ -156,6 +156,38 @@ grep -q 'findmnt -no FSTYPE /' "${INSTALL}/snapshots.sh" \
 grep -q 'snap-pac' "${INSTALL}/snapshots.sh" \
   && ok "snapshots stage installs snap-pac" || bad "snapshots stage missing snap-pac"
 
+# --- package names must still exist upstream ----------------------------------
+# `p7zip` sat in the desktop roster long after Arch replaced it with `7zip`.
+# Nothing caught it: desktop.sh silently reclassifies an unknown name as AUR and
+# moves on, so a rotted package name degrades into a skipped install.
+#
+# Pinned to core/extra/multilib on purpose — validating against the running
+# machine's repo set gives different answers per box (an [omarchy] or
+# [chaotic-aur] repo resolves names a vanilla bare-metal Arch cannot).
+# AUR_OK lists names we know are AUR-only and handle through the helper path.
+AUR_OK=" game-devices-udev localsend-bin localsend "
+if command -v pacman >/dev/null 2>&1; then
+  REPO_LIST="$(pacman -Sl core extra multilib 2>/dev/null | awk '{print $2}' | sort -u || true)"
+  if [[ -z "${REPO_LIST}" ]]; then
+    ok "package name check SKIP (no synced core/extra/multilib db)"
+  else
+    pkg_bad=0
+    for list in "${INSTALL}"/proteus-*.packages; do
+      while read -r pkg; do
+        [[ -n "${pkg}" ]] || continue
+        grep -qxF "${pkg}" <<<"${REPO_LIST}" && continue
+        pacman -Sg "${pkg}" >/dev/null 2>&1 && continue          # group (base-devel)
+        [[ "${AUR_OK}" == *" ${pkg} "* ]] && continue            # known AUR seat
+        bad "package '${pkg}' ($(basename "${list}")) is not in core/extra/multilib and is not a declared AUR seat"
+        pkg_bad=1
+      done < <(grep -vE '^\s*(#|$)' "${list}")
+    done
+    [[ "${pkg_bad}" -eq 0 ]] && ok "all package names resolve in core/extra/multilib (or are declared AUR)"
+  fi
+else
+  ok "package name check SKIP (pacman not on this host)"
+fi
+
 # --- packages the shell actually shells out to --------------------------------
 # flatpak was referenced across Software/ensure-flathub but never installed.
 for pkg in flatpak upower pciutils sof-firmware; do
