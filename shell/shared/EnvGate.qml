@@ -50,6 +50,8 @@ Singleton {
 
   // North-star sidebar order — status: shipped | partial | stub | planned
   // Statuses mirror docs/proteus/CURRENT.md §3 (Privacy + Online accounts stay partial).
+  // Optional postures: omit or [] = all focus postures. Desktop hub = desktop only;
+  // virtualization = host + desktop escape. See POSTURES.md §2a.
   readonly property var settingsCatalog: [
     {
       id: "style",
@@ -63,7 +65,8 @@ Singleton {
       label: "Desktop",
       status: "shipped",
       requires: ["display"],
-      requiresAny: []
+      requiresAny: [],
+      postures: ["desktop"]
     },
     {
       id: "displays",
@@ -147,7 +150,8 @@ Singleton {
       label: "Virtualization",
       status: "shipped",
       requires: [],
-      requiresAny: []
+      requiresAny: [],
+      postures: ["host", "desktop"]
     },
     {
       id: "system",
@@ -527,6 +531,12 @@ Singleton {
       keywords: "install search"
     },
     {
+      id: "packages-webapps",
+      label: "Web apps",
+      hubId: "packages",
+      keywords: "web app streaming netflix youtube spotify install console"
+    },
+    {
       id: "virtualization",
       label: "Virtualization",
       hubId: "virtualization",
@@ -597,6 +607,30 @@ Singleton {
     return null
   }
 
+  // Hub id for leaf pages so postures/requires inherit (desktop-gaps → desktop).
+  function paneHubFor(id) {
+    const sid = String(id || "")
+    if (!sid.length)
+      return ""
+    if (sid === "keyboard" || sid.indexOf("peripherals") === 0)
+      return "peripherals"
+    for (let i = 0; i < settingsCatalog.length; i++) {
+      const hub = settingsCatalog[i].id
+      if (sid === hub || sid.indexOf(hub + "-") === 0)
+        return hub
+    }
+    return ""
+  }
+
+  function paneSpecResolved(id) {
+    const sid = String(id || "")
+    const direct = paneSpec(sid)
+    if (direct)
+      return direct
+    const hub = paneHubFor(sid)
+    return hub.length ? paneSpec(hub) : null
+  }
+
   function paneDensityIsMinimal() {
     try {
       return String(FocusMode.paneDensity || "full").trim().toLowerCase() === "minimal"
@@ -624,9 +658,12 @@ Singleton {
     // Focus density hide is independent of Hardware.ready (user-driven).
     if (paneDensityIsMinimal() && !paneAllowedWhenMinimal(sid))
       return false
+    const spec = paneSpecResolved(sid)
+    // Posture gate is session-driven (independent of Hardware.ready).
+    if (spec && !postureAllowed(spec))
+      return false
     if (!gatingActive)
       return true
-    const spec = paneSpec(sid)
     if (!spec)
       return true
     return hasAll(spec.requires) && hasAny(spec.requiresAny)
@@ -638,7 +675,9 @@ Singleton {
     const sid = String(id || "")
     if (paneDensityIsMinimal() && !paneAllowedWhenMinimal(sid))
       return "Hidden while Focus is on"
-    const spec = paneSpec(sid)
+    const spec = paneSpecResolved(sid)
+    if (spec && !postureAllowed(spec))
+      return postureBlockReason(spec)
     if (!spec)
       return "Unavailable on this device"
     if (spec.requiresAny && spec.requiresAny.length)
@@ -658,17 +697,96 @@ Singleton {
     return out
   }
 
+  // Shared core hubs — all Settings faces when capability/posture allow.
+  readonly property var settingsFaceSharedCore: [
+    "network", "sound", "power", "notifications", "packages", "system", "users"
+  ]
+
+  // Console face — living-room + shared core (not Desktop creative IA).
+  readonly property var settingsFaceConsoleHubs: [
+    "style", "displays", "sound", "network", "peripherals", "power",
+    "users", "notifications", "packages", "system"
+  ]
+
+  // Host face — virt/ops + shared core (not Desktop creative IA).
+  readonly property var settingsFaceHostHubs: [
+    "virtualization", "packages", "network", "system", "privacy", "power",
+    "users", "sound", "notifications"
+  ]
+
+  // Primary hub ids for a Settings face (POSTURES §2a · SETTINGS-IA § Posture faces).
+  // Legality remains paneAvailable; this list is navigation emphasis only.
+  function settingsFaceHubs(posture) {
+    const p = String(posture || root.activePosture || "desktop").toLowerCase()
+    if (p === "console")
+      return root.settingsFaceConsoleHubs.slice()
+    if (p === "host")
+      return root.settingsFaceHostHubs.slice()
+    // Desktop face = full catalog order
+    const out = []
+    for (let i = 0; i < settingsCatalog.length; i++)
+      out.push(settingsCatalog[i].id)
+    return out
+  }
+
+  function availableSettingsPanesForFace(posture) {
+    const face = String(posture || root.activePosture || "desktop").toLowerCase()
+    const want = root.settingsFaceHubs(face)
+    const out = []
+    const seen = {}
+    for (let i = 0; i < want.length; i++) {
+      const id = String(want[i] || "")
+      if (!id.length || seen[id])
+        continue
+      seen[id] = true
+      if (!paneAvailable(id))
+        continue
+      const spec = paneSpec(id)
+      if (spec)
+        out.push(spec)
+      else
+        out.push({ id: id, label: id, status: "shipped", requires: [], requiresAny: [] })
+    }
+    return out
+  }
+
   function firstAvailablePane() {
     const panes = availableSettingsPanes()
     return panes.length ? panes[0].id : "system"
   }
 
+  // Default Settings hub by posture (POSTURES §2a primary surfaces).
+  function defaultSettingsPage() {
+    const p = root.activePosture
+    if (p === "host" && paneAvailable("virtualization"))
+      return "virtualization"
+    if (p === "console" && paneAvailable("system"))
+      return "system"
+    if (paneAvailable("style"))
+      return "style"
+    return firstAvailablePane()
+  }
+
   function ensureSettingsPageValid(nav) {
     // `nav` is SettingsNav when called from the Settings app (not present in shell-only).
-    if (!gatingActive || !nav)
+    // Posture gates apply even before Hardware.ready; capability gates need ready.
+    if (!nav)
       return
     const page = nav.page
     const p = String(page)
+    if (!p.length) {
+      nav.page = defaultSettingsPage()
+      return
+    }
+    if (!paneAvailable(p) && !gatingActive) {
+      // Posture-only rejection before probe ready.
+      const spec = paneSpecResolved(p)
+      if (spec && !postureAllowed(spec))
+        nav.page = defaultSettingsPage()
+      return
+    }
+    if (!gatingActive)
+      return
     const isStyleDrill = p === "style" || p.startsWith("style-")
     const isDesktopDrill = p === "desktop" || p.startsWith("desktop-")
     const isPeripheralsDrill = p === "peripherals" || p.startsWith("peripherals-") || p === "keyboard"
@@ -681,13 +799,12 @@ Singleton {
       return
     }
     if (isDesktopDrill) {
-      if (p === "desktop") {
-        if (!paneAvailable("desktop"))
-          nav.page = firstAvailablePane()
+      if (!paneAvailable("desktop")) {
+        nav.page = defaultSettingsPage()
         return
       }
-      if (!paneAvailable(p))
-        nav.page = paneAvailable("desktop-focus") ? "desktop-focus" : firstAvailablePane()
+      if (p !== "desktop" && !paneAvailable(p))
+        nav.page = paneAvailable("desktop-focus") ? "desktop-focus" : defaultSettingsPage()
       return
     }
     if (isPeripheralsDrill) {

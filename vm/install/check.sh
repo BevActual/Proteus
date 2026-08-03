@@ -78,6 +78,19 @@ grep -q 'apply-console-kit.sh' "${INSTALL}/console.sh" \
   && ok "console.sh applies console kit" || bad "console.sh missing apply-console-kit"
 grep -q 'set-hypr-profile.sh' "${INSTALL}/console.sh" \
   && ok "console.sh drift fix" || bad "console.sh missing posture/profile drift fix"
+
+# host stage — samba usershares + smartmontools (HexOS-style dashboard backends)
+[[ -f "${INSTALL}/host.sh" ]] && ok vm/install/host.sh || bad vm/install/host.sh
+bash -n "${INSTALL}/host.sh" 2>/dev/null && ok "host.sh bash -n" || bad "host.sh (bash -n)"
+[[ -f "${INSTALL}/proteus-host.packages" ]] && ok vm/install/proteus-host.packages || bad vm/install/proteus-host.packages
+grep -q '^samba$' "${INSTALL}/proteus-host.packages" && ok "host packages: samba" || bad "host packages missing samba"
+grep -q '^smartmontools$' "${INSTALL}/proteus-host.packages" && ok "host packages: smartmontools" || bad "host packages missing smartmontools"
+grep -q 'console host post-install' "${INSTALL}/bootstrap.sh" && ok "bootstrap.sh runs host stage" || bad "bootstrap.sh missing host stage"
+grep -q 'usershare' "${INSTALL}/host.sh" && ok "host.sh configures usershares" || bad "host.sh missing usershares"
+grep -q 'sambashare' "${INSTALL}/host.sh" && ok "host.sh sambashare group" || bad "host.sh missing sambashare group"
+[[ -f "${ROOT}/env/apps/host-apps.json" ]] && ok env/apps/host-apps.json || bad env/apps/host-apps.json
+python3 -c "import json;json.load(open('${ROOT}/env/apps/host-apps.json'))" 2>/dev/null \
+  && ok "host-apps.json parses" || bad "host-apps.json (json parse)"
 grep -q 'console.sh' "${ROOT}/vm/guest/install-console-software.sh" \
   && ok "install-console-software → console stage" || bad "install-console-software must wrap console stage"
 
@@ -98,18 +111,25 @@ grep -q 'guest-install.sh' "${ROOT}/docs/proteus/INSTALL.md" 2>/dev/null \
 [[ -f "${ROOT}/env/hypr/profiles/desktop.conf" ]] && ok env/hypr/profiles/desktop.conf || bad env/hypr/profiles/desktop.conf
 [[ -f "${ROOT}/env/hypr/profiles/console.conf" ]] && ok env/hypr/profiles/console.conf || bad env/hypr/profiles/console.conf
 [[ -x "${ROOT}/vm/guest/proteus-posture" ]] && ok vm/guest/proteus-posture || bad vm/guest/proteus-posture
+[[ -x "${ROOT}/vm/guest/proteus-host-seat" ]] && ok vm/guest/proteus-host-seat || bad vm/guest/proteus-host-seat
 [[ -x "${ROOT}/vm/guest/proteus-guide" ]] && ok vm/guest/proteus-guide || bad vm/guest/proteus-guide
+[[ -x "${ROOT}/vm/guest/dogfood-host.sh" ]] && ok vm/guest/dogfood-host.sh || bad vm/guest/dogfood-host.sh
 [[ -x "${ROOT}/vm/guest/apply-console-kit.sh" ]] && ok vm/guest/apply-console-kit.sh || bad vm/guest/apply-console-kit.sh
 [[ -x "${ROOT}/shell/scripts/proteus-console-launch" ]] && ok shell/scripts/proteus-console-launch || bad shell/scripts/proteus-console-launch
 [[ -x "${ROOT}/shell/scripts/proteus-console-seat" ]] && ok shell/scripts/proteus-console-seat || bad shell/scripts/proteus-console-seat
 [[ -x "${ROOT}/shell/scripts/proteus-workspace" ]] && ok shell/scripts/proteus-workspace || bad shell/scripts/proteus-workspace
 [[ -x "${ROOT}/shell/scripts/proteus-console-capabilities" ]] && ok shell/scripts/proteus-console-capabilities || bad shell/scripts/proteus-console-capabilities
 [[ -x "${ROOT}/shell/scripts/proteus-console-session" ]] && ok shell/scripts/proteus-console-session || bad shell/scripts/proteus-console-session
+[[ -x "${ROOT}/shell/scripts/proteus-console-gs-session" ]] && ok shell/scripts/proteus-console-gs-session || bad shell/scripts/proteus-console-gs-session
+[[ -x "${ROOT}/shell/scripts/proteus-console-focus" ]] && ok shell/scripts/proteus-console-focus || bad shell/scripts/proteus-console-focus
+[[ -f "${ROOT}/shell/console-home/shell.qml" ]] && ok shell/console-home/shell.qml || bad shell/console-home/shell.qml
 [[ -x "${ROOT}/vm/guest/dogfood-console.sh" ]] && ok vm/guest/dogfood-console.sh || bad vm/guest/dogfood-console.sh
 grep -q 'proteus-console-seat' "${ROOT}/vm/install/apps.sh" && ok "apps.sh installs proteus-console-seat" || bad "apps.sh missing proteus-console-seat"
 grep -q 'proteus-console-capabilities' "${ROOT}/vm/install/apps.sh" && ok "apps.sh installs proteus-console-capabilities" || bad "apps.sh missing proteus-console-capabilities"
 grep -q 'proteus-console-launch' "${ROOT}/vm/install/apps.sh" && ok "apps.sh installs proteus-console-launch" || bad "apps.sh missing proteus-console-launch"
 grep -q 'proteus-console-session' "${ROOT}/vm/install/apps.sh" && ok "apps.sh installs proteus-console-session" || bad "apps.sh missing proteus-console-session"
+grep -q 'proteus-console-gs-session' "${ROOT}/vm/install/apps.sh" && ok "apps.sh installs proteus-console-gs-session" || bad "apps.sh missing proteus-console-gs-session"
+grep -q 'proteus-console-focus' "${ROOT}/vm/install/apps.sh" && ok "apps.sh installs proteus-console-focus" || bad "apps.sh missing proteus-console-focus"
 grep -q 'install-console-software' "${ROOT}/vm/guest/apply-console-kit.sh" \
   && ok "apply-console-kit cites install-console-software" || bad "apply-console-kit must cite full console install"
 [[ -x "${ROOT}/shell/scripts/proteus-permissions.py" ]] && ok shell/scripts/proteus-permissions.py || bad shell/scripts/proteus-permissions.py
@@ -119,6 +139,10 @@ grep -q 'install-console-software' "${ROOT}/vm/guest/apply-console-kit.sh" \
 grep -q 'beacon-file-index.py' "${ROOT}/vm/install/apps.sh" && ok "apps.sh installs beacon-file-index.py" || bad "apps.sh missing beacon-file-index.py"
 [[ -x "${ROOT}/shell/scripts/proteus-pin.py" ]] && ok shell/scripts/proteus-pin.py || bad shell/scripts/proteus-pin.py
 [[ -x "${ROOT}/shell/scripts/check-unlock.py" ]] && ok shell/scripts/check-unlock.py || bad shell/scripts/check-unlock.py
+[[ -x "${ROOT}/shell/scripts/proteus-host-metrics.py" ]] && ok shell/scripts/proteus-host-metrics.py || bad shell/scripts/proteus-host-metrics.py
+grep -q 'proteus-host-metrics.py' "${ROOT}/vm/install/apps.sh" && ok "apps.sh installs proteus-host-metrics.py" || bad "apps.sh missing proteus-host-metrics.py"
+[[ -x "${ROOT}/shell/scripts/proteus-console-games.py" ]] && ok shell/scripts/proteus-console-games.py || bad shell/scripts/proteus-console-games.py
+grep -q 'proteus-console-games.py' "${ROOT}/vm/install/apps.sh" && ok "apps.sh installs proteus-console-games.py" || bad "apps.sh missing proteus-console-games.py"
 [[ -f "${ROOT}/shell/scripts/proteus_auth.py" ]] && ok shell/scripts/proteus_auth.py || bad shell/scripts/proteus_auth.py
 [[ -f "${ROOT}/shell/pam/proteus-lock" ]] && ok shell/pam/proteus-lock || bad shell/pam/proteus-lock
 [[ -x "${ROOT}/vm/guest/install-lock-pam.sh" ]] && ok vm/guest/install-lock-pam.sh || bad vm/guest/install-lock-pam.sh
@@ -164,6 +188,16 @@ if python3 "${ROOT}/shell/scripts/proteus-permissions.py" --help >/dev/null 2>&1
   ok "proteus-permissions.py --help"
 else
   bad "proteus-permissions.py (--help)"
+fi
+if python3 -m py_compile "${ROOT}/shell/scripts/proteus-host-metrics.py" 2>/dev/null; then
+  ok "proteus-host-metrics.py py_compile"
+else
+  bad "proteus-host-metrics.py (py_compile)"
+fi
+if python3 -m py_compile "${ROOT}/shell/scripts/proteus-console-games.py" 2>/dev/null; then
+  ok "proteus-console-games.py py_compile"
+else
+  bad "proteus-console-games.py (py_compile)"
 fi
 if python3 -m py_compile "${ROOT}/shell/scripts/proteus-defaults.py" 2>/dev/null; then
   ok "proteus-defaults.py py_compile"

@@ -26,6 +26,12 @@
 #   PROTEUS_VM_PAD=auto|/dev/input/eventN
 #                                   virtio-input-host from host joystick evdev (preferred —
 #                                   works with input group; no USB usbfs claim)
+#   PROTEUS_VM_VFIO=0000:01:00.0[,0000:01:00.1]
+#                                   GPU (VFIO) passthrough — real Vulkan in the guest for the
+#                                   Gamescope console session. Prereqs: vm/README.md §VFIO
+#                                   (IOMMU on, device bound to vfio-pci). Guest drives its own
+#                                   output by default; virtio-vga stays for early boot unless
+#                                   PROTEUS_VM_VFIO_PRIMARY=1 drops it.
 set -euo pipefail
 
 # shellcheck source=lib.sh
@@ -276,6 +282,48 @@ if PAD_EVDEV="$(resolve_pad_evdev "${PAD_SPEC}")"; then
     echo "  pad:   virtio-input-host ${PAD_EVDEV} (PROTEUS_VM_PAD)"
   else
     echo "proteus-vm: cannot read ${PAD_EVDEV} — join the input group / re-login" >&2
+  fi
+fi
+
+# GPU (VFIO) passthrough — the second prove path for the Gamescope console
+# session (bare metal is the first). VirGL stays the interim/no-GPU loop.
+VFIO_SPEC="${PROTEUS_VM_VFIO:-}"
+if [[ -n "${VFIO_SPEC}" ]]; then
+  IFS=',' read -r -a _vfio_addrs <<<"${VFIO_SPEC}"
+  for _addr in "${_vfio_addrs[@]}"; do
+    _addr="$(echo "${_addr}" | tr -d '[:space:]')"
+    [[ -n "${_addr}" ]] || continue
+    _sys="/sys/bus/pci/devices/${_addr}"
+    if [[ ! -d "${_sys}" ]]; then
+      die "PROTEUS_VM_VFIO: PCI device ${_addr} not found (lspci -D for addresses)"
+    fi
+    _drv="$(basename "$(readlink -f "${_sys}/driver" 2>/dev/null || echo none)")"
+    if [[ "${_drv}" != "vfio-pci" ]]; then
+      echo "proteus-vm: WARN ${_addr} bound to '${_drv}' not vfio-pci — passthrough will fail." >&2
+      echo "proteus-vm:      see vm/README.md §VFIO (IOMMU + vfio-pci bind)" >&2
+    fi
+    ARGS+=(-device "vfio-pci,host=${_addr}")
+  done
+  echo "  vfio:  GPU passthrough ${VFIO_SPEC} (guest gets real Vulkan → Gamescope session)"
+  if [[ "${PROTEUS_VM_VFIO_PRIMARY:-0}" == "1" ]]; then
+    # Drop the virtio display pair-wise — the passthrough GPU drives a real output.
+    _newargs=()
+    _i=0
+    while [[ ${_i} -lt ${#ARGS[@]} ]]; do
+      _a="${ARGS[${_i}]}"
+      if [[ "${_a}" == "-device" && "${ARGS[$((_i + 1))]:-}" == "${VGA_DEV}" ]]; then
+        _i=$((_i + 2))
+        continue
+      fi
+      if [[ "${_a}" == "-display" ]]; then
+        _i=$((_i + 2))
+        continue
+      fi
+      _newargs+=("${_a}")
+      _i=$((_i + 1))
+    done
+    ARGS=("${_newargs[@]}" -vga none -display none)
+    echo "  vfio:  primary GPU mode — virtio-vga dropped (connect a display to the GPU / Looking Glass)"
   fi
 fi
 

@@ -23,20 +23,21 @@ SCRIPTS="${PROTEUS_ROOT}/shell/scripts"
 for s in proteus-screenshot proteus-clipboard proteus-colorpick proteus-terminal \
          proteus-workspace \
          proteus-console-launch proteus-console-seat proteus-console-capabilities \
-         proteus-console-session \
+         proteus-console-session proteus-console-gs-session proteus-console-focus \
+         proteus-console-games.py \
          proteus-permissions.py privacy-indicators.py \
          proteus-calendar-events.py proteus-calendar-mutate.py \
          proteus-mail-glance.py proteus-mail-send.py \
          proteus-contacts-glance.py proteus-contacts-mutate.py \
          proteus-headscale.py \
-         proteus-workloads.py \
+         proteus-workloads.py proteus-host-metrics.py \
          proteus-defaults.py beacon-file-index.py \
          proteus-pin.py check-unlock.py; do
   proteus_install_helper "${SCRIPTS}/${s}"
 done
 
-# Hard posture switch + Guide-button listener + soft profile helper (console)
-for s in proteus-posture proteus-guide set-hypr-profile.sh; do
+# Hard posture switch + host seat + Guide-button listener + soft profile helper
+for s in proteus-posture proteus-host-seat proteus-guide set-hypr-profile.sh; do
   proteus_install_helper "${GUEST}/${s}"
 done
 

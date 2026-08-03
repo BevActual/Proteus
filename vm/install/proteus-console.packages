@@ -7,6 +7,12 @@
 gamescope
 python-evdev
 
+# Gamescope session focus router (GAMESCOPECTRL_BASELAYER_APPID X atoms) +
+# hardware-Vulkan capability probe honesty
+xorg-xprop
+xdotool
+vulkan-tools
+
 # Steam (multilib) — UI font + 32-bit GL. Real hardware also wants the matching
 # lib32 Vulkan driver (lib32-vulkan-radeon / lib32-vulkan-intel); the VM has no
 # Vulkan under VirGL, so seats run bare there (capabilities reports it).

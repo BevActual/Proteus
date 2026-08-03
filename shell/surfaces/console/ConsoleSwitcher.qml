@@ -1,18 +1,28 @@
 import Quickshell
+import Quickshell.Io
 import Quickshell.Hyprland
 import QtQuick
 import QtQuick.Layouts
 import "../../shared"
 
 // Running-apps overlay — Hyprland toplevels (DockApps patterns).
+// sessionMode (Gamescope owns the session): no Hyprland toplevels exist; the
+// list is the seat/focus-router registry and activation raises the title via
+// proteus-console-focus (GAMESCOPECTRL_BASELAYER_APPID).
 Item {
   id: root
   anchors.fill: parent
   visible: ShellState.consoleSwitcherOpen
 
   property int focusedIndex: 0
+  property bool sessionMode: false
+  property string rootDir: String(Quickshell.env("PROTEUS_ROOT") || "/mnt/proteus")
+  // Registry entry from proteus-console-focus tag-pid: {appid,label,pid}
+  property var sessionTitle: null
 
   readonly property var appWindows: {
+    if (root.sessionMode)
+      return root.sessionTitle ? [root.sessionTitle] : []
     const tops = Hyprland.toplevels ? Hyprland.toplevels.values : []
     const out = []
     for (let i = 0; i < tops.length; i++) {
@@ -32,9 +42,35 @@ Item {
     return out
   }
 
+  function focusBin() {
+    return root.rootDir + "/shell/scripts/proteus-console-focus"
+  }
+
+  function refreshSessionTitle() {
+    if (!root.sessionMode)
+      return
+    sessionTitleView.reload()
+  }
+
+  FileView {
+    id: sessionTitleView
+    path: String(Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/proteus-console-focus.title"
+    watchChanges: root.sessionMode
+    onLoaded: {
+      try {
+        root.sessionTitle = JSON.parse(String(text()) || "null")
+      } catch (e) {
+        root.sessionTitle = null
+      }
+    }
+    onLoadFailed: root.sessionTitle = null
+  }
+
   function windowLabel(t) {
     if (!t)
       return "App"
+    if (root.sessionMode)
+      return String(t.label || "Title")
     const ipc = t.lastIpcObject || {}
     const title = String(t.title || ipc.title || "")
     if (title.length)
@@ -61,6 +97,12 @@ Item {
   function activateFocused() {
     if (!appWindows.length)
       return
+    if (root.sessionMode) {
+      Quickshell.execDetached({ command: ["bash", "-lc", "'" + focusBin() + "' title || true"] })
+      ShellState.closeConsoleSwitcher()
+      ShellState.hideConsoleNav()
+      return
+    }
     const t = appWindows[Math.max(0, Math.min(focusedIndex, appWindows.length - 1))]
     const addr = windowAddress(t)
     if (addr.length) {
@@ -72,6 +114,15 @@ Item {
   function closeFocused() {
     if (!appWindows.length)
       return
+    if (root.sessionMode) {
+      // Stop the supervised seat; registry clears via the reaper.
+      Quickshell.execDetached({
+        command: ["bash", "-lc",
+          "'" + root.rootDir + "/shell/scripts/proteus-console-seat' stop >/dev/null 2>&1; "
+              + "'" + focusBin() + "' clear || true"]
+      })
+      return
+    }
     const t = appWindows[Math.max(0, Math.min(focusedIndex, appWindows.length - 1))]
     const addr = windowAddress(t)
     if (addr.length)
@@ -171,13 +222,17 @@ Item {
 
   onVisibleChanged: {
     if (visible) {
-      Hyprland.refreshToplevels()
+      if (root.sessionMode)
+        root.refreshSessionTitle()
+      else
+        Hyprland.refreshToplevels()
       focusedIndex = 0
     }
   }
 
   Connections {
     target: Hyprland
+    enabled: !root.sessionMode
     function onRawEvent(event) {
       // Keep list fresh while open
       if (root.visible)

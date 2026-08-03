@@ -154,14 +154,28 @@ print_caps_honesty() {
   json="$("${CAPS_BIN}" 2>/dev/null || echo '{}')"
   echo "${json}" | python3 -c 'import json,sys
 d=json.load(sys.stdin)
-print("dogfood-console: caps gamescopeUsable=%s pad=%s isVm=%s steam=%s retroarch=%s sessionEffective=%s"
-      % (d.get("gamescopeUsable"), d.get("pad"), d.get("isVm"),
-         d.get("steam"), d.get("retroarch"), d.get("sessionEffective")))
+print("dogfood-console: caps gamescopeUsable=%s vulkanHw=%s pad=%s isVm=%s steam=%s retroarch=%s sessionEffective=%s replacesHyprland=%s"
+      % (d.get("gamescopeUsable"), d.get("vulkanHw"), d.get("pad"), d.get("isVm"),
+         d.get("steam"), d.get("retroarch"), d.get("sessionEffective"), d.get("replacesHyprland")))
+mode = "session (Gamescope owns the console session)" if d.get("sessionEffective") == "session" \
+    else "interim (Hyprland kiosk + supervised seats)"
+print("dogfood-console: console mode = " + mode)
 if d.get("pad") is False:
   print("dogfood-console: hint pad — host: PROTEUS_VM_PAD=auto ./vm/run.sh (keyboard stand-ins OK without pad)")
 if d.get("isVm") and not d.get("gamescopeUsable"):
-  print("dogfood-console: hint Gamescope — QEMU/VirGL usually bare kiosk (expected)")
+  print("dogfood-console: hint Gamescope — VirGL has no hardware Vulkan; interim kiosk (expected). GPU passthrough: vm/README.md §VFIO")
 ' 2>/dev/null || true
+  # Opt-in assert for bare metal / GPU-passthrough dogfood:
+  #   PROTEUS_EXPECT_GS_SESSION=1 → capabilities must claim the session path.
+  if [[ "${PROTEUS_EXPECT_GS_SESSION:-0}" == "1" ]]; then
+    echo "${json}" | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+assert d.get("gamescopeUsable") is True, "gamescopeUsable false — no hardware Vulkan (VFIO bound? vulkan-tools installed?)"
+assert d.get("sessionEffective") == "session", "sessionEffective=%r — run: proteus-console-session set-mode session" % d.get("sessionEffective")
+assert d.get("replacesHyprland") is True, "replacesHyprland false"
+print("dogfood-console: OK gs-session capabilities (replacesHyprland)")
+' || die "PROTEUS_EXPECT_GS_SESSION=1 but capabilities do not claim the Gamescope session"
+  fi
   if [[ -z "${SESSION_BIN}" ]]; then
     log "warn: proteus-console-session missing — full packages: sudo bash ${ROOT}/vm/guest/install-console-software.sh"
   fi

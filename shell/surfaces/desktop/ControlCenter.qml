@@ -97,7 +97,7 @@ Item {
     if (slot === "lock")
       ShellState.lockSession()
     else
-      ShellState.openSettings()
+      ShellState.openSettingsSmart()
   }
 
   function handlePad(button) {
@@ -338,7 +338,7 @@ Item {
         onNetworkClicked: {
           // Chrome path — Settings owns Network UX; nm-connection-editor stays
           // an escape inside Settings, not the Control Center default.
-          ShellState.openSettings("network")
+          ShellState.openSettingsSmart("network")
         }
         onDndToggled: Notifications.toggleDnd()
       }
@@ -564,7 +564,7 @@ Item {
             cursorShape: Qt.PointingHandCursor
             onClicked: {
               ShellState.closeControlCenter()
-              ShellState.openSettings()
+              ShellState.openSettingsSmart()
             }
           }
         }

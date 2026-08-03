@@ -1266,7 +1266,7 @@ ColumnLayout {
               id: "console",
               glyph: "▶",
               title: "Console",
-              subtitle: "Hard switch · lean-back",
+              subtitle: "Hard switch · restarts chrome",
               accent: false,
               interactive: true,
               trailing: "›",
@@ -1279,7 +1279,7 @@ ColumnLayout {
               id: "host",
               glyph: "⬡",
               title: "Host",
-              subtitle: "Hard switch · lean ops",
+              subtitle: "Hard switch · restarts chrome",
               accent: false,
               interactive: true,
               trailing: "›",
@@ -1292,7 +1292,7 @@ ColumnLayout {
               id: "desktop",
               glyph: "⌂",
               title: "Desktop",
-              subtitle: "Hard switch · desk",
+              subtitle: "Hard switch · restarts chrome",
               accent: false,
               interactive: true,
               trailing: "›",
@@ -1458,7 +1458,8 @@ ColumnLayout {
                 || modelData.id === "desktop") {
               ShellState.closeControlCenter()
               const proot = String(Quickshell.env("PROTEUS_ROOT") || "/mnt/proteus")
-              const t = String(modelData.id)
+              // Host from a seated desktop → attach ops chrome (CLI host defaults headless).
+              const t = modelData.id === "host" ? "host --chrome" : String(modelData.id)
               // Prefer live tree; never `A && B & || C` (bash syntax error).
               Quickshell.execDetached({
                 command: [

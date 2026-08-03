@@ -31,11 +31,14 @@ Singleton {
   // True while a console seat launch is in flight — suppress auto-show nav
   // so Exclusive grab does not beat the new client to focus.
   property bool consoleLaunchPending: false
+  // In-chrome Console Settings — EnvGate page id (does not launch proteus-settings).
+  property string consoleSettingsPage: ""
   // Host posture — lean ops chrome (HostShell)
   property bool hostSurfaceActive: false
 
   // Pad grammar — surfaces connect to padAction / implement handlers
   signal padAction(string button)
+  signal consoleSettingsRequested(string page)
   readonly property bool padWanted: sessionLocked
       || controlCenterOpen
       || launcherOpen
@@ -302,20 +305,60 @@ Singleton {
     })
   }
 
-  // Thin Host workloads app (read-only inventory) — not Settings.
-  function openWorkloadsApp() {
+  // Console posture: stay in chrome. Desktop/host keep launching proteus-settings.
+  function openConsoleSettings(pageId) {
+    if (sessionLocked)
+      return
+    const page = String(pageId || "").trim()
+    consoleSettingsPage = page
+    if (consoleSurfaceActive) {
+      controlCenterOpen = false
+      consoleSwitcherOpen = false
+      showConsoleNav()
+      consoleSettingsRequested(page)
+      return
+    }
+    openSettings(page)
+  }
+
+  // Prefer posture Settings face: console in-chrome; host ops default page; else desktop app.
+  function openSettingsSmart(pageId, query) {
+    if (consoleSurfaceActive) {
+      openConsoleSettings(pageId || "")
+      return
+    }
+    if (hostSurfaceActive) {
+      let page = String(pageId || "").trim()
+      if (!page.length) {
+        try {
+          page = EnvGate.defaultSettingsPage()
+        } catch (e) {
+          page = "virtualization"
+        }
+      }
+      openSettings(page, query)
+      return
+    }
+    openSettings(pageId, query)
+  }
+
+  // Thin Host workloads app (ops mutations) — not Settings.
+  // Optional tab: "workloads" | "apps" | "shares" (dashboard deep links).
+  function openWorkloadsApp(tab) {
     if (sessionLocked || sessionStartLockPending)
       return false
     closeOverlays()
     const root = String(Quickshell.env("PROTEUS_ROOT") || "").trim()
     const live = (root.length ? root : "/mnt/proteus") + "/apps/proteus-workloads/proteus-workloads"
+    const t = String(tab || "").trim()
+    const args = t.length ? " --tab " + shellQuote(t) : ""
     Quickshell.execDetached({
       command: [
         "bash",
         "-lc",
-        "if [[ -x " + shellQuote(live) + " ]]; then exec " + shellQuote(live) + "; fi; "
-            + "command -v proteus-workloads >/dev/null && exec proteus-workloads; "
-            + "exec " + shellQuote(live)
+        "if [[ -x " + shellQuote(live) + " ]]; then exec " + shellQuote(live) + args + "; fi; "
+            + "command -v proteus-workloads >/dev/null && exec proteus-workloads" + args + "; "
+            + "exec " + shellQuote(live) + args
       ]
     })
     return true

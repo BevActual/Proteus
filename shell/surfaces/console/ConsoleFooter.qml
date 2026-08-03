@@ -2,12 +2,24 @@ import QtQuick
 import QtQuick.Layouts
 import "../../shared"
 
+// Slim status + input-legend strip under the list IA.
+// Left: library.statusHint (launch errors, install hints, Wi-Fi feedback —
+// previously written but never shown). Right: pad/keyboard legend.
 Item {
   id: root
-  height: 36
+  height: 32
 
   property string hint: ""
-  property string contextLine: ""
+  property bool padActive: false
+
+  Rectangle {
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    height: 1
+    color: Theme.chromeHairline
+    opacity: 0.4
+  }
 
   RowLayout {
     anchors.fill: parent
@@ -16,9 +28,8 @@ Item {
     spacing: Theme.spaceLg
 
     Text {
-      text: root.contextLine.length
-          ? root.contextLine
-          : "◎ Guide nav · Ⓐ Open · C Control Center"
+      text: root.hint
+      visible: root.hint.length > 0
       color: Theme.accent
       font.family: Theme.fontFamily
       font.pixelSize: Theme.fontSizeSm
@@ -27,14 +38,19 @@ Item {
       elide: Text.ElideRight
     }
 
+    Item {
+      visible: !root.hint.length
+      Layout.fillWidth: true
+    }
+
     Text {
-      visible: root.hint.length > 0
-      text: root.hint
-      color: Theme.textDim
+      text: root.padActive
+          ? "Ⓐ Select   Ⓑ Back   LB · RB Tabs   Ⓨ Details   ☰ Exit"
+          : "Enter Select   Esc Back   ← → Tabs   Y Details"
+      color: Theme.textMute
       font.family: Theme.fontFamily
       font.pixelSize: Theme.fontSizeSm
-      elide: Text.ElideRight
-      Layout.maximumWidth: parent.width * 0.35
+      elide: Text.ElideLeft
     }
   }
 }

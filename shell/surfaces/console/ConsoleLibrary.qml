@@ -3,7 +3,8 @@ import Quickshell.Io
 import QtQuick
 import "../../shared"
 
-// Console Home seats — Browser · Media · Terminal · Steam · RetroArch · Desktop · Web apps.
+// Console launch engine for the list IA (Games · Media · Apps · Search ·
+// Settings): capability probe, supervised seat launches, recents, media picker.
 // Item (not QtObject): hosts Timer + Process children.
 Item {
   id: root
@@ -38,18 +39,24 @@ Item {
   property bool hasBrowser: false
   property bool hasMpv: false
   property bool hasTerminal: false
-  property bool hasGamescope: false // usable Gamescope (Vulkan), not merely installed
+  property bool hasGamescope: false // usable Gamescope (hardware Vulkan), not merely installed
   property bool hasGamescopeBin: false
   property bool isVm: false
   property bool hasSteam: false
   property bool hasRetroarch: false
+  property bool hasPad: false
   property string browserBin: "chromium"
-  // Phase 2 session Fact — seat | gamescope (nested; does not replace Hyprland)
+  // Phase 3 session Fact — seat (Hypr kiosk) | session (Gamescope owns session)
   property string sessionMode: "seat"
   property string sessionEffective: "seat"
+  // True only when running inside a Gamescope-owned console session
+  property bool replacesHyprland: false
 
   property string statusHint: ""
   property string pendingLaunchTitle: ""
+
+  // Installed titles (Steam appmanifests + RetroArch playlists) — Games tab.
+  property var installedGames: []
 
   function mediaPath() {
     const last = String(Config.consoleLastMediaPath || "").trim()
@@ -78,12 +85,12 @@ Item {
     ]
   }
 
-  // Jump Back In = persisted recents, else seed from available seats
-  readonly property var games: {
+  // Recents for the Games tab "Recent" section (list IA — shelf Home retired).
+  readonly property var recentItems: {
     const out = []
     try {
       const rec = (Config && Config.consoleRecents) ? Config.consoleRecents : []
-      for (let i = 0; i < rec.length && out.length < 12; i++) {
+      for (let i = 0; i < rec.length && out.length < 6; i++) {
         const r = rec[i]
         if (!r || !r.id)
           continue
@@ -91,108 +98,7 @@ Item {
       }
     } catch (e) {
     }
-    if (out.length)
-      return out
-    // First-run seeds
-    if (root.hasSteam)
-      out.push(root.seatSteam())
-    if (root.hasRetroarch)
-      out.push(root.seatRetro())
-    if (root.hasMpv)
-      out.push(root.seatMedia())
-    if (root.hasBrowser)
-      out.push(root.seatBrowser())
-    if (root.hasTerminal)
-      out.push(root.seatTerminal())
     return out
-  }
-
-  readonly property var apps: {
-    const out = []
-    if (root.hasSteam)
-      out.push(root.seatSteam())
-    else
-      out.push(root.seatMissing("steam", "Steam", "GAMES", "Install Steam (install-console-software / console stage)"))
-    if (root.hasRetroarch)
-      out.push(root.seatRetro())
-    else
-      out.push(root.seatMissing("retroarch", "RetroArch", "GAMES", "Install RetroArch (install-console-software / console stage)"))
-    if (root.hasBrowser)
-      out.push(root.seatBrowser())
-    if (root.hasMpv)
-      out.push(root.seatMedia())
-    if (root.hasTerminal)
-      out.push(root.seatTerminal())
-    // Web apps live on Home as their own row (proteus-web-*); keep Install escape.
-    out.push({
-      id: "webapps-install",
-      title: "Install Web apps",
-      tag: "WEB",
-      color0: "#1a3a4a",
-      color1: "#0d1c22",
-      kind: "settings",
-      needsGamescope: false,
-      settingsPage: "packages-webapps",
-      commandArgs: []
-    })
-    out.push({
-      id: "desktop",
-      title: "Desktop",
-      tag: "POSTURE",
-      color0: "#2a2a2e",
-      color1: "#141416",
-      kind: "posture",
-      needsGamescope: false,
-      commandArgs: []
-    })
-    return out
-  }
-
-  // Curated seats without the Install Web apps / Desktop escapes (Home APPS row).
-  readonly property var appSeats: {
-    const out = []
-    if (root.hasSteam)
-      out.push(root.seatSteam())
-    else
-      out.push(root.seatMissing("steam", "Steam", "GAMES", "Install Steam (install-console-software / console stage)"))
-    if (root.hasRetroarch)
-      out.push(root.seatRetro())
-    else
-      out.push(root.seatMissing("retroarch", "RetroArch", "GAMES", "Install RetroArch (install-console-software / console stage)"))
-    if (root.hasBrowser)
-      out.push(root.seatBrowser())
-    if (root.hasMpv)
-      out.push(root.seatMedia())
-    if (root.hasTerminal)
-      out.push(root.seatTerminal())
-    out.push({
-      id: "desktop",
-      title: "Desktop",
-      tag: "POSTURE",
-      color0: "#2a2a2e",
-      color1: "#141416",
-      kind: "posture",
-      needsGamescope: false,
-      commandArgs: []
-    })
-    return out
-  }
-
-  readonly property var featured: {
-    if (games.length)
-      return games[0]
-    if (apps.length)
-      return apps[0]
-    return {
-      id: "empty",
-      title: "Console",
-      tag: "HOME",
-      color0: "#1c1c1e",
-      color1: "#000000",
-      meta: "Install Browser / Media / Steam for Jump Back In",
-      kind: "empty",
-      commandArgs: []
-    }
   }
 
   function seatBrowser() {
@@ -239,8 +145,8 @@ Item {
   }
 
   function seatMetaSuffix() {
-    if (root.sessionEffective === "gamescope")
-      return " · session · gamescope"
+    if (root.sessionEffective === "session")
+      return " · gamescope session"
     if (root.hasGamescope)
       return " · gamescope"
     if (root.isVm)
@@ -250,10 +156,10 @@ Item {
 
   function toggleSessionMode() {
     if (!root.hasGamescope) {
-      statusHint = "Gamescope session needs Vulkan (unavailable here)"
+      statusHint = "Gamescope session needs a hardware Vulkan GPU (unavailable here)"
       return
     }
-    const next = root.sessionMode === "gamescope" ? "seat" : "gamescope"
+    const next = root.sessionMode === "session" ? "seat" : "session"
     Quickshell.execDetached({
       command: [
         "bash", "-lc",
@@ -264,10 +170,10 @@ Item {
       ]
     })
     root.sessionMode = next
-    root.sessionEffective = (next === "gamescope" && root.hasGamescope) ? "gamescope" : "seat"
-    statusHint = next === "gamescope"
-        ? "Gamescope session on — nested wraps for game seats (Hyprland stays)"
-        : "Seat mode — per-title Gamescope when usable"
+    root.sessionEffective = (next === "session" && root.hasGamescope) ? "session" : "seat"
+    statusHint = next === "session"
+        ? "Gamescope session preferred — applies at next console flip (login picks the engine)"
+        : "Seat mode — Hyprland kiosk; per-title Gamescope when usable"
     root.refreshAvailability()
   }
 
@@ -301,20 +207,6 @@ Item {
     }
   }
 
-  function seatMissing(id, title, tag, meta) {
-    return {
-      id: id,
-      title: title,
-      tag: tag,
-      color0: "#2a2a2e",
-      color1: "#141416",
-      meta: meta,
-      kind: "missing",
-      needsGamescope: false,
-      commandArgs: []
-    }
-  }
-
   function hydrateRecent(r) {
     const id = String(r.id || "")
     if (id === "steam" && root.hasSteam)
@@ -327,7 +219,7 @@ Item {
       return root.seatMedia()
     if (id === "terminal" && root.hasTerminal)
       return root.seatTerminal()
-    // Generic recent (desktop / webapp)
+    // Generic recent (desktop / webapp / installed title)
     return {
       id: id,
       title: r.title || id,
@@ -337,6 +229,8 @@ Item {
       meta: r.meta || "",
       kind: r.kind || "desktop",
       desktopId: r.desktopId || "",
+      expectClass: r.expectClass || "",
+      chromeStyle: true,
       needsGamescope: !!r.gamescope,
       commandArgs: r.command ? String(r.command).split("\n") : []
     }
@@ -351,7 +245,9 @@ Item {
       title: String(item.title || item.id),
       kind: String(item.kind || ""),
       tag: String(item.tag || ""),
+      meta: String(item.meta || ""),
       desktopId: String(item.desktopId || ""),
+      expectClass: String(item.expectClass || ""),
       gamescope: !!item.needsGamescope,
       command: (item.commandArgs && item.commandArgs.length) ? item.commandArgs.join("\n") : "",
       ts: Date.now()
@@ -439,6 +335,70 @@ Item {
     probeProc.running = true
   }
 
+  function refreshGames() {
+    gamesProc.running = false
+    gamesProc.running = true
+  }
+
+  function formatSize(bytes) {
+    const b = Number(bytes) || 0
+    if (b <= 0)
+      return ""
+    if (b >= 1024 * 1024 * 1024)
+      return (b / (1024 * 1024 * 1024)).toFixed(1) + " GB"
+    return Math.round(b / (1024 * 1024)) + " MB"
+  }
+
+  function hydrateGamesScan(data) {
+    const out = []
+    const steam = (data && data.steam && data.steam.titles) ? data.steam.titles : []
+    for (let i = 0; i < steam.length; i++) {
+      const t = steam[i]
+      if (!t || !t.appId || !t.name)
+        continue
+      const size = root.formatSize(t.sizeBytes)
+      out.push({
+        id: "steam:" + t.appId,
+        title: String(t.name),
+        tag: "GAMES",
+        color0: "#1a2a4a",
+        color1: "#0c1424",
+        meta: "Steam" + (size.length ? " · " + size : ""),
+        kind: "steam-title",
+        needsGamescope: root.hasGamescope,
+        expectClass: "steam_app_" + t.appId + "|steam",
+        lastPlayed: Number(t.lastPlayed) || 0,
+        chromeStyle: true,
+        commandArgs: ["steam", "-applaunch", String(t.appId)]
+      })
+    }
+    const retro = (data && data.retroarch && data.retroarch.titles) ? data.retroarch.titles : []
+    for (let j = 0; j < retro.length; j++) {
+      const r = retro[j]
+      if (!r || !r.name || !r.path)
+        continue
+      const sys = String(r.system || "").split(" - ").pop()
+      const args = r.core && String(r.core).length
+          ? ["retroarch", "-L", String(r.core), String(r.path)]
+          : ["retroarch", String(r.path)]
+      out.push({
+        id: "retro:" + r.path,
+        title: String(r.name),
+        tag: "GAMES",
+        color0: "#3a1a2a",
+        color1: "#1c0d14",
+        meta: "RetroArch" + (sys.length ? " · " + sys : ""),
+        kind: "retro-title",
+        needsGamescope: root.hasGamescope,
+        expectClass: "com.libretro.RetroArch|retroarch",
+        chromeStyle: true,
+        commandArgs: args
+      })
+    }
+    out.sort((x, y) => String(x.title).localeCompare(String(y.title)))
+    return out
+  }
+
   function launchBinPath() {
     // Always prefer the live tree script when present (stale /usr/local/bin copies
     // used to hard-exec gamescope and die in QEMU).
@@ -514,9 +474,9 @@ Item {
       return
     }
     if (item.kind === "settings") {
-      const page = item.settingsPage || item.paneId || "packages-webapps"
-      statusHint = "Opening Settings…"
-      ShellState.openSettings(page)
+      const page = item.settingsPage || item.paneId || "system"
+      statusHint = ""
+      ShellState.openConsoleSettings(page)
       return
     }
     if (item.kind === "action") {
@@ -638,8 +598,30 @@ Item {
         root.isVm = !!caps.isVm
         root.hasSteam = !!caps.steam
         root.hasRetroarch = !!caps.retroarch
-        root.sessionMode = (caps.sessionMode === "gamescope") ? "gamescope" : "seat"
-        root.sessionEffective = (caps.sessionEffective === "gamescope") ? "gamescope" : "seat"
+        root.hasPad = !!caps.pad
+        root.sessionMode = (caps.sessionMode === "session" || caps.sessionMode === "gamescope") ? "session" : "seat"
+        root.sessionEffective = (caps.sessionEffective === "session" || caps.sessionEffective === "gamescope") ? "session" : "seat"
+        root.replacesHyprland = !!caps.replacesHyprland
+      }
+    }
+  }
+
+  Process {
+    id: gamesProc
+    command: [
+      "bash", "-lc",
+      "python3 '" + root.rootDir.replace(/'/g, "'\\''") + "/shell/scripts/proteus-console-games.py' 2>/dev/null"
+    ]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        let data = null
+        try {
+          data = JSON.parse(String(this.text || "").trim())
+        } catch (e) {
+          data = null
+        }
+        if (data && data.ok)
+          root.installedGames = root.hydrateGamesScan(data)
       }
     }
   }
@@ -669,5 +651,8 @@ Item {
     }
   }
 
-  Component.onCompleted: root.refreshAvailability()
+  Component.onCompleted: {
+    root.refreshAvailability()
+    root.refreshGames()
+  }
 }

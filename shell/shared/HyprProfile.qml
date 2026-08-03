@@ -39,7 +39,7 @@ Singleton {
 
   readonly property string activeProfileLabel: root.profileLabel(root.activeProfile)
 
-  readonly property string softHonesty: "Soft Hyprland window-rule profile — not a hard posture switch (use proteus-posture / Enter Console · Enter Host)."
+  readonly property string softHonesty: "Soft window rules only — does not switch Desktop · Console · Host. Use Session posture above."
 
   readonly property string activeDetail: {
     if (!root.activeProfile.length)

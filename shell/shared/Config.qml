@@ -317,8 +317,8 @@ Singleton {
   readonly property string scriptsDir: {
     const root = Quickshell.shellRoot
     if (root && root.length) {
-      const marker = "/apps/proteus-settings"
-      const idx = root.indexOf(marker)
+      // Any product app (apps/proteus-settings, apps/proteus-workloads, …)
+      const idx = root.indexOf("/apps/")
       if (idx >= 0)
         return root.slice(0, idx) + "/shell/scripts"
       if (root.indexOf("/shell") >= 0)

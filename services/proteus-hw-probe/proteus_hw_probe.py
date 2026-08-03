@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -377,7 +378,17 @@ def engine_modules() -> dict[str, bool]:
         "engine.quickshell": which("quickshell"),
         "engine.pipewire": which("pipewire") or which("pw-cli") or which("pactl"),
         "engine.networkmanager": which("nmcli"),
+        "engine.gamescope": which("gamescope"),
     }
+
+
+def has_hw_vulkan() -> bool:
+    """A real GPU Vulkan device (discrete/integrated) — llvmpipe/Venus do not
+    count. Mirrors shell/scripts/proteus-console-capabilities."""
+    if not which("vulkaninfo"):
+        return False
+    out = run(["vulkaninfo", "--summary"], timeout=5.0)
+    return bool(re.search(r"deviceType.*(DISCRETE_GPU|INTEGRATED_GPU)", out))
 
 
 def classify(chassis: str | None, battery: bool, lid: bool) -> str:
@@ -444,6 +455,9 @@ def collect_wave_a() -> dict[str, Any]:
         "tiling": modules["engine.hyprland"] and modules["display.panel"],
         "qs_hyprland": modules["engine.hyprland"] and modules["engine.quickshell"],
         "qs_pipewire": modules["engine.pipewire"],
+        # Console game-scoped compositor path — gamescope + a hardware Vulkan
+        # GPU (bare metal or VFIO passthrough; VirGL VMs stay false).
+        "game_scope": modules["engine.gamescope"] and has_hw_vulkan(),
     }
 
     return {

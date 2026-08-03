@@ -288,6 +288,10 @@ Scope {
     ShellState.consoleSurfaceActive = true
     ShellState.hostSurfaceActive = false
     root.syncNavFade()
+    try {
+      Keybinds.persistAndApply()
+    } catch (e) {
+    }
   }
 
   // Background canvas layer (calm; not desktop wallpaper config)

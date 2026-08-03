@@ -29,9 +29,18 @@ SETTINGS = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "p
 POSTURE = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "proteus" / "posture"
 ROOT = Path(os.environ.get("PROTEUS_ROOT", "/mnt/proteus"))
 SHELL = ROOT / "shell"
+# Gamescope-owned console session (proteus-console-gs-session exports this):
+# chrome IPC targets the Home profile; Guide single = focus-flip via router.
+SESSION_MODE = os.environ.get("PROTEUS_CONSOLE_SESSION") == "gamescope"
+HOME_PROFILE = ROOT / "shell" / "console-home"
 
-# Repeat for held D-pad
-REPEAT_MS = 220
+# Held D-pad: wait REPEAT_DELAY_MS before auto-repeat starts, then fire every
+# REPEAT_MS. Without the initial delay a normal press (~250 ms) fired twice.
+REPEAT_DELAY_MS = 450
+REPEAT_MS = 170
+# Same button within this window = duplicate report (BTN_DPAD_* + ABS_HAT
+# for one press, or a Steam virtual pad mirroring the physical device).
+DEDUPE_MS = 60
 
 
 def log(msg: str) -> None:
@@ -73,6 +82,8 @@ def read_guide_actions() -> tuple[str, str]:
 
 
 def shell_path() -> str:
+    if SESSION_MODE:
+        return str(HOME_PROFILE.resolve() if HOME_PROFILE.exists() else HOME_PROFILE)
     return str(SHELL.resolve() if SHELL.exists() else SHELL)
 
 
@@ -86,9 +97,22 @@ def qs_call(*args: str) -> str:
         return ""
 
 
+def focus_router(cmd: str) -> None:
+    router = ROOT / "shell" / "scripts" / "proteus-console-focus"
+    argv = [str(router) if router.exists() else "proteus-console-focus", cmd]
+    try:
+        subprocess.run(argv, check=False, capture_output=True, timeout=5)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        log(f"focus router failed: {e}")
+
+
 def ipc_guide(action: str) -> None:
     posture = read_posture()
     if posture == "console":
+        if SESSION_MODE and action == "nav":
+            # Gamescope session: Guide single = focus-flip Home ↔ title
+            focus_router("toggle")
+            return
         target = {"nav": "consoleNav", "cc": "consoleCC"}.get(action)
         if target:
             qs_call("chrome", target)
@@ -157,6 +181,8 @@ BTN_MAP = {
     getattr(ecodes, "BTN_WEST", 0x134): "y",
     getattr(ecodes, "BTN_START", 0x13b): "start",
     getattr(ecodes, "BTN_SELECT", 0x13a): "select",
+    getattr(ecodes, "BTN_TL", 0x136): "lb",   # left bumper — console tab cycle
+    getattr(ecodes, "BTN_TR", 0x137): "rb",   # right bumper
     getattr(ecodes, "BTN_DPAD_UP", 0x220): "up",
     getattr(ecodes, "BTN_DPAD_DOWN", 0x221): "down",
     getattr(ecodes, "BTN_DPAD_LEFT", 0x222): "left",
@@ -167,7 +193,32 @@ HAT_X = getattr(ecodes, "ABS_HAT0X", 0x10)
 HAT_Y = getattr(ecodes, "ABS_HAT0Y", 0x11)
 
 
+def acquire_single_instance_lock():
+    """One guide per session — a second listener doubles every pad press.
+
+    Retries briefly: posture flips pkill the old guide right before starting
+    the new one, and the old process may need a moment to release the lock.
+    """
+    import fcntl
+
+    path = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "proteus-guide.lock"
+    for _ in range(20):
+        try:
+            fh = path.open("w")
+            fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fh.write(str(os.getpid()))
+            fh.flush()
+            return fh  # keep open — lock lives with the fd
+        except OSError:
+            time.sleep(0.1)
+    return None
+
+
 def main() -> int:
+    lock = acquire_single_instance_lock()
+    if lock is None:
+        log("another proteus-guide holds the lock — exiting (no double inputs)")
+        return 0
     devices = open_gamepads()
     log(f"watching {len(devices)} gamepad(s) posture={read_posture()}")
 
@@ -178,10 +229,19 @@ def main() -> int:
     last_settings = time.time()
     last_pad_wanted_poll = 0.0
     pad_wanted = False
-    # Held direction for repeat: dir -> last_fire_time
-    held_dir: dict[str, float] = {}
+    # Held direction for repeat: dir -> (pressed_at, last_fire)
+    held_dir: dict[str, tuple[float, float]] = {}
     hat_x = 0
     hat_y = 0
+    # Last press-edge send per button (dedupe duplicate reports)
+    last_sent: dict[str, float] = {}
+
+    def send_pad(btn: str, at: float) -> bool:
+        if at - last_sent.get(btn, 0.0) < DEDUPE_MS / 1000:
+            return False
+        last_sent[btn] = at
+        ipc_pad(btn)
+        return True
 
     from select import select
 
@@ -218,12 +278,15 @@ def main() -> int:
                 ipc_guide(single_action)
             pending_press = 0.0
 
-        # D-pad repeat while held and pad wanted
+        # D-pad repeat while held and pad wanted: initial delay, then interval
         if pad_wanted:
-            for d, t0 in list(held_dir.items()):
-                if (now - t0) * 1000 >= REPEAT_MS:
+            for d, (pressed_at, last_fire) in list(held_dir.items()):
+                if (now - pressed_at) * 1000 < REPEAT_DELAY_MS:
+                    continue
+                if (now - last_fire) * 1000 >= REPEAT_MS:
+                    last_sent[d] = now
                     ipc_pad(d)
-                    held_dir[d] = now
+                    held_dir[d] = (pressed_at, now)
 
         for dev in r:
             try:
@@ -250,37 +313,45 @@ def main() -> int:
                         btn = BTN_MAP.get(event.code)
                         if not btn:
                             continue
-                        if event.value == 1:
+                        if event.value == 1 and pad_wanted:
+                            fired = send_pad(btn, now)
                             if btn in ("up", "down", "left", "right"):
-                                if pad_wanted:
-                                    ipc_pad(btn)
-                                    held_dir[btn] = now
-                            elif pad_wanted:
-                                ipc_pad(btn)
+                                if fired:
+                                    held_dir[btn] = (now, now)
+                                else:
+                                    # Duplicate report — keep the existing hold
+                                    held_dir.setdefault(btn, (now, now))
                         elif event.value == 0 and btn in held_dir:
                             del held_dir[btn]
 
                     elif event.type == ecodes.EV_ABS and pad_wanted:
+
+                        def hat_dir(pressed: str, released: str) -> None:
+                            held_dir.pop(released, None)
+                            if send_pad(pressed, now):
+                                held_dir[pressed] = (now, now)
+                            else:
+                                # Duplicate of a BTN_DPAD press — keep the hold
+                                held_dir.setdefault(pressed, (now, now))
+
                         if event.code == HAT_X:
                             hat_x = event.value
-                            for d in ("left", "right"):
-                                held_dir.pop(d, None)
-                            if hat_x < 0:
-                                ipc_pad("left")
-                                held_dir["left"] = now
-                            elif hat_x > 0:
-                                ipc_pad("right")
-                                held_dir["right"] = now
+                            if hat_x == 0:
+                                for d in ("left", "right"):
+                                    held_dir.pop(d, None)
+                            elif hat_x < 0:
+                                hat_dir("left", "right")
+                            else:
+                                hat_dir("right", "left")
                         elif event.code == HAT_Y:
                             hat_y = event.value
-                            for d in ("up", "down"):
-                                held_dir.pop(d, None)
-                            if hat_y < 0:
-                                ipc_pad("up")
-                                held_dir["up"] = now
-                            elif hat_y > 0:
-                                ipc_pad("down")
-                                held_dir["down"] = now
+                            if hat_y == 0:
+                                for d in ("up", "down"):
+                                    held_dir.pop(d, None)
+                            elif hat_y < 0:
+                                hat_dir("up", "down")
+                            else:
+                                hat_dir("down", "up")
             except OSError:
                 try:
                     devices.remove(dev)

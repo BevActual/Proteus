@@ -8,7 +8,8 @@ import "shared"
 Singleton {
   id: root
 
-  property string page: "style"
+  // Cold default comes from EnvGate.defaultSettingsPage() when no deep link.
+  property string page: ""
 
   // Install… seed travels with navigation (same singleton as page) so sticky
   // Software loaders always see it — do not rely on Packages alone.
@@ -153,8 +154,10 @@ Singleton {
       } catch (e) {
       }
     }
-    if (!id.length)
+    if (!id.length) {
+      go(EnvGate.defaultSettingsPage())
       return
+    }
     go(id)
   }
 

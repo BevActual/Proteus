@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 # System session wrapper installed to /usr/local/bin/proteus-session
 #
-# Contract (Session start hygiene #1167):
+# Contract (Session start hygiene #1167 · Phase 3 engine switch):
 #   - Best-effort mount /mnt/proteus when that is the product root
 #   - Export PROTEUS_SURFACE, PROTEUS_ROOT, QS_ICON_THEME, PATH for chrome/scripts
-#   - Prefer start-hyprland (watchdog) when available; else bare Hyprland
+#   - ENGINE SWITCH — the only place a session compositor is chosen:
+#       posture console + session Fact `session` + usable Gamescope
+#         → proteus-console-gs-session (Gamescope owns the session)
+#       everything else → start-hyprland (watchdog) / bare Hyprland
+#   - Gamescope fast-fail degrades the session Fact to `seat` and falls back
+#     to Hyprland in the SAME login — a bad console Fact can never loop the
+#     greeter or lock the user out of a session
 #   - Never exec-once a terminal from this wrapper (Dock / Super+Return only)
 set -euo pipefail
 
@@ -30,6 +36,9 @@ case "${PROTEUS_SURFACE:-}" in
 esac
 [[ "${PROTEUS_SURFACE}" == "couch" ]] && PROTEUS_SURFACE=console
 export PROTEUS_SURFACE
+# Managed-session marker — proteus-posture only terminates sessions started
+# through this wrapper (protects nested/dev Hyprland on a workstation).
+export PROTEUS_SESSION=1
 # Dock / Super+Return → proteus-terminal (Ghostty + VM GL workaround)
 export PATH="/usr/local/bin:${PROTEUS_ROOT}/shell/scripts:${PATH}"
 # Quickshell chrome icons (Papirus); avoids Adwaita-only / missing glyphs
@@ -57,6 +66,58 @@ resolve_start_hyprland() {
   done
   return 1
 }
+
+# --- Phase 3 engine switch: Gamescope-owned console session -----------------
+console_session_wanted() {
+  [[ "${PROTEUS_SURFACE}" == "console" ]] || return 1
+  local caps_bin gs_session
+  for caps_bin in proteus-console-capabilities \
+    "${PROTEUS_ROOT}/shell/scripts/proteus-console-capabilities"; do
+    command -v "${caps_bin}" >/dev/null 2>&1 || [[ -x "${caps_bin}" ]] || continue
+    if "${caps_bin}" 2>/dev/null | grep -q '"sessionEffective": "session"'; then
+      return 0
+    fi
+    return 1
+  done
+  return 1
+}
+
+degrade_session_fact() {
+  local fact="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/console-session-mode"
+  mkdir -p "$(dirname "${fact}")"
+  printf 'seat\n' >"${fact}"
+  echo "proteus-session: gamescope session failed fast — session Fact degraded to seat" >&2
+}
+
+if console_session_wanted; then
+  GS_SESSION=""
+  for c in proteus-console-gs-session \
+    "${PROTEUS_ROOT}/shell/scripts/proteus-console-gs-session"; do
+    if command -v "${c}" >/dev/null 2>&1; then
+      GS_SESSION="$(command -v "${c}")"
+      break
+    elif [[ -x "${c}" ]]; then
+      GS_SESSION="${c}"
+      break
+    fi
+  done
+  if [[ -n "${GS_SESSION}" ]]; then
+    _gs_start="$(date +%s)"
+    "${GS_SESSION}"
+    _gs_rc=$?
+    _gs_ran=$(( $(date +%s) - _gs_start ))
+    # Normal end (Home exit / posture flip) → end the session (greeter).
+    if [[ "${_gs_rc}" -eq 0 || "${_gs_ran}" -ge 10 ]]; then
+      exit "${_gs_rc}"
+    fi
+    # Fast nonzero exit = engine failed to come up. Degrade to the interim
+    # seat path and continue into Hyprland in this same login.
+    degrade_session_fact
+  else
+    echo "proteus-session: gamescope session wanted but proteus-console-gs-session missing — falling back to Hyprland" >&2
+  fi
+fi
+# -----------------------------------------------------------------------------
 
 if start_hypr="$(resolve_start_hyprland)"; then
   exec "${start_hypr}"

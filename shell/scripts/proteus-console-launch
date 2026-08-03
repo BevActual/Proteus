@@ -116,6 +116,12 @@ if [[ ! -x "${SESSION}" ]]; then
   SESSION="$(command -v proteus-console-session || true)"
 fi
 
+# Gamescope-owned session (Phase 3): the session compositor IS gamescope —
+# never nest a second gamescope around a title (GS-in-GS).
+if [[ "${PROTEUS_CONSOLE_SESSION:-}" == "gamescope" && "${USE_GAMESCOPE}" -eq 1 ]]; then
+  USE_GAMESCOPE=0
+fi
+
 if [[ "${USE_GAMESCOPE}" -eq 1 ]]; then
   if gamescope_usable; then
     GS_FLAGS=(-f)

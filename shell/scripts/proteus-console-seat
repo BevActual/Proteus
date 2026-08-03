@@ -281,6 +281,44 @@ fi
 
 stop_seat
 : >"${LOG}"
+
+# ---- Gamescope-owned session (Phase 3): titles are siblings of Home on the
+# gamescope display. No Hyprland map/fullscreen; focus rides the router
+# (GAMESCOPECTRL_BASELAYER_APPID). proteus-console-launch refuses GS-in-GS.
+if [[ "${PROTEUS_CONSOLE_SESSION:-}" == "gamescope" ]]; then
+  FOCUS="${HERE}/proteus-console-focus"
+  [[ -x "${FOCUS}" ]] || FOCUS="$(command -v proteus-console-focus || true)"
+  TITLE_LABEL="${DESKTOP_ID:-${LAUNCH_ARGS[*]:-Title}}"
+  log "session launch: ${LAUNCH} ${LAUNCH_ARGS[*]} (gamescope session)"
+  set -m
+  (
+    exec "${LAUNCH}" "${LAUNCH_ARGS[@]}"
+  ) &
+  CHILD=$!
+  echo "${CHILD}" >"${PIDFILE}"
+  echo "$(ps -o pgid= -p "${CHILD}" 2>/dev/null | tr -d ' ')" >"${PGIDFILE}" || true
+  log "child pid=${CHILD}"
+  if [[ -n "${FOCUS}" ]]; then
+    # tag-pid retries while the window maps, then raise the title.
+    "${FOCUS}" tag-pid "${CHILD}" "${PROTEUS_TITLE_APPID:-7692000}" "${TITLE_LABEL}" \
+      >/dev/null 2>&1 || true
+    "${FOCUS}" title >/dev/null 2>&1 || true
+  fi
+  # Supervise: seat ends when the launch process tree exits.
+  while kill -0 "${CHILD}" 2>/dev/null; do
+    sleep 0.8
+  done
+  wait "${CHILD}" 2>/dev/null || true
+  log "session seat exited — back to Home"
+  if [[ -n "${FOCUS}" ]]; then
+    "${FOCUS}" clear >/dev/null 2>&1 || true
+    "${FOCUS}" home >/dev/null 2>&1 || true
+  fi
+  rm -f "${PIDFILE}" "${ADDRFILE}" "${PGIDFILE}"
+  exit 0
+fi
+# ---- interim (Hyprland kiosk) path below ----
+
 ensure_console_hypr_profile
 log "launch: ${LAUNCH} ${LAUNCH_ARGS[*]}"
 log "expect class='${EXPECT_CLASS}' title='${EXPECT_TITLE}' timeout=${TIMEOUT}s"

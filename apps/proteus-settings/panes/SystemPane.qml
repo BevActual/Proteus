@@ -6,7 +6,7 @@ import "../kit"
 import ".." // root module — SettingsNav singleton
 
 // About: product identity · machine facts · load strip · Mission Center ·
-// hard Session posture + soft Hyprland profile.
+// hard Session posture + Advanced soft Hyprland window rules (collapsed).
 // Session power actions live under Users only (SETTINGS-IA §2) — not linked here.
 ColumnLayout {
   id: root
@@ -14,6 +14,7 @@ ColumnLayout {
   spacing: Theme.spaceMd
 
   property bool active: false
+  property bool advancedHyprOpen: false
   signal requestGo(string id)
 
   readonly property string hardwareSummary: {
@@ -401,7 +402,7 @@ ColumnLayout {
       label: "Confirm hard switch"
       hint: "Restart chrome as "
           + SessionPosture.postureLabel(SessionPosture.pendingPosture)
-          + " — soft profile picker below will not do this"
+          + " — Advanced window rules below will not do this"
       showSeparator: true
       RowLayout {
         spacing: Theme.spaceSm
@@ -455,9 +456,24 @@ ColumnLayout {
   }
 
   SettingsGroup {
-    title: "Hyprland profile"
+    title: "Advanced · window rules"
 
     SettingsFormRow {
+      label: root.advancedHyprOpen ? "Hide Hyprland profile" : "Show Hyprland profile"
+      hint: "Soft window-rule fragment only — not Desktop · Console · Host exit"
+      showSeparator: root.advancedHyprOpen
+      interactive: true
+      onActivated: root.advancedHyprOpen = !root.advancedHyprOpen
+      Text {
+        text: root.advancedHyprOpen ? "▾" : "›"
+        color: Theme.textMute
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+      }
+    }
+
+    SettingsFormRow {
+      visible: root.advancedHyprOpen
       label: "Profile"
       hint: HyprProfile.busy
           ? "Applying…"
@@ -480,14 +496,15 @@ ColumnLayout {
     }
 
     SettingsFormRow {
-      visible: HyprProfile.statusNote.length > 0 && !HyprProfile.error.length
+      visible: root.advancedHyprOpen
+          && HyprProfile.statusNote.length > 0 && !HyprProfile.error.length
       label: "Status"
       hint: HyprProfile.statusNote
       showSeparator: HyprProfile.error.length > 0 || HyprProfile.helperMissing
     }
 
     SettingsFormRow {
-      visible: HyprProfile.error.length > 0
+      visible: root.advancedHyprOpen && HyprProfile.error.length > 0
       label: "Error"
       hint: HyprProfile.error
       labelColor: Theme.danger
@@ -495,7 +512,7 @@ ColumnLayout {
     }
 
     SettingsFormRow {
-      visible: HyprProfile.helperMissing
+      visible: root.advancedHyprOpen && HyprProfile.helperMissing
       label: "Set up desktop conf…"
       hint: (HyprProfile.helperHint.length ? HyprProfile.helperHint + " · " : "")
           + "Terminal helper · not a Software package"
@@ -515,9 +532,10 @@ ColumnLayout {
     Layout.fillWidth: true
     Layout.maximumWidth: 520
     text: "Fact: identity from os-release · hostname · /proc load · hw-probe.json · "
-        + "Session posture = hard proteus-posture (chrome restart) · Hyprland profile "
-        + "= soft window rules only. Activity Monitor opens Mission Center when "
-        + "installed — Settings does not embed a live dashboard."
+        + "Session posture = hard proteus-posture (chrome restart) · Advanced "
+        + "Hyprland profile = soft window rules only (not mode exit). Activity "
+        + "Monitor opens Mission Center when installed — Settings does not embed "
+        + "a live dashboard."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11

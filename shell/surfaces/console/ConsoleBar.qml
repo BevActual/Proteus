@@ -2,27 +2,34 @@ import QtQuick
 import QtQuick.Layouts
 import "../../shared"
 
-// Slim top chrome — destinations (Library / Search) + status + CC (not tab pills).
+// Top destinations: Games · Media · Apps · Search · Settings (+ status / clock).
+// Control Center is pad/Guide only — no corner launch button.
 Item {
   id: root
   height: Math.max(44, Theme.barHeight + 4)
 
-  property string tab: "home" // home | library | search
-  // focusedSlot: 0 home, 1 library, 2 search, 3 cc
+  property string tab: "games" // games | media | apps | search | settings
+  // focusedSlot: 0 games, 1 media, 2 apps, 3 search, 4 settings
   property int focusedSlot: -1
-  // Phase 2 Gamescope nested-session toggle (visible when Vulkan usable)
   property bool sessionToggleVisible: false
-  property string sessionMode: "seat" // seat | gamescope
+  property string sessionMode: "seat"
   property string sessionEffective: "seat"
 
   signal tabSelected(string id)
-  signal controlCenterRequested()
   signal sessionToggleRequested()
 
   readonly property int barTextStyle: Theme.menuBarNeedsLegibility ? Text.Outline : Text.Normal
   readonly property color barTextStyleColor: Theme.light
       ? Qt.rgba(1, 1, 1, 0.72)
       : Qt.rgba(0, 0, 0, 0.55)
+
+  readonly property var destinations: [
+    { id: "games", label: "Games", slot: 0 },
+    { id: "media", label: "Media", slot: 1 },
+    { id: "apps", label: "Apps", slot: 2 },
+    { id: "search", label: "Search", slot: 3 },
+    { id: "settings", label: "Settings", slot: 4 }
+  ]
 
   readonly property string clockText: {
     const d = clock.date
@@ -75,7 +82,7 @@ Item {
     spacing: Theme.spaceLg
 
     Row {
-      spacing: Theme.spaceMd
+      spacing: Theme.spaceSm
       Layout.alignment: Qt.AlignVCenter
 
       Rectangle {
@@ -86,37 +93,11 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
       }
 
-      Text {
-        text: "Proteus"
-        color: Theme.text
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize + 1
-        font.weight: Font.DemiBold
-        style: root.barTextStyle
-        styleColor: root.barTextStyleColor
-        anchors.verticalCenter: parent.verticalCenter
-        opacity: root.focusedSlot === 0 ? 1 : 0.9
-        MouseArea {
-          anchors.fill: parent
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.tabSelected("home")
-        }
-      }
-    }
-
-    Row {
-      spacing: Theme.spaceSm
-      Layout.alignment: Qt.AlignVCenter
-
       Repeater {
-        model: [
-          { id: "library", label: "Library", slot: 1 },
-          { id: "search", label: "Search", slot: 2 }
-        ]
+        model: root.destinations
 
         Text {
           required property var modelData
-          required property int index
           text: modelData.label
           color: root.tab === modelData.id
               ? Theme.accent
@@ -163,15 +144,15 @@ Item {
       radius: 14
       color: sessionMa.containsMouse
           ? Theme.chromeHover
-          : (root.sessionEffective === "gamescope" ? Theme.chromeAccentSoft : "transparent")
+          : (root.sessionEffective === "session" ? Theme.chromeAccentSoft : "transparent")
       border.width: 1
-      border.color: root.sessionEffective === "gamescope" ? Theme.accent : Theme.chromeBorder
+      border.color: root.sessionEffective === "session" ? Theme.accent : Theme.chromeBorder
 
       Text {
         id: sessionLabel
         anchors.centerIn: parent
-        text: root.sessionEffective === "gamescope" ? "Gamescope" : "Seat"
-        color: root.sessionEffective === "gamescope" ? Theme.accent : Theme.textDim
+        text: root.sessionEffective === "session" ? "Gamescope" : "Seat"
+        color: root.sessionEffective === "session" ? Theme.accent : Theme.textDim
         font.family: Theme.fontFamily
         font.pixelSize: 10
         font.weight: Font.DemiBold
@@ -193,9 +174,8 @@ Item {
       Layout.preferredHeight: 28
       Layout.preferredWidth: statusRow.implicitWidth + 14
       radius: 14
-      color: statusMa.containsMouse || ShellState.controlCenterOpen
-          ? Theme.chromeHover
-          : "transparent"
+      visible: statusRow.implicitWidth > 0
+      color: ShellState.controlCenterOpen ? Theme.chromeHover : "transparent"
 
       Row {
         id: statusRow
@@ -243,14 +223,6 @@ Item {
           styleColor: root.barTextStyleColor
         }
       }
-
-      MouseArea {
-        id: statusMa
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onClicked: root.controlCenterRequested()
-      }
     }
 
     Text {
@@ -261,29 +233,6 @@ Item {
       style: root.barTextStyle
       styleColor: root.barTextStyleColor
       Layout.alignment: Qt.AlignVCenter
-    }
-
-    Rectangle {
-      width: 28
-      height: 28
-      radius: 14
-      color: root.focusedSlot === 3 ? Theme.chromeAccentSoft : Theme.elevatedFill
-      border.width: 1
-      border.color: root.focusedSlot === 3 ? Theme.accent : Theme.chromeBorder
-      Layout.alignment: Qt.AlignVCenter
-
-      Text {
-        anchors.centerIn: parent
-        text: "⚙"
-        color: Theme.text
-        font.pixelSize: 14
-      }
-
-      MouseArea {
-        anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        onClicked: root.controlCenterRequested()
-      }
     }
   }
 }

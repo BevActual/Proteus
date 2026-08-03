@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# proteus-console-gs-session — Gamescope-owned console session (Phase 3).
+# Launched by proteus-session (login) when posture=console and the session
+# Fact + capabilities resolve to `session`. Gamescope is the session
+# compositor; Proteus Home (Quickshell xdg client) is the primary client and
+# keeps the session alive — Home exit ends the session (back to greeter).
+#
+# Usage:
+#   proteus-console-gs-session            # exec gamescope -- $0 --client
+#   proteus-console-gs-session --client   # inside gamescope: guide + Home
+#
+# Spike learnings (scripts/spike/gs-qs-spike.sh):
+#   - gamescope exports DISPLAY (Xwayland) to children but not WAYLAND_DISPLAY
+#   - Quickshell IPC is display-scoped — guide/helpers must share these
+#   - gamescopereaper must be on PATH
+set -uo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -n "${PROTEUS_ROOT:-}" && -d "${PROTEUS_ROOT}/shell" ]]; then
+  ROOT="${PROTEUS_ROOT}"
+elif [[ -d "${HERE}/../../shell" ]]; then
+  ROOT="$(cd "${HERE}/../.." && pwd)"
+elif [[ -d /mnt/proteus/shell ]]; then
+  ROOT=/mnt/proteus
+else
+  ROOT="${PROTEUS_ROOT:-/mnt/proteus}"
+fi
+export PROTEUS_ROOT="${ROOT}"
+export PATH="/usr/local/bin:${ROOT}/shell/scripts:${ROOT}/vm/guest:${PATH}"
+
+RUNDIR="${XDG_RUNTIME_DIR:-/tmp}"
+LOG="${RUNDIR}/proteus-console-gs-session.log"
+HOME_PROFILE="${ROOT}/shell/console-home"
+
+log() {
+  printf '%s gs-session: %s\n' "$(date -Iseconds 2>/dev/null || date)" "$*" \
+    >>"${LOG}" 2>/dev/null || true
+  echo "gs-session: $*"
+}
+
+find_qs() {
+  command -v qs || command -v quickshell || true
+}
+
+# ---------------------------------------------------------------- client ----
+if [[ "${1:-}" == "--client" ]]; then
+  # We are gamescope's primary child. Export the session displays for every
+  # console process (Home, guide, seats, focus router).
+  if [[ -z "${WAYLAND_DISPLAY:-}" || "${WAYLAND_DISPLAY}" != gamescope-* ]]; then
+    for _s in "${RUNDIR}"/gamescope-*; do
+      [[ -S "${_s}" ]] || continue
+      WAYLAND_DISPLAY="$(basename "${_s}")"
+      break
+    done
+  fi
+  export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-gamescope-0}"
+  export DISPLAY="${DISPLAY:-:1}"
+  export PROTEUS_SURFACE=console
+  export PROTEUS_CONSOLE_SESSION=gamescope
+  log "client up (WAYLAND_DISPLAY=${WAYLAND_DISPLAY} DISPLAY=${DISPLAY})"
+
+  # Guide daemon — pad Guide/focus-flip. Inherits the session displays.
+  # Kill any earlier listener first (script runs as python3; match cmdline)
+  # so pad presses are never forwarded twice.
+  pkill -f 'proteus-guide$' 2>/dev/null || true
+  GUIDE=""
+  for c in "${ROOT}/vm/guest/proteus-guide" /usr/local/bin/proteus-guide; do
+    [[ -x "${c}" ]] && GUIDE="${c}" && break
+  done
+  if [[ -n "${GUIDE}" ]] && python3 -c "import evdev" >/dev/null 2>&1; then
+    setsid env PROTEUS_ROOT="${ROOT}" "${GUIDE}" >>"${LOG}" 2>&1 &
+    log "proteus-guide started"
+  else
+    log "proteus-guide unavailable (missing script or python-evdev)"
+  fi
+
+  QS_BIN="$(find_qs)"
+  if [[ -z "${QS_BIN}" ]]; then
+    log "FATAL quickshell not found — cannot start Proteus Home"
+    exit 127
+  fi
+  if [[ ! -f "${HOME_PROFILE}/shell.qml" ]]; then
+    log "FATAL Home profile missing at ${HOME_PROFILE}"
+    exit 127
+  fi
+
+  # Home is the session's primary client — when it exits, so does the session.
+  # Xwayland (xcb) so the focus router can tag Home with a STEAM_GAME appid
+  # X atom (Gamescope's baselayer focus only sees X windows). Override with
+  # PROTEUS_HOME_QPA=wayland to experiment with the native path.
+  log "starting Proteus Home (${HOME_PROFILE})"
+  exec env QT_QPA_PLATFORM="${PROTEUS_HOME_QPA:-xcb}" "${QS_BIN}" -p "${HOME_PROFILE}"
+fi
+
+# ------------------------------------------------------------------ host ----
+command -v gamescope >/dev/null 2>&1 || { log "FATAL gamescope not installed"; exit 127; }
+
+# Session flags from the Fact helper (empty ⇒ caller should not be here, but
+# stay defensive: default fullscreen).
+SESSION_HELPER="${ROOT}/shell/scripts/proteus-console-session"
+FLAGS_STR=""
+if [[ -x "${SESSION_HELPER}" ]]; then
+  FLAGS_STR="$("${SESSION_HELPER}" resolve-flags 2>/dev/null || true)"
+fi
+[[ -n "${FLAGS_STR}" ]] || FLAGS_STR="-f"
+read -r -a FLAGS <<<"${FLAGS_STR}"
+
+log "starting gamescope session (flags: ${FLAGS[*]})"
+exec gamescope "${FLAGS[@]}" -- "${BASH_SOURCE[0]}" --client

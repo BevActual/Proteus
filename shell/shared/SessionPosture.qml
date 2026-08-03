@@ -42,7 +42,7 @@ Singleton {
 
   readonly property string activePostureLabel: root.postureLabel(root.activePosture)
 
-  readonly property string hardHonesty: "Hard session posture — restarts chrome (proteus-posture). Soft Hyprland profile below does not flip posture."
+  readonly property string hardHonesty: "Hard session posture — restarts chrome (proteus-posture). Advanced Hyprland window rules do not exit or enter a mode."
 
   readonly property bool confirmOpen: root.pendingPosture.length > 0
       && root.pendingPosture !== root.activePosture
@@ -144,7 +144,12 @@ Singleton {
     root.error = ""
     root.statusNote = "Switching to " + root.postureLabel(id) + "…"
     root.pendingPosture = ""
-    setProc.command = ["bash", root.helperPath, id]
+    // From Settings UI the operator has a seat — host attaches ops chrome.
+    // CLI `proteus-posture host` still defaults headless (seat-driven).
+    if (id === "host")
+      setProc.command = ["bash", root.helperPath, "host", "--chrome"]
+    else
+      setProc.command = ["bash", root.helperPath, id]
     setProc.running = false
     setProc.running = true
   }

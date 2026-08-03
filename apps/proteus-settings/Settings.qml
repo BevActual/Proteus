@@ -746,6 +746,13 @@ Item {
     }
   }
 
+  Connections {
+    target: SessionPosture
+    function onActivePostureChanged() {
+      root.ensureSettingsPageValid()
+    }
+  }
+
   Keys.onEscapePressed: {
     if (root.jumpOpen) {
       root.closeJump()

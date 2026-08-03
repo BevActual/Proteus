@@ -16,7 +16,7 @@
 #                                 lists with --needed (repair or full run)
 #   PROTEUS_INSTALL_LOG=path      append log (default /var/log/proteus-install.log as root)
 #
-# Stages: preflight → packaging → config → hardware → login → apps → desktop → console → post-install
+# Stages: preflight → packaging → config → hardware → login → apps → desktop → console → host → post-install
 set -euo pipefail
 
 case "${1:-}" in
@@ -57,7 +57,7 @@ if [[ -z "${PROTEUS_INSTALL_LOG:-}" ]]; then
 fi
 touch "${PROTEUS_INSTALL_LOG}" 2>/dev/null || true
 
-STAGES=(preflight packaging config hardware login apps desktop console post-install)
+STAGES=(preflight packaging config hardware login apps desktop console host post-install)
 if [[ "${PROTEUS_INSTALL_REPAIR:-0}" == "1" ]]; then
   # Fast preset: configs + helpers + console kit only; packages untouched.
   STAGES=(config apps console)
@@ -129,6 +129,9 @@ if [[ "${PROTEUS_INSTALL_UPDATE:-0}" == "1" ]]; then
     fi
     if ! proteus_stage_skipped console; then
       proteus_pacman_refresh_list "${PROTEUS_INSTALL}/proteus-console.packages"
+    fi
+    if ! proteus_stage_skipped host; then
+      proteus_pacman_refresh_list "${PROTEUS_INSTALL}/proteus-host.packages"
     fi
     proteus_log "── update ── OK"
   else

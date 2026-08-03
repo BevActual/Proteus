@@ -22,6 +22,17 @@ do
   grep -qF "${needle}" "${SESSION}" || fail "proteus-session missing: ${needle}"
 done
 
+# Phase 3 engine switch: console posture + usable game_scope → Gamescope
+# session, with fast-fail degrade back to the seat/Hyprland path.
+for needle in \
+  'PROTEUS_SESSION=1' \
+  'console_session_wanted' \
+  'proteus-console-gs-session' \
+  'degrade_session_fact'
+do
+  grep -qF "${needle}" "${SESSION}" || fail "proteus-session missing engine switch: ${needle}"
+done
+
 # Must not launch a terminal from the session wrapper (ignore comments).
 if grep -Eiq '^[[:space:]]*exec[[:space:]]+.*(ghostty|proteus-terminal)' "${SESSION}"; then
   fail "proteus-session must not exec a terminal"

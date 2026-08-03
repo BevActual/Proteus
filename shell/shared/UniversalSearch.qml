@@ -35,7 +35,7 @@ QtObject {
     {
       id: "enter-host",
       name: "Enter Host",
-      subtitle: "Action · proteus-posture host",
+      subtitle: "Action · proteus-posture host --chrome",
       icon: "computer",
       keywords: "host ops server lean posture hard switch",
       destructive: false
@@ -288,11 +288,11 @@ QtObject {
     else if (id === "enter-console")
       root.runPosture("console")
     else if (id === "enter-host")
-      root.runPosture("host")
+      root.runPosture("host --chrome")
     else if (id === "enter-desktop")
       root.runPosture("desktop")
     else if (id === "settings")
-      ShellState.openSettings()
+      ShellState.openSettingsSmart()
     else if (id === "control-center")
       ShellState.openControlCenter()
     else if (id === "dnd-toggle")
@@ -307,17 +307,17 @@ QtObject {
       if (LocalSend.available)
         LocalSend.open()
       else
-        ShellState.openSettings("network-localsend")
+        ShellState.openSettingsSmart("network-localsend")
     } else if (id === "settings-wifi")
-      ShellState.openSettings("network-wifi")
+      ShellState.openSettingsSmart("network-wifi")
     else if (id === "settings-displays")
-      ShellState.openSettings("displays")
+      ShellState.openSettingsSmart("displays")
     else if (id === "settings-mixer")
-      ShellState.openSettings("sound-matrix")
+      ShellState.openSettingsSmart("sound-matrix")
     else if (id === "settings-privacy")
-      ShellState.openSettings("privacy")
+      ShellState.openSettingsSmart("privacy")
     else if (id === "settings-updates")
-      ShellState.openSettings("packages-updates")
+      ShellState.openSettingsSmart("packages-updates")
     else if (id === "clear-notifications")
       Notifications.clearAll()
     else if (id === "calendar-glance")

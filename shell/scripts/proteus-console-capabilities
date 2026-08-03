@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# proteus-console-capabilities — JSON probe for console seat honesty.
+# proteus-console-capabilities — JSON probe for console seat/session honesty.
 # Usage: proteus-console-capabilities
-# stdout: one JSON object (vulkan, gamescopeUsable, isVm, steam, retroarch, pad, gamescope)
+# stdout: one JSON object (vulkan, vulkanHw, gamescope, gamescopeUsable,
+#         gameScope, isVm, steam, retroarch, pad, sessionMode,
+#         sessionEffective, replacesHyprland)
 set -euo pipefail
 
 is_vm() {
@@ -18,16 +20,16 @@ has_vulkan() {
     n="$(vulkaninfo --summary 2>/dev/null | grep -cE 'GPU[0-9]+|deviceName' || true)"
     [[ "${n}" -gt 0 ]] && return 0
   fi
-  # Fallback: enumerate via python if available
-  python3 - <<'PY' 2>/dev/null && return 0
-import sys
-try:
-    import vulkan  # type: ignore
-except Exception:
-    sys.exit(1)
-sys.exit(1)
-PY
   return 1
+}
+
+has_hw_vulkan() {
+  # A real GPU Vulkan device (discrete or integrated) — llvmpipe (CPU) and
+  # Venus (VIRTUAL_GPU) do not count. This is what makes GPU passthrough
+  # guests eligible for the Gamescope session while VirGL VMs stay interim.
+  command -v vulkaninfo >/dev/null 2>&1 || return 1
+  vulkaninfo --summary 2>/dev/null \
+    | grep -qE 'deviceType.*(DISCRETE_GPU|INTEGRATED_GPU)'
 }
 
 gamescope_bin=0
@@ -35,14 +37,19 @@ command -v gamescope >/dev/null 2>&1 && gamescope_bin=1
 
 vulkan=0
 has_vulkan && vulkan=1
+vulkan_hw=0
+has_hw_vulkan && vulkan_hw=1
 
 isvm=0
 is_vm && isvm=1
 
-# Usable = binary + Vulkan device; VMs opt out unless forced.
+# Usable = binary + a hardware Vulkan device (bare metal or passthrough).
+# PROTEUS_FORCE_GAMESCOPE=1 accepts any Vulkan device (e.g. Venus bring-up).
 gamescope_usable=0
-if [[ "${gamescope_bin}" -eq 1 && "${vulkan}" -eq 1 ]]; then
-  if [[ "${isvm}" -eq 0 || "${PROTEUS_FORCE_GAMESCOPE:-}" == "1" ]]; then
+if [[ "${gamescope_bin}" -eq 1 ]]; then
+  if [[ "${vulkan_hw}" -eq 1 ]]; then
+    gamescope_usable=1
+  elif [[ "${vulkan}" -eq 1 && "${PROTEUS_FORCE_GAMESCOPE:-}" == "1" ]]; then
     gamescope_usable=1
   fi
 fi
@@ -74,32 +81,40 @@ PY
   pad=1
 fi
 
+# Session Fact: seat (interim Hypr kiosk + supervised seats) | session
+# (Gamescope owns the console session). Legacy value `gamescope` (Phase 2
+# nested preference) maps to `session`.
 MODE="seat"
 FACT="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/console-session-mode"
 if [[ -f "${FACT}" ]]; then
   MODE="$(tr -d '[:space:]' <"${FACT}" || true)"
 fi
 case "${MODE}" in
-  seat|gamescope) ;;
+  seat) ;;
+  session|gamescope) MODE=session ;;
   *) MODE=seat ;;
 esac
 EFFECTIVE="seat"
-if [[ "${MODE}" == "gamescope" && "${gamescope_usable}" -eq 1 ]]; then
-  EFFECTIVE="gamescope"
+if [[ "${MODE}" == "session" && "${gamescope_usable}" -eq 1 ]]; then
+  EFFECTIVE="session"
 fi
+REPLACES=0
+[[ "${EFFECTIVE}" == "session" ]] && REPLACES=1
 
 python3 - <<PY
 import json
 print(json.dumps({
     "vulkan": bool(${vulkan}),
+    "vulkanHw": bool(${vulkan_hw}),
     "gamescope": bool(${gamescope_bin}),
     "gamescopeUsable": bool(${gamescope_usable}),
+    "gameScope": bool(${gamescope_usable}),
     "isVm": bool(${isvm}),
     "steam": bool(${steam}),
     "retroarch": bool(${retroarch}),
     "pad": bool(${pad}),
     "sessionMode": "${MODE}",
     "sessionEffective": "${EFFECTIVE}",
-    "replacesHyprland": False,
+    "replacesHyprland": bool(${REPLACES}),
 }))
 PY

@@ -62,7 +62,7 @@
         "nav": ["dense", "sparse"],
         "panes": ["full", "minimal"]
       },
-      "reason": "Needs a display — remote via PROTEUS_REMOTE_PROBE stub until Wave B sensor"
+      "reason": "Store backend (install/update) — launch titles from Console shelves when possible; needs display"
     },
     {
       "id": "proteus-settings",

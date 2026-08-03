@@ -25,6 +25,10 @@ Scope {
     ShellState.hostSurfaceActive = false
     // Multi-head Spaces: status + hotplug ensure (SpacesDisplays → proteus-workspace)
     SpacesDisplays.refresh()
+    try {
+      Keybinds.persistAndApply()
+    } catch (e) {
+    }
   }
 
   GlobalShortcut {

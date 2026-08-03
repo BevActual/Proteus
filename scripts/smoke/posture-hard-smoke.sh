@@ -20,6 +20,16 @@ grep -q 'PROTEUS_SKIP_SESSION_LOCK=1' "${POSTURE}" \
   || die "proteus-posture must skip cold-boot lock on chrome restart"
 ok "helpers + console.conf"
 
+# Uniform hard flip contract: managed sessions (PROTEUS_SESSION=1) end the
+# graphical session — greeter shows, proteus-session picks the next engine.
+grep -q 'end_session' "${POSTURE}" \
+  || die "proteus-posture missing end_session (uniform flip)"
+grep -q 'loginctl terminate-session' "${POSTURE}" \
+  || die "proteus-posture must terminate-session for managed flips"
+grep -q 'PROTEUS_SESSION' "${POSTURE}" \
+  || die "proteus-posture must gate session exit on PROTEUS_SESSION"
+ok "uniform flip contract (static)"
+
 # usage exits 2
 set +e
 "${POSTURE}" >/dev/null 2>&1
@@ -31,9 +41,10 @@ ok "proteus-posture usage"
 TMP="$(mktemp -d)"
 trap 'rm -rf "${TMP}"' EXIT
 
-# Isolate completely from the dogfood session
+# Isolate completely from the dogfood session — force the dev fallback path
+# so a managed guest session never gets terminated by this smoke.
 export HOME="${TMP}"
-unset XDG_CONFIG_HOME XDG_RUNTIME_DIR || true
+unset XDG_CONFIG_HOME XDG_RUNTIME_DIR PROTEUS_SESSION || true
 export XDG_RUNTIME_DIR="${TMP}/run"
 mkdir -p "${HOME}/.config/proteus" "${HOME}/.config/hypr/profiles" "${XDG_RUNTIME_DIR}"
 
@@ -82,6 +93,24 @@ bash "${FAKE_ROOT}/vm/guest/proteus-posture" host || true
 got="$(tr -d '[:space:]' <"${HOME}/.config/proteus/posture")"
 [[ "${got}" == "host" ]] || die "expected Fact host, got '${got}'"
 ok "Fact write host"
+
+# Managed flip: PROTEUS_SESSION=1 must end the session via loginctl instead
+# of the in-place chrome restart.
+cat >"${TMP}/bin/loginctl" <<'EOF'
+#!/usr/bin/env bash
+echo "loginctl stub: $*" >>"${HOME}/loginctl-stub.log"
+exit 0
+EOF
+chmod +x "${TMP}/bin/loginctl"
+PROTEUS_SESSION=1 XDG_SESSION_ID=42 \
+  bash "${FAKE_ROOT}/vm/guest/proteus-posture" console || true
+sleep 1
+grep -q 'terminate-session 42' "${HOME}/loginctl-stub.log" 2>/dev/null \
+  || die "managed flip must loginctl terminate-session"
+got="$(tr -d '[:space:]' <"${HOME}/.config/proteus/posture")"
+[[ "${got}" == "console" ]] || die "managed flip must still write Fact (got '${got}')"
+rm -f "${TMP}/bin/loginctl" "${HOME}/loginctl-stub.log"
+ok "managed flip → session exit (loginctl stub)"
 
 # Pointer migration media → console
 printf 'source = ~/.config/hypr/profiles/media.conf\n' >"${HOME}/.config/hypr/proteus-profile.conf"
@@ -209,7 +238,19 @@ ok "console launch kit + Library model"
 grep -q 'function pad' "${ROOT}/shell/surfaces/DesktopShell.qml" || die "DesktopShell missing chrome pad IPC"
 grep -q 'function pad' "${ROOT}/shell/surfaces/ConsoleShell.qml" || die "ConsoleShell missing chrome pad IPC"
 grep -q 'handlePad' "${ROOT}/shell/shared/ShellState.qml" || die "ShellState missing handlePad"
-grep -q 'padWanted' "${ROOT}/vm/guest/proteus-guide" || die "proteus-guide missing padWanted poll"
+grep -q 'settingsFaceHubs\|availableSettingsPanesForFace\|settingsFaceConsoleHubs' \
+  "${ROOT}/shell/shared/EnvGate.qml" \
+  || die "EnvGate missing Settings face hub API"
+grep -q 'Different Settings faces\|settingsFaceHubs' \
+  "${ROOT}/docs/proteus/POSTURES.md" "${ROOT}/docs/proteus/SETTINGS-IA.md" \
+  || die "docs missing Settings faces lock"
+grep -q 'availableSettingsPanesForFace' \
+  "${ROOT}/shell/surfaces/console/ConsoleAppsModel.qml" \
+  || die "ConsoleAppsModel must use face catalog"
+grep -q 'BTN_TL\|"lb"' "${ROOT}/vm/guest/proteus-guide" \
+  || die "proteus-guide missing bumper map (LB/RB)"
+grep -q 'cycleDestination\|"lb"' "${ROOT}/shell/surfaces/console/ConsoleHome.qml" \
+  || die "ConsoleHome missing LB/RB tab cycle"
 ok "chrome pad IPC contract"
 
 # Control Center Console tile — bash `A && B & || C` is a syntax error (tile no-op).
@@ -249,53 +290,55 @@ grep -q 'UniversalSearch.actionCatalog\|UniversalSearch.runAction' \
   || die "Beacon must consume UniversalSearch allowlist"
 grep -q 'kind === "action"' "${ROOT}/shell/surfaces/console/ConsoleLibrary.qml" \
   || die "ConsoleLibrary missing action activate"
-grep -q 'chromeStyle' "${ROOT}/shell/surfaces/console/ConsoleCard.qml" \
-  || die "ConsoleCard missing chromeStyle"
-grep -q 'contextLine\|padHintLine' "${ROOT}/shell/surfaces/console/ConsoleFooter.qml" \
-  "${ROOT}/shell/surfaces/console/ConsoleHome.qml" \
-  || die "console pad hint context line missing"
+# Shelf-era chrome (Hero / Shelf / Row / Card) is retired — list IA only.
+for gone in ConsoleHero.qml ConsoleShelf.qml ConsoleRow.qml ConsoleCard.qml; do
+  [[ -e "${ROOT}/shell/surfaces/console/${gone}" ]] \
+    && die "shelf-era ${gone} must stay deleted (list IA is the console chrome)"
+done
+# ConsoleFooter returned as status + pad-legend strip (statusHint visible).
+grep -q 'ConsoleFooter' "${ROOT}/shell/surfaces/console/ConsoleHome.qml" \
+  || die "ConsoleHome missing ConsoleFooter status strip"
+grep -q 'statusHint' "${ROOT}/shell/surfaces/console/ConsoleHome.qml" \
+  || die "ConsoleHome must surface library.statusHint"
 ok "console desktop UX parity wires"
 
 CHOME="${ROOT}/shell/surfaces/console/ConsoleHome.qml"
 CAPPS="${ROOT}/shell/surfaces/console/ConsoleAppsModel.qml"
 CLIB="${ROOT}/shell/surfaces/console/ConsoleLibrary.qml"
+CBAR="${ROOT}/shell/surfaces/console/ConsoleBar.qml"
 [[ -f "${ROOT}/shell/surfaces/console/ConsoleLeanSheet.qml" ]] || die "missing ConsoleLeanSheet.qml"
-[[ -f "${ROOT}/shell/surfaces/console/ConsoleShelf.qml" ]] || die "missing ConsoleShelf.qml"
-grep -q 'sectionLabels\|sectionedApps\|gamesShelf\|appsShelf' "${CAPPS}" \
-  || die "ConsoleAppsModel missing library/apps/games shelves"
-grep -q 'isConsoleHomeApp' "${CAPPS}" || die "ConsoleAppsModel missing isConsoleHomeApp curated Home filter"
-grep -q 'appsModel.appsShelf\|appsShelf' "${CHOME}" || die "Home Apps shelf must use individual apps (not appSeats)"
+[[ -f "${ROOT}/shell/surfaces/console/ConsoleSettingsPane.qml" ]] || die "missing ConsoleSettingsPane.qml"
+grep -q 'ConsoleSettingsPane\|focusConsoleSettings\|openConsoleSettings' "${CHOME}" \
+  "${ROOT}/shell/shared/ShellState.qml" \
+  || die "Console in-chrome Settings wiring missing"
+grep -q 'kind === "settings"' "${CLIB}" || die "ConsoleLibrary settings activate missing"
+grep -q 'openConsoleSettings' "${CLIB}" || die "ConsoleLibrary must use openConsoleSettings"
+grep -q 'ShellState.openSettings(page)' "${CLIB}" \
+  && die "ConsoleLibrary must not openSettings for settings kind"
+grep -q 'ConsoleSideList\|ConsoleDetailPane' "${CHOME}" \
+  || die "ConsoleHome must wire SideList + DetailPane"
+grep -q 'gamesList\|mediaList\|settingsList\|isStreamingApp\|isLocalPlayer' "${CAPPS}" \
+  || die "ConsoleAppsModel missing list IA / streaming classifier"
+grep -q 'kind: "section"\|isSection\|settingsCatalog' "${CAPPS}" \
+  || die "ConsoleAppsModel Settings list must group by hub (section headers)"
+grep -q 'mpv' "${CAPPS}" || die "ConsoleAppsModel must denylist mpv from Media"
 grep -q 'appSeats' "${CHOME}" && die "Home still binds curated appSeats — use DesktopEntry cards"
-grep -q 'featuredMetaLine\|shelfItemsAt(shelfIndex)' "${CHOME}" \
-  || die "Hero must track focused card on any shelf"
-grep -q 'peekScale\|shelfActive' "${ROOT}/shell/surfaces/console/ConsoleShelf.qml" \
-  || die "ConsoleShelf missing active/peek sizing"
-# Console cards/hero: no category tag chips (shelf titles carry that job).
-if grep -qE 'displayTag|quietTags' "${ROOT}/shell/surfaces/console/ConsoleCard.qml"; then
-  die "ConsoleCard still has category tag UI"
-fi
-if grep -qE 'tagLbl|readonly property string tag' "${ROOT}/shell/surfaces/console/ConsoleHero.qml"; then
-  die "ConsoleHero still has category tag UI"
-fi
-grep -q 'metaLine' "${ROOT}/shell/surfaces/console/ConsoleHero.qml" \
-  || die "ConsoleHero missing metaLine for cinematic featured"
 grep -q 'searchShortcuts\|Shortcuts' "${CAPPS}" "${CHOME}" || die "Search idle shortcuts missing"
-grep -q 'libSection\|LIBRARY' "${CHOME}" || die "ConsoleHome missing library section chips"
-grep -q 'homeShelves\|focusZone === "shelf"\|shelfIndex' "${CHOME}" || die "ConsoleHome missing shelf Home model"
-grep -q 'bandHeight\|bandFocused' "${ROOT}/shell/surfaces/console/ConsoleHero.qml" \
-  || die "ConsoleHero missing full-bleed band"
-grep -q 'focusScale' "${ROOT}/shell/surfaces/console/ConsoleCard.qml" \
-  "${ROOT}/shell/surfaces/console/ConsoleRow.qml" \
-  || die "Console cards missing focus scale"
-grep -q 'Library\|Search' "${ROOT}/shell/surfaces/console/ConsoleBar.qml" \
-  || die "ConsoleBar missing Library/Search destinations"
+grep -q 'focusZone === "list"\|searchField\|filterField' "${CHOME}" \
+  || die "ConsoleHome missing list IA focus zones"
+grep -q 'Games\|Media\|Search\|Settings' "${CBAR}" \
+  || die "ConsoleBar missing Games/Media/Search/Settings destinations"
+grep -q 'Apps\|id: "apps"' "${CBAR}" || die "ConsoleBar missing Apps destination"
+grep -q 'appsList\|isConsoleAppsDest' "${CAPPS}" \
+  || die "ConsoleAppsModel missing Apps list"
 grep -q 'openMediaSheet\|pickMediaFile\|launchMediaPath' "${CHOME}" "${CLIB}" \
   || die "Media seat submenu wiring missing"
-grep -q 'openDetailsSheet\|ConsoleLeanSheet' "${CHOME}" || die "Hero Details sheet missing"
-grep -q 'webItems\|Web Apps\|webApps' "${CHOME}" "${CAPPS}" || die "Home Web apps shelf missing"
-grep -q 'removeRecent\|allowRemove' "${CHOME}" "${CLIB}" || die "Jump Back In remove missing"
+grep -q 'openDetailsSheet\|ConsoleLeanSheet' "${CHOME}" || die "Details sheet missing"
+grep -q 'availableSettingsPanes\|settingsList\|tab === "settings"' "${CHOME}" "${CAPPS}" \
+  || die "Settings destination missing"
+grep -q 'removeRecent' "${CLIB}" || die "consoleRecents remove helper missing"
 [[ -x "${ROOT}/shell/scripts/proteus-pick-media" ]] || die "proteus-pick-media not executable"
-ok "console shelf Home + submenus"
+ok "console list IA + submenus"
 
 WEBAPP="${ROOT}/shell/scripts/proteus-webapp"
 [[ -x "${WEBAPP}" ]] || die "proteus-webapp not executable"
@@ -323,10 +366,39 @@ grep -q 'hardHonesty' "${SP}" || die "SessionPosture missing hardHonesty"
 grep -q 'Session posture' "${SYS}" || die "SystemPane missing Session posture group"
 grep -q 'SessionPosture.requestSwitch\|SessionPosture.confirmSwitch' "${SYS}" \
   || die "SystemPane missing SessionPosture wiring"
-grep -q 'Hyprland profile' "${SYS}" || die "SystemPane must keep soft Hyprland profile group"
+grep -q 'Advanced · window rules\|advancedHyprOpen' "${SYS}" \
+  || die "SystemPane must bury HyprProfile under Advanced · window rules"
 grep -q 'HyprProfile.set' "${SYS}" || die "SystemPane soft picker must still call HyprProfile.set"
 grep -q 'SessionPosture' "${ROOT}/shell/shared/SystemInfo.qml" \
   || die "SystemInfo should include hard Session posture in copy"
 ok "Settings hard-switch posture picker"
+
+EG="${ROOT}/shell/shared/EnvGate.qml"
+grep -q 'postures: \["desktop"\]' "${EG}" || die "EnvGate desktop hub missing postures desktop-only"
+grep -q 'postures: \["host", "desktop"\]' "${EG}" || die "EnvGate virtualization missing host+desktop postures"
+grep -q 'function defaultSettingsPage' "${EG}" || die "EnvGate missing defaultSettingsPage"
+grep -q 'postureAllowed(spec)' "${EG}" || die "EnvGate paneAvailable must call postureAllowed"
+ok "EnvGate Settings posture gates"
+
+KB="${ROOT}/shell/shared/Keybinds.qml"
+grep -q 'entryAllowedOnPosture' "${KB}" || die "Keybinds missing entryAllowedOnPosture"
+grep -q 'postures: \["desktop"\]' "${KB}" || die "Keybinds missing enter-console/host postures tags"
+grep -q 'postures: \["console"\]' "${KB}" || die "Keybinds missing console-nav postures"
+grep -q 'Filtered for posture' "${KB}" || die "Keybinds.confText must note posture filter"
+grep -q 'Keybinds.persistAndApply' "${ROOT}/shell/surfaces/DesktopShell.qml" \
+  || die "DesktopShell must re-apply keybinds on start"
+grep -q 'Keybinds.persistAndApply' "${ROOT}/shell/surfaces/ConsoleShell.qml" \
+  || die "ConsoleShell must re-apply keybinds on start"
+grep -q 'Keybinds.persistAndApply' "${ROOT}/shell/surfaces/HostShell.qml" \
+  || die "HostShell must re-apply keybinds on start"
+grep -q 'proteus-posture console' "${ROOT}/env/hypr/proteus-keybinds.conf" \
+  || die "seed keybinds missing enter-console"
+grep -q 'proteus-posture host --chrome' "${ROOT}/env/hypr/proteus-keybinds.conf" \
+  || die "seed keybinds missing enter-host --chrome"
+ok "Keybinds posture filter + seed"
+
+grep -q 'Hard switch · restarts chrome' "${ROOT}/shell/surfaces/desktop/QuickSettingsGrid.qml" \
+  || die "CC tiles must say Hard switch · restarts chrome"
+ok "CC hard-switch honesty"
 
 echo "posture-hard-smoke: OK"
