@@ -1,7 +1,7 @@
 import Quickshell
 import QtQuick
 import QtQuick.Layouts
-import "../shared"
+import ".."
 
 // Labeled color preset grid + ColorGraphPicker (optional debounce for wallpaper paths).
 SettingsGroup {

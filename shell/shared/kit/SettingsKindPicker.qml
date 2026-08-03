@@ -1,7 +1,7 @@
 import Quickshell
 import QtQuick
 import QtQuick.Layouts
-import "../shared"
+import ".."
 
 // Shared Appearance Kind list + optional browse-vs-applied banner.
 ColumnLayout {

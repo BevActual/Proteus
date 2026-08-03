@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
-import "../shared"
+import ".."
 
 // Live package-op status + Cancel; keeps last command / error after finish.
 Rectangle {

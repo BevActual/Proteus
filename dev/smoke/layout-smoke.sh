@@ -93,12 +93,40 @@ KIT_REQUIRED=(
   SettingsHubList.qml
   SettingsSegmented.qml
 )
+# kit lives in the shared spine so every posture face can reach it — the console
+# face is a separate renderer under shell/surfaces/console and cannot import
+# across into apps/. Settings keeps a symlink so `import "../kit"` in ~40 panes
+# is unchanged.
 for f in "${KIT_REQUIRED[@]}"; do
-  if [[ ! -f "${SETTINGS}/kit/${f}" ]]; then
-    die "missing apps/proteus-settings/kit/${f}"
+  if [[ ! -f "${SHARED}/kit/${f}" ]]; then
+    die "missing shell/shared/kit/${f}"
   fi
 done
-ok "Settings kit present"
+ok "shared kit present"
+
+if [[ ! -L "${SETTINGS}/kit" ]]; then
+  die "apps/proteus-settings/kit must be a symlink to shell/shared/kit"
+else
+  kit_target="$(readlink -f "${SETTINGS}/kit")"
+  kit_expect="$(readlink -f "${SHARED}/kit")"
+  if [[ "${kit_target}" != "${kit_expect}" ]]; then
+    die "kit symlink → ${kit_target}, expected ${kit_expect}"
+  fi
+  ok "Settings kit → shell/shared/kit"
+fi
+
+# kit sits one level below the flat singleton package, so it reaches it as ".."
+# — not "../shared", which only resolved from the old apps/ location.
+if grep -rq 'import "\.\./shared"' "${SHARED}/kit"/*.qml 2>/dev/null; then
+  die "shell/shared/kit still imports \"../shared\" (resolves to shell/shared/shared)"
+fi
+ok "kit imports the shared package as \"..\""
+
+# Nothing in the shared spine may depend on a product app.
+if grep -rqE 'apps/proteus-' "${SHARED}/kit"/*.qml 2>/dev/null; then
+  die "shell/shared/kit references apps/ (shared spine must not depend on a product app)"
+fi
+ok "kit is app-independent"
 
 if [[ ! -e "${SETTINGS}/shared" ]]; then
   die "apps/proteus-settings/shared missing"

@@ -130,11 +130,12 @@ Proteus/
   shell/              # Quickshell only
     shell.qml         # picks posture/surface loader
     shared/           # flat pragma-Singleton package + named helpers (see FACTS.md)
+      kit/            # shared form vocabulary — reachable by every posture renderer
     surfaces/         # DesktopShell, PhoneShell, … (host later)
     scripts/          # ALL runtime PATH helpers — proteus-session · proteus-posture ·
                       #   proteus-host-seat · proteus-qs · console seats · proteus-snapshot
   apps/
-    proteus-settings/ # Settings.qml + kit/ + panes/*; shared/ → ../../shell/shared
+    proteus-settings/ # Settings.qml + panes/*; shared/ and kit/ → ../../shell/shared[/kit]
   env/                # seeds: hypr/ · ghostty/ · fastfetch/ (see env/README.md)
   install/            # machine-agnostic overlay — VM and bare metal (SoT: INSTALL.md)
     bootstrap.sh      # stage runner; check.sh = host tree gate

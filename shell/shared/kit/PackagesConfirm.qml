@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
-import "../shared"
+import ".."
 
 // Propose → confirm strip. Parent sets title/detail and handles signals.
 Rectangle {

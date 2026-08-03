@@ -199,7 +199,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Window & layout | `shipped` — normal app window (tiles / floats like any other; legacy float+center windowrule removed, config.sh strips it from old installs); wide/tiled windows cap + center the pane column (`paneMaxW` 760; back/title track it, ✕ stays at the corner; Mixer full-bleed); **single-instance** (`proteus-settings` reuses via `nav` IPC + `raise` / hypr focus; `quickshell -n` race guard) |
 | Dual-path chrome (GUI + keyboard) | `shipped` — mouse-legible Settings IA; `Super+,`; Beacon Settings search; Actions (Wi‑Fi / Displays / Mixer / Privacy / Focus / Updates + session); `Super+Shift+F` Focus cycle; Settings `/` typeahead jump; hub lists ↑↓ Enter |
 
-Modular panes: `apps/proteus-settings/panes/*` · form kit: `kit/*` (shell stays in `Settings.qml`).
+Modular panes: `apps/proteus-settings/panes/*` · form kit: **`shell/shared/kit/*`** (symlinked as `apps/proteus-settings/kit` so panes keep `import "../kit"`; it lives in the shared spine so the console renderer under `shell/surfaces/console/` can reach it too). Shell stays in `Settings.qml`.
 Shared spine: flat `shell/shared/` + named helpers — [FACTS.md](./FACTS.md).
 North-star IA: [SETTINGS-IA.md](./SETTINGS-IA.md).
 

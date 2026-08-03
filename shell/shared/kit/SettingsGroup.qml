@@ -1,7 +1,7 @@
 import Quickshell
 import QtQuick
 import QtQuick.Layouts
-import "../shared"
+import ".."
 
 // Apple-style inset group — optional section title + elevated card.
 ColumnLayout {

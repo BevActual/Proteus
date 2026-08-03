@@ -1,5 +1,5 @@
 import QtQuick
-import "../shared"
+import ".."
 
 // Compact speaker mute mark (StatusHud language) — no emoji / icon theme.
 Item {

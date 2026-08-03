@@ -156,7 +156,7 @@ Settings schema; do **not** fake all three jobs with one chrome skin.
 | **Different process trees** | Flip stops the previous mode’s chrome (and host-headless stops QS / wallpaper). Do not hide desktop layers under console/host. |
 | **Different input grammars** | Console: pad/Guide/remote. Host: keyboard/SSH (+ ops UI when attached). Desktop: pointer + chords. Shared keybind catalog filtered by posture. |
 | **Different primary surfaces** | Desktop: bar/dock/Beacon. Console: Games/Media/Search/Settings list launcher (+ in-chrome Settings). Host: Workloads/ops (or none). |
-| **Different Settings faces** | One Facts/apps SoT (`settings.json`, packages, Theme). Three **disconnected** Settings faces: desktop = `proteus-settings` full IA; console = in-chrome living-room hubs; host = ops/Virtualization + core. Not one chrome skin. See [SETTINGS-IA.md](./SETTINGS-IA.md) § Posture faces. |
+| **Different Settings faces** | One Facts/apps SoT (`settings.json`, packages, Theme) and one catalog (`EnvGate.settingsFaceHubs`). Faces disconnect **navigation and input grammar**, not the app: desktop = `proteus-settings` full IA; console = in-chrome living-room hubs (its own renderer under `shell/surfaces/console/`); host = `proteus-settings` filtered to ops + core, with mutations in `proteus-workloads`. Two renderers, three faces — **not** three Settings apps ([SETTINGS-IA.md](./SETTINGS-IA.md) § Posture faces), and not one chrome skin. |
 | **One exit affordance** | Hard switch only (`proteus-posture` / Guide / Desktop tile / Session posture). Soft Hypr profile is Advanced window rules — never “exit mode.” |
 | **Smoke the flip** | Guest smokes assert engines up/down (QS absent on host-headless; console surface; desktop restore). |
 

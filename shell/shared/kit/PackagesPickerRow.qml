@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
-import "../shared"
+import ".."
 
 // One Software list row: checkbox + title/version/desc + optional row action.
 // Works in ColumnLayout (Layout.*) and as a plain Item (implicitHeight).

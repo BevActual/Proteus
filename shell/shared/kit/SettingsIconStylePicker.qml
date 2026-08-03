@@ -1,7 +1,7 @@
 import Quickshell
 import QtQuick
 import QtQuick.Layouts
-import "../shared"
+import ".."
 
 // Compare Default / Dark / Clear / Tinted with live squircle previews.
 ColumnLayout {

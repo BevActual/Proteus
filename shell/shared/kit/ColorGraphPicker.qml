@@ -1,7 +1,7 @@
 import Quickshell
 import QtQuick
 import QtQuick.Layouts
-import "../shared"
+import ".."
 
 // HSV color graph — saturation/value plane + hue strip + hex field.
 ColumnLayout {

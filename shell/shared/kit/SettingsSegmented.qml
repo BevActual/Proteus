@@ -1,7 +1,7 @@
 import Quickshell
 import QtQuick
 import QtQuick.Layouts
-import "../shared"
+import ".."
 
 // Apple-style segmented control.
 // Height must be concrete: Layout.preferredHeight alone is ignored when this

@@ -2,7 +2,7 @@ import Quickshell
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "../shared"
+import ".."
 
 // Searchable font family picker for Appearance → Font.
 ColumnLayout {

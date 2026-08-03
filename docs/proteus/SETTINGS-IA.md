@@ -78,6 +78,32 @@ Do disconnect **primary navigation** and **input grammar**:
 - Face lists are **emphasis** — what Console/Host Settings home shows first.
 - Desktop face remains the deep editor; console/host escape into it when needed.
 
+### What "face" means here — and where each one lives
+
+A face is a **renderer plus a navigation emphasis**, not an app. One catalog
+(`EnvGate.settingsFaceHubs(posture)`) is the SoT; today two renderers serve the
+three faces:
+
+| Face | Renderer | Lives in | Hubs |
+|------|----------|----------|------|
+| desktop | `proteus-settings`, full IA | `apps/proteus-settings/` | whole catalog |
+| console | `ConsoleSettingsPane` + `ConsoleSettingsNet` — in-chrome, pad-first | `shell/surfaces/console/` | 10, then **Full Settings** escapes to the desktop face |
+| host | `proteus-settings` filtered, reached via `openSettingsSmart` | `apps/proteus-settings/` | 9; mutations live in `proteus-workloads` |
+
+Console renders its own surface because the posture is one fullscreen app with a
+pad grammar — that is a **second renderer**, not a second Settings app, and it is
+why the ban above still holds. Host is the asymmetric one: config comes from the
+desktop app while mutations come from Workloads.
+
+> **Open decision.** Whether host should absorb its config face into
+> `proteus-workloads` (one app per posture) is unresolved. It brushes against the
+> "no three Settings apps" rule above and should be decided deliberately rather
+> than drifted into — and not before host has actually been dogfooded.
+
+Shared vocabulary lives in `shell/shared/kit/`, reachable from every renderer.
+It moved out of `apps/proteus-settings/kit/` precisely because the console face
+sits under `shell/` and could not import across into `apps/`.
+
 ---
 
 ## 1. Pattern

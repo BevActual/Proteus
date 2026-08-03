@@ -1,7 +1,7 @@
 import Quickshell
 import QtQuick
 import QtQuick.Layouts
-import "../shared"
+import ".."
 
 // Apple-style grouped list — continuous rounded card, label-only rows.
 // Keyboard: Tab into the list, ↑↓ move, Enter activates (same as click).

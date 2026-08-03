@@ -2,7 +2,7 @@ import Quickshell
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "../shared"
+import ".."
 
 // Trailing popup picker — System Settings density on Theme tokens (not Fusion ComboBox).
 Item {

@@ -1,7 +1,7 @@
 import Quickshell
 import QtQuick
 import QtQuick.Layouts
-import "../shared"
+import ".."
 
 // Row inside a SettingsGroup — label left, trailing control right.
 // MouseArea is the content parent so clicks on label / hint / trailing Text

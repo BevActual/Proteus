@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
-import "../shared"
+import ".."
 
 // Select-all strip + primary Install/Remove button (sits under a capped list viewport).
 ColumnLayout {
