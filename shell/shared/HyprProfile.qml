@@ -132,7 +132,7 @@ Singleton {
         "-lc",
         "exec proteus-terminal -e bash -lc "
             + JSON.stringify(
-              "sudo bash /mnt/proteus/vm/guest/install-desktop-conf.sh"
+              "sudo bash /mnt/proteus/install/machine/install-desktop-conf.sh"
                   + "; echo; read -r -p \"Press Enter to close…\" _")
       ]
     })
@@ -195,9 +195,9 @@ Singleton {
       "bash",
       "-c",
       "candidates=()\n"
-          + "[[ -n \"${PROTEUS_ROOT:-}\" ]] && candidates+=(\"${PROTEUS_ROOT}/vm/guest/set-hypr-profile.sh\")\n"
-          + "candidates+=(\"/mnt/proteus/vm/guest/set-hypr-profile.sh\"\n"
-          + "  \"${HOME}/Projects/Proteus/vm/guest/set-hypr-profile.sh\")\n"
+          + "[[ -n \"${PROTEUS_ROOT:-}\" ]] && candidates+=(\"${PROTEUS_ROOT}/shell/scripts/set-hypr-profile.sh\")\n"
+          + "candidates+=(\"/mnt/proteus/shell/scripts/set-hypr-profile.sh\"\n"
+          + "  \"${HOME}/Projects/Proteus/shell/scripts/set-hypr-profile.sh\")\n"
           + "for p in \"${candidates[@]}\"; do\n"
           + "  [[ -f \"$p\" ]] && echo \"$p\" && exit 0\n"
           + "done\n"

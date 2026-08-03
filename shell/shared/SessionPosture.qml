@@ -173,9 +173,9 @@ Singleton {
       "bash",
       "-c",
       "candidates=()\n"
-          + "[[ -n \"${PROTEUS_ROOT:-}\" ]] && candidates+=(\"${PROTEUS_ROOT}/vm/guest/proteus-posture\")\n"
-          + "candidates+=(\"/mnt/proteus/vm/guest/proteus-posture\"\n"
-          + "  \"${HOME}/Projects/Proteus/vm/guest/proteus-posture\")\n"
+          + "[[ -n \"${PROTEUS_ROOT:-}\" ]] && candidates+=(\"${PROTEUS_ROOT}/shell/scripts/proteus-posture\")\n"
+          + "candidates+=(\"/mnt/proteus/shell/scripts/proteus-posture\"\n"
+          + "  \"${HOME}/Projects/Proteus/shell/scripts/proteus-posture\")\n"
           + "command -v proteus-posture >/dev/null 2>&1 && candidates+=(\"$(command -v proteus-posture)\")\n"
           + "for p in \"${candidates[@]}\"; do\n"
           + "  [[ -x \"$p\" || -f \"$p\" ]] && echo \"$p\" && exit 0\n"

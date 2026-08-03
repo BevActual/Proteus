@@ -34,7 +34,7 @@ via `echo dump > "$XDG_RUNTIME_DIR/proteus-audio-mix.ctl"`).
 
 ```bash
 cd services/proteus-audio-mix && cargo build --release
-sudo ../../vm/guest/install-proteus-audio-mix.sh
+sudo ../../install/machine/install-proteus-audio-mix.sh
 ```
 
 No polkit — session `pactl` / `parec` only.

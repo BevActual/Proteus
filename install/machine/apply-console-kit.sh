@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # apply-console-kit — install console dogfood packages + helpers (idempotent).
-# Usage (guest): sudo bash /mnt/proteus/vm/guest/apply-console-kit.sh
+# Usage (guest): sudo bash /mnt/proteus/install/machine/apply-console-kit.sh
 # Then: proteus-posture console
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
-GUEST="${ROOT}/vm/guest"
 SCRIPTS="${ROOT}/shell/scripts"
 USER_NAME="${SUDO_USER:-${PROTEUS_USER:-${USER:-andrew}}}"
 USER_HOME="$(getent passwd "${USER_NAME}" 2>/dev/null | cut -d: -f6 || echo "/home/${USER_NAME}")"
@@ -30,7 +29,7 @@ as_user() {
 # /mnt/proteus so dogfood always tracks the share; otherwise install a copy).
 export PROTEUS_USER="${USER_NAME}"
 # shellcheck source=../install/helpers.sh
-source "${ROOT}/vm/install/helpers.sh"
+source "${ROOT}/install/helpers.sh"
 
 install_helper() {
   proteus_install_helper "$1"
@@ -38,7 +37,7 @@ install_helper() {
 
 echo "==> apply-console-kit (user=${USER_NAME} root=${ROOT})"
 
-# Packages — package SoT is vm/install/proteus-console.packages (console stage
+# Packages — package SoT is install/proteus-console.packages (console stage
 # enables multilib). Direct runs still get a best-effort install; the overlay
 # console stage sets PROTEUS_SKIP_CONSOLE_PACKAGES=1 since it owns packages.
 if [[ "${PROTEUS_SKIP_CONSOLE_PACKAGES:-0}" == "1" ]]; then
@@ -57,11 +56,9 @@ else
   echo "apply-console-kit: pacman missing — skip packages" >&2
 fi
 
-# Helpers on PATH (guest + shell scripts)
-for s in proteus-posture proteus-guide set-hypr-profile.sh; do
-  install_helper "${GUEST}/${s}"
-done
-for s in proteus-console-launch proteus-console-seat proteus-console-capabilities \
+# Helpers on PATH — all runtime helpers live in shell/scripts.
+for s in proteus-posture proteus-guide set-hypr-profile.sh \
+         proteus-console-launch proteus-console-seat proteus-console-capabilities \
          proteus-console-session proteus-console-gs-session proteus-console-focus \
          proteus-terminal proteus-qs proteus-webapp; do
   install_helper "${SCRIPTS}/${s}"
@@ -98,11 +95,11 @@ if [[ "${PROTEUS_SKIP_CONSOLE_PACKAGES:-0}" == "1" ]]; then
   echo "  kit mode: helpers/seed only (console stage owns packages)"
 elif [[ "${missing_pkgs}" -eq 1 ]]; then
   echo "  kit mode: helpers OK; Steam/RetroArch/cores incomplete"
-  echo "  full packages: sudo bash ${ROOT}/vm/guest/install-console-software.sh"
+  echo "  full packages: sudo bash ${ROOT}/install/machine/install-console-software.sh"
   echo "                 (or overlay PROTEUS_INSTALL_ONLY=console — enables multilib)"
 else
   echo "  kit mode: helpers + Steam/RetroArch present (cores/udev via console stage)"
 fi
 echo "==> apply-console-kit done"
-echo "    Enter console: bash ${ROOT}/vm/guest/dogfood-console.sh"
+echo "    Enter console: bash ${ROOT}/scripts/dogfood/dogfood-console.sh"
 echo "                or: proteus-posture console"

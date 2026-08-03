@@ -18,6 +18,6 @@ command: `/usr/local/bin/proteus-session`.
 
 ```bash
 cargo build --release
-sudo ../../vm/guest/install-proteus-greetd.sh
+sudo ../../install/machine/install-proteus-greetd.sh
 ./scripts/smoke/users-smoke.sh
 ```

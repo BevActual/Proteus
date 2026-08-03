@@ -44,7 +44,7 @@ grep -q 'def cmd_nodes\|def cmd_expire\|/api/v1/node\|set-key' "${SCRIPT}" \
 grep -q 'def cmd_users\|def cmd_user_create\|def cmd_policy\|policy-check\|policy-set' "${SCRIPT}" \
   || die "script missing users/policy API surface"
 grep -q 'PROTEUS_HEADSCALE_FIXTURE' "${SCRIPT}" || die "script missing fixture mode"
-grep -q 'proteus-headscale.py' "${ROOT}/vm/install/apps.sh" \
+grep -q 'proteus-headscale.py' "${ROOT}/install/apps.sh" \
   || die "apps.sh must install proteus-headscale.py"
 ok "script + install"
 

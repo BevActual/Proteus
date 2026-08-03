@@ -12,7 +12,7 @@ if [[ "${PROTEUS_INSTALL_DESKTOP:-1}" == "0" ]]; then
 fi
 
 PROTEUS_ROOT="$(proteus_install_root)"
-LIST="${PROTEUS_ROOT}/vm/install/proteus-desktop.packages"
+LIST="${PROTEUS_ROOT}/install/proteus-desktop.packages"
 
 proteus_log "desktop kit (browser=chromium)"
 

@@ -26,7 +26,7 @@ else
   ROOT="${PROTEUS_ROOT:-/mnt/proteus}"
 fi
 export PROTEUS_ROOT="${ROOT}"
-export PATH="/usr/local/bin:${ROOT}/shell/scripts:${ROOT}/vm/guest:${PATH}"
+export PATH="/usr/local/bin:${ROOT}/shell/scripts:${ROOT}/install/machine:${PATH}"
 
 RUNDIR="${XDG_RUNTIME_DIR:-/tmp}"
 LOG="${RUNDIR}/proteus-console-gs-session.log"
@@ -64,7 +64,7 @@ if [[ "${1:-}" == "--client" ]]; then
   # so pad presses are never forwarded twice.
   pkill -f 'proteus-guide$' 2>/dev/null || true
   GUIDE=""
-  for c in "${ROOT}/vm/guest/proteus-guide" /usr/local/bin/proteus-guide; do
+  for c in "${ROOT}/shell/scripts/proteus-guide" /usr/local/bin/proteus-guide; do
     [[ -x "${c}" ]] && GUIDE="${c}" && break
   done
   if [[ -n "${GUIDE}" ]] && python3 -c "import evdev" >/dev/null 2>&1; then

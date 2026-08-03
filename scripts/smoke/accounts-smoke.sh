@@ -14,7 +14,7 @@ LEAF="${ROOT}/apps/proteus-settings/panes/AccountsProviderLeaf.qml"
 [[ -f "${ROOT}/shell/shared/Accounts.qml" ]] || die "missing Accounts.qml"
 [[ -f "${PANE}" ]] || die "missing AccountsPane.qml"
 [[ -f "${LEAF}" ]] || die "missing AccountsProviderLeaf.qml"
-[[ -x "${ROOT}/vm/guest/install-proteus-accounts.sh" ]] || die "install-proteus-accounts.sh"
+[[ -x "${ROOT}/install/machine/install-proteus-accounts.sh" ]] || die "install-proteus-accounts.sh"
 
 grep -q 'proteus-accounts' "${ROOT}/shell/shared/Accounts.qml" || die "Accounts.qml cites CLI"
 grep -q 'connectGoogle\|connectMicrosoft\|connectNextcloud\|connectImap\|connectCaldav\|connectCarddav\|connectApple\|connectExchange\|disconnectSeat' \
@@ -230,9 +230,9 @@ grep -q 'deleteEvent\|isMutable' "${CP}" || die "CalendarPanel must wire CalDAV 
 grep -q 'calendar.events\|Calendars.ReadWrite' "${PKG}/src/main.rs" \
   || die "proteus-accounts missing calendar write scopes"
 grep -q 'fn cmd_token\|"token"' "${PKG}/src/main.rs" || die "proteus-accounts missing token command"
-grep -q 'proteus-calendar-events.py' "${ROOT}/vm/install/apps.sh" \
+grep -q 'proteus-calendar-events.py' "${ROOT}/install/apps.sh" \
   || die "apps.sh must install proteus-calendar-events.py"
-grep -q 'proteus-calendar-mutate.py' "${ROOT}/vm/install/apps.sh" \
+grep -q 'proteus-calendar-mutate.py' "${ROOT}/install/apps.sh" \
   || die "apps.sh must install proteus-calendar-mutate.py"
 grep -q 'CalendarEvents.qml' "${ROOT}/scripts/smoke/layout-smoke.sh" \
   || die "layout-smoke requires CalendarEvents.qml"
@@ -340,7 +340,7 @@ grep -q 'gmail.send\|Mail.Send' "${PKG}/src/main.rs" \
   || die "proteus-accounts missing mail send scopes"
 grep -q 'def fetch_imap\|providers = ("google", "microsoft", "exchange", "imap", "apple")' "${MAIL}" \
   || die "proteus-mail-glance.py missing IMAP/Apple/Exchange fetch"
-grep -q 'proteus-mail-glance.py' "${ROOT}/vm/install/apps.sh" \
+grep -q 'proteus-mail-glance.py' "${ROOT}/install/apps.sh" \
   || die "apps.sh must install proteus-mail-glance.py"
 grep -q 'MailGlance.qml' "${ROOT}/scripts/smoke/layout-smoke.sh" \
   || die "layout-smoke requires MailGlance.qml"
@@ -363,7 +363,7 @@ grep -q 'sendMessage\|canSend\|proteus-mail-send' "${MG_QML}" \
   || die "MailGlance missing send wiring"
 grep -q 'MailGlance.sendMessage\|MailGlance.canSend\|Compose thin In' "${CP}" \
   || die "CalendarPanel missing mail compose UI"
-grep -q 'proteus-mail-send.py' "${ROOT}/vm/install/apps.sh" \
+grep -q 'proteus-mail-send.py' "${ROOT}/install/apps.sh" \
   || die "apps.sh must install proteus-mail-send.py"
 grep -q 'def send_google\|def send_microsoft\|def send_smtp\|SENDABLE' "${MSEND}" \
   || die "proteus-mail-send.py missing provider send paths"
@@ -437,9 +437,9 @@ grep -q 'ContactsGlance.updateContact\|ContactsGlance.deleteContact\|isMutable' 
   || die "CalendarPanel must wire contacts edit/delete thin"
 grep -q 'Google/MS/Exchange\|google/MS/Exchange' "${CP}" \
   || die "CalendarPanel contacts footer must mention Google/MS/Exchange write"
-grep -q 'proteus-contacts-glance.py' "${ROOT}/vm/install/apps.sh" \
+grep -q 'proteus-contacts-glance.py' "${ROOT}/install/apps.sh" \
   || die "apps.sh must install proteus-contacts-glance.py"
-grep -q 'proteus-contacts-mutate.py' "${ROOT}/vm/install/apps.sh" \
+grep -q 'proteus-contacts-mutate.py' "${ROOT}/install/apps.sh" \
   || die "apps.sh must install proteus-contacts-mutate.py"
 grep -q 'ContactsGlance.qml' "${ROOT}/scripts/smoke/layout-smoke.sh" \
   || die "layout-smoke requires ContactsGlance.qml"

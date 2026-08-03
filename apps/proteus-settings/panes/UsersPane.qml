@@ -264,10 +264,10 @@ ColumnLayout {
     Quickshell.execDetached({
       command: [
         "bash", "-lc",
-        "if [[ -x " + JSON.stringify(proot + "/vm/guest/install-proteus-greetd.sh") + " ]]; then "
-            + "pkexec bash " + JSON.stringify(proot + "/vm/guest/install-proteus-greetd.sh") + "; "
-            + "elif [[ -x /mnt/proteus/vm/guest/install-proteus-greetd.sh ]]; then "
-            + "pkexec bash /mnt/proteus/vm/guest/install-proteus-greetd.sh; fi"
+        "if [[ -x " + JSON.stringify(proot + "/install/machine/install-proteus-greetd.sh") + " ]]; then "
+            + "pkexec bash " + JSON.stringify(proot + "/install/machine/install-proteus-greetd.sh") + "; "
+            + "elif [[ -x /mnt/proteus/install/machine/install-proteus-greetd.sh ]]; then "
+            + "pkexec bash /mnt/proteus/install/machine/install-proteus-greetd.sh; fi"
       ]
     })
     root.greeterWriteMsg = "Install started — re-open Users after auth"

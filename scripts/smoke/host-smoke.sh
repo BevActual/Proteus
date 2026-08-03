@@ -6,7 +6,7 @@ fail=0
 ok() { echo "host-smoke: OK $*"; }
 die() { echo "host-smoke: FAIL $*" >&2; fail=1; }
 
-POSTURE="${ROOT}/vm/guest/proteus-posture"
+POSTURE="${ROOT}/shell/scripts/proteus-posture"
 QS="${ROOT}/shell/scripts/proteus-qs"
 HOST_CONF="${ROOT}/env/hypr/profiles/host.conf"
 HSHELL="${ROOT}/shell/surfaces/HostShell.qml"
@@ -18,7 +18,7 @@ SS="${ROOT}/shell/shared/ShellState.qml"
 
 [[ -x "${POSTURE}" ]] || die "proteus-posture not executable"
 [[ -x "${QS}" ]] || die "proteus-qs not executable"
-[[ -x "${ROOT}/vm/guest/dogfood-host.sh" ]] || die "dogfood-host.sh missing/not executable"
+[[ -x "${ROOT}/scripts/dogfood/dogfood-host.sh" ]] || die "dogfood-host.sh missing/not executable"
 [[ -x "${ROOT}/scripts/smoke/host-guest-smoke.sh" ]] || die "host-guest-smoke.sh missing"
 [[ -f "${HOST_CONF}" ]] || die "missing env/hypr/profiles/host.conf"
 [[ -f "${HSHELL}" ]] || die "missing HostShell.qml"
@@ -37,7 +37,7 @@ ok "loader + Fact surface allowlist"
 
 grep -q 'enter-host' "${US}" || die "UniversalSearch missing enter-host"
 grep -q 'runPosture("host --chrome")' "${US}" || die "UniversalSearch must enter host with --chrome (seated)"
-SEAT="${ROOT}/vm/guest/proteus-host-seat"
+SEAT="${ROOT}/shell/scripts/proteus-host-seat"
 [[ -x "${SEAT}" ]] || die "proteus-host-seat not executable"
 grep -qE 'attach\|detach\|status' "${SEAT}" || die "proteus-host-seat missing attach|detach|status"
 grep -q 'write_host_chrome none' "${POSTURE}" || die "proteus-posture must default host-chrome none"
@@ -51,7 +51,7 @@ if grep -qE 'proteus-posture[^
 ]*&[[:space:]]*\|\|' "${QSGRID}" 2>/dev/null; then
   die "QS grid host launch uses invalid bash A && B & || C"
 fi
-grep -q 'vm/guest/proteus-posture' "${QSGRID}" || die "QuickSettingsGrid missing live-tree posture launch"
+grep -q 'shell/scripts/proteus-posture' "${QSGRID}" || die "QuickSettingsGrid missing live-tree posture launch"
 ok "enter/exit wires"
 
 HOST_HOME="${ROOT}/shell/surfaces/host/HostHome.qml"
@@ -137,10 +137,10 @@ EOF
 chmod +x "${TMP}/bin/hyprctl"
 
 FAKE_ROOT="${TMP}/proteus"
-mkdir -p "${FAKE_ROOT}/shell/scripts" "${FAKE_ROOT}/vm/guest" "${FAKE_ROOT}/env/hypr/profiles"
-cp "${POSTURE}" "${FAKE_ROOT}/vm/guest/proteus-posture"
-cp "${ROOT}/vm/guest/set-hypr-profile.sh" "${FAKE_ROOT}/vm/guest/set-hypr-profile.sh"
-cp "${ROOT}/vm/guest/proteus-guide" "${FAKE_ROOT}/vm/guest/proteus-guide"
+mkdir -p "${FAKE_ROOT}/shell/scripts" "${FAKE_ROOT}/install/machine" "${FAKE_ROOT}/env/hypr/profiles"
+cp "${POSTURE}" "${FAKE_ROOT}/shell/scripts/proteus-posture"
+cp "${ROOT}/shell/scripts/set-hypr-profile.sh" "${FAKE_ROOT}/shell/scripts/set-hypr-profile.sh"
+cp "${ROOT}/shell/scripts/proteus-guide" "${FAKE_ROOT}/shell/scripts/proteus-guide"
 cp "${HOST_CONF}" "${FAKE_ROOT}/env/hypr/profiles/host.conf"
 printf '# stub\n' >"${FAKE_ROOT}/env/hypr/profiles/desktop.conf"
 printf '# stub\n' >"${FAKE_ROOT}/env/hypr/profiles/console.conf"
@@ -149,12 +149,12 @@ cat >"${FAKE_ROOT}/shell/scripts/proteus-qs" <<'EOF'
 echo "stub proteus-qs $*" >>"${HOME}/qs-stub.log"
 exit 0
 EOF
-chmod +x "${FAKE_ROOT}/vm/guest/"* "${FAKE_ROOT}/shell/scripts/proteus-qs" 2>/dev/null || true
+chmod +x "${FAKE_ROOT}/install/machine/"* "${FAKE_ROOT}/shell/scripts/proteus-qs" 2>/dev/null || true
 
 export PROTEUS_ROOT="${FAKE_ROOT}"
 export PATH="${TMP}/bin:${FAKE_ROOT}/shell/scripts:${PATH}"
 
-bash "${FAKE_ROOT}/vm/guest/proteus-posture" host || true
+bash "${FAKE_ROOT}/shell/scripts/proteus-posture" host || true
 [[ -f "${HOME}/.config/proteus/posture" ]] || die "posture Fact not written"
 got="$(tr -d '[:space:]' <"${HOME}/.config/proteus/posture")"
 [[ "${got}" == "host" ]] || die "expected Fact host, got '${got}'"
@@ -169,14 +169,14 @@ ok "Fact write + profile pointer host + default headless"
 grep -qE -- '--stop' "${QS}" || die "proteus-qs missing --stop"
 grep -q 'host-chrome\|host_chrome_mode' "${QS}" || die "proteus-qs missing host-chrome gate"
 grep -qE -- '--headless' "${POSTURE}" || die "proteus-posture missing --headless"
-cp "${SEAT}" "${FAKE_ROOT}/vm/guest/proteus-host-seat"
-chmod +x "${FAKE_ROOT}/vm/guest/proteus-host-seat"
-bash "${FAKE_ROOT}/vm/guest/proteus-host-seat" status | grep -q 'host-chrome=none' \
+cp "${SEAT}" "${FAKE_ROOT}/shell/scripts/proteus-host-seat"
+chmod +x "${FAKE_ROOT}/shell/scripts/proteus-host-seat"
+bash "${FAKE_ROOT}/shell/scripts/proteus-host-seat" status | grep -q 'host-chrome=none' \
   || die "proteus-host-seat status missing host-chrome=none"
-bash "${FAKE_ROOT}/vm/guest/proteus-posture" host --chrome || true
+bash "${FAKE_ROOT}/shell/scripts/proteus-posture" host --chrome || true
 hc2="$(tr -d '[:space:]' <"${HOME}/.config/proteus/host-chrome")"
 [[ "${hc2}" == "full" ]] || die "expected host-chrome full after --chrome, got '${hc2}'"
-bash "${FAKE_ROOT}/vm/guest/proteus-posture" host --headless || true
+bash "${FAKE_ROOT}/shell/scripts/proteus-posture" host --headless || true
 hc="$(tr -d '[:space:]' <"${HOME}/.config/proteus/host-chrome")"
 [[ "${hc}" == "none" ]] || die "expected host-chrome none, got '${hc}'"
 ok "host-chrome Fact + seat helper + --headless/--chrome"

@@ -41,7 +41,7 @@ before inventing a second store.
 
 Seed templates for nested/host sessions: [`env/`](../../env/) — see
 [`env/README.md`](../../env/README.md). Guest installers that **place** those
-facts: [`vm/guest/`](../../vm/guest/).
+facts: [`install/machine/`](../../install/machine/).
 
 ## Ownership (hard)
 

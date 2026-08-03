@@ -2,8 +2,8 @@
 # session-smoke — host gate for proteus-session contract (#1167)
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-SESSION="${ROOT}/vm/guest/proteus-session"
-DESKTOP="${ROOT}/vm/guest/proteus.desktop"
+SESSION="${ROOT}/shell/scripts/proteus-session"
+DESKTOP="${ROOT}/install/machine/proteus.desktop"
 
 fail() { echo "session-smoke: FAIL $*" >&2; exit 1; }
 

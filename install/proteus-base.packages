@@ -60,7 +60,7 @@ power-profiles-daemon
 # The VM has no battery so this went unnoticed; bare metal needs the daemon.
 upower
 
-# Hardware truth — Wave A probe + vm/install/hardware/* detect via lspci/lsusb.
+# Hardware truth — Wave A probe + install/hardware/* detect via lspci/lsusb.
 # Both are usually present after pacstrap; --needed makes this a no-op then.
 pciutils
 usbutils
@@ -70,7 +70,7 @@ sof-firmware
 # Firmware update path (Settings → About escape; real hardware only)
 fwupd
 
-# Software → Flathub pane + vm/guest/ensure-flathub.sh. Referenced throughout
+# Software → Flathub pane + install/machine/ensure-flathub.sh. Referenced throughout
 # the shell but historically never installed — the pane just showed its
 # install-honesty state forever.
 flatpak

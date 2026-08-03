@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # dogfood-host — guest host flip + headless/seat verify (+ restore desktop).
 # Usage (guest):
-#   bash /mnt/proteus/vm/guest/dogfood-host.sh
-#   bash /mnt/proteus/vm/guest/dogfood-host.sh --attach   # after headless, attach seat
-#   bash /mnt/proteus/vm/guest/dogfood-host.sh --restore  # flip back to desktop
+#   bash /mnt/proteus/scripts/dogfood/dogfood-host.sh
+#   bash /mnt/proteus/scripts/dogfood/dogfood-host.sh --attach   # after headless, attach seat
+#   bash /mnt/proteus/scripts/dogfood/dogfood-host.sh --restore  # flip back to desktop
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
@@ -44,17 +44,17 @@ if [[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" && -d "${XDG_RUNTIME_DIR}/hypr" ]]; 
   export HYPRLAND_INSTANCE_SIGNATURE
 fi
 export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
-export PATH="/usr/local/bin:${ROOT}/shell/scripts:${ROOT}/vm/guest:${PATH}"
+export PATH="/usr/local/bin:${ROOT}/shell/scripts:${ROOT}/install/machine:${PATH}"
 export PROTEUS_SKIP_SESSION_LOCK=1
 
 POSTURE_BIN=""
-for c in proteus-posture "${ROOT}/vm/guest/proteus-posture" /usr/local/bin/proteus-posture; do
+for c in proteus-posture "${ROOT}/shell/scripts/proteus-posture" /usr/local/bin/proteus-posture; do
   if [[ -x "${c}" ]]; then POSTURE_BIN="${c}"; break; fi
 done
 [[ -n "${POSTURE_BIN}" ]] || die "proteus-posture not found"
 
 SEAT_BIN=""
-for c in proteus-host-seat "${ROOT}/vm/guest/proteus-host-seat" /usr/local/bin/proteus-host-seat; do
+for c in proteus-host-seat "${ROOT}/shell/scripts/proteus-host-seat" /usr/local/bin/proteus-host-seat; do
   if [[ -x "${c}" ]]; then SEAT_BIN="${c}"; break; fi
 done
 [[ -n "${SEAT_BIN}" ]] || die "proteus-host-seat not found"

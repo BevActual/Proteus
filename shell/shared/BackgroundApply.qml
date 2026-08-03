@@ -79,7 +79,7 @@ Item {
             + "BG=\"\"; "
             + "if [[ -x /usr/local/bin/proteus-bg ]]; then BG=/usr/local/bin/proteus-bg; "
             + "elif [[ -x \"$HOME/.local/bin/proteus-bg\" ]]; then BG=\"$HOME/.local/bin/proteus-bg\"; "
-            + "elif [[ -x /mnt/proteus/vm/guest/proteus-bg ]]; then BG=/mnt/proteus/vm/guest/proteus-bg; "
+            + "elif [[ -x /mnt/proteus/shell/scripts/proteus-bg ]]; then BG=/mnt/proteus/shell/scripts/proteus-bg; "
             + "elif command -v proteus-bg >/dev/null 2>&1; then BG=$(command -v proteus-bg); fi; "
             + "CMD=\"env QT_QPA_PLATFORM=wayland PROTEUS_ROOT=" + rootEnv + " \${BG:-quickshell -p " + wallDir + "}\"; "
             + "if command -v hyprctl >/dev/null 2>&1 && [[ -n \"${HYPRLAND_INSTANCE_SIGNATURE:-}\" || -d \"${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/hypr\" ]]; then "

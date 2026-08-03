@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # dogfood-console — one-command guest console flip + verify (+ optional seat).
 # Usage (guest):
-#   bash /mnt/proteus/vm/guest/dogfood-console.sh
-#   bash /mnt/proteus/vm/guest/dogfood-console.sh --launch browser
-#   bash /mnt/proteus/vm/guest/dogfood-console.sh --launch retroarch
-#   bash /mnt/proteus/vm/guest/dogfood-console.sh --restore   # flip back to desktop
-# Host: ssh … 'bash /mnt/proteus/vm/guest/dogfood-console.sh'
+#   bash /mnt/proteus/scripts/dogfood/dogfood-console.sh
+#   bash /mnt/proteus/scripts/dogfood/dogfood-console.sh --launch browser
+#   bash /mnt/proteus/scripts/dogfood/dogfood-console.sh --launch retroarch
+#   bash /mnt/proteus/scripts/dogfood/dogfood-console.sh --restore   # flip back to desktop
+# Host: ssh … 'bash /mnt/proteus/scripts/dogfood/dogfood-console.sh'
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
@@ -50,10 +50,10 @@ if [[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" && -d "${XDG_RUNTIME_DIR}/hypr" ]]; 
   export HYPRLAND_INSTANCE_SIGNATURE
 fi
 export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
-export PATH="/usr/local/bin:${ROOT}/shell/scripts:${ROOT}/vm/guest:${PATH}"
+export PATH="/usr/local/bin:${ROOT}/shell/scripts:${ROOT}/install/machine:${PATH}"
 
 POSTURE_BIN=""
-for c in proteus-posture "${ROOT}/vm/guest/proteus-posture" /usr/local/bin/proteus-posture; do
+for c in proteus-posture "${ROOT}/shell/scripts/proteus-posture" /usr/local/bin/proteus-posture; do
   if [[ -x "${c}" ]]; then POSTURE_BIN="${c}"; break; fi
 done
 [[ -n "${POSTURE_BIN}" ]] || die "proteus-posture not found (run apply-console-kit / overlay console)"
@@ -76,7 +76,7 @@ command -v qs >/dev/null 2>&1 || QS_IPC=(quickshell -p "${SHELL_DIR}")
 
 repair_helpers() {
   [[ "${SKIP_REPAIR}" == "1" ]] && return 0
-  local apply="${ROOT}/vm/guest/apply-console-kit.sh"
+  local apply="${ROOT}/install/machine/apply-console-kit.sh"
   [[ -x "${apply}" ]] || return 0
   # Helpers-only: packages owned by overlay console stage / install-console-software.
   if [[ ! -x /usr/local/bin/proteus-console-session && ! -x "${ROOT}/shell/scripts/proteus-console-session" ]]; then
@@ -96,7 +96,7 @@ repair_helpers() {
     log "warn: cannot sudo repair helpers — run: sudo PROTEUS_SKIP_CONSOLE_PACKAGES=1 bash ${apply}"
   fi
   hash -r 2>/dev/null || true
-  export PATH="/usr/local/bin:${ROOT}/shell/scripts:${ROOT}/vm/guest:${PATH}"
+  export PATH="/usr/local/bin:${ROOT}/shell/scripts:${ROOT}/install/machine:${PATH}"
   SESSION_BIN=""
   for c in proteus-console-session "${ROOT}/shell/scripts/proteus-console-session"; do
     if [[ -x "${c}" ]]; then SESSION_BIN="${c}"; break; fi
@@ -177,7 +177,7 @@ print("dogfood-console: OK gs-session capabilities (replacesHyprland)")
 ' || die "PROTEUS_EXPECT_GS_SESSION=1 but capabilities do not claim the Gamescope session"
   fi
   if [[ -z "${SESSION_BIN}" ]]; then
-    log "warn: proteus-console-session missing — full packages: sudo bash ${ROOT}/vm/guest/install-console-software.sh"
+    log "warn: proteus-console-session missing — full packages: sudo bash ${ROOT}/install/machine/install-console-software.sh"
   fi
   if ! command -v steam >/dev/null 2>&1 || ! command -v retroarch >/dev/null 2>&1; then
     log "hint packages — helpers-only kit is not the full console stage; use install-console-software.sh / PROTEUS_INSTALL_ONLY=console"

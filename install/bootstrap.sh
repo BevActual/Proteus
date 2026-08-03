@@ -2,7 +2,7 @@
 # Proteus dogfood overlay installer (Omarchy-shaped, light packages).
 #
 # Run on the Arch guest after base install (guest-install.sh or manual Arch):
-#   sudo bash /mnt/proteus/vm/install/bootstrap.sh
+#   sudo bash /mnt/proteus/install/bootstrap.sh
 #
 # Env:
 #   PROTEUS_INSTALL_DESKTOP=0     skip desktop kit
@@ -40,15 +40,15 @@ INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${INSTALL_DIR}/helpers.sh"
 
 if [[ -z "${PROTEUS_ROOT:-}" ]]; then
-  if [[ -d /mnt/proteus/vm/install ]]; then
+  if [[ -d /mnt/proteus/install ]]; then
     export PROTEUS_ROOT=/mnt/proteus
   else
-    export PROTEUS_ROOT="$(cd "${INSTALL_DIR}/../.." && pwd)"
+    export PROTEUS_ROOT="$(cd "${INSTALL_DIR}/.." && pwd)"
   fi
 fi
 
-export PROTEUS_INSTALL="${PROTEUS_ROOT}/vm/install"
-export PATH="${PROTEUS_ROOT}/vm/guest:${PATH:-}"
+export PROTEUS_INSTALL="${PROTEUS_ROOT}/install"
+export PATH="${PROTEUS_ROOT}/install/machine:${PATH:-}"
 
 if [[ -z "${PROTEUS_INSTALL_LOG:-}" ]]; then
   if [[ "${EUID}" -eq 0 ]]; then

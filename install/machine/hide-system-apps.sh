@@ -4,10 +4,10 @@
 # nm-connection-editor / blueman / …).
 #
 # Invoked from:
-#   vm/guest/install-settings-app.sh  (apps stage)
-#   vm/install/apps.sh                (idempotent re-run)
-#   vm/install/post-install.sh        (refresh after overlay)
-# Manual: sudo bash /mnt/proteus/vm/guest/hide-system-apps.sh
+#   install/machine/install-settings-app.sh  (apps stage)
+#   install/apps.sh                (idempotent re-run)
+#   install/post-install.sh        (refresh after overlay)
+# Manual: sudo bash /mnt/proteus/install/machine/hide-system-apps.sh
 set -euo pipefail
 
 # System-wide overrides beat /usr/share/applications for the same basename.

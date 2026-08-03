@@ -11,7 +11,7 @@ CATALOG="${ROOT}/env/apps/catalog.json"
 WL="${ROOT}/shell/shared/Workloads.qml"
 WL_PY="${ROOT}/shell/scripts/proteus-workloads.py"
 SS="${ROOT}/shell/shared/ShellState.qml"
-INSTALL="${ROOT}/vm/guest/install-workloads-app.sh"
+INSTALL="${ROOT}/install/machine/install-workloads-app.sh"
 HOST_HOME="${ROOT}/shell/surfaces/host/HostHome.qml"
 
 [[ -d "${APP}" ]] || die "missing apps/proteus-workloads"
@@ -47,14 +47,14 @@ grep -q 'Key_Escape\|escapeAction' "${APP}/WorkloadsApp.qml" \
 grep -q '✕' "${APP}/WorkloadsApp.qml" || die "WorkloadsApp missing ✕ close"
 grep -q 'Shortcut\|Escape' "${APP}/shell.qml" \
   || die "shell.qml must wire Escape Shortcut"
-grep -q 'close_host_product_apps' "${ROOT}/vm/guest/proteus-posture" \
+grep -q 'close_host_product_apps' "${ROOT}/shell/scripts/proteus-posture" \
   || die "proteus-posture must close host product apps when leaving host"
-grep -q 'Proteus Workloads' "${ROOT}/vm/guest/proteus-posture" \
+grep -q 'Proteus Workloads' "${ROOT}/shell/scripts/proteus-posture" \
   || die "proteus-posture must target Proteus Workloads title"
 ok "app tree"
 
 [[ -x "${INSTALL}" ]] || die "install-workloads-app.sh not executable"
-grep -q 'install-workloads-app.sh' "${ROOT}/vm/install/apps.sh" \
+grep -q 'install-workloads-app.sh' "${ROOT}/install/apps.sh" \
   || die "apps.sh must install workloads app"
 grep -q 'proteus-workloads' "${CATALOG}" || die "catalog missing proteus-workloads"
 grep -q '"id": "proteus-workloads"' "${CATALOG}" || die "catalog id proteus-workloads"

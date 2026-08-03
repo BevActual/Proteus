@@ -12,19 +12,19 @@
 | `profiles/host.conf` | Host ops stub |
 | `profiles/home.conf` | Home hub stub |
 
-Copied to `~/.config/hypr/` by `run-nested.sh` / `vm/install` / `vm/guest/install-*.sh`.
+Copied to `~/.config/hypr/` by `run-nested.sh` / `install` / `install/machine/install-*.sh`.
 Settings owns general / keybinds / monitors.
 
 Soft profile pointer:
 
 ```bash
-bash vm/guest/set-hypr-profile.sh desktop   # or console|host|home
+bash shell/scripts/set-hypr-profile.sh desktop   # or console|host|home
 # hyprctl reload (script attempts this)
 ```
 
 Hard console posture flip (chrome + Fact + profile):
 
 ```bash
-bash vm/guest/proteus-posture console
-bash vm/guest/proteus-posture desktop
+bash shell/scripts/proteus-posture console
+bash shell/scripts/proteus-posture desktop
 ```

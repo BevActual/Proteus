@@ -8,8 +8,9 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/helpers.sh"
 
 PROTEUS_ROOT="$(proteus_install_root)"
-GUEST="${PROTEUS_ROOT}/vm/guest"
-LIST="${PROTEUS_ROOT}/vm/install/proteus-console.packages"
+MACHINE="${PROTEUS_ROOT}/install/machine"
+SCRIPTS="${PROTEUS_ROOT}/shell/scripts"
+LIST="${PROTEUS_ROOT}/install/proteus-console.packages"
 USER_NAME="$(proteus_session_user)"
 USER_HOME="$(getent passwd "${USER_NAME}" 2>/dev/null | cut -d: -f6 || true)"
 [[ -n "${USER_HOME}" ]] || USER_HOME="/home/${USER_NAME}"
@@ -67,10 +68,10 @@ else
 fi
 
 # 3. Helpers on PATH + console.conf seed (idempotent; packages owned above)
-if [[ -f "${GUEST}/apply-console-kit.sh" ]]; then
+if [[ -f "${MACHINE}/apply-console-kit.sh" ]]; then
   proteus_root env PROTEUS_SKIP_CONSOLE_PACKAGES=1 \
     PROTEUS_USER="${USER_NAME}" SUDO_USER="${USER_NAME}" \
-    bash "${GUEST}/apply-console-kit.sh" \
+    bash "${MACHINE}/apply-console-kit.sh" \
     || proteus_log "warn: apply-console-kit failed"
 fi
 
@@ -85,7 +86,7 @@ if [[ -f "${FACT_FILE}" && -f "${POINTER}" ]]; then
       if ! grep -q "profiles/${fact}\.conf" "${POINTER}" 2>/dev/null; then
         proteus_log "posture fact (${fact}) ≠ hypr profile pointer — re-syncing"
         proteus_as_user env HOME="${USER_HOME}" PROTEUS_ROOT="${PROTEUS_ROOT}" \
-          bash "${GUEST}/set-hypr-profile.sh" "${fact}" \
+          bash "${SCRIPTS}/set-hypr-profile.sh" "${fact}" \
           || proteus_log "warn: profile re-sync failed"
       fi
       ;;

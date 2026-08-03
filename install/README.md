@@ -1,4 +1,4 @@
-# vm/install/ — Proteus dogfood overlay (Omarchy-shaped, light)
+# install/ — Proteus dogfood overlay (Omarchy-shaped, light)
 
 Not a product ISO. After bare Arch (`guest-install.sh` or manual), this
 pipeline turns the guest into a Hyprland + Quickshell dogfood session.
@@ -10,7 +10,7 @@ Full install path (all three layers): [docs/proteus/INSTALL.md](../../docs/prote
 ./vm/bootstrap.sh                 # overlay only
 
 # On guest:
-sudo bash /mnt/proteus/vm/install/bootstrap.sh
+sudo bash /mnt/proteus/install/bootstrap.sh
 ```
 
 ## Stages
@@ -47,7 +47,7 @@ installed. Markers under the status dir.
 Host tree check (no guest):
 
 ```bash
-./vm/install/check.sh
+./install/check.sh
 ```
 
 ## Package sets

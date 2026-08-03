@@ -27,9 +27,9 @@ cd services/proteus-pkg && cargo build --release
 # If target/release is not writable (root-owned), stage for install:
 #   mkdir -p bin && cp /path/to/fresh/proteus-pkg bin/proteus-pkg
 # guest / host install (copies bin/ or target/release + polkit policy):
-sudo ../../vm/guest/install-proteus-pkg.sh
+sudo ../../install/machine/install-proteus-pkg.sh
 # or via settings install (runs the above when a release binary exists):
-sudo ../../vm/guest/install-settings-app.sh
+sudo ../../install/machine/install-settings-app.sh
 ```
 
 Polkit policy: `org.bevington.proteus.pkg.policy` → `/usr/share/polkit-1/actions/`.

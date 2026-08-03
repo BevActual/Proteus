@@ -8,7 +8,7 @@ die() { echo "users-smoke: FAIL $*" >&2; fail=1; }
 
 PKG="${ROOT}/services/proteus-greetd"
 USERS="${ROOT}/apps/proteus-settings/panes/UsersPane.qml"
-INSTALL="${ROOT}/vm/guest/install-proteus-greetd.sh"
+INSTALL="${ROOT}/install/machine/install-proteus-greetd.sh"
 STATUS_PY="${ROOT}/shell/scripts/proteus-greetd-status.py"
 
 [[ -f "${PKG}/Cargo.toml" ]] || die "missing proteus-greetd Cargo.toml"
@@ -23,9 +23,9 @@ grep -q 'set-autologin\|clear-autologin' "${PKG}/src/main.rs" || die "CLI missin
 grep -q 'initial_session' "${PKG}/src/main.rs" || die "CLI missing initial_session rewrite"
 grep -q 'setAutologin\|proteus-greetd' "${USERS}" || die "UsersPane missing autologin wiring"
 grep -q 'Turn on\|Turn off\|Autologin' "${USERS}" || die "UsersPane missing Autologin UI"
-grep -q 'install-proteus-greetd' "${USERS}" "${ROOT}/vm/guest/install-settings-app.sh" \
+grep -q 'install-proteus-greetd' "${USERS}" "${ROOT}/install/machine/install-settings-app.sh" \
   || die "install path missing from Users/settings-app"
-grep -q 'install-proteus-greetd.sh' "${ROOT}/vm/guest/install-settings-app.sh" \
+grep -q 'install-proteus-greetd.sh' "${ROOT}/install/machine/install-settings-app.sh" \
   || die "install-settings-app must wire proteus-greetd"
 ok "wiring"
 
@@ -50,7 +50,7 @@ if [[ -n "${BIN}" ]]; then
   trap 'rm -rf "${TMP}"' RETURN
   export PROTEUS_GREETD_CONF="${TMP}/config.toml"
   export PROTEUS_GREETD_TEST_WRITE=1
-  cp "${ROOT}/vm/guest/greetd-config.toml" "${PROTEUS_GREETD_CONF}"
+  cp "${ROOT}/install/machine/greetd-config.toml" "${PROTEUS_GREETD_CONF}"
   # neutralize production username for rewrite test
   sed -i 's/user = "andrew"/user = "sample"/' "${PROTEUS_GREETD_CONF}" || true
   "${BIN}" clear-autologin >/dev/null

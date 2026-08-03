@@ -66,15 +66,15 @@ fullscreen by address → reaper). Gamescope only when Vulkan is usable.
 `proteus-console-session` Fact + ConsoleBar toggle when `gamescopeUsable` —
 does **not** replace Hyprland as sole compositor.
 
-Console software lives in `vm/install/proteus-console.packages` — the overlay
+Console software lives in `install/proteus-console.packages` — the overlay
 `console` stage installs it (multilib included). Re-apply by hand:
 
 ```bash
-sudo bash /mnt/proteus/vm/guest/install-console-software.sh   # → console stage
+sudo bash /mnt/proteus/install/machine/install-console-software.sh   # → console stage
 # helpers/seed only (not a full package substitute):
-sudo bash /mnt/proteus/vm/guest/apply-console-kit.sh
+sudo bash /mnt/proteus/install/machine/apply-console-kit.sh
 # one-command flip + verify (optional --launch browser|retroarch):
-bash /mnt/proteus/vm/guest/dogfood-console.sh
+bash /mnt/proteus/scripts/dogfood/dogfood-console.sh
 ```
 
 Without sudo, user-local RetroArch cores work under `~/.config/retroarch/cores`
@@ -112,12 +112,12 @@ audio detail stays in this file.
 PROTEUS_GUEST=1 ./scripts/smoke-all.sh
 ```
 
-Overlay stages: [`vm/install/`](install/). Knobs: `PROTEUS_INSTALL_DESKTOP=0`,
+Overlay stages: [`install/`](install/). Knobs: `PROTEUS_INSTALL_DESKTOP=0`,
 `PROTEUS_INSTALL_SKIP=…`, `PROTEUS_INSTALL_RESUME=1`; fast re-apply:
-`sudo bash /mnt/proteus/vm/install/bootstrap.sh repair` (+`PROTEUS_INSTALL_UPDATE=1`).
+`sudo bash /mnt/proteus/install/bootstrap.sh repair` (+`PROTEUS_INSTALL_UPDATE=1`).
 `./vm/bootstrap.sh` requires **SSH public-key** auth (no password polling).
 Empty qcow → `./vm/provision.sh` exits before overlay (`PROTEUS_PROVISION_FORCE=1` to override).
-Existing [`vm/guest/`](guest/) scripts remain the mutators the stages call.
+Existing [`install/machine/`](guest/) scripts remain the mutators the stages call.
 
 ## Guest: first Arch install
 
@@ -171,8 +171,8 @@ shows the **Proteus lock screen** (`lockOnSessionStart`, default on). Unlock wit
 your user password, or an optional **unlock PIN** (Settings → Users → Lock screen
 PIN — numpad on the lock for desktop and console). `Super+L` locks again anytime.
 
-- Config: [`vm/guest/greetd-config.toml`](guest/greetd-config.toml) (`initial_session`)
-- Re-apply: `sudo bash /mnt/proteus/vm/guest/apply-greeter.sh && sudo systemctl restart greetd`
+- Config: [`install/machine/greetd-config.toml`](guest/greetd-config.toml) (`initial_session`)
+- Re-apply: `sudo bash /mnt/proteus/install/machine/apply-greeter.sh && sudo systemctl restart greetd`
 - After logout, **tuigreet** still appears for account selection
 
 Disable auto-lock on session start in **Settings → Appearance → Lock screen**,
@@ -183,7 +183,7 @@ or set `"lockOnSessionStart": false` in `~/.config/proteus/settings.json`.
 Default: Hyprland `exec-once` → `proteus-qs` (flock / backoff / `--restart`;
 restart waits for the prior flock so posture flips cannot leave a blank
 chrome-less session). Optional:
-`bash /mnt/proteus/vm/guest/install-proteus-qs-user-unit.sh` then
+`bash /mnt/proteus/install/machine/install-proteus-qs-user-unit.sh` then
 `systemctl --user enable --now proteus-qs.service` (comment out the hypr
 `exec-once` line). After upgrading Quickshell: `PROTEUS_GUEST=1 ./scripts/smoke-all.sh`
 (records version; do not IgnorePkg-pin on rolling Arch).
@@ -191,8 +191,8 @@ chrome-less session). Optional:
 ### Console posture (dogfood)
 
 ```bash
-sudo bash /mnt/proteus/vm/guest/apply-console-kit.sh   # once
-/mnt/proteus/vm/guest/proteus-posture console         # prefer live tree
+sudo bash /mnt/proteus/install/machine/apply-console-kit.sh   # once
+/mnt/proteus/shell/scripts/proteus-posture console         # prefer live tree
 ```
 
 Hard flip writes `~/.config/proteus/posture` and — inside a managed session
@@ -228,7 +228,7 @@ PROTEUS_VM_VFIO=… PROTEUS_VM_VFIO_PRIMARY=1 ./vm/run.sh
 4. **Verify in the guest** — `proteus-console-capabilities` must report
    `"vulkanHw": true` and `"gamescopeUsable": true`; then
    `proteus-console-session set-mode session` and
-   `PROTEUS_EXPECT_GS_SESSION=1 bash /mnt/proteus/vm/guest/dogfood-console.sh`
+   `PROTEUS_EXPECT_GS_SESSION=1 bash /mnt/proteus/scripts/dogfood/dogfood-console.sh`
    asserts `replacesHyprland`. The next console login lands in the Gamescope
    session (Proteus Home + Guide focus-flip).
 
@@ -251,23 +251,23 @@ Optional auto-start on tty1: `touch ~/.proteus-autostart-hyprland` (see `~/.bash
 Useful binds: `Super+Return` → `proteus-terminal` (Ghostty + VM GL workaround), `Super+Space` Beacon (system search), `Super+,` Settings, `Super+Shift+E` exit Hyprland. Rebind in **Settings → Peripherals → Keyboard** (writes `~/.config/hypr/proteus-keybinds.conf`). Desktop/Displays write `proteus-general.conf` / `proteus-monitors.conf`. First-time guest wiring:
 
 ```bash
-bash /mnt/proteus/vm/guest/install-keybinds.sh
-bash /mnt/proteus/vm/guest/install-desktop-conf.sh
+bash /mnt/proteus/install/machine/install-keybinds.sh
+bash /mnt/proteus/install/machine/install-desktop-conf.sh
 # or all of the above via:
 # Build mutators / helpers on the host first if needed:
 #   (cd services/proteus-pkg && cargo build --release)
 #   (cd services/proteus-logind && cargo build --release)
 #   (cd services/proteus-audio-mix && cargo build --release && mkdir -p bin && cp target/release/proteus-audio-mix bin/)
-bash /mnt/proteus/vm/guest/install-settings-app.sh
+bash /mnt/proteus/install/machine/install-settings-app.sh
 # (also runs hide-system-apps.sh — Settings-covered tools + Quickshell hidden; Calculator stays)
 # Overlay apps + post-install re-run hide-system-apps idempotently.
 # or just the helpers:
-#   sudo bash /mnt/proteus/vm/guest/install-proteus-pkg.sh
-#   sudo bash /mnt/proteus/vm/guest/install-proteus-logind.sh
-#   sudo bash /mnt/proteus/vm/guest/install-proteus-audio-mix.sh
+#   sudo bash /mnt/proteus/install/machine/install-proteus-pkg.sh
+#   sudo bash /mnt/proteus/install/machine/install-proteus-logind.sh
+#   sudo bash /mnt/proteus/install/machine/install-proteus-audio-mix.sh
 # LocalSend (AUR localsend-bin) — keep the terminal open until Done:
-#   bash /mnt/proteus/vm/guest/install-localsend-native.sh
-#   bash /mnt/proteus/vm/guest/repair-localsend-native.sh   # empty .so / interrupted yay
+#   bash /mnt/proteus/install/machine/install-localsend-native.sh
+#   bash /mnt/proteus/install/machine/repair-localsend-native.sh   # empty .so / interrupted yay
 ```
 
 ### Notes / blockers

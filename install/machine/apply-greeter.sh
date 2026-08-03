@@ -13,8 +13,8 @@ install -m 755 "${ROOT}/proteus-session" /usr/local/bin/proteus-session
 install -m 644 "${ROOT}/proteus.desktop" /usr/share/wayland-sessions/proteus.desktop
 
 # Session icon (proteus mark)
-bash "$(cd "${ROOT}/../.." && pwd)/vm/guest/install-icons.sh" 2>/dev/null \
-  || bash /mnt/proteus/vm/guest/install-icons.sh 2>/dev/null \
+bash "$(cd "${ROOT}/../.." && pwd)/install/machine/install-icons.sh" 2>/dev/null \
+  || bash /mnt/proteus/install/machine/install-icons.sh 2>/dev/null \
   || true
 
 # greeter user is created by greetd package
@@ -28,4 +28,4 @@ systemctl disable getty@tty1.service 2>/dev/null || true
 
 echo "Greeter installed. Reboot to cold-boot into Proteus (autologin andrew → lock screen)."
 echo "After logout, tuigreet still appears. Session: Proteus."
-echo "Apply: sudo bash /mnt/proteus/vm/guest/apply-greeter.sh && sudo systemctl restart greetd"
+echo "Apply: sudo bash /mnt/proteus/install/machine/apply-greeter.sh && sudo systemctl restart greetd"

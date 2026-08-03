@@ -13,7 +13,7 @@ for guest overlay install.
 | `shell/proteus-bashrc.sh` | Run fastfetch when Ghostty opens |
 | `systemd/user/` | Optional `proteus-qs.service` (opt-in vs hypr exec-once) |
 
-**vs `vm/guest/`:** guest scripts *install* session pieces onto the dogfood VM.
+**vs `install/machine/`:** guest scripts *install* session pieces onto the dogfood VM.
 `env/` seeds the same *kinds* of facts for nested / first boot.
 
 Live truth still under `~/.config/hypr/` and `~/.config/proteus/`

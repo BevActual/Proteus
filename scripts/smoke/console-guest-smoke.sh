@@ -36,17 +36,17 @@ if [[ -d "${XDG_RUNTIME_DIR}/hypr" ]]; then
 fi
 export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
 export PROTEUS_ROOT="${PROTEUS_ROOT:-/mnt/proteus}"
-export PATH="/usr/local/bin:${PROTEUS_ROOT}/shell/scripts:${PROTEUS_ROOT}/vm/guest:${PATH}"
+export PATH="/usr/local/bin:${PROTEUS_ROOT}/shell/scripts:${PROTEUS_ROOT}/install/machine:${PATH}"
 export PROTEUS_SKIP_SESSION_LOCK=1
 
-DOG="${PROTEUS_ROOT}/vm/guest/dogfood-console.sh"
+DOG="${PROTEUS_ROOT}/scripts/dogfood/dogfood-console.sh"
 [[ -x "${DOG}" ]] || { echo "FAIL dogfood-console.sh missing"; exit 1; }
 bash -n "${DOG}" || { echo "FAIL dogfood-console.sh bash -n"; exit 1; }
 
 # Helpers / caps before flip
 for h in proteus-posture proteus-console-capabilities proteus-console-seat; do
   command -v "${h}" >/dev/null 2>&1 || [[ -x "${PROTEUS_ROOT}/shell/scripts/${h}" ]] \
-    || [[ -x "${PROTEUS_ROOT}/vm/guest/${h}" ]] \
+    || [[ -x "${PROTEUS_ROOT}/install/machine/${h}" ]] \
     || { echo "FAIL helper ${h}"; exit 1; }
 done
 echo "OK helpers"

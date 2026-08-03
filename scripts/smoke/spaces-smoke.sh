@@ -73,7 +73,7 @@ grep -q 'scratch-move' "${KB}" || die "Keybinds.qml missing scratch-move"
 grep -q 'scratch-toggle' "${BINDS}" || die "hypr missing Super+S scratch-toggle"
 grep -q 'scratch-move' "${BINDS}" || die "hypr missing Super+Alt+S scratch-move"
 grep -q 'scratch-toggle\|scratch-move' "${WS}" || die "proteus-workspace missing scratch cmds"
-grep -q 'proteus-workspace' "${ROOT}/vm/install/apps.sh" \
+grep -q 'proteus-workspace' "${ROOT}/install/apps.sh" \
   || die "apps.sh must install proteus-workspace"
 ok "shell + Settings + keybind + Named Spaces wiring"
 

@@ -6,7 +6,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/helpers.sh"
 
 PROTEUS_ROOT="$(proteus_install_root)"
-HW="${PROTEUS_ROOT}/vm/install/hardware"
+HW="${PROTEUS_ROOT}/install/hardware"
 
 run_hw() {
   local name="$1"

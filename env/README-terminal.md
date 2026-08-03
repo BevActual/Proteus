@@ -1,5 +1,5 @@
 # Terminal appearance seeds (Ghostty + fastfetch DNA helix)
-# Copied to ~/.config by vm/install/config.sh
+# Copied to ~/.config by install/config.sh
 
 | Path | Role |
 |------|------|

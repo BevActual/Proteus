@@ -8,7 +8,7 @@ absent. **TLP stays Out** — this never edits `/etc/tlp.conf`.
 
 ```bash
 cargo build --release
-sudo bash vm/guest/install-proteus-battery-threshold.sh
+sudo bash install/machine/install-proteus-battery-threshold.sh
 proteus-battery-threshold show
 pkexec proteus-battery-threshold set --start 40 --end 80
 ```

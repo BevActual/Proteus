@@ -1,5 +1,5 @@
 # Proteus Quickshell chrome supervisor (optional alternative to Hyprland exec-once).
-# Install: bash vm/guest/install-proteus-qs-user-unit.sh
+# Install: bash install/machine/install-proteus-qs-user-unit.sh
 # Enable:  systemctl --user enable --now proteus-qs.service
 # Then comment out the proteus-qs exec-once in ~/.config/hypr/hyprland.conf
 # (proteus-qs flock refuses double chrome, but one SoT is cleaner).

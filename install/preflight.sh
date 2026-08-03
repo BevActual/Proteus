@@ -6,7 +6,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/helpers.sh"
 
 PROTEUS_ROOT="$(proteus_install_root)"
 export PROTEUS_ROOT
-PROTEUS_INSTALL="${PROTEUS_ROOT}/vm/install"
+PROTEUS_INSTALL="${PROTEUS_ROOT}/install"
 export PROTEUS_INSTALL
 
 proteus_log "PROTEUS_ROOT=${PROTEUS_ROOT}"
@@ -19,7 +19,7 @@ fi
 for need in \
   "${PROTEUS_INSTALL}/proteus-base.packages" \
   "${PROTEUS_INSTALL}/proteus-desktop.packages" \
-  "${PROTEUS_ROOT}/vm/guest" \
+  "${PROTEUS_ROOT}/install/machine" \
   "${PROTEUS_ROOT}/env/hypr/hyprland.conf"
 do
   if [[ ! -e "${need}" ]]; then

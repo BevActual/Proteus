@@ -6,9 +6,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 die() { echo "posture-hard-smoke: FAIL $*" >&2; exit 1; }
 ok() { echo "posture-hard-smoke: OK $*"; }
 
-POSTURE="${ROOT}/vm/guest/proteus-posture"
-GUIDE="${ROOT}/vm/guest/proteus-guide"
-PROFILE="${ROOT}/vm/guest/set-hypr-profile.sh"
+POSTURE="${ROOT}/shell/scripts/proteus-posture"
+GUIDE="${ROOT}/shell/scripts/proteus-guide"
+PROFILE="${ROOT}/shell/scripts/set-hypr-profile.sh"
 CONSOLE_CONF="${ROOT}/env/hypr/profiles/console.conf"
 
 [[ -x "${POSTURE}" ]] || die "proteus-posture not executable"
@@ -58,10 +58,10 @@ EOF
 chmod +x "${TMP}/bin/hyprctl"
 
 FAKE_ROOT="${TMP}/proteus"
-mkdir -p "${FAKE_ROOT}/shell/scripts" "${FAKE_ROOT}/vm/guest" "${FAKE_ROOT}/env/hypr/profiles"
-cp "${POSTURE}" "${FAKE_ROOT}/vm/guest/proteus-posture"
-cp "${PROFILE}" "${FAKE_ROOT}/vm/guest/set-hypr-profile.sh"
-cp "${GUIDE}" "${FAKE_ROOT}/vm/guest/proteus-guide"
+mkdir -p "${FAKE_ROOT}/shell/scripts" "${FAKE_ROOT}/install/machine" "${FAKE_ROOT}/env/hypr/profiles"
+cp "${POSTURE}" "${FAKE_ROOT}/shell/scripts/proteus-posture"
+cp "${PROFILE}" "${FAKE_ROOT}/shell/scripts/set-hypr-profile.sh"
+cp "${GUIDE}" "${FAKE_ROOT}/shell/scripts/proteus-guide"
 cp "${CONSOLE_CONF}" "${FAKE_ROOT}/env/hypr/profiles/console.conf"
 printf '# stub\n' >"${FAKE_ROOT}/env/hypr/profiles/desktop.conf"
 cat >"${FAKE_ROOT}/shell/scripts/proteus-qs" <<'EOF'
@@ -69,27 +69,27 @@ cat >"${FAKE_ROOT}/shell/scripts/proteus-qs" <<'EOF'
 echo "stub proteus-qs $*" >>"${HOME}/qs-stub.log"
 exit 0
 EOF
-chmod +x "${FAKE_ROOT}/vm/guest/"* "${FAKE_ROOT}/shell/scripts/proteus-qs" 2>/dev/null || true
-chmod +x "${FAKE_ROOT}/vm/guest/proteus-posture" "${FAKE_ROOT}/vm/guest/set-hypr-profile.sh" \
-  "${FAKE_ROOT}/vm/guest/proteus-guide" "${FAKE_ROOT}/shell/scripts/proteus-qs"
+chmod +x "${FAKE_ROOT}/install/machine/"* "${FAKE_ROOT}/shell/scripts/proteus-qs" 2>/dev/null || true
+chmod +x "${FAKE_ROOT}/shell/scripts/proteus-posture" "${FAKE_ROOT}/shell/scripts/set-hypr-profile.sh" \
+  "${FAKE_ROOT}/shell/scripts/proteus-guide" "${FAKE_ROOT}/shell/scripts/proteus-qs"
 
 export PROTEUS_ROOT="${FAKE_ROOT}"
 export PATH="${TMP}/bin:${FAKE_ROOT}/shell/scripts:${PATH}"
 
-bash "${FAKE_ROOT}/vm/guest/proteus-posture" console || true
+bash "${FAKE_ROOT}/shell/scripts/proteus-posture" console || true
 [[ -f "${HOME}/.config/proteus/posture" ]] || die "posture Fact not written"
 got="$(tr -d '[:space:]' <"${HOME}/.config/proteus/posture")"
 [[ "${got}" == "console" ]] || die "expected Fact console, got '${got}'"
 ok "Fact write console"
 
-bash "${FAKE_ROOT}/vm/guest/proteus-posture" desktop || true
+bash "${FAKE_ROOT}/shell/scripts/proteus-posture" desktop || true
 got="$(tr -d '[:space:]' <"${HOME}/.config/proteus/posture")"
 [[ "${got}" == "desktop" ]] || die "expected Fact desktop, got '${got}'"
 ok "Fact write desktop"
 
 # host Fact (host.conf stub must exist for set-hypr-profile)
 printf '# stub\n' >"${FAKE_ROOT}/env/hypr/profiles/host.conf"
-bash "${FAKE_ROOT}/vm/guest/proteus-posture" host || true
+bash "${FAKE_ROOT}/shell/scripts/proteus-posture" host || true
 got="$(tr -d '[:space:]' <"${HOME}/.config/proteus/posture")"
 [[ "${got}" == "host" ]] || die "expected Fact host, got '${got}'"
 ok "Fact write host"
@@ -103,7 +103,7 @@ exit 0
 EOF
 chmod +x "${TMP}/bin/loginctl"
 PROTEUS_SESSION=1 XDG_SESSION_ID=42 \
-  bash "${FAKE_ROOT}/vm/guest/proteus-posture" console || true
+  bash "${FAKE_ROOT}/shell/scripts/proteus-posture" console || true
 sleep 1
 grep -q 'terminate-session 42' "${HOME}/loginctl-stub.log" 2>/dev/null \
   || die "managed flip must loginctl terminate-session"
@@ -115,7 +115,7 @@ ok "managed flip → session exit (loginctl stub)"
 # Pointer migration media → console
 printf 'source = ~/.config/hypr/profiles/media.conf\n' >"${HOME}/.config/hypr/proteus-profile.conf"
 printf '# legacy\n' >"${HOME}/.config/hypr/profiles/media.conf"
-bash "${FAKE_ROOT}/vm/guest/set-hypr-profile.sh" console
+bash "${FAKE_ROOT}/shell/scripts/set-hypr-profile.sh" console
 grep -q 'profiles/console.conf' "${HOME}/.config/hypr/proteus-profile.conf" \
   || die "pointer not migrated to console.conf"
 [[ -f "${HOME}/.config/hypr/profiles/console.conf" ]] || die "console.conf not seeded"
@@ -180,7 +180,7 @@ ok "console + host surface loader"
 LAUNCH="${ROOT}/shell/scripts/proteus-console-launch"
 SEAT="${ROOT}/shell/scripts/proteus-console-seat"
 CAPS="${ROOT}/shell/scripts/proteus-console-capabilities"
-APPLY="${ROOT}/vm/guest/apply-console-kit.sh"
+APPLY="${ROOT}/install/machine/apply-console-kit.sh"
 [[ -x "${LAUNCH}" ]] || die "proteus-console-launch not executable"
 [[ -x "${SEAT}" ]] || die "proteus-console-seat not executable"
 [[ -x "${CAPS}" ]] || die "proteus-console-capabilities not executable"
@@ -202,9 +202,9 @@ set -e
 CAPS_JSON="$("${CAPS}" 2>/dev/null || true)"
 echo "${CAPS_JSON}" | grep -q 'gamescopeUsable' || die "capabilities missing gamescopeUsable"
 # Console kit lives in its own list (multilib; console stage) — not desktop
-grep -qE '^gamescope$' "${ROOT}/vm/install/proteus-console.packages" || die "gamescope not in console packages"
-grep -qE '^python-evdev$' "${ROOT}/vm/install/proteus-console.packages" || die "python-evdev not in console packages"
-grep -qE '^(gamescope|python-evdev)$' "${ROOT}/vm/install/proteus-desktop.packages" \
+grep -qE '^gamescope$' "${ROOT}/install/proteus-console.packages" || die "gamescope not in console packages"
+grep -qE '^python-evdev$' "${ROOT}/install/proteus-console.packages" || die "python-evdev not in console packages"
+grep -qE '^(gamescope|python-evdev)$' "${ROOT}/install/proteus-desktop.packages" \
   && die "console kit must not live in desktop packages" || true
 grep -q 'proteus-console-seat' "${ROOT}/shell/surfaces/console/ConsoleLibrary.qml" \
   || die "ConsoleLibrary missing proteus-console-seat wiring"
@@ -224,13 +224,13 @@ grep -qE 'org\.quickshell|\[Qq\]uickshell' "${ROOT}/env/hypr/profiles/console.co
   || die "console.conf must exempt org.quickshell from fullscreen"
 grep -q 'special:proteus-chrome' "${ROOT}/env/hypr/profiles/console.conf" \
   || die "console.conf must park Quickshell on special:proteus-chrome"
-grep -q 'console_workspace_hygiene' "${ROOT}/vm/guest/proteus-posture" \
+grep -q 'console_workspace_hygiene' "${ROOT}/shell/scripts/proteus-posture" \
   || die "proteus-posture missing console workspace hygiene"
-grep -q 'close_host_product_apps' "${ROOT}/vm/guest/proteus-posture" \
+grep -q 'close_host_product_apps' "${ROOT}/shell/scripts/proteus-posture" \
   || die "proteus-posture missing close_host_product_apps"
-grep -q 'Proteus Workloads' "${ROOT}/vm/guest/proteus-posture" \
+grep -q 'Proteus Workloads' "${ROOT}/shell/scripts/proteus-posture" \
   || die "proteus-posture must close Proteus Workloads on leave-host"
-grep -q 'proteus-console-seat' "${ROOT}/vm/guest/apply-console-kit.sh" \
+grep -q 'proteus-console-seat' "${ROOT}/install/machine/apply-console-kit.sh" \
   || die "apply-console-kit missing proteus-console-seat"
 [[ -f "${ROOT}/shell/surfaces/console/ConsoleAppsModel.qml" ]] || die "ConsoleAppsModel.qml missing"
 ok "console launch kit + Library model"
@@ -247,7 +247,7 @@ grep -q 'Different Settings faces\|settingsFaceHubs' \
 grep -q 'availableSettingsPanesForFace' \
   "${ROOT}/shell/surfaces/console/ConsoleAppsModel.qml" \
   || die "ConsoleAppsModel must use face catalog"
-grep -q 'BTN_TL\|"lb"' "${ROOT}/vm/guest/proteus-guide" \
+grep -q 'BTN_TL\|"lb"' "${ROOT}/shell/scripts/proteus-guide" \
   || die "proteus-guide missing bumper map (LB/RB)"
 grep -q 'cycleDestination\|"lb"' "${ROOT}/shell/surfaces/console/ConsoleHome.qml" \
   || die "ConsoleHome missing LB/RB tab cycle"
@@ -263,9 +263,9 @@ if grep -qE 'proteus-posture[^
 ]*&[[:space:]]*\|\|' "${CC}" "${QSGRID}" 2>/dev/null; then
   die "CC console launch uses invalid bash A && B & || C"
 fi
-grep -q 'vm/guest/proteus-posture' "${CC}" || die "ControlCenter missing live-tree posture launch"
-grep -q 'vm/guest/proteus-posture' "${QSGRID}" || die "QuickSettingsGrid missing live-tree posture launch"
-grep -q 'PROTEUS_SKIP_SESSION_LOCK=1' "${ROOT}/vm/guest/proteus-posture" \
+grep -q 'shell/scripts/proteus-posture' "${CC}" || die "ControlCenter missing live-tree posture launch"
+grep -q 'shell/scripts/proteus-posture' "${QSGRID}" || die "QuickSettingsGrid missing live-tree posture launch"
+grep -q 'PROTEUS_SKIP_SESSION_LOCK=1' "${ROOT}/shell/scripts/proteus-posture" \
   || die "live proteus-posture missing SKIP_SESSION_LOCK on restart"
 grep -q 'id: "console"' "${QSGRID}" || die "QuickSettingsGrid missing Console tile"
 grep -q 'id: "desktop"' "${QSGRID}" || die "QuickSettingsGrid missing Desktop tile (console posture)"
@@ -351,8 +351,8 @@ set -e
 grep -q 'packages-webapps' "${ROOT}/apps/proteus-settings/panes/PackagesPane.qml" \
   || die "Software hub missing Web apps leaf"
 [[ -f "${ROOT}/apps/proteus-settings/panes/PackagesWebAppsPane.qml" ]] || die "PackagesWebAppsPane.qml missing"
-grep -qE '^steam$' "${ROOT}/vm/install/proteus-console.packages" || die "steam not in console packages"
-grep -qE '^retroarch$' "${ROOT}/vm/install/proteus-console.packages" || die "retroarch not in console packages"
+grep -qE '^steam$' "${ROOT}/install/proteus-console.packages" || die "steam not in console packages"
+grep -qE '^retroarch$' "${ROOT}/install/proteus-console.packages" || die "retroarch not in console packages"
 grep -q 'consoleRecents' "${ROOT}/shell/shared/Config.qml" || die "Config missing consoleRecents"
 ok "webapp + Steam/Retro + consoleRecents"
 

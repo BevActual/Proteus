@@ -58,9 +58,9 @@ ok "proteus-defaults list"
 python3 -m py_compile "${INDEX}" || die "beacon-file-index.py py_compile"
 ok "beacon-file-index py_compile"
 
-grep -q 'proteus-defaults.py' "${ROOT}/vm/install/apps.sh" \
+grep -q 'proteus-defaults.py' "${ROOT}/install/apps.sh" \
   || die "apps.sh must install proteus-defaults.py"
-grep -q 'beacon-file-index.py' "${ROOT}/vm/install/apps.sh" \
+grep -q 'beacon-file-index.py' "${ROOT}/install/apps.sh" \
   || die "apps.sh must install beacon-file-index.py"
 ok "apps.sh desktop helpers"
 

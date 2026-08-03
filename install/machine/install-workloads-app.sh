@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
 APP="${ROOT}/apps/proteus-workloads"
 
-bash "${ROOT}/vm/guest/install-icons.sh"
+bash "${ROOT}/install/machine/install-icons.sh"
 
 install -d /usr/local/bin
 cat > /usr/local/bin/proteus-workloads << EOF

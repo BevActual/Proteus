@@ -128,14 +128,14 @@ fast at login, `proteus-session` degrades the session Fact to `seat` and falls
 back to Hyprland in the same login — a bad console Fact can never lock the
 user out.
 
-Soft helper: `vm/guest/set-hypr-profile.sh desktop|console|media|host|home`
+Soft helper: `shell/scripts/set-hypr-profile.sh desktop|console|media|host|home`
 (`media` ≡ `console` → `profiles/console.conf`); Settings → About soft select
 via `HyprProfile.qml` (soft≠hard). **Hard switch:**
-`vm/guest/proteus-posture console|desktop|host` — Fact + profile + session
+`shell/scripts/proteus-posture console|desktop|host` — Fact + profile + session
 restart; Settings → About **Session posture** (`SessionPosture.qml`, confirm
 before flip); Beacon / Control Center / `Super+Shift+C` enter; console Desktop
 tile exits. CC / Quick Settings prefer the **live tree** helper
-(`$PROTEUS_ROOT/vm/guest/…`) over a stale `/usr/local` copy.
+(`$PROTEUS_ROOT/install/machine/…`) over a stale `/usr/local` copy.
 
 **Dev fallback (only outside managed sessions):** when `PROTEUS_SESSION` is
 unset (nested Hyprland on a workstation, SSH automation), `proteus-posture`

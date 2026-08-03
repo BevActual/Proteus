@@ -354,7 +354,7 @@ Singleton {
         "-lc",
         "exec proteus-terminal -e bash -lc "
             + JSON.stringify(
-              "sudo bash /mnt/proteus/vm/guest/install-proteus-logind.sh"
+              "sudo bash /mnt/proteus/install/machine/install-proteus-logind.sh"
                   + "; echo; read -r -p \"Press Enter to close…\" _")
       ]
     })

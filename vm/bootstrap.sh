@@ -55,7 +55,7 @@ if ! mountpoint -q /mnt/proteus; then
   sudo mount -t 9p -o trans=virtio,version=9p2000.L,msize=262144 proteus /mnt/proteus \
     || sudo systemctl start mnt-proteus.mount
 fi
-test -f /mnt/proteus/vm/install/bootstrap.sh
+test -f /mnt/proteus/install/bootstrap.sh
 EOF
 
 echo "vm/bootstrap: running overlay (sudo) …"
@@ -75,7 +75,7 @@ remote_cmd+=" PROTEUS_USER=$(q_env "${USER}")"
   remote_cmd+=" PROTEUS_INSTALL_SKIP=$(q_env "${PROTEUS_INSTALL_SKIP}")"
 [[ -n "${PROTEUS_INSTALL_ONLY:-}" ]] && \
   remote_cmd+=" PROTEUS_INSTALL_ONLY=$(q_env "${PROTEUS_INSTALL_ONLY}")"
-remote_cmd+=" bash /mnt/proteus/vm/install/bootstrap.sh"
+remote_cmd+=" bash /mnt/proteus/install/bootstrap.sh"
 
 # -t for sudo password if needed; auth itself is still publickey
 ssh -t "${ssh_opts[@]}" "${USER}@${HOST}" "${remote_cmd}"

@@ -9,7 +9,7 @@ die() { echo "network-vpn-smoke: FAIL $*" >&2; fail=1; }
 LEAF="${ROOT}/apps/proteus-settings/panes/NetworkVpnLeaf.qml"
 PANE="${ROOT}/apps/proteus-settings/panes/NetworkPane.qml"
 CFG="${ROOT}/shell/shared/Config.qml"
-PKGS="${ROOT}/vm/install/proteus-base.packages"
+PKGS="${ROOT}/install/proteus-base.packages"
 
 for f in "${LEAF}" "${PANE}" "${CFG}" "${PKGS}"; do
   [[ -f "${f}" ]] || die "missing ${f#${ROOT}/}"

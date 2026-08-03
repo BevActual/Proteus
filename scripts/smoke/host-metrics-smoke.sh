@@ -63,9 +63,9 @@ done
 ok "HostMetrics singleton wire"
 
 # Install wiring
-grep -q 'proteus-host-metrics.py' "${ROOT}/vm/install/apps.sh" \
+grep -q 'proteus-host-metrics.py' "${ROOT}/install/apps.sh" \
   || die "apps.sh must install proteus-host-metrics.py"
-grep -q 'proteus-host-metrics.py' "${ROOT}/vm/install/check.sh" \
+grep -q 'proteus-host-metrics.py' "${ROOT}/install/check.sh" \
   || die "check.sh must verify proteus-host-metrics.py"
 ok "install wiring"
 

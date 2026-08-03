@@ -74,7 +74,7 @@ ColumnLayout {
     Quickshell.execDetached({
       command: [
         "bash", "-lc",
-        "P=" + proot + "/vm/guest/proteus-posture; "
+        "P=" + proot + "/shell/scripts/proteus-posture; "
             + "if [[ -x \"$P\" ]]; then setsid \"$P\" " + extra + " >/dev/null 2>&1 & "
             + "elif command -v proteus-posture >/dev/null 2>&1; then "
             + "setsid proteus-posture " + extra + " >/dev/null 2>&1 & fi"
@@ -89,7 +89,7 @@ ColumnLayout {
     Quickshell.execDetached({
       command: [
         "bash", "-lc",
-        "S=" + proot + "/vm/guest/proteus-host-seat; "
+        "S=" + proot + "/shell/scripts/proteus-host-seat; "
             + "if [[ -x \"$S\" ]]; then setsid \"$S\" " + c + " >/dev/null 2>&1 & "
             + "elif command -v proteus-host-seat >/dev/null 2>&1; then "
             + "setsid proteus-host-seat " + c + " >/dev/null 2>&1 & fi"

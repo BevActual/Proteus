@@ -131,13 +131,21 @@ Proteus/
     shell.qml         # picks posture/surface loader
     shared/           # flat pragma-Singleton package + named helpers (see FACTS.md)
     surfaces/         # DesktopShell, PhoneShell, … (host later)
+    scripts/          # ALL runtime PATH helpers — proteus-session · proteus-posture ·
+                      #   proteus-host-seat · proteus-qs · console seats · proteus-snapshot
   apps/
     proteus-settings/ # Settings.qml + kit/ + panes/*; shared/ → ../../shell/shared
   env/                # seeds: hypr/ · ghostty/ · fastfetch/ (see env/README.md)
-  vm/                 # QEMU harness + guest/ mutators + install/ overlay; ISO/qcow in PROTEUS_VM_CACHE (install path SoT: INSTALL.md)
+  install/            # machine-agnostic overlay — VM and bare metal (SoT: INSTALL.md)
+    bootstrap.sh      # stage runner; check.sh = host tree gate
+    *.packages        # base · desktop · console · host rosters
+    hardware/         # GPU + CPU microcode detection
+    machine/          # install-time mutators only: install-*.sh · apply-*.sh
+  vm/                 # QEMU harness ONLY — run/provision/guest-install; ISO/qcow in PROTEUS_VM_CACHE
   services/           # proteus-hw-probe (read) · proteus-pkg · proteus-logind · proteus-audio-mix · proteus-accounts
   scripts/            # runners + tools: run-nested, run-desktop, smoke-all (entry)
     smoke/            # all *-smoke.sh gates (host + guest); run via ./scripts/smoke-all.sh
+    dogfood/          # dogfood-console.sh · dogfood-host.sh
   tests/              # fixtures for schema/layout smokes (not a QML unit runner)
 ```
 
@@ -203,7 +211,7 @@ Do not reimplement Meridian providers or Mobius queue inside Proteus.
 | Shell / Settings QML | Dogfood in VM (`./vm/run.sh`) or nested (`./scripts/run-nested.sh`); `./scripts/smoke/qs-guest-smoke.sh` when guest up |
 | Layout / Config keys | `./scripts/smoke/layout-smoke.sh` · `./scripts/smoke/config-schema-smoke.sh` · fixtures in `tests/` |
 | Host smoke suite | `./scripts/smoke-all.sh` |
-| Guest installers | `vm/guest/*.sh` on running guest |
+| Guest installers | `install/machine/*.sh` on running guest |
 | Keybinds | Settings → Peripherals → Keyboard round-trip + `~/.config/hypr/proteus-keybinds.conf` |
 | Desktop / Displays | Settings → `proteus-general.conf` / `proteus-monitors.conf` |
 | Hardware probe | `./scripts/smoke/hw-probe-smoke.sh` |

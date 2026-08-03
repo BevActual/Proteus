@@ -175,9 +175,9 @@ grep -q 'denyHint\|Diagnostics blocked' "${ND_LEAF}" \
   || die "NetworkDiagnosticsLeaf must show Privacy deny honesty"
 ok "Diagnostics category gate"
 
-grep -q 'proteus-permissions.py' "${ROOT}/vm/install/apps.sh" \
+grep -q 'proteus-permissions.py' "${ROOT}/install/apps.sh" \
   || die "apps.sh must install proteus-permissions.py"
-grep -q 'privacy-indicators.py' "${ROOT}/vm/install/apps.sh" \
+grep -q 'privacy-indicators.py' "${ROOT}/install/apps.sh" \
   || die "apps.sh must install privacy-indicators.py"
 ok "apps.sh privacy helpers"
 

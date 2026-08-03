@@ -20,14 +20,14 @@ Colors track chrome defaults: Electric `#3d8bfd` + Teal `#2dd4bf`
 
 | Surface | How |
 |---------|-----|
-| Icon theme | `vm/guest/install-icons.sh` → `hicolor` names `proteus`, `proteus-settings`, `proteus-launcher` |
+| Icon theme | `install/machine/install-icons.sh` → `hicolor` names `proteus`, `proteus-settings`, `proteus-launcher` |
 | Settings `.desktop` | `Icon=proteus-settings` |
 | Session `.desktop` | `Icon=proteus` |
 | Dock launcher / Settings | Brand SVG via `DockApps.iconSource` (works before icon-cache install) |
 | About pane | Brand SVG |
 | Beacon / launcher apps | `EnvGate.resolveAppIcon` (`.desktop` Icon=, id fallbacks) |
 
-Install on guest: `sudo bash /mnt/proteus/vm/guest/install-icons.sh`  
+Install on guest: `sudo bash /mnt/proteus/install/machine/install-icons.sh`  
 (also runs from `install-settings-app.sh` / greeter apply).
 
 Keep the SVG as source of truth; PNG is a fallback for toolkits that skip SVG.

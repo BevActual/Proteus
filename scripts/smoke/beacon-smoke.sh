@@ -22,7 +22,7 @@ grep -q 'wtypeProbe\|wtype' "${BEACON}" || die "Beacon must probe wtype for clip
 grep -q 'actionCatalog' "${US}" || die "UniversalSearch must expose actionCatalog"
 ok "Beacon + UniversalSearch wiring"
 
-grep -q 'beacon-file-index.py' "${ROOT}/vm/install/apps.sh" \
+grep -q 'beacon-file-index.py' "${ROOT}/install/apps.sh" \
   || die "apps.sh must install beacon-file-index.py"
 ok "apps.sh install"
 

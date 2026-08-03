@@ -257,7 +257,7 @@ QtObject {
     Quickshell.execDetached({
       command: [
         "bash", "-lc",
-        "P=" + proot + "/vm/guest/proteus-posture; "
+        "P=" + proot + "/shell/scripts/proteus-posture; "
             + "if [[ -x \"$P\" ]]; then setsid \"$P\" " + t + " >/dev/null 2>&1 & "
             + "elif command -v proteus-posture >/dev/null 2>&1; then "
             + "setsid proteus-posture " + t + " >/dev/null 2>&1 & "

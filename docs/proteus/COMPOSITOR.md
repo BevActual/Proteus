@@ -103,7 +103,7 @@ Prefer these for OS facts before inventing daemons.
 | **Shell ≠ app platform** | Chrome + Settings in QS; product apps → Tauri ([STACK.md](./STACK.md)) |
 | **Hyprland-shaped integrations** | Best backend for **desktop** — not universal; **console** uses a game-scoped path |
 | **Output / session fragility** | Crashes reported on monitor hotplug, TTY switch, KVM, sleep — **v1:** `shell/scripts/proteus-qs` backoff loop from Hyprland `exec-once`; never keep sole truth in QS memory |
-| **Session start hygiene** | `vm/guest/proteus-session` prefers `start-hyprland`; hypr seed `exec-once` = qs/bg/cliphist/hyprpolkitagent (no terminal); `hide-system-apps` from apps + post-install; host `session-smoke` / `install-smoke` |
+| **Session start hygiene** | `shell/scripts/proteus-session` prefers `start-hyprland`; hypr seed `exec-once` = qs/bg/cliphist/hyprpolkitagent (no terminal); `hide-system-apps` from apps + post-install; host `session-smoke` / `install-smoke` |
 | **Young / moving target** | **v1:** record `quickshell --version` in `qs-guest-smoke` / `qs-version-smoke` (do **not** `IgnorePkg`-pin rolling Arch); after `pacman -Syu` re-run `PROTEUS_GUEST=1 ./scripts/smoke-all.sh`; ISO pin later |
 | **QML is programming** | Shared modules; Rust helpers for messy IO |
 | **Settings as second `quickshell -p`** | OK now; files are SoT; revisit Tauri Settings if lifecycle hurts |
@@ -155,9 +155,9 @@ fragments `shipped` (Displays: drag layout + full-snapshot Revert):
     home.conf                   # stub — parked posture only
 ```
 
-Soft helper: `vm/guest/set-hypr-profile.sh desktop|console|media|host|home`
+Soft helper: `shell/scripts/set-hypr-profile.sh desktop|console|media|host|home`
 (`media` ≡ `console`). Settings → About soft-selects the same pointer.
-**Hard console/host flip:** `vm/guest/proteus-posture` — Fact + profile
+**Hard console/host flip:** `shell/scripts/proteus-posture` — Fact + profile
 pointer, then **session restart to the greeter** (managed sessions;
 `proteus-session` picks the engine at next login). Dev/nested fallback:
 in-place chrome flip. See [POSTURES.md](./POSTURES.md) § Hard switches.

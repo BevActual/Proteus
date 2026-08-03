@@ -1,5 +1,5 @@
 # Proteus Ghostty — minimal; look comes from fastfetch on shell start
-# Seeded to ~/.config/ghostty/config by vm/install/config.sh
+# Seeded to ~/.config/ghostty/config by install/config.sh
 # (Do not force opacity/blur — leave compositor / user theme alone.)
 
 font-family = DejaVu Sans Mono

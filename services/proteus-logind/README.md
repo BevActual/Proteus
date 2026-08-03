@@ -31,9 +31,9 @@ Must run as root via `pkexec` for `set` / `clear`.
 ```bash
 cd services/proteus-logind && cargo build --release
 # guest / host install:
-sudo ../../vm/guest/install-proteus-logind.sh
+sudo ../../install/machine/install-proteus-logind.sh
 # or via settings install when a release binary exists:
-sudo ../../vm/guest/install-settings-app.sh
+sudo ../../install/machine/install-settings-app.sh
 ```
 
 Polkit policy: `org.bevington.proteus.logind.policy` → `/usr/share/polkit-1/actions/`.

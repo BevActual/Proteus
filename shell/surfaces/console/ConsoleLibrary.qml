@@ -468,7 +468,7 @@ Item {
         command: [
           "bash", "-lc",
           "setsid $(command -v proteus-posture || echo "
-              + root.rootDir + "/vm/guest/proteus-posture) desktop >/dev/null 2>&1 &"
+              + root.rootDir + "/shell/scripts/proteus-posture) desktop >/dev/null 2>&1 &"
         ]
       })
       return

@@ -17,10 +17,10 @@ HOME_QML="${ROOT}/shell/surfaces/console/ConsoleHome.qml"
 BAR="${ROOT}/shell/surfaces/console/ConsoleBar.qml"
 LIB="${ROOT}/shell/surfaces/console/ConsoleLibrary.qml"
 APPS_MODEL="${ROOT}/shell/surfaces/console/ConsoleAppsModel.qml"
-APPS="${ROOT}/vm/install/apps.sh"
-CONSOLE="${ROOT}/vm/install/console.sh"
-APPLY="${ROOT}/vm/guest/apply-console-kit.sh"
-DOGFOOD="${ROOT}/vm/guest/dogfood-console.sh"
+APPS="${ROOT}/install/apps.sh"
+CONSOLE="${ROOT}/install/console.sh"
+APPLY="${ROOT}/install/machine/apply-console-kit.sh"
+DOGFOOD="${ROOT}/scripts/dogfood/dogfood-console.sh"
 
 for f in "${SEAT}" "${CAPS}" "${LAUNCH}" "${SESSION}" "${SIDE}" "${DETAIL}" "${LEAN}" \
          "${HOME_QML}" "${BAR}" "${LIB}" "${APPS_MODEL}" "${APPS}" "${CONSOLE}" "${APPLY}" "${DOGFOOD}"; do
@@ -60,7 +60,7 @@ grep -q 'focusZone.*searchField\|focusZone === "list"' "${HOME_QML}" \
   || die "ConsoleHome missing list IA focus zones"
 grep -q 'cycleDestination\|"lb"\|"rb"' "${HOME_QML}" \
   || die "ConsoleHome missing LB/RB destination cycle"
-grep -q 'BTN_TL\|"lb"' "${ROOT}/vm/guest/proteus-guide" \
+grep -q 'BTN_TL\|"lb"' "${ROOT}/shell/scripts/proteus-guide" \
   || die "proteus-guide must map left/right bumpers"
 grep -q 'proteus-console-seat' "${LIB}" || die "ConsoleLibrary missing proteus-console-seat"
 grep -q 'toggleSessionMode\|sessionEffective' "${LIB}" \
@@ -194,7 +194,7 @@ GS_SESSION="${ROOT}/shell/scripts/proteus-console-gs-session"
 FOCUS="${ROOT}/shell/scripts/proteus-console-focus"
 HOME_PROFILE="${ROOT}/shell/console-home/shell.qml"
 SWITCHER="${ROOT}/shell/surfaces/console/ConsoleSwitcher.qml"
-GUIDE="${ROOT}/vm/guest/proteus-guide"
+GUIDE="${ROOT}/shell/scripts/proteus-guide"
 for f in "${GS_SESSION}" "${FOCUS}" "${HOME_PROFILE}"; do
   [[ -e "${f}" ]] || die "missing ${f#${ROOT}/}"
 done
@@ -219,9 +219,9 @@ grep -q 'PROTEUS_CONSOLE_SESSION' "${SEAT}" \
   || die "seat must branch for Gamescope-owned session"
 grep -q 'proteus-console-gs-session' "${APPS}" || die "apps.sh must install gs-session"
 grep -q 'proteus-console-focus' "${APPS}" || die "apps.sh must install focus router"
-grep -q 'xorg-xprop' "${ROOT}/vm/install/proteus-console.packages" \
+grep -q 'xorg-xprop' "${ROOT}/install/proteus-console.packages" \
   || die "console packages missing xorg-xprop (focus router)"
-grep -q 'vulkan-tools' "${ROOT}/vm/install/proteus-console.packages" \
+grep -q 'vulkan-tools' "${ROOT}/install/proteus-console.packages" \
   || die "console packages missing vulkan-tools (hw Vulkan probe)"
 grep -q 'PROTEUS_EXPECT_GS_SESSION' "${DOGFOOD}" \
   || die "dogfood-console must support PROTEUS_EXPECT_GS_SESSION assert"
@@ -280,7 +280,7 @@ done
 ok "list IA deepening (curation · footer · installed games)"
 
 # --- Pad input: exactly one nav event per press ---
-GUIDE_PY="${ROOT}/vm/guest/proteus-guide"
+GUIDE_PY="${ROOT}/shell/scripts/proteus-guide"
 python3 -m py_compile "${GUIDE_PY}" || die "proteus-guide py_compile"
 grep -q 'acquire_single_instance_lock' "${GUIDE_PY}" \
   || die "proteus-guide missing single-instance lock (double listeners = double inputs)"
@@ -288,7 +288,7 @@ grep -q 'DEDUPE_MS' "${GUIDE_PY}" \
   || die "proteus-guide missing press dedupe (BTN_DPAD + HAT dual report)"
 grep -q 'REPEAT_DELAY_MS' "${GUIDE_PY}" \
   || die "proteus-guide missing repeat delay (short press must fire once)"
-grep -q "proteus-guide\\\$" "${ROOT}/vm/guest/proteus-posture" \
+grep -q "proteus-guide\\\$" "${ROOT}/shell/scripts/proteus-posture" \
   || die "proteus-posture stop_guide must pkill by cmdline (script runs as python3)"
 grep -q "proteus-guide\\\$" "${ROOT}/shell/scripts/proteus-console-gs-session" \
   || die "gs-session must kill stale guide before starting its own"

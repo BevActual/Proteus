@@ -5,9 +5,9 @@ ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
 APP="${ROOT}/apps/proteus-settings"
 
 # Brand marks into icon theme (proteus / proteus-settings)
-bash "${ROOT}/vm/guest/install-icons.sh"
+bash "${ROOT}/install/machine/install-icons.sh"
 # Hide pavucontrol / blueman / nm-editor from Beacon (Calculator stays)
-bash "${ROOT}/vm/guest/hide-system-apps.sh"
+bash "${ROOT}/install/machine/hide-system-apps.sh"
 
 install -d /usr/local/bin
 # Launcher uses the live app tree on 9p; single-instance via nav IPC + raise.
@@ -119,7 +119,7 @@ seed_backgrounds() {
 if [[ -x "${ROOT}/services/proteus-pkg/bin/proteus-pkg" ]] \
   || [[ -x "${ROOT}/services/proteus-pkg/target/release/proteus-pkg" ]] \
   || command -v cargo >/dev/null 2>&1; then
-  bash "${ROOT}/vm/guest/install-proteus-pkg.sh"
+  bash "${ROOT}/install/machine/install-proteus-pkg.sh"
 else
   echo "note: skipped proteus-pkg (build release on host first)"
 fi
@@ -128,7 +128,7 @@ fi
 if [[ -x "${ROOT}/services/proteus-logind/bin/proteus-logind" ]] \
   || [[ -x "${ROOT}/services/proteus-logind/target/release/proteus-logind" ]] \
   || command -v cargo >/dev/null 2>&1; then
-  bash "${ROOT}/vm/guest/install-proteus-logind.sh"
+  bash "${ROOT}/install/machine/install-proteus-logind.sh"
 else
   echo "note: skipped proteus-logind (build release on host first)"
 fi
@@ -137,7 +137,7 @@ fi
 if [[ -x "${ROOT}/services/proteus-battery-threshold/bin/proteus-battery-threshold" ]] \
   || [[ -x "${ROOT}/services/proteus-battery-threshold/target/release/proteus-battery-threshold" ]] \
   || command -v cargo >/dev/null 2>&1; then
-  bash "${ROOT}/vm/guest/install-proteus-battery-threshold.sh"
+  bash "${ROOT}/install/machine/install-proteus-battery-threshold.sh"
 else
   echo "note: skipped proteus-battery-threshold (build release on host first)"
 fi
@@ -146,7 +146,7 @@ fi
 if [[ -x "${ROOT}/services/proteus-greetd/bin/proteus-greetd" ]] \
   || [[ -x "${ROOT}/services/proteus-greetd/target/release/proteus-greetd" ]] \
   || command -v cargo >/dev/null 2>&1; then
-  bash "${ROOT}/vm/guest/install-proteus-greetd.sh"
+  bash "${ROOT}/install/machine/install-proteus-greetd.sh"
 else
   echo "note: skipped proteus-greetd (build release on host first)"
 fi
@@ -155,7 +155,7 @@ fi
 if [[ -x "${ROOT}/services/proteus-accounts/bin/proteus-accounts" ]] \
   || [[ -x "${ROOT}/services/proteus-accounts/target/release/proteus-accounts" ]] \
   || command -v cargo >/dev/null 2>&1; then
-  bash "${ROOT}/vm/guest/install-proteus-accounts.sh"
+  bash "${ROOT}/install/machine/install-proteus-accounts.sh"
 else
   echo "note: skipped proteus-accounts (build release on host first)"
 fi
@@ -164,7 +164,7 @@ fi
 if [[ -x "${ROOT}/services/proteus-audio-mix/bin/proteus-audio-mix" ]] \
   || [[ -x "${ROOT}/services/proteus-audio-mix/target/release/proteus-audio-mix" ]] \
   || command -v cargo >/dev/null 2>&1; then
-  bash "${ROOT}/vm/guest/install-proteus-audio-mix.sh"
+  bash "${ROOT}/install/machine/install-proteus-audio-mix.sh"
 else
   echo "note: skipped proteus-audio-mix (build release on host first)"
 fi
@@ -179,19 +179,19 @@ ensure_flathub_for() {
     echo "note: skipped ensure-flathub (flatpak not installed)"
     return 0
   fi
-  sudo -u "${user}" bash "${ROOT}/vm/guest/ensure-flathub.sh" \
+  sudo -u "${user}" bash "${ROOT}/install/machine/ensure-flathub.sh" \
     || echo "note: ensure-flathub failed for ${user}"
 }
 
 # Keybinds must land in the session user's home (not root when using sudo)
 if [[ "${SUDO_USER:-}" != "" && "${SUDO_USER}" != "root" ]]; then
-  sudo -u "${SUDO_USER}" bash "${ROOT}/vm/guest/install-keybinds.sh"
-  sudo -u "${SUDO_USER}" bash "${ROOT}/vm/guest/install-desktop-conf.sh"
+  sudo -u "${SUDO_USER}" bash "${ROOT}/install/machine/install-keybinds.sh"
+  sudo -u "${SUDO_USER}" bash "${ROOT}/install/machine/install-desktop-conf.sh"
   seed_backgrounds "$(getent passwd "${SUDO_USER}" | cut -d: -f6)"
   ensure_flathub_for "${SUDO_USER}"
 else
-  bash "${ROOT}/vm/guest/install-keybinds.sh"
-  bash "${ROOT}/vm/guest/install-desktop-conf.sh"
+  bash "${ROOT}/install/machine/install-keybinds.sh"
+  bash "${ROOT}/install/machine/install-desktop-conf.sh"
   if [[ "${HOME:-}" != "" && "${HOME}" != "/root" ]]; then
     seed_backgrounds "${HOME}"
     ensure_flathub_for "$(id -un)"

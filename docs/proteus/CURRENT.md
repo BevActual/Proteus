@@ -134,9 +134,9 @@ login); dev/nested fallback = in-place chrome flip
 `Super+Shift+C` / `Super+Shift+H`. Settings → About **Session posture** = hard
 picker; **Hyprland profile** = Advanced soft window rules only (not exit).
 
-Console dogfood (guest): `bash /mnt/proteus/vm/guest/dogfood-console.sh`
+Console dogfood (guest): `bash /mnt/proteus/scripts/dogfood/dogfood-console.sh`
 (`--launch browser|retroarch`; `--restore`). Host dogfood:
-`bash /mnt/proteus/vm/guest/dogfood-host.sh` (default headless → seat attach/detach;
+`bash /mnt/proteus/scripts/dogfood/dogfood-host.sh` (default headless → seat attach/detach;
 `--restore` → desktop). Titles via `proteus-console-seat` (Gamescope when usable).
 Primary chrome is Games/Media/Search/Settings list IA; stores-as-backend locked in POSTURES.
 
@@ -155,7 +155,7 @@ Primary chrome is Games/Media/Search/Settings list IA; stores-as-backend locked 
 | `~/.config/hypr/proteus-general.conf` | Gaps, borders, rounding, animations (sourced) |
 | `~/.config/hypr/proteus-monitors.conf` | Displays live `monitor =` lines (sourced) |
 | `~/.config/hypr/proteus-profile.conf` | Active posture profile pointer → `profiles/*.conf` |
-| `~/.config/proteus/root` | Install-root Fact — greetd starts `proteus-session` with a clean env, so bare metal cannot rely on `/mnt/proteus`; written by `vm/install/config.sh`, validated before use ([INSTALL.md](./INSTALL.md)) |
+| `~/.config/proteus/root` | Install-root Fact — greetd starts `proteus-session` with a clean env, so bare metal cannot rely on `/mnt/proteus`; written by `install/config.sh`, validated before use ([INSTALL.md](./INSTALL.md)) |
 | `~/.config/proteus/posture` | Hard-switch Fact (`desktop` \| `console` \| `host`) — boot + `proteus-qs` when `PROTEUS_SURFACE` unset |
 | `~/.config/proteus/host-chrome` | Host seat chrome (`none` \| `full`) — `proteus-posture` / `proteus-host-seat` |
 | `~/.config/hypr/profiles/*.conf` | Posture fragments (desktop + console fullscreen + host lean ops shipped; home stub) |
@@ -177,15 +177,16 @@ Primary chrome is Games/Media/Search/Settings list IA; stores-as-backend locked 
 | `./vm/run.sh snapshot\|restore` | qcow2 snapshots (`hyprland-base`, …) |
 | `./vm/download-iso.sh` / `create-disk.sh` | Fetch ISO / create disk in cache |
 | `./vm/provision.sh` | Prepare ISO/disk hints + SSH overlay (`bootstrap.sh`); `status` = read-only checklist (ISO/disk/SSH/last overlay; running-VM-safe `qemu-img -U`) |
-| `./vm/bootstrap.sh` | SSH guest → light overlay (`vm/install/bootstrap.sh`; passes REPAIR/UPDATE knobs) |
-| `bash /mnt/proteus/vm/install/bootstrap.sh` | On guest: staged overlay incl. `console` stage (multilib + Steam/RetroArch/cores/pads); `repair` = fast config→apps→console preset; `PROTEUS_INSTALL_UPDATE=1` = -Syu + list refresh; skip/resume/only knobs |
-| `./vm/install/check.sh` | Host tree/`bash -n` gate for overlay stages + roster split + repair/status wiring + bare-metal root chain + snapshots + INSTALL.md |
-| `PROTEUS_ROOT="$PWD" sudo -E bash vm/install/bootstrap.sh` | **Bare metal** — same overlay, no 9p; writes the root Fact ([INSTALL.md](./INSTALL.md)) |
+| `./vm/bootstrap.sh` | SSH guest → light overlay (`install/bootstrap.sh`; passes REPAIR/UPDATE knobs) |
+| `bash /mnt/proteus/install/bootstrap.sh` | On guest: staged overlay incl. `console` stage (multilib + Steam/RetroArch/cores/pads); `repair` = fast config→apps→console preset; `PROTEUS_INSTALL_UPDATE=1` = -Syu + list refresh; skip/resume/only knobs |
+| Repo layout (post-split) | `install/` overlay (VM + bare metal) · `install/machine/` install-time mutators · `shell/scripts/` **all** runtime PATH helpers · `scripts/dogfood/` · `vm/` QEMU harness only — asserted by `check.sh` ([ARCHITECTURE.md](./ARCHITECTURE.md) §4) |
+| `./install/check.sh` | Host tree/`bash -n` gate for overlay stages + roster split + repair/status wiring + bare-metal root chain + snapshots + INSTALL.md |
+| `PROTEUS_ROOT="$PWD" sudo -E bash install/bootstrap.sh` | **Bare metal** — same overlay, no 9p; writes the root Fact ([INSTALL.md](./INSTALL.md)) |
 | `proteus-snapshot status\|list\|create\|pre-flip\|rollback` | Bare-metal rollback net (btrfs + snapper); `rollback` is a dry run without `--yes`; honest when unsupported |
-| `bash /mnt/proteus/vm/guest/install-settings-app.sh` | Install Settings + keybinds + desktop/displays conf |
-| `bash /mnt/proteus/vm/guest/install-keybinds.sh` | Keybinds file + hypr source (user home) |
-| `bash /mnt/proteus/vm/guest/install-desktop-conf.sh` | `proteus-general.conf` + `proteus-monitors.conf` + sources |
-| `bash /mnt/proteus/vm/guest/install-lock-pam.sh` | `/etc/pam.d/proteus-lock` (falls back to `login` if absent) |
+| `bash /mnt/proteus/install/machine/install-settings-app.sh` | Install Settings + keybinds + desktop/displays conf |
+| `bash /mnt/proteus/install/machine/install-keybinds.sh` | Keybinds file + hypr source (user home) |
+| `bash /mnt/proteus/install/machine/install-desktop-conf.sh` | `proteus-general.conf` + `proteus-monitors.conf` + sources |
+| `bash /mnt/proteus/install/machine/install-lock-pam.sh` | `/etc/pam.d/proteus-lock` (falls back to `login` if absent) |
 | `./scripts/run-nested.sh` | Nested Hyprland on host |
 | `./scripts/smoke-all.sh` | Host smokes (layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · accounts · users · lock-pin · permissions · desktop · spaces · focus · control-center · beacon · audio-mix-serve · hw-probe · install · session · posture-hard · console · host · workloads-app · qs-version); guest `qs-guest` + `software-guest` + `console-guest` + `host-guest` if SSH or `PROTEUS_GUEST=1` |
 | `./scripts/smoke/layout-smoke.sh` | Flat `shell/shared/` + Settings `kit/` structure |
@@ -253,7 +254,7 @@ Install path SoT (three layers, knobs, repair, failures): [INSTALL.md](./INSTALL
 - Tablet bezier per-tool pressure curves · gesture maps (active-area mm + pressure range + eraser-as-button + monitor region shipped)  
 - ISO / installer productization — bare metal now runs the same overlay against a manual Arch base, but there is no unattended installer for real hardware ([INSTALL.md](./INSTALL.md))
 - Bare-metal proof: nothing in the tree has been booted on real hardware yet. `game_scope`, charge thresholds, `/sys/class/backlight`, SMART and multi-head hotplug are all **unexercised** — the VM cannot reach them
-- `vm/` naming now covers bare-metal installs too (rename queued)  
+- Second user: nothing here has been installed by anyone who did not write it  
 - Rowena (and other sibling) CSS retarget onto `--proteus-*` export  
 
 When shipping a feature, update this file in the same change.

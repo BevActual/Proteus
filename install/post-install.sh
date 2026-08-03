@@ -9,8 +9,8 @@ proteus_status_ensure
 STATUS="$(proteus_status_dir)"
 
 # Refresh launcher NoDisplay stubs (Settings-covered tools + Quickshell)
-if [[ -n "${PROTEUS_ROOT:-}" && -f "${PROTEUS_ROOT}/vm/guest/hide-system-apps.sh" ]]; then
-  proteus_root bash "${PROTEUS_ROOT}/vm/guest/hide-system-apps.sh" \
+if [[ -n "${PROTEUS_ROOT:-}" && -f "${PROTEUS_ROOT}/install/machine/hide-system-apps.sh" ]]; then
+  proteus_root bash "${PROTEUS_ROOT}/install/machine/hide-system-apps.sh" \
     || proteus_log "note: hide-system-apps failed (non-fatal)"
 fi
 
@@ -24,7 +24,7 @@ proteus_log "overlay complete for user ${USER_NAME}"
 
 # Soft verify: base packages present when pacman exists
 if command -v pacman >/dev/null 2>&1 && [[ -n "${PROTEUS_ROOT:-}" ]]; then
-  if proteus_pkgs_installed "${PROTEUS_ROOT}/vm/install/proteus-base.packages"; then
+  if proteus_pkgs_installed "${PROTEUS_ROOT}/install/proteus-base.packages"; then
     proteus_log "verify: base packages installed"
   else
     proteus_log "verify: some base packages missing (re-run packaging)"
@@ -47,10 +47,10 @@ Status: ${STATUS}/complete
 Log:    ${PROTEUS_INSTALL_LOG:-}
 
 Re-run overlay (idempotent pacman --needed):
-  sudo bash /mnt/proteus/vm/install/bootstrap.sh
+  sudo bash /mnt/proteus/install/bootstrap.sh
 Resume after interrupt:
-  sudo PROTEUS_INSTALL_RESUME=1 bash /mnt/proteus/vm/install/bootstrap.sh
+  sudo PROTEUS_INSTALL_RESUME=1 bash /mnt/proteus/install/bootstrap.sh
 Single stage:
-  sudo PROTEUS_INSTALL_ONLY=desktop bash /mnt/proteus/vm/install/bootstrap.sh
+  sudo PROTEUS_INSTALL_ONLY=desktop bash /mnt/proteus/install/bootstrap.sh
 
 EOF

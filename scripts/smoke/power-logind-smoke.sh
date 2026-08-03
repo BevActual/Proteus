@@ -12,8 +12,8 @@ PKG="${ROOT}/services/proteus-logind"
 [[ -f "${PKG}/org.bevington.proteus.logind.policy" ]] || die "missing polkit policy"
 grep -q 'org.bevington.proteus.logind' "${PKG}/org.bevington.proteus.logind.policy" \
   || die "policy action id"
-[[ -x "${ROOT}/vm/guest/install-proteus-logind.sh" ]] || die "install-proteus-logind.sh"
-grep -q 'install-proteus-logind' "${ROOT}/vm/guest/install-settings-app.sh" \
+[[ -x "${ROOT}/install/machine/install-proteus-logind.sh" ]] || die "install-proteus-logind.sh"
+grep -q 'install-proteus-logind' "${ROOT}/install/machine/install-settings-app.sh" \
   || die "settings-app install hook"
 
 grep -q 'setLogindPolicy' "${ROOT}/shell/shared/Power.qml" || die "Power.qml setLogindPolicy"

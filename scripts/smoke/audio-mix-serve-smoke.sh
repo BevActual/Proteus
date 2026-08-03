@@ -10,8 +10,8 @@ PKG="${ROOT}/services/proteus-audio-mix"
 [[ -f "${PKG}/Cargo.toml" ]] || die "missing Cargo.toml"
 [[ -f "${PKG}/src/main.rs" ]] || die "missing src/main.rs"
 [[ -f "${PKG}/README.md" ]] || die "missing README"
-[[ -x "${ROOT}/vm/guest/install-proteus-audio-mix.sh" ]] || die "install-proteus-audio-mix.sh"
-grep -q 'install-proteus-audio-mix' "${ROOT}/vm/guest/install-settings-app.sh" \
+[[ -x "${ROOT}/install/machine/install-proteus-audio-mix.sh" ]] || die "install-proteus-audio-mix.sh"
+grep -q 'install-proteus-audio-mix' "${ROOT}/install/machine/install-settings-app.sh" \
   || die "settings-app install hook"
 
 grep -q 'startMixServe' "${ROOT}/shell/shared/Audio.qml" || die "Audio.qml startMixServe"

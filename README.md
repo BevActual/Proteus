@@ -56,7 +56,7 @@ Guest install, 9p share, SSH, snapshots: **[vm/README.md](vm/README.md)**.
 
 ```bash
 # On guest after boot:
-bash /mnt/proteus/vm/guest/install-settings-app.sh
+bash /mnt/proteus/install/machine/install-settings-app.sh
 ```
 
 SSH: `ssh -p 2222 andrew@127.0.0.1`
@@ -76,12 +76,16 @@ Shell-only experiments (does not replace the VM for distro work):
 
 ```
 docs/            # POSITIONING, ARCHITECTURE, POSTURES, CURRENT, …
-vm/              # QEMU/KVM Arch guest harness
+install/         # Overlay installer — VM and bare metal alike
+  hardware/      # GPU + CPU microcode detection
+  machine/       # install-time mutators (install-*.sh, apply-*.sh)
+vm/              # QEMU/KVM Arch guest harness (one kind of machine)
 env/             # Seeds: hypr/ · ghostty/ · fastfetch/
-scripts/         # run-nested.sh, run-desktop.sh, smoke-all.sh · smoke/
+scripts/         # run-nested.sh, run-desktop.sh, smoke-all.sh · smoke/ · dogfood/
 shell/           # Quickshell (chrome)
   shared/        # Theme, Config, Keybinds, ShellState, …
   surfaces/      # Desktop + posture stubs
+  scripts/       # Runtime PATH helpers (session, posture, seats, snapshot)
 apps/
   proteus-settings/   # Control center (Appearance, Desktop, Peripherals, …)
 services/

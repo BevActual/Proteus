@@ -43,7 +43,7 @@ proteus_hw_hypr_envs() {
   if [[ -f "${hypr}" ]] && ! grep -q 'proteus-hw.conf' "${hypr}" 2>/dev/null; then
     {
       echo ""
-      echo "# GPU / hardware envs (vm/install/hardware)"
+      echo "# GPU / hardware envs (install/hardware)"
       echo "source = ~/.config/hypr/proteus-hw.conf"
     } | proteus_as_user tee -a "${hypr}" >/dev/null
   fi

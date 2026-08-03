@@ -1,5 +1,353 @@
 #!/usr/bin/env bash
-# Thin PATH wrapper → vm/guest/proteus-posture (nested / host dogfood without install).
+# proteus-posture — hard posture switch (desktop ↔ console ↔ host).
+# Usage: proteus-posture desktop|console|host [--headless|--chrome]
+#
+# Contract (Phase 3, uniform): a posture flip is a SESSION RESTART landing at
+# the login screen — write Facts + profile pointer, clean stop, terminate the
+# graphical session; proteus-session picks the engine (Hyprland or the
+# Gamescope console session) at next login. Apps do not survive a flip.
+#
+# Dev fallback: outside a managed session (PROTEUS_SESSION unset — e.g.
+# nested Hyprland on a workstation, where terminating the session would kill
+# the developer's real desktop) the legacy in-place chrome flip is used.
+#
+# Host --headless: host-chrome=none Fact (headless-no-QS at next login).
+# Host --chrome: host-chrome=full (ops UI attached at next login).
+# Soft-only profile reload: set-hypr-profile.sh (not this helper).
 set -euo pipefail
-ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
-exec bash "${ROOT}/vm/guest/proteus-posture" "$@"
+
+HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+# Prefer env / 9p mount when this script is installed to /usr/local/bin
+_root_fact="${XDG_CONFIG_HOME:-${HOME:-/root}/.config}/proteus/root"
+_root_fact_val=""
+if [[ -r "${_root_fact}" ]]; then
+  _root_fact_val="$(tr -d '[:space:]' <"${_root_fact}" 2>/dev/null || true)"
+fi
+if [[ -n "${PROTEUS_ROOT:-}" && -d "${PROTEUS_ROOT}/shell" ]]; then
+  ROOT="${PROTEUS_ROOT}"
+elif [[ -d "${HERE}/../../shell" && -d "${HERE}/../../env" ]]; then
+  ROOT="$(cd "${HERE}/../.." && pwd)"
+elif [[ -n "${_root_fact_val}" && -d "${_root_fact_val}/shell" ]]; then
+  ROOT="${_root_fact_val}"
+elif [[ -d /mnt/proteus/shell ]]; then
+  ROOT=/mnt/proteus
+else
+  ROOT="${PROTEUS_ROOT:-/mnt/proteus}"
+fi
+export PROTEUS_ROOT="${ROOT}"
+
+usage() {
+  echo "usage: $0 desktop|console|host [--headless|--chrome]" >&2
+  exit 2
+}
+
+TARGET="${1:-}"
+[[ -n "${TARGET}" ]] || usage
+shift
+HOST_CHROME_FLAG=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --headless|headless)
+      HOST_CHROME_FLAG=none
+      shift
+      ;;
+    --chrome|chrome|--ui)
+      HOST_CHROME_FLAG=full
+      shift
+      ;;
+    *)
+      usage
+      ;;
+  esac
+done
+
+CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus"
+FACT="${CONFIG_DIR}/posture"
+HOST_CHROME_FACT="${CONFIG_DIR}/host-chrome"
+SHELL_DIR="${ROOT}/shell"
+if [[ -x "${HERE}/proteus-qs" ]]; then
+  QS="${HERE}/proteus-qs"
+else
+  QS="${SHELL_DIR}/scripts/proteus-qs"
+fi
+if [[ -x "${HERE}/set-hypr-profile.sh" ]]; then
+  PROFILE_HELPER="${HERE}/set-hypr-profile.sh"
+else
+  PROFILE_HELPER="${ROOT}/shell/scripts/set-hypr-profile.sh"
+fi
+if [[ -x "${HERE}/proteus-guide" ]]; then
+  GUIDE="${HERE}/proteus-guide"
+else
+  GUIDE="${ROOT}/shell/scripts/proteus-guide"
+fi
+
+[[ "${TARGET}" == "desktop" || "${TARGET}" == "console" || "${TARGET}" == "host" ]] || usage
+if [[ -n "${HOST_CHROME_FLAG}" && "${TARGET}" != "host" ]]; then
+  echo "proteus-posture: --headless/--chrome only apply to host" >&2
+  exit 2
+fi
+
+mkdir -p "${CONFIG_DIR}"
+
+log() {
+  printf '%s proteus-posture: %s\n' "$(date -Iseconds 2>/dev/null || date)" "$*" \
+    >>"${XDG_RUNTIME_DIR:-/tmp}/proteus-posture.log" 2>/dev/null || true
+  echo "proteus-posture: $*"
+}
+
+write_fact() {
+  printf '%s\n' "$1" >"${FACT}"
+}
+
+# Best-effort rollback point before a hard switch. A posture flip changes the
+# session engine, profile pointer and (for host) the seat — the class of change
+# worth being able to walk back on bare metal. Never blocks or fails the flip:
+# no btrfs / no snapper / no sudo simply means no snapshot.
+snapshot_pre_flip() {
+  local target="$1" snap
+  [[ "${PROTEUS_POSTURE_SNAPSHOT:-1}" == "1" ]] || return 0
+  snap="$(command -v proteus-snapshot 2>/dev/null || true)"
+  [[ -n "${snap}" ]] || snap="${ROOT}/shell/scripts/proteus-snapshot"
+  [[ -x "${snap}" ]] || return 0
+  timeout 20 "${snap}" pre-flip "${target}" 2>/dev/null || true
+}
+
+write_host_chrome() {
+  printf '%s\n' "$1" >"${HOST_CHROME_FACT}"
+}
+
+read_host_chrome() {
+  local v="full"
+  if [[ -f "${HOST_CHROME_FACT}" ]]; then
+    v="$(tr -d '[:space:]' <"${HOST_CHROME_FACT}" || true)"
+  fi
+  case "${v}" in
+    none|off|0|headless) echo none ;;
+    *) echo full ;;
+  esac
+}
+
+stop_guide() {
+  # The guide is a python3 script: comm is "python3", so match the cmdline.
+  # Must catch every copy — installed (/usr/local/bin, hyprland.conf exec-once)
+  # and live tree — or flips stack a second listener and every pad press
+  # reaches chrome twice.
+  pkill -f 'proteus-guide$' 2>/dev/null || true
+  pkill -f "${GUIDE}" 2>/dev/null || true
+  pkill -x proteus-guide 2>/dev/null || true
+}
+
+start_guide() {
+  stop_guide
+  if [[ ! -x "${GUIDE}" ]]; then
+    log "proteus-guide missing — Guide / pad inactive (keyboard stand-ins still work)"
+    return 0
+  fi
+  if ! python3 -c "import evdev" >/dev/null 2>&1; then
+    log "python-evdev missing — Guide / pad inactive (install python-evdev)"
+    return 0
+  fi
+  setsid env PROTEUS_ROOT="${PROTEUS_ROOT:-${ROOT}}" "${GUIDE}" >/dev/null 2>&1 &
+  log "proteus-guide started"
+}
+
+set_profile() {
+  if [[ -x "${PROFILE_HELPER}" ]]; then
+    bash "${PROFILE_HELPER}" "$1" || log "set-hypr-profile.sh failed (continuing)"
+  else
+    log "set-hypr-profile.sh not found — window rules may not flip"
+  fi
+}
+
+# Host-scoped product apps (separate Quickshell processes) must not linger after
+# leaving host — chrome restart does not tear them down.
+close_host_product_apps() {
+  command -v hyprctl >/dev/null 2>&1 || return 0
+  python3 - <<'PY' 2>/dev/null || true
+import json, subprocess
+HOST_TITLES = ("Proteus Workloads",)
+try:
+    clients = json.loads(subprocess.check_output(["hyprctl", "clients", "-j"], text=True, timeout=3))
+except Exception:
+    raise SystemExit(0)
+for c in clients:
+    title = str(c.get("title") or "")
+    addr = str(c.get("address") or "")
+    if not addr:
+        continue
+    if title in HOST_TITLES or title.startswith("Proteus Workloads"):
+        subprocess.run(["hyprctl", "dispatch", "closewindow", f"address:{addr}"],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+PY
+  log "closed host product apps (Workloads)"
+}
+
+# SteamOS-like one-thing-on-screen: close non-chrome clients when entering console.
+console_workspace_hygiene() {
+  command -v hyprctl >/dev/null 2>&1 || return 0
+  # Stop any supervised seat first
+  if [[ -x "${ROOT}/shell/scripts/proteus-console-seat" ]]; then
+    "${ROOT}/shell/scripts/proteus-console-seat" stop >/dev/null 2>&1 || true
+  elif command -v proteus-console-seat >/dev/null 2>&1; then
+    proteus-console-seat stop >/dev/null 2>&1 || true
+  fi
+  # Workloads is quickshell-class — close before the skip-all-quickshell pass.
+  close_host_product_apps
+  python3 - <<'PY' 2>/dev/null || true
+import json, subprocess
+try:
+    clients = json.loads(subprocess.check_output(["hyprctl", "clients", "-j"], text=True, timeout=3))
+except Exception:
+    raise SystemExit(0)
+for c in clients:
+    cls = str(c.get("class") or "")
+    title = str(c.get("title") or "")
+    addr = str(c.get("address") or "")
+    if not addr:
+        continue
+    if "quickshell" in cls.lower():
+        continue
+    if title.startswith("Proteus Settings"):
+        continue
+    subprocess.run(["hyprctl", "dispatch", "closewindow", f"address:{addr}"],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+PY
+  log "console workspace hygiene (closed non-chrome clients)"
+}
+
+restart_chrome() {
+  local surface="$1"
+  if [[ ! -x "${QS}" ]]; then
+    echo "proteus-posture: proteus-qs not found at ${QS}" >&2
+    exit 1
+  fi
+  export PROTEUS_ROOT="${PROTEUS_ROOT:-${ROOT}}"
+  export PROTEUS_SURFACE="${surface}"
+  export PATH="/usr/local/bin:${PROTEUS_ROOT}/shell/scripts:${PATH}"
+  # Detached so callers inside Quickshell survive chrome teardown.
+  # Skip cold-boot lock on posture flip — session was already unlocked;
+  # re-locking here often fails to map WlSessionLock after QS restart and
+  # leaves console/desktop on a blank background (nav hidden, no lock UI).
+  setsid env PROTEUS_SURFACE="${surface}" PROTEUS_ROOT="${PROTEUS_ROOT}" \
+    PROTEUS_SKIP_SESSION_LOCK=1 \
+    "${QS}" --restart "${SHELL_DIR}" >/dev/null 2>&1 &
+}
+
+stop_chrome() {
+  if [[ ! -x "${QS}" ]]; then
+    echo "proteus-posture: proteus-qs not found at ${QS}" >&2
+    exit 1
+  fi
+  export PROTEUS_ROOT="${PROTEUS_ROOT:-${ROOT}}"
+  # Detached stop — caller may be inside Quickshell.
+  setsid env PROTEUS_ROOT="${PROTEUS_ROOT}" \
+    "${QS}" --stop "${SHELL_DIR}" >/dev/null 2>&1 &
+}
+
+# Wallpaper is a separate QS process — quiet it on host-headless.
+stop_wallpaper() {
+  pkill -x proteus-bg 2>/dev/null || true
+  pkill -f "quickshell -p ${ROOT}/shell/wallpaper" 2>/dev/null || true
+  pkill -f "quickshell -p .*/shell/wallpaper" 2>/dev/null || true
+  log "stopped wallpaper (proteus-bg)"
+}
+
+# Uniform hard flip: end the graphical session — greeter shows, next login
+# picks the engine from the Facts. Only for sessions started via
+# proteus-session (PROTEUS_SESSION=1); returns 1 for the dev fallback.
+end_session() {
+  [[ "${PROTEUS_SESSION:-}" == "1" ]] || return 1
+  # Stop supervised seats before the cgroup teardown for a clean journal.
+  if [[ -x "${ROOT}/shell/scripts/proteus-console-seat" ]]; then
+    "${ROOT}/shell/scripts/proteus-console-seat" stop >/dev/null 2>&1 || true
+  elif command -v proteus-console-seat >/dev/null 2>&1; then
+    proteus-console-seat stop >/dev/null 2>&1 || true
+  fi
+  local sid="${XDG_SESSION_ID:-}"
+  if [[ -n "${sid}" ]] && command -v loginctl >/dev/null 2>&1; then
+    log "ending session ${sid} — flip lands at login (engine: proteus-session)"
+    # Detached with a beat of delay so the caller (possibly inside QS chrome)
+    # gets its IPC reply before the session goes down.
+    setsid bash -c "sleep 0.4; loginctl terminate-session '${sid}'" >/dev/null 2>&1 &
+    return 0
+  fi
+  # Managed session but no loginctl/session id — kill the compositors; greetd
+  # (or the session supervisor) respawns the greeter.
+  log "ending session (no loginctl) — stopping compositors"
+  setsid bash -c "sleep 0.4; pkill -x gamescope; pkill -x Hyprland" >/dev/null 2>&1 &
+  return 0
+}
+
+snapshot_pre_flip "${TARGET}"
+
+case "${TARGET}" in
+  console)
+    if ! command -v gamescope >/dev/null 2>&1; then
+      log "warn: gamescope not installed — console home works; game wraps degrade"
+    fi
+    write_fact console
+    log "Fact → console (${FACT})"
+    set_profile console
+    if end_session; then
+      log "flip → console queued (login picks Hyprland kiosk or Gamescope session)"
+    else
+      # Dev fallback — in-place flip (nested / unmanaged session only)
+      log "dev fallback: in-place console flip (unmanaged session)"
+      console_workspace_hygiene
+      restart_chrome console
+      sleep 0.8
+      start_guide
+      log "entered console (in-place)"
+    fi
+    ;;
+  desktop)
+    write_fact desktop
+    log "Fact → desktop (${FACT})"
+    set_profile desktop
+    if end_session; then
+      log "flip → desktop queued (login restores Hyprland + full chrome)"
+    else
+      log "dev fallback: in-place desktop flip (unmanaged session)"
+      close_host_product_apps
+      restart_chrome desktop
+      sleep 0.8
+      start_guide
+      log "entered desktop (in-place)"
+    fi
+    ;;
+  host)
+    write_fact host
+    log "Fact → host (${FACT})"
+    set_profile host
+    # Seat chrome: explicit --chrome|--headless, else default headless (seat-driven).
+    if [[ -n "${HOST_CHROME_FLAG}" ]]; then
+      write_host_chrome "${HOST_CHROME_FLAG}"
+      log "host-chrome → ${HOST_CHROME_FLAG} (${HOST_CHROME_FACT})"
+    else
+      write_host_chrome none
+      log "host-chrome → none (default headless; proteus-host-seat attach / --chrome for UI)"
+    fi
+    if end_session; then
+      log "flip → host queued (login applies host-chrome Fact)"
+    else
+      log "dev fallback: in-place host flip (unmanaged session)"
+      # Stop console seats if any were left running
+      if [[ -x "${ROOT}/shell/scripts/proteus-console-seat" ]]; then
+        "${ROOT}/shell/scripts/proteus-console-seat" stop >/dev/null 2>&1 || true
+      fi
+      chrome_mode="$(read_host_chrome)"
+      if [[ "${chrome_mode}" == "none" ]]; then
+        close_host_product_apps
+        stop_guide
+        stop_chrome
+        stop_wallpaper
+        log "entered host (headless — proteus-host-seat attach or proteus-posture host --chrome)"
+      else
+        restart_chrome host
+        sleep 0.8
+        start_guide
+        log "entered host (ops chrome attached)"
+      fi
+    fi
+    ;;
+esac

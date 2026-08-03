@@ -15,5 +15,5 @@ if [[ -x "${HERE}/target/debug/proteus-pkg" ]]; then
 fi
 
 echo "proteus-pkg: binary not found — run: cargo build --release -C ${HERE}" >&2
-echo "  (or install via vm/guest/install-proteus-pkg.sh)" >&2
+echo "  (or install via install/machine/install-proteus-pkg.sh)" >&2
 exit 127

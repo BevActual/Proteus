@@ -5,7 +5,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/helpers.sh"
 
 PROTEUS_ROOT="$(proteus_install_root)"
-LIST="${PROTEUS_ROOT}/vm/install/proteus-base.packages"
+LIST="${PROTEUS_ROOT}/install/proteus-base.packages"
 
 if ! command -v pacman >/dev/null 2>&1; then
   echo "packaging: pacman not found (run on Arch guest)" >&2

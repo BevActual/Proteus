@@ -58,7 +58,7 @@ ensure_console_hypr_profile() {
     return 0
   fi
   root="${PROTEUS_ROOT:-/mnt/proteus}"
-  helper="${root}/vm/guest/set-hypr-profile.sh"
+  helper="${root}/shell/scripts/set-hypr-profile.sh"
   if [[ -x "${helper}" ]]; then
     log "hypr profile out of sync with Fact=console — running set-hypr-profile.sh console"
     bash "${helper}" console >/dev/null 2>&1 || true

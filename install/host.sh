@@ -8,7 +8,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/helpers.sh"
 
 PROTEUS_ROOT="$(proteus_install_root)"
-LIST="${PROTEUS_ROOT}/vm/install/proteus-host.packages"
+LIST="${PROTEUS_ROOT}/install/proteus-host.packages"
 USER_NAME="$(proteus_session_user)"
 
 # 1. Packages — best-effort per package (mirror gaps must not fail the stage;

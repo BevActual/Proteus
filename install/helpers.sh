@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Shared helpers for vm/install/* (sourced; do not set -e here).
+# Shared helpers for install/* (sourced; do not set -e here).
 
 proteus_install_root() {
-  if [[ -n "${PROTEUS_ROOT:-}" && -d "${PROTEUS_ROOT}/vm/install" ]]; then
+  if [[ -n "${PROTEUS_ROOT:-}" && -d "${PROTEUS_ROOT}/install" ]]; then
     printf '%s' "${PROTEUS_ROOT}"
     return 0
   fi
-  if [[ -d /mnt/proteus/vm/install ]]; then
+  if [[ -d /mnt/proteus/install ]]; then
     printf '%s' /mnt/proteus
     return 0
   fi

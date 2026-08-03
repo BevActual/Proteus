@@ -61,8 +61,8 @@ if [[ -f "${HYPR}" ]]; then
     bg_cmd="/usr/local/bin/proteus-bg"
   elif [[ -x "${HOME}/.local/bin/proteus-bg" ]]; then
     bg_cmd="${HOME}/.local/bin/proteus-bg"
-  elif [[ -x /mnt/proteus/vm/guest/proteus-bg ]]; then
-    bg_cmd="/mnt/proteus/vm/guest/proteus-bg"
+  elif [[ -x /mnt/proteus/shell/scripts/proteus-bg ]]; then
+    bg_cmd="/mnt/proteus/shell/scripts/proteus-bg"
   fi
   if grep -qE '^[[:space:]]*exec-once[[:space:]]*=[[:space:]]*swaybg' "${HYPR}"; then
     sed -i -E "s|^[[:space:]]*exec-once[[:space:]]*=[[:space:]]*swaybg.*|exec-once = ${bg_cmd}|" "${HYPR}"

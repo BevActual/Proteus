@@ -12,9 +12,9 @@ PKG="${ROOT}/services/proteus-battery-threshold"
 [[ -f "${PKG}/org.bevington.proteus.battery-threshold.policy" ]] || die "missing polkit policy"
 grep -q 'org.bevington.proteus.battery-threshold' \
   "${PKG}/org.bevington.proteus.battery-threshold.policy" || die "policy action id"
-[[ -x "${ROOT}/vm/guest/install-proteus-battery-threshold.sh" ]] \
+[[ -x "${ROOT}/install/machine/install-proteus-battery-threshold.sh" ]] \
   || die "install-proteus-battery-threshold.sh"
-grep -q 'install-proteus-battery-threshold' "${ROOT}/vm/guest/install-settings-app.sh" \
+grep -q 'install-proteus-battery-threshold' "${ROOT}/install/machine/install-settings-app.sh" \
   || die "settings-app install hook"
 ok "package + install"
 

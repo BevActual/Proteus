@@ -219,7 +219,7 @@ Reference hybrid leaf under **Peripherals → Keyboard**:
 2. Overrides in `~/.config/proteus/keybinds.json`
 3. Generated `~/.config/hypr/proteus-keybinds.conf` sourced by Hyprland
 4. UI: search, categories, record chord, conflict detection, restore defaults
-5. Guest wiring: `vm/guest/install-keybinds.sh`
+5. Guest wiring: `install/machine/install-keybinds.sh`
 
 **Peripherals** category (same drill-in as Appearance): Keyboard · Mouse ·
 Touchpad · Tablet · Gamepads. Headphones/speakers stay under **Sound**, not
@@ -256,7 +256,7 @@ pages via `kit/StickyPaneLoader` (`DesktopGapsLeaf`, `DesktopChromeLeaf`,
 
 | Pane | Live apply | On-disk fragment | Guest seed |
 |------|------------|------------------|----------|
-| Desktop | `hyprctl keyword` (gaps, border, rounding, animations) + dock/menu sizes + Beacon tags/recents in `settings.json` | `proteus-general.conf` + `settings.json` (`launcherRecents`, `launcherFileRecents`, `launcherTagCatalog`, `launcherAppTags`) | `vm/guest/install-desktop-conf.sh` |
+| Desktop | `hyprctl keyword` (gaps, border, rounding, animations) + dock/menu sizes + Beacon tags/recents in `settings.json` | `proteus-general.conf` + `settings.json` (`launcherRecents`, `launcherFileRecents`, `launcherTagCatalog`, `launcherAppTags`) | `install/machine/install-desktop-conf.sh` |
 | Displays | Scale + mode + orientation + layout via `hyprctl keyword monitor`; Revert snapshot; Refresh/hotplug rebind | Live `monitor =` lines in `proteus-monitors.conf` | same |
 
 Templates: `env/hypr/proteus-general.conf`, `env/hypr/proteus-monitors.conf`. Nested

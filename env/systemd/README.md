@@ -8,7 +8,7 @@
 `env/hypr/hyprland.conf`). The user unit is an opt-in alternative:
 
 ```bash
-bash /mnt/proteus/vm/guest/install-proteus-qs-user-unit.sh
+bash /mnt/proteus/install/machine/install-proteus-qs-user-unit.sh
 systemctl --user enable --now proteus-qs.service
 # Comment out the proteus-qs exec-once line in ~/.config/hypr/hyprland.conf
 ```

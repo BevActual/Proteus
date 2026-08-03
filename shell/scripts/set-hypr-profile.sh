@@ -2,7 +2,7 @@
 # Soft-select active Hyprland posture profile and reload (not a hard posture switch).
 # Usage: set-hypr-profile.sh desktop|console|media|host|home
 #   media ≡ console (legacy alias; profile file is console.conf)
-# Hard switches: vm/guest/proteus-posture · docs/proteus/POSTURES.md
+# Hard switches: shell/scripts/proteus-posture · docs/proteus/POSTURES.md
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"

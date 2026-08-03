@@ -139,14 +139,14 @@ fi
 HW_CONF="${HYPR_DIR}/proteus-hw.conf"
 if [[ ! -f "${HW_CONF}" ]]; then
   proteus_as_user tee "${HW_CONF}" >/dev/null <<'EOF'
-# Populated by vm/install/hardware/*.sh (NVIDIA / AMD / Intel / virt)
+# Populated by install/hardware/*.sh (NVIDIA / AMD / Intel / virt)
 EOF
 fi
 if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
   && ! grep -q 'proteus-hw.conf' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
   {
     echo ""
-    echo "# GPU / hardware envs (vm/install/hardware)"
+    echo "# GPU / hardware envs (install/hardware)"
     echo "source = ~/.config/hypr/proteus-hw.conf"
   } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
 fi

@@ -34,7 +34,8 @@ full PLAYBOOK or queue here. Override sibling paths with `MOBIUS_ROOT` /
 
 ## Product kickoffs
 
-- **`vm`** — boot guest: `./vm/run.sh`; provision: `./vm/provision.sh`; artifacts in `PROTEUS_VM_CACHE`; overlay `vm/install/`; helpers `vm/guest/`; install path SoT: [docs/proteus/INSTALL.md](docs/proteus/INSTALL.md).
+- **`install`** — overlay (VM + bare metal): `install/bootstrap.sh`; helpers `install/machine/`; runtime helpers `shell/scripts/`; SoT: [docs/proteus/INSTALL.md](docs/proteus/INSTALL.md).
+- **`vm`** — boot guest: `./vm/run.sh`; provision: `./vm/provision.sh`; artifacts in `PROTEUS_VM_CACHE`; overlay `install/`; helpers `install/machine/`; install path SoT: [docs/proteus/INSTALL.md](docs/proteus/INSTALL.md).
 - **`nested`** — host quick shell test: `./scripts/run-nested.sh`.
 - **`probe`** — Wave A hardware JSON: `./services/proteus-hw-probe/proteus-hw-probe` · smoke: `./scripts/smoke/hw-probe-smoke.sh`
 - **`smoke`** — host suite: `./scripts/smoke-all.sh` (layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · power-threshold · accounts · users · lock-pin · permissions · desktop · spaces · focus · control-center · beacon · audio-mix-serve · hw-probe · install · session · posture-hard · console · host · workloads-app · host-metrics · peripherals · network-vpn · headscale-admin · qs-version; guest `qs-guest` + `software-guest` + `console-guest` + `host-guest` if SSH `:2222` or `PROTEUS_GUEST=1`)
