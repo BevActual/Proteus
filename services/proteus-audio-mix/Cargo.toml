@@ -3,7 +3,7 @@ name = "proteus-audio-mix"
 version = "0.1.0"
 edition = "2021"
 description = "Resident mixer dump + peaks helper for Proteus Settings Sound"
-license = "MIT"
+license = "GPL-3.0-only"
 
 [[bin]]
 name = "proteus-audio-mix"

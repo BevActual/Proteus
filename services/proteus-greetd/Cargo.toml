@@ -3,7 +3,7 @@ name = "proteus-greetd"
 version = "0.1.0"
 edition = "2021"
 description = "Privileged greetd config writer for Proteus Settings (pkexec)"
-license = "MIT"
+license = "GPL-3.0-only"
 
 [[bin]]
 name = "proteus-greetd"

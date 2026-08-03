@@ -3,7 +3,7 @@ name = "proteus-accounts"
 version = "0.1.0"
 edition = "2021"
 description = "Online accounts seats for Proteus Settings (PKCE + token vault)"
-license = "MIT"
+license = "GPL-3.0-only"
 
 [[bin]]
 name = "proteus-accounts"

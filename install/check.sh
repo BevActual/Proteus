@@ -226,6 +226,31 @@ grep -q 'findmnt -no FSTYPE /' "${INSTALL}/snapshots.sh" \
 grep -q 'snap-pac' "${INSTALL}/snapshots.sh" \
   && ok "snapshots stage installs snap-pac" || bad "snapshots stage missing snap-pac"
 
+# --- licensing is stated once and consistently --------------------------------
+# The repo previously had no LICENSE at all (so: all rights reserved by default)
+# while six Cargo.toml files advertised MIT. Metadata that contradicts the actual
+# licence is worse than silence, so both halves are gated.
+[[ -f "${ROOT}/LICENSE" ]] && ok "LICENSE present" || bad "LICENSE missing (repo would be all-rights-reserved)"
+grep -q 'SPDX-License-Identifier: GPL-3.0-only' "${ROOT}/LICENSE" 2>/dev/null \
+  && ok "LICENSE declares GPL-3.0-only" || bad "LICENSE missing its SPDX identifier"
+grep -q 'GNU GENERAL PUBLIC LICENSE' "${ROOT}/LICENSE" 2>/dev/null \
+  && ok "LICENSE carries the full GPL text" || bad "LICENSE has no GPL body"
+grep -qi 'TRADEMARKS AND BRAND' "${ROOT}/LICENSE" 2>/dev/null \
+  && ok "LICENSE carves out the brand" || bad "LICENSE lost the trademark carve-out"
+
+lic_bad=0
+for c in "${ROOT}"/services/*/Cargo.toml; do
+  want='license = "GPL-3.0-only"'
+  grep -qF "${want}" "${c}" || {
+    bad "$(basename "$(dirname "${c}")")/Cargo.toml does not declare GPL-3.0-only"
+    lic_bad=1
+  }
+done
+[[ "${lic_bad}" -eq 0 ]] && ok "every crate declares GPL-3.0-only (matches LICENSE)"
+
+[[ -f "${ROOT}/THIRD-PARTY.md" ]] && ok "THIRD-PARTY.md present" \
+  || bad "THIRD-PARTY.md missing (what Proteus is built on)"
+
 # --- env/ must stay adjacent to shell/ ----------------------------------------
 # EnvGate resolves manifests as shellRoot + "/../env/apps/…", so env/ is a
 # runtime dependency of the shell, not an install-only seed directory. Folding

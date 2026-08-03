@@ -3,7 +3,7 @@ name = "proteus-logind"
 version = "0.1.0"
 edition = "2021"
 description = "Privileged logind.conf writer for Proteus Settings (pkexec)"
-license = "MIT"
+license = "GPL-3.0-only"
 
 [[bin]]
 name = "proteus-logind"

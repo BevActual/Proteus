@@ -3,7 +3,7 @@ name = "proteus-pkg"
 version = "0.1.0"
 edition = "2021"
 description = "Privileged pacman mutator for Proteus Settings (pkexec)"
-license = "MIT"
+license = "GPL-3.0-only"
 
 [[bin]]
 name = "proteus-pkg"

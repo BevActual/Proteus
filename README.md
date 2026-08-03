@@ -112,3 +112,12 @@ Full honest inventory: [docs/proteus/CURRENT.md](docs/proteus/CURRENT.md).
 
 Edits under `shell/` and `apps/` live-reload via the 9p share when Quickshell
 is running in the VM.
+
+## Licence
+
+**GPL-3.0-only** — see [LICENSE](LICENSE).
+
+The names *Proteus* and *Bevington Systems* and the marks under `brand/` are
+excluded from that grant; fork freely, but rebrand. What Proteus is built on,
+and why none of it encumbers this source, is recorded in
+[THIRD-PARTY.md](THIRD-PARTY.md).

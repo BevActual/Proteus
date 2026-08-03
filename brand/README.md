@@ -31,3 +31,12 @@ Install on guest: `sudo bash /mnt/proteus/install/machine/install-icons.sh`
 (also runs from `install-settings-app.sh` / greeter apply).
 
 Keep the SVG as source of truth; PNG is a fallback for toolkits that skip SVG.
+
+## Licensing
+
+The marks in this directory are **not** covered by the project's GPL-3.0-only
+[LICENSE](../LICENSE). They are excluded from the grant.
+
+Forks are free — that is what the GPL is for — but a fork must replace these
+files and must not present itself as Proteus. See the trademark section at the
+top of [LICENSE](../LICENSE).
