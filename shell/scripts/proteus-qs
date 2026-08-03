@@ -39,7 +39,7 @@ HEALTHY_SECS=120
 export QS_ICON_THEME="${QS_ICON_THEME:-Papirus-Dark}"
 # Resolve tree when installed to /usr/local/bin (dirname/../.. is not the repo)
 if [[ -z "${PROTEUS_ROOT:-}" || ! -d "${PROTEUS_ROOT}/shell" ]]; then
-  _here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  _here="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
   if [[ -d "${_here}/../../shell" ]]; then
     PROTEUS_ROOT="$(cd "${_here}/../.." && pwd)"
   elif [[ -d /mnt/proteus/shell ]]; then

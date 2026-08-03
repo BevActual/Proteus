@@ -5,7 +5,7 @@
 # Hard switches: vm/guest/proteus-posture · docs/proteus/POSTURES.md
 set -euo pipefail
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 if [[ -n "${PROTEUS_ROOT:-}" && -d "${PROTEUS_ROOT}/env/hypr" ]]; then
   ROOT="${PROTEUS_ROOT}"
 elif [[ -d "${HERE}/../../env/hypr" ]]; then

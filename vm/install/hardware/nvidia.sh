@@ -26,6 +26,17 @@ PACKAGES=(
   libva-nvidia-driver
 )
 
+# Console posture needs hardware Vulkan for Gamescope, and Steam titles are
+# 32-bit — without lib32-nvidia-utils `proteus-console-capabilities` reports
+# gamescope_usable:false on a perfectly capable GPU. Only pull it when multilib
+# is already enabled (the console stage enables it); harmless to skip otherwise.
+if grep -qE '^\s*\[multilib\]' /etc/pacman.conf 2>/dev/null; then
+  PACKAGES+=(lib32-nvidia-utils)
+else
+  echo "hardware/nvidia: multilib off — skipping lib32-nvidia-utils"
+  echo "hardware/nvidia:   the console stage enables multilib; re-run this stage after it"
+fi
+
 echo "hardware/nvidia: installing ${PACKAGES[*]}"
 if ! proteus_root pacman -S --noconfirm --needed "${PACKAGES[@]}"; then
   echo "hardware/nvidia: WARN pacman failed — see https://wiki.archlinux.org/title/NVIDIA" >&2

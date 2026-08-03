@@ -2,7 +2,7 @@
 # Ensure Hyprland sources Proteus keybinds (Settings → Keyboard).
 # Safe to run repeatedly on the guest or nested host.
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
 SRC="${ROOT}/env/hypr/proteus-keybinds.conf"
 HYPR_DIR="${HOME}/.config/hypr"
 HYPR="${HYPR_DIR}/hyprland.conf"

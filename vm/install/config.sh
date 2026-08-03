@@ -14,6 +14,11 @@ USER_HOME="$(getent passwd "${USER_NAME}" | cut -d: -f6)"
 
 proteus_log "session user ${USER_NAME} (${USER_HOME})"
 
+# Persist the install root so a greetd-launched session (clean env, no
+# PROTEUS_ROOT inherited) can find the tree on bare metal. VM installs keep
+# writing /mnt/proteus here — same Fact, no special case.
+proteus_write_root_fact "${PROTEUS_ROOT}"
+
 proteus_root systemctl enable seatd.service 2>/dev/null || true
 # PipeWire usually user services after first graphical login; enable lingering helps
 proteus_root loginctl enable-linger "${USER_NAME}" 2>/dev/null || true
@@ -206,6 +211,24 @@ if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
     echo "# proteus-terminal on PATH (VM OpenGL workaround for Ghostty)"
     echo "env = PATH,/usr/local/bin:${PROTEUS_ROOT}/shell/scripts:\$PATH"
   } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
+fi
+
+# Install root for anything Hyprland spawns (chrome, seats, helper escapes).
+# Complements ~/.config/proteus/root — this covers children of an already-running
+# compositor; the Fact covers session start. Rewritten when the tree moves.
+if [[ -f "${HYPR_DIR}/hyprland.conf" ]]; then
+  if grep -qE '^env = PROTEUS_ROOT,' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
+    proteus_as_user sed -i -E \
+      "s|^env = PROTEUS_ROOT,.*$|env = PROTEUS_ROOT,${PROTEUS_ROOT}|" \
+      "${HYPR_DIR}/hyprland.conf" || true
+  else
+    {
+      echo ""
+      echo "# Proteus install root (also ~/.config/proteus/root for session start)"
+      echo "env = PROTEUS_ROOT,${PROTEUS_ROOT}"
+    } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
+    proteus_log "seeded env = PROTEUS_ROOT,${PROTEUS_ROOT}"
+  fi
 fi
 
 BASHRC="${USER_HOME}/.bashrc"

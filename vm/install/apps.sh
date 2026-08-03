@@ -32,6 +32,7 @@ for s in proteus-screenshot proteus-clipboard proteus-colorpick proteus-terminal
          proteus-headscale.py \
          proteus-workloads.py proteus-host-metrics.py \
          proteus-defaults.py beacon-file-index.py \
+         proteus-snapshot \
          proteus-pin.py check-unlock.py; do
   proteus_install_helper "${SCRIPTS}/${s}"
 done

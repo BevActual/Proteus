@@ -5,7 +5,7 @@
 # the "login" stack — but it bypasses whatever the distro configures in
 # system-auth (faillock lockout, fail delay). Run once per guest.
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
 SRC="${ROOT}/shell/pam/proteus-lock"
 DEST="/etc/pam.d/proteus-lock"
 

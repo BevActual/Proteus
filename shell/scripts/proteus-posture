@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 # Thin PATH wrapper → vm/guest/proteus-posture (nested / host dogfood without install).
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
 exec bash "${ROOT}/vm/guest/proteus-posture" "$@"

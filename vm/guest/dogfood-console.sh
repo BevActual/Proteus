@@ -8,7 +8,7 @@
 # Host: ssh … 'bash /mnt/proteus/vm/guest/dogfood-console.sh'
 set -euo pipefail
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 if [[ -n "${PROTEUS_ROOT:-}" && -d "${PROTEUS_ROOT}/shell" ]]; then
   ROOT="${PROTEUS_ROOT}"
 elif [[ -d "${HERE}/../../shell" ]]; then

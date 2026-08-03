@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install Proteus Settings as a system application on the guest.
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
 APP="${ROOT}/apps/proteus-settings"
 
 # Brand marks into icon theme (proteus / proteus-settings)

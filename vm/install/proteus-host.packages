@@ -3,3 +3,6 @@
 # smartmontools: drive health for the Storage/Health dashboard cards
 samba
 smartmontools
+# NVMe health for the Storage/Health dashboard cards (smartctl covers SATA;
+# nvme-cli fills the gaps on NVMe-only boxes)
+nvme-cli

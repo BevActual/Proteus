@@ -7,7 +7,7 @@
 #   proteus-launcher.svg  — telescope (Beacon)
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
 BRAND="${ROOT}/brand"
 MARK="${BRAND}/proteus-mark.svg"
 SETTINGS_ICON="${BRAND}/proteus-settings.svg"

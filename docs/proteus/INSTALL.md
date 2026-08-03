@@ -1,20 +1,69 @@
 # INSTALL — Proteus dogfood install path (SoT)
 
-Single map of how a machine (today: the QEMU VM) becomes a Proteus dogfood
-session. **This is not a product ISO** — no Calamares-class installer exists
-or is planned yet ([CURRENT.md](CURRENT.md) §8). Dogfood = vanilla Arch base +
-the `vm/install/` overlay.
+Single map of how a machine (QEMU VM **or bare metal**) becomes a Proteus
+dogfood session. **This is not a product ISO** — no Calamares-class installer
+exists or is planned yet ([CURRENT.md](CURRENT.md) §8). Dogfood = vanilla Arch
+base + the `vm/install/` overlay.
+
+> **Naming:** the overlay lives under `vm/` for historical reasons and now
+> installs bare-metal machines too. Rename is queued, not done.
 
 ## The three layers (people keep conflating these)
 
 | Layer | Entry | Runs where | Role |
 |-------|--------|-----------|------|
-| Base Arch | [`vm/guest-install.sh`](../../vm/guest-install.sh) | Live ISO (guest, root) | Unattended disk: partition, pacstrap, user, sshd |
-| Overlay | [`vm/install/bootstrap.sh`](../../vm/install/bootstrap.sh) | Installed guest (sudo) | Hyprland / Quickshell / Settings / desktop + console kit |
-| Host drive | [`vm/provision.sh`](../../vm/provision.sh) → [`vm/bootstrap.sh`](../../vm/bootstrap.sh) | Host | Cache ISO/disk, wait for SSH, run the overlay remotely |
+| Base Arch | [`vm/guest-install.sh`](../../vm/guest-install.sh) (VM) · manual Arch (bare metal) | Live ISO, root | Unattended disk: partition, pacstrap, user, sshd |
+| Overlay | [`vm/install/bootstrap.sh`](../../vm/install/bootstrap.sh) | Installed machine (sudo) | Hyprland / Quickshell / Settings / desktop + console kit |
+| Host drive | [`vm/provision.sh`](../../vm/provision.sh) → [`vm/bootstrap.sh`](../../vm/bootstrap.sh) | Host | Cache ISO/disk, wait for SSH, run the overlay remotely (VM only) |
 
 Overlay stages (detail: [vm/install/README.md](../../vm/install/README.md)):
-`preflight → packaging → config → hardware → login → apps → desktop → console → host → post-install`.
+`preflight → snapshots → packaging → config → hardware → login → apps → desktop → console → host → post-install`.
+
+## Bare metal
+
+The overlay is path-agnostic: it installs from wherever the tree is checked
+out. There is no 9p share and no `/mnt/proteus`.
+
+```bash
+# 1. Install vanilla Arch by hand (archinstall or the ArchWiki guide).
+#    btrfs root with an @ subvolume layout is recommended — it is what the
+#    `snapshots` stage needs to give you a rollback net.
+# 2. Clone the tree, then run the overlay against it:
+git clone <proteus-remote> ~/Projects/Proteus
+cd ~/Projects/Proteus
+PROTEUS_ROOT="$PWD" sudo -E bash vm/install/bootstrap.sh
+```
+
+`sudo -E` matters — the overlay reads `PROTEUS_ROOT` from the environment.
+
+### How the install root is found at login
+
+greetd starts `proteus-session` with a **clean environment**, so `PROTEUS_ROOT`
+is not inherited. The root is therefore a Fact on disk, like `posture` and
+`host-chrome`:
+
+| Order | Source | Written by |
+|-------|--------|------------|
+| 1 | `PROTEUS_ROOT` in the environment | dev shells, nested, SSH automation |
+| 2 | `~/.config/proteus/root` | `vm/install/config.sh` |
+| 3 | self-locate — `/usr/local/bin` helpers are symlinks into the live tree | `proteus_install_helper` |
+| 4 | `/mnt/proteus` | VM 9p share |
+
+Every candidate is validated (`<root>/shell` must exist) before it is accepted,
+so a stale Fact after moving the tree degrades to the next source instead of
+stranding the session. `config.sh` also seeds `env = PROTEUS_ROOT,…` into
+`hyprland.conf` for processes the compositor spawns.
+
+**Moved the checkout?** Re-run `bootstrap.sh repair` — it rewrites the Fact, the
+hypr env line, and every `/usr/local/bin` symlink.
+
+### Helpers: symlink vs copy
+
+`proteus_install_helper` symlinks `/usr/local/bin/*` into the live tree so edits
+take effect without reinstalling (copies going stale was a real bug class). On
+bare metal that points root-invoked helpers at a user-writable checkout — fine
+for a single-operator dogfood box, **not** appropriate on a shared machine. Set
+`PROTEUS_INSTALL_COPY_HELPERS=1` to force copies and accept the staleness.
 
 ## Happy path (empty cache → console dogfood)
 
@@ -44,6 +93,36 @@ Or run the overlay directly on the guest: `sudo bash /mnt/proteus/vm/install/boo
 | `PROTEUS_INSTALL_ONLY=console` | Run one stage |
 | `PROTEUS_INSTALL_RESUME=1` | Honor `.done` markers (default: plain re-run re-executes everything — that *is* the full repair) |
 | `PROTEUS_INSTALL_LOG=` / `PROTEUS_INSTALL_STATUS_DIR=` | Log / status-marker paths |
+| `PROTEUS_INSTALL_SNAPSHOTS=0` | Skip the `snapshots` stage (no btrfs rollback net) |
+| `PROTEUS_SNAPSHOT_BOOT=1` | Also install `grub-btrfs` (GRUB systems only) |
+| `PROTEUS_INSTALL_COPY_HELPERS=1` | Copy helpers into `/usr/local/bin` instead of symlinking the live tree |
+
+## Snapshots (bare-metal rollback net)
+
+The VM has `./vm/run.sh snapshot|restore`. Bare metal gets the equivalent from
+the `snapshots` stage, which runs **immediately after preflight** so its
+baseline is genuinely "before Proteus touched this machine."
+
+| Piece | Role |
+|-------|------|
+| `snapper` + `root` config | Timeline snapshots, dogfood-shaped retention (6 hourly / 7 daily / 4 weekly) |
+| `snap-pac` | Pre/post snapshot around **every** pacman transaction — the highest-value piece on rolling Arch |
+| `proteus:baseline` snapshot | Tagged pre-overlay restore point |
+| `proteus-snapshot` | Thin Proteus vocabulary over snapper — `status` · `list` · `create` · `pre-flip` · `rollback` |
+| `grub-btrfs` (opt-in) | Boot directly into a snapshot from the GRUB menu |
+
+`proteus-posture` takes a `pre-flip` snapshot before every hard switch
+(`PROTEUS_POSTURE_SNAPSHOT=0` to disable). It is best-effort and never blocks a
+flip.
+
+**Honesty gates:** root not btrfs → stage logs and skips, no fake net. `snapper`
+missing or unconfigured → skip. `proteus-snapshot status` always states what is
+*not* covered — notably that without `grub-btrfs` an unbootable system needs a
+live USB, and that `rollback` does not restore `/home`, `/boot`, or anything
+written after the snapshot.
+
+`rollback` is a **dry run by default**: it prints the plan and the exclusions,
+and only executes with `--yes`.
 
 Package sets: [`proteus-base.packages`](../../vm/install/proteus-base.packages)
 (session stack) · [`proteus-desktop.packages`](../../vm/install/proteus-desktop.packages)
@@ -127,3 +206,8 @@ Steam/RetroArch specifics, and VM audio/GL caveats live in
 | Steam missing after overlay | multilib not enabled / `console` stage skipped → re-run overlay or `PROTEUS_INSTALL_ONLY=console` |
 | Gamescope exits instantly in the VM | No Vulkan under QEMU/VirGL → expected; seats run bare (`proteus-console-capabilities` reports `gamescope_usable:false`) |
 | Helpers on PATH behave stale | Copied (not linked) bins from an old run → `bootstrap.sh repair` re-links from the live tree |
+| Bare metal: login lands in a bare compositor, no chrome | `proteus-session` could not resolve the root → check `cat ~/.config/proteus/root`, then `bootstrap.sh repair` |
+| Bare metal: moved the checkout, session broke | Stale root Fact → re-run `PROTEUS_ROOT="$PWD" sudo -E bash vm/install/bootstrap.sh repair` |
+| `proteus-snapshot status` says unavailable | Root is not btrfs, or no snapper `root` config → run the `snapshots` stage, or accept no rollback net |
+| Console reports `gamescope_usable:false` on real hardware | Missing 32-bit Vulkan driver → enable multilib (the `console` stage does) then re-run `PROTEUS_INSTALL_ONLY=hardware` |
+| Settings → Software → AUR / Flathub panes stay empty | No AUR helper / no `flatpak` → run the `desktop` stage (bootstraps `yay-bin`); `flatpak` now ships in the base list |

@@ -2,7 +2,7 @@
 # Install optional systemd --user unit for proteus-qs (does not enable by default).
 # Hyprland exec-once remains the default dogfood SoT until you opt in.
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
 UNIT_SRC="${ROOT}/env/systemd/user/proteus-qs.service"
 [[ -f "${UNIT_SRC}" ]] || { echo "missing ${UNIT_SRC}" >&2; exit 1; }
 

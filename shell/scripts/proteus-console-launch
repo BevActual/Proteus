@@ -5,7 +5,7 @@
 #   proteus-console-launch [--gamescope|--no-gamescope] --desktop <desktop-id>
 set -euo pipefail
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 USE_GAMESCOPE=-1 # -1 auto, 0 off, 1 on
 DESKTOP_ID=""
 

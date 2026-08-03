@@ -5,7 +5,7 @@
 # Usage (guest): sudo bash /mnt/proteus/vm/guest/install-console-software.sh
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
 
 echo "==> install-console-software → vm/install/console.sh"
 bash "${ROOT}/vm/install/console.sh"

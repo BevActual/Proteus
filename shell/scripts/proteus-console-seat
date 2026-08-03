@@ -16,7 +16,7 @@ PIDFILE="${RUNTIME}/proteus-console-seat.pid"
 ADDRFILE="${RUNTIME}/proteus-console-seat.address"
 PGIDFILE="${RUNTIME}/proteus-console-seat.pgid"
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 LAUNCH="${HERE}/proteus-console-launch"
 if [[ ! -x "${LAUNCH}" ]]; then
   LAUNCH="$(command -v proteus-console-launch || true)"

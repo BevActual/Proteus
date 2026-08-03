@@ -15,8 +15,11 @@
 #   PROTEUS_INSTALL_UPDATE=1      after stages: pacman -Syu + re-apply package
 #                                 lists with --needed (repair or full run)
 #   PROTEUS_INSTALL_LOG=path      append log (default /var/log/proteus-install.log as root)
+#   PROTEUS_INSTALL_SNAPSHOTS=0   skip the btrfs/snapper rollback net
+#   PROTEUS_INSTALL_COPY_HELPERS=1  copy helpers to /usr/local/bin instead of
+#                                 symlinking into the live tree (shared machines)
 #
-# Stages: preflight → packaging → config → hardware → login → apps → desktop → console → host → post-install
+# Stages: preflight → snapshots → packaging → config → hardware → login → apps → desktop → console → host → post-install
 set -euo pipefail
 
 case "${1:-}" in
@@ -57,7 +60,7 @@ if [[ -z "${PROTEUS_INSTALL_LOG:-}" ]]; then
 fi
 touch "${PROTEUS_INSTALL_LOG}" 2>/dev/null || true
 
-STAGES=(preflight packaging config hardware login apps desktop console host post-install)
+STAGES=(preflight snapshots packaging config hardware login apps desktop console host post-install)
 if [[ "${PROTEUS_INSTALL_REPAIR:-0}" == "1" ]]; then
   # Fast preset: configs + helpers + console kit only; packages untouched.
   STAGES=(config apps console)

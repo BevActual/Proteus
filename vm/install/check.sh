@@ -18,7 +18,7 @@ echo "==> proteus install tree check (${ROOT})"
 [[ -f "${INSTALL}/proteus-desktop.packages" ]] && ok proteus-desktop.packages || bad proteus-desktop.packages
 [[ -f "${INSTALL}/proteus-console.packages" ]] && ok proteus-console.packages || bad proteus-console.packages
 
-for stage in preflight packaging config hardware login apps desktop console post-install; do
+for stage in preflight snapshots packaging config hardware login apps desktop console host post-install; do
   if [[ -f "${INSTALL}/${stage}.sh" ]]; then
     if bash -n "${INSTALL}/${stage}.sh" 2>/dev/null; then
       ok "stage ${stage}.sh"
@@ -30,7 +30,7 @@ for stage in preflight packaging config hardware login apps desktop console post
   fi
 done
 
-for hw in virt nvidia amd intel; do
+for hw in virt cpu nvidia amd intel; do
   [[ -f "${INSTALL}/hardware/${hw}.sh" ]] && ok "hardware/${hw}.sh" || bad "hardware/${hw}.sh"
 done
 
@@ -62,10 +62,69 @@ grep -q 'PROTEUS_INSTALL_UPDATE' "${INSTALL}/bootstrap.sh" \
   && ok "bootstrap update pass" || bad "bootstrap missing PROTEUS_INSTALL_UPDATE"
 grep -qE 'STAGES=\(.*console.*\)' "${INSTALL}/bootstrap.sh" \
   && ok "bootstrap stage list has console" || bad "bootstrap stage list missing console"
+grep -qE 'STAGES=\(.*snapshots.*\)' "${INSTALL}/bootstrap.sh" \
+  && ok "bootstrap stage list has snapshots" || bad "bootstrap stage list missing snapshots"
 
 # Shared helper linker (live-tree symlinks; stale /usr/local/bin bug class)
 grep -q 'proteus_install_helper' "${INSTALL}/helpers.sh" \
   && ok "helpers.sh proteus_install_helper" || bad "helpers.sh missing proteus_install_helper"
+
+# --- bare metal: install root must not be hardcoded to the VM 9p share --------
+# The symlink-vs-copy decision keyed off a literal /mnt/proteus, so every helper
+# was silently copied (and went stale) on a bare-metal tree.
+grep -q 'src}" == "${live_root}"' "${INSTALL}/helpers.sh" \
+  && ok "helper linker keys off PROTEUS_ROOT (not literal /mnt/proteus)" \
+  || bad "helper linker still hardcodes /mnt/proteus for the symlink test"
+grep -q 'proteus_write_root_fact' "${INSTALL}/helpers.sh" \
+  && ok "helpers.sh proteus_write_root_fact" || bad "helpers.sh missing proteus_write_root_fact"
+grep -q 'proteus_write_root_fact' "${INSTALL}/config.sh" \
+  && ok "config stage writes the root Fact" || bad "config stage does not write ~/.config/proteus/root"
+grep -qE 'env = PROTEUS_ROOT,' "${INSTALL}/config.sh" \
+  && ok "config stage seeds hypr env = PROTEUS_ROOT" || bad "config stage missing hypr PROTEUS_ROOT env"
+
+SESSION_BIN="${ROOT}/vm/guest/proteus-session"
+if [[ -f "${SESSION_BIN}" ]]; then
+  grep -q 'proteus/root' "${SESSION_BIN}" \
+    && ok "proteus-session reads the root Fact" \
+    || bad "proteus-session cannot resolve the root Fact (greetd starts it with a clean env)"
+  grep -q '_proteus_root_valid' "${SESSION_BIN}" \
+    && ok "proteus-session validates each root candidate" \
+    || bad "proteus-session missing root validation (a stale Fact would strand the session)"
+else
+  bad "missing vm/guest/proteus-session"
+fi
+
+# Self-locating helpers must resolve symlinks — /usr/local/bin entries are
+# symlinks into the tree, so dirname without readlink yields /usr/local/bin.
+if grep -rl 'dirname "${BASH_SOURCE\[0\]}"' "${ROOT}/vm/guest" "${ROOT}/shell/scripts" 2>/dev/null | grep -q .; then
+  bad "self-locating helpers still use dirname without readlink -f"
+else
+  ok "self-locating helpers resolve symlinks (readlink -f)"
+fi
+
+# --- snapshots (bare-metal rollback net) --------------------------------------
+SNAP_HELPER="${ROOT}/shell/scripts/proteus-snapshot"
+[[ -x "${SNAP_HELPER}" ]] && ok "proteus-snapshot helper executable" \
+  || bad "proteus-snapshot missing or not executable"
+grep -q 'proteus-snapshot' "${INSTALL}/apps.sh" \
+  && ok "apps stage installs proteus-snapshot" || bad "apps stage does not install proteus-snapshot"
+grep -q 'findmnt -no FSTYPE /' "${INSTALL}/snapshots.sh" \
+  && ok "snapshots stage gates on btrfs" || bad "snapshots stage missing btrfs honesty gate"
+grep -q 'snap-pac' "${INSTALL}/snapshots.sh" \
+  && ok "snapshots stage installs snap-pac" || bad "snapshots stage missing snap-pac"
+
+# --- packages the shell actually shells out to --------------------------------
+# flatpak was referenced across Software/ensure-flathub but never installed.
+for pkg in flatpak upower pciutils sof-firmware; do
+  grep -qxF "${pkg}" "${INSTALL}/proteus-base.packages" \
+    && ok "base list has ${pkg}" || bad "base list missing ${pkg}"
+done
+for pkg in git base-devel; do
+  grep -qxF "${pkg}" "${INSTALL}/proteus-desktop.packages" \
+    && ok "desktop list has ${pkg} (AUR build chain)" || bad "desktop list missing ${pkg}"
+done
+grep -q 'proteus_bootstrap_aur_helper' "${INSTALL}/desktop.sh" \
+  && ok "desktop stage bootstraps an AUR helper" || bad "desktop stage cannot bootstrap an AUR helper"
 grep -q 'proteus_install_helper' "${INSTALL}/apps.sh" \
   && ok "apps.sh uses proteus_install_helper" || bad "apps.sh must use proteus_install_helper"
 grep -q 'proteus_install_helper' "${ROOT}/vm/guest/apply-console-kit.sh" \

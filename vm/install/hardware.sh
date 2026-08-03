@@ -15,6 +15,7 @@ run_hw() {
 }
 
 run_hw virt
+run_hw cpu
 run_hw nvidia
 run_hw amd
 run_hw intel

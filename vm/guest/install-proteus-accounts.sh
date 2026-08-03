@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install proteus-accounts on the guest (or host dogfood). User-scoped seats; no polkit.
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
 PKG="${ROOT}/services/proteus-accounts"
 BIN_SRC=""
 

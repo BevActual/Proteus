@@ -3,6 +3,12 @@
 # skipped with PROTEUS_INSTALL_DESKTOP=0.
 # Keep out of proteus-base.packages.
 
+# AUR build chain — Settings → Software → AUR pane, and the localsend-bin seat
+# below. Without these no AUR helper can be bootstrapped and the pane is
+# permanently honesty-gated off. base-devel is a group (~25 pkgs).
+git
+base-devel
+
 # Browser (default)
 chromium
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install Proteus Workloads thin app on the guest (read-only inventory).
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
 APP="${ROOT}/apps/proteus-workloads"
 
 bash "${ROOT}/vm/guest/install-icons.sh"

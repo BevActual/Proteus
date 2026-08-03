@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+# proteus-snapshot — bare-metal rollback net (btrfs + snapper).
+#
+# The VM harness has `vm/run.sh snapshot|restore`. This is the equivalent for a
+# real machine, and it is deliberately thin: snapper owns the mechanism, this
+# owns the Proteus-shaped vocabulary (baseline / pre-flip / status honesty).
+#
+#   proteus-snapshot status              what the net actually is right now
+#   proteus-snapshot list                snapshots, newest last
+#   proteus-snapshot create [description]
+#   proteus-snapshot pre-flip [posture]  tag before a posture hard switch
+#   proteus-snapshot rollback <n>        print the plan; --yes to execute
+#
+# Honest by design: every path prints what is NOT covered rather than implying a
+# safety net that does not exist. Exit 0 with a clear message when unsupported —
+# callers (install stages, posture flips) treat this as best-effort.
+set -euo pipefail
+
+CMD="${1:-status}"
+shift || true
+
+as_root() { if [[ "${EUID}" -eq 0 ]]; then "$@"; else sudo "$@"; fi; }
+
+# Probe without ever prompting — `status` must stay a read-only question.
+as_root_quiet() { if [[ "${EUID}" -eq 0 ]]; then "$@"; else sudo -n "$@"; fi; }
+
+root_fs() { findmnt -no FSTYPE / 2>/dev/null || true; }
+
+supported() {
+  [[ "$(root_fs)" == "btrfs" ]] || return 1
+  command -v snapper >/dev/null 2>&1 || return 1
+  # A readable config file answers this without sudo on most setups; fall back
+  # to a non-interactive snapper probe rather than a blocking password prompt.
+  [[ -r /etc/snapper/configs/root ]] && return 0
+  as_root_quiet snapper -c root get-config >/dev/null 2>&1 || return 1
+  return 0
+}
+
+why_unsupported() {
+  local fs
+  fs="$(root_fs)"
+  if [[ "${fs}" != "btrfs" ]]; then
+    echo "root filesystem is ${fs:-unknown}, not btrfs — snapshots unavailable"
+  elif ! command -v snapper >/dev/null 2>&1; then
+    echo "snapper not installed — run the overlay 'snapshots' stage"
+  else
+    echo "no snapper 'root' config — run: sudo snapper -c root create-config /"
+  fi
+}
+
+case "${CMD}" in
+  status)
+    fs="$(root_fs)"
+    echo "root filesystem : ${fs:-unknown}"
+    echo "snapper         : $(command -v snapper >/dev/null 2>&1 && snapper --version 2>/dev/null | head -1 || echo 'not installed')"
+    if supported; then
+      # sudo -n: status stays read-only and never blocks on a password prompt.
+      listing="$(as_root_quiet snapper -c root list 2>/dev/null || true)"
+      if [[ -z "${listing}" ]]; then
+        echo "snapshots       : unreadable without sudo — run: sudo proteus-snapshot status"
+      else
+        count="$(printf '%s\n' "${listing}" | grep -cE '^[[:space:]]*[0-9]+' || true)"
+        echo "snapshots       : ${count:-0}"
+        if printf '%s\n' "${listing}" | grep -q 'proteus:baseline'; then
+          echo "baseline        : present"
+        else
+          echo "baseline        : none — re-run the snapshots stage"
+        fi
+      fi
+      echo "pacman hook     : $(pacman -Q snap-pac >/dev/null 2>&1 && echo 'snap-pac (auto pre/post per transaction)' || echo 'none — package operations are NOT snapshotted')"
+      echo "timeline timer  : $(systemctl is-active snapper-timeline.timer 2>/dev/null || echo inactive)"
+      if [[ -d /boot/grub ]] && pacman -Q grub-btrfs >/dev/null 2>&1; then
+        echo "boot to snapshot: grub-btrfs (snapshots appear in the GRUB menu)"
+      else
+        echo "boot to snapshot: NOT available — an unbootable system needs a live USB to roll back"
+      fi
+      df -h / 2>/dev/null | awk 'NR==2 {print "root free       : " $4 " of " $2}'
+    else
+      echo "snapshots       : unavailable — $(why_unsupported)"
+    fi
+    ;;
+
+  list)
+    if ! supported; then echo "proteus-snapshot: $(why_unsupported)" >&2; exit 0; fi
+    as_root snapper -c root list
+    ;;
+
+  create)
+    if ! supported; then echo "proteus-snapshot: $(why_unsupported)" >&2; exit 0; fi
+    desc="${1:-proteus:manual}"
+    as_root snapper -c root create --description "${desc}" --cleanup-algorithm number
+    echo "proteus-snapshot: created — ${desc}"
+    ;;
+
+  pre-flip)
+    # Best-effort hook for posture hard switches; must never block a flip.
+    if ! supported; then exit 0; fi
+    posture="${1:-unknown}"
+    as_root snapper -c root create \
+      --description "proteus:pre-flip → ${posture}" \
+      --cleanup-algorithm number >/dev/null 2>&1 \
+      && echo "proteus-snapshot: pre-flip snapshot taken (${posture})" \
+      || true
+    ;;
+
+  rollback)
+    if ! supported; then echo "proteus-snapshot: $(why_unsupported)" >&2; exit 1; fi
+    num="${1:-}"
+    shift || true
+    if [[ -z "${num}" || ! "${num}" =~ ^[0-9]+$ ]]; then
+      echo "usage: proteus-snapshot rollback <number> [--yes]" >&2
+      echo "       (list snapshots: proteus-snapshot list)" >&2
+      exit 2
+    fi
+    confirm=0
+    for a in "$@"; do [[ "${a}" == "--yes" ]] && confirm=1; done
+
+    echo "Rollback plan"
+    echo "  snapshot : ${num}"
+    as_root snapper -c root list 2>/dev/null | awk -v n="${num}" '$1 == n || $1 == n"+" || $1 == n"-"'
+    echo
+    echo "  action   : snapper -c root rollback ${num}"
+    echo "             creates a new read-write subvolume from ${num} and sets it default"
+    echo "  then     : reboot required to land in it"
+    echo
+    echo "  NOT covered by this rollback:"
+    echo "    - /home and other separate subvolumes (snapper 'root' config only)"
+    echo "    - /boot and EFI — a kernel/driver change may still need manual repair"
+    echo "    - anything written after the snapshot (settings.json, vault tokens, games)"
+    if [[ "${confirm}" != "1" ]]; then
+      echo
+      echo "Dry run. Re-run with --yes to execute."
+      exit 0
+    fi
+    echo
+    echo "Executing rollback to ${num}…"
+    as_root snapper -c root rollback "${num}"
+    echo "proteus-snapshot: rollback staged — reboot to land in snapshot ${num}"
+    ;;
+
+  -h|--help|help)
+    sed -n '2,16p' "$0"
+    ;;
+
+  *)
+    echo "proteus-snapshot: unknown command '${CMD}' (status|list|create|pre-flip|rollback)" >&2
+    exit 2
+    ;;
+esac

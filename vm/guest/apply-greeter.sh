@@ -3,7 +3,7 @@
 # Run on the guest as root, or: ssh … 'sudo bash -s' < apply-greeter.sh
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
 pacman -S --noconfirm --needed greetd greetd-tuigreet
 

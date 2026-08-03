@@ -22,7 +22,43 @@ export LANG="${LANG:-en_US.UTF-8}"
 export LC_ALL="${LC_ALL:-en_US.UTF-8}"
 export XDG_SESSION_TYPE=wayland
 export XDG_CURRENT_DESKTOP=Hyprland
-export PROTEUS_ROOT="${PROTEUS_ROOT:-/mnt/proteus}"
+
+# Install root — greetd starts this wrapper with a clean environment, so
+# PROTEUS_ROOT is never inherited at login. Resolve in order and fail soft:
+#   1. inherited env (dev / nested / SSH automation)
+#   2. ~/.config/proteus/root Fact (written by vm/install/config.sh)
+#   3. self-locate — /usr/local/bin helpers are symlinks into the live tree
+#   4. /mnt/proteus (VM 9p share)
+# A stale Fact must never strand the session: each candidate is validated by
+# the presence of <root>/shell before it is accepted.
+_proteus_root_valid() { [[ -n "${1:-}" && -d "${1}/shell" ]]; }
+
+_proteus_resolve_root() {
+  local cand fact self
+
+  _proteus_root_valid "${PROTEUS_ROOT:-}" && { printf '%s' "${PROTEUS_ROOT}"; return 0; }
+
+  fact="${XDG_CONFIG_HOME:-${HOME:-/root}/.config}/proteus/root"
+  if [[ -r "${fact}" ]]; then
+    cand="$(tr -d '[:space:]' <"${fact}" 2>/dev/null || true)"
+    _proteus_root_valid "${cand}" && { printf '%s' "${cand}"; return 0; }
+  fi
+
+  self="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || true)"
+  if [[ -n "${self}" ]]; then
+    cand="$(cd "$(dirname "${self}")/../.." 2>/dev/null && pwd || true)"
+    _proteus_root_valid "${cand}" && { printf '%s' "${cand}"; return 0; }
+  fi
+
+  printf '%s' /mnt/proteus
+}
+
+PROTEUS_ROOT="$(_proteus_resolve_root)"
+export PROTEUS_ROOT
+if ! _proteus_root_valid "${PROTEUS_ROOT}"; then
+  echo "proteus-session: WARN no Proteus tree at ${PROTEUS_ROOT} — chrome will not start" >&2
+  echo "proteus-session:      fix: write the root to ~/.config/proteus/root, or re-run vm/install/bootstrap.sh" >&2
+fi
 # Hard-switch Fact — when PROTEUS_SURFACE unset, honour ~/.config/proteus/posture
 if [[ -z "${PROTEUS_SURFACE:-}" ]]; then
   _posture_file="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/posture"

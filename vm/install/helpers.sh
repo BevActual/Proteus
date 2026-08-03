@@ -14,6 +14,32 @@ proteus_install_root() {
   return 1
 }
 
+# ~/.config/proteus/root — persisted install-root Fact.
+#
+# greetd launches proteus-session with a clean environment, so PROTEUS_ROOT is
+# NOT inherited at login. In the VM the /mnt/proteus fallback covered that; on
+# bare metal the tree lives anywhere (a checkout under $HOME), so the root has
+# to be a Fact on disk like `posture` and `host-chrome`.
+proteus_root_fact_path() {
+  local user_name user_home
+  user_name="$(proteus_session_user)"
+  user_home="$(getent passwd "${user_name}" 2>/dev/null | cut -d: -f6 || true)"
+  [[ -n "${user_home}" ]] || user_home="/home/${user_name}"
+  printf '%s' "${user_home}/.config/proteus/root"
+}
+
+proteus_write_root_fact() {
+  local root="${1:-${PROTEUS_ROOT:-}}" fact
+  [[ -n "${root}" && -d "${root}/shell" ]] || return 0
+  fact="$(proteus_root_fact_path)"
+  proteus_as_user mkdir -p "$(dirname "${fact}")" 2>/dev/null || true
+  if printf '%s\n' "${root}" | proteus_as_user tee "${fact}" >/dev/null 2>&1; then
+    proteus_log "root Fact ${fact} = ${root}"
+  else
+    proteus_log "warn: could not write root Fact ${fact}"
+  fi
+}
+
 proteus_log() {
   local line="==> $*"
   echo "${line}"
@@ -52,22 +78,30 @@ proteus_as_user() {
   fi
 }
 
-# Install a helper onto PATH. Symlink when the tree is live under /mnt/proteus
-# (dogfood tracks the share — cannot go stale); install a copy otherwise.
-# Also links a per-user fallback under ~/.local/bin.
+# Install a helper onto PATH. Symlink when the source is inside the live Proteus
+# tree (dogfood tracks edits — copies silently go stale, which was a real bug
+# class); install a copy for out-of-tree sources.
+#
+# Bare metal: the live tree is a checkout under $HOME rather than the read-only
+# 9p share, so /usr/local/bin ends up pointing at user-writable files. That is
+# fine for a single-operator dogfood box (the same user could edit the copy
+# anyway) but it is NOT appropriate on a shared machine, where another user's
+# sudo would execute your tree. Set PROTEUS_INSTALL_COPY_HELPERS=1 to force
+# copies and accept the staleness instead.
 proteus_install_helper() {
   local src="$1"
-  local name dest user_name user_home
+  local name dest user_name user_home live_root
   name="$(basename "${src}")"
   dest="/usr/local/bin/${name}"
   [[ -f "${src}" ]] || return 0
+  live_root="${PROTEUS_ROOT:-/mnt/proteus}"
   proteus_root install -d /usr/local/bin
-  if [[ "${src}" == /mnt/proteus/* ]]; then
+  if [[ "${PROTEUS_INSTALL_COPY_HELPERS:-0}" != "1" && "${src}" == "${live_root}"/* ]]; then
     proteus_root ln -sfn "${src}" "${dest}"
     proteus_log "linked ${dest} -> ${src}"
   else
     proteus_root install -m 755 "${src}" "${dest}"
-    proteus_log "installed ${dest}"
+    proteus_log "installed ${dest} (copy — re-run the overlay after tree edits)"
   fi
   user_name="$(proteus_session_user)"
   user_home="$(getent passwd "${user_name}" 2>/dev/null | cut -d: -f6 || true)"

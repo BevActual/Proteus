@@ -49,6 +49,7 @@ postures are thesis only. Docs describe the thesis ahead of code where marked
 | Piece | Status | Notes |
 |-------|--------|-------|
 | Arch Linux guest | `shipped` | QEMU/KVM via `vm/run.sh` |
+| Bare-metal install path | `partial` — overlay is path-agnostic (root Fact + `readlink`-resolved helpers + `PROTEUS_INSTALL_COPY_HELPERS` escape); base Arch is still a manual install, and **no bare-metal dogfood run has happened yet** — untested against real GPU/battery/backlight ([INSTALL.md](./INSTALL.md)) |
 | Hyprland session | `shipped` | Backend for desktop posture; greetd / proteus-session |
 | Quickshell shell | `shipped` | Chrome runtime; `/mnt/proteus/shell` via 9p |
 | Nested Hyprland (host) | `shipped` | `scripts/run-nested.sh` — shell-only quick test |
@@ -154,6 +155,7 @@ Primary chrome is Games/Media/Search/Settings list IA; stores-as-backend locked 
 | `~/.config/hypr/proteus-general.conf` | Gaps, borders, rounding, animations (sourced) |
 | `~/.config/hypr/proteus-monitors.conf` | Displays live `monitor =` lines (sourced) |
 | `~/.config/hypr/proteus-profile.conf` | Active posture profile pointer → `profiles/*.conf` |
+| `~/.config/proteus/root` | Install-root Fact — greetd starts `proteus-session` with a clean env, so bare metal cannot rely on `/mnt/proteus`; written by `vm/install/config.sh`, validated before use ([INSTALL.md](./INSTALL.md)) |
 | `~/.config/proteus/posture` | Hard-switch Fact (`desktop` \| `console` \| `host`) — boot + `proteus-qs` when `PROTEUS_SURFACE` unset |
 | `~/.config/proteus/host-chrome` | Host seat chrome (`none` \| `full`) — `proteus-posture` / `proteus-host-seat` |
 | `~/.config/hypr/profiles/*.conf` | Posture fragments (desktop + console fullscreen + host lean ops shipped; home stub) |
@@ -177,7 +179,9 @@ Primary chrome is Games/Media/Search/Settings list IA; stores-as-backend locked 
 | `./vm/provision.sh` | Prepare ISO/disk hints + SSH overlay (`bootstrap.sh`); `status` = read-only checklist (ISO/disk/SSH/last overlay; running-VM-safe `qemu-img -U`) |
 | `./vm/bootstrap.sh` | SSH guest → light overlay (`vm/install/bootstrap.sh`; passes REPAIR/UPDATE knobs) |
 | `bash /mnt/proteus/vm/install/bootstrap.sh` | On guest: staged overlay incl. `console` stage (multilib + Steam/RetroArch/cores/pads); `repair` = fast config→apps→console preset; `PROTEUS_INSTALL_UPDATE=1` = -Syu + list refresh; skip/resume/only knobs |
-| `./vm/install/check.sh` | Host tree/`bash -n` gate for overlay stages + roster split + repair/status wiring + INSTALL.md |
+| `./vm/install/check.sh` | Host tree/`bash -n` gate for overlay stages + roster split + repair/status wiring + bare-metal root chain + snapshots + INSTALL.md |
+| `PROTEUS_ROOT="$PWD" sudo -E bash vm/install/bootstrap.sh` | **Bare metal** — same overlay, no 9p; writes the root Fact ([INSTALL.md](./INSTALL.md)) |
+| `proteus-snapshot status\|list\|create\|pre-flip\|rollback` | Bare-metal rollback net (btrfs + snapper); `rollback` is a dry run without `--yes`; honest when unsupported |
 | `bash /mnt/proteus/vm/guest/install-settings-app.sh` | Install Settings + keybinds + desktop/displays conf |
 | `bash /mnt/proteus/vm/guest/install-keybinds.sh` | Keybinds file + hypr source (user home) |
 | `bash /mnt/proteus/vm/guest/install-desktop-conf.sh` | `proteus-general.conf` + `proteus-monitors.conf` + sources |
@@ -247,7 +251,9 @@ Install path SoT (three layers, knobs, repair, failures): [INSTALL.md](./INSTALL
 - First-party Tauri app under `apps/`  
 - More Rust helper CLIs under `services/` (Wave A probe is Python; `proteus-pkg` + `proteus-logind` mutators + `proteus-audio-mix` resident dump/peaks shipped; mixer mutations still Python)  
 - Tablet bezier per-tool pressure curves · gesture maps (active-area mm + pressure range + eraser-as-button + monitor region shipped)  
-- ISO / installer productization (dogfood overlay in `vm/install/` is enough for now; path documented in [INSTALL.md](./INSTALL.md))  
+- ISO / installer productization — bare metal now runs the same overlay against a manual Arch base, but there is no unattended installer for real hardware ([INSTALL.md](./INSTALL.md))
+- Bare-metal proof: nothing in the tree has been booted on real hardware yet. `game_scope`, charge thresholds, `/sys/class/backlight`, SMART and multi-head hotplug are all **unexercised** — the VM cannot reach them
+- `vm/` naming now covers bare-metal installs too (rename queued)  
 - Rowena (and other sibling) CSS retarget onto `--proteus-*` export  
 
 When shipping a feature, update this file in the same change.

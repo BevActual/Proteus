@@ -36,6 +36,53 @@ if [[ "${#SYNC_PKGS[@]}" -gt 0 ]]; then
   rm -f "${TMP_LIST}"
 fi
 
+# Bootstrap an AUR helper when the desktop kit needs one and none exists.
+# Without this, Settings → Software → AUR is permanently honesty-gated off and
+# every AUR seat below is skipped. yay-bin is a prebuilt package, so makepkg
+# only repackages it — no Go toolchain, no -s (deps are already installed).
+proteus_bootstrap_aur_helper() {
+  command -v yay >/dev/null 2>&1 && return 0
+  command -v paru >/dev/null 2>&1 && return 0
+  if ! command -v git >/dev/null 2>&1 || ! command -v makepkg >/dev/null 2>&1; then
+    proteus_log "AUR helper: git/base-devel missing — skip bootstrap"
+    return 1
+  fi
+  local user_name user_home build
+  user_name="$(proteus_session_user)"
+  user_home="$(getent passwd "${user_name}" 2>/dev/null | cut -d: -f6 || true)"
+  [[ -n "${user_home}" && -d "${user_home}" ]] || return 1
+  build="${user_home}/.cache/proteus-aur-bootstrap"
+
+  proteus_log "AUR helper: bootstrapping yay-bin"
+  proteus_as_user rm -rf "${build}" 2>/dev/null || true
+  proteus_as_user mkdir -p "${build}" 2>/dev/null || true
+  if ! proteus_as_user git clone --depth 1 https://aur.archlinux.org/yay-bin.git "${build}/yay-bin" 2>/dev/null; then
+    proteus_log "warn: AUR helper clone failed (offline?) — AUR seats will be skipped"
+    return 1
+  fi
+  if ! proteus_as_user bash -c "cd '${build}/yay-bin' && makepkg --noconfirm --nodeps" 2>/dev/null; then
+    proteus_log "warn: yay-bin makepkg failed — AUR seats will be skipped"
+    return 1
+  fi
+  local built
+  built="$(find "${build}/yay-bin" -maxdepth 1 -name 'yay-bin-*.pkg.tar.*' 2>/dev/null | head -1)"
+  if [[ -z "${built}" ]]; then
+    proteus_log "warn: yay-bin package not produced — AUR seats will be skipped"
+    return 1
+  fi
+  if proteus_root pacman -U --noconfirm "${built}"; then
+    proteus_log "AUR helper: yay installed"
+    proteus_as_user rm -rf "${build}" 2>/dev/null || true
+    return 0
+  fi
+  proteus_log "warn: pacman -U yay-bin failed — AUR seats will be skipped"
+  return 1
+}
+
+if [[ "${#AUR_PKGS[@]}" -gt 0 ]]; then
+  proteus_bootstrap_aur_helper || true
+fi
+
 for pkg in "${AUR_PKGS[@]}"; do
   if pacman -Q "${pkg}" >/dev/null 2>&1; then
     continue

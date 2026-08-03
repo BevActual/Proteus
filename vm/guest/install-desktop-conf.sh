@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Seed proteus-general.conf + proteus-monitors.conf and source them from hyprland.conf.
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
 HYPR_DIR="${HOME}/.config/hypr"
 HYPR="${HYPR_DIR}/hyprland.conf"
 

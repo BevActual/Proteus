@@ -56,6 +56,33 @@ playerctl
 # Laptop / power / brightness (no-op harmlessly on desktop/VM)
 brightnessctl
 power-profiles-daemon
+# Battery + charge thresholds — Power.qml / Settings → Power read UPower.
+# The VM has no battery so this went unnoticed; bare metal needs the daemon.
+upower
+
+# Hardware truth — Wave A probe + vm/install/hardware/* detect via lspci/lsusb.
+# Both are usually present after pacstrap; --needed makes this a no-op then.
+pciutils
+usbutils
+# Intel/AMD DSP audio firmware. Required for speakers/mic on most modern
+# laptops; harmless on desktops and VMs.
+sof-firmware
+# Firmware update path (Settings → About escape; real hardware only)
+fwupd
+
+# Software → Flathub pane + vm/guest/ensure-flathub.sh. Referenced throughout
+# the shell but historically never installed — the pane just showed its
+# install-honesty state forever.
+flatpak
+
+# Network → Diagnostics: ping (inetutils) + dig (bind). `ss` comes from
+# iproute2 in base.
+inetutils
+bind
+# Settings → Network → Tailscale leaf
+tailscale
+# man escapes from Settings / terminal
+man-db
 
 # Network / Bluetooth (Settings owns UX; hide *-manager .desktop via hide-system-apps.sh)
 networkmanager

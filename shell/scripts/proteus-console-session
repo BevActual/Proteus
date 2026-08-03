@@ -11,7 +11,7 @@
 #   proteus-console-session resolve-flags   # gamescope argv extras (or empty)
 set -euo pipefail
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 FACT_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus"
 FACT="${FACT_DIR}/console-session-mode"
 CAPS="${HERE}/proteus-console-capabilities"

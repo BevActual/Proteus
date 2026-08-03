@@ -4,7 +4,7 @@
 # Then: proteus-posture console
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
 GUEST="${ROOT}/vm/guest"
 SCRIPTS="${ROOT}/shell/scripts"
 USER_NAME="${SUDO_USER:-${PROTEUS_USER:-${USER:-andrew}}}"

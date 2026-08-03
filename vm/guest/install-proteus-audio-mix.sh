@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install proteus-audio-mix (resident mixer dump+peaks) on the guest or host dogfood.
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
 PKG="${ROOT}/services/proteus-audio-mix"
 BIN_SRC=""
 
