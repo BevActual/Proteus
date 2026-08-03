@@ -56,16 +56,53 @@ proteus_root() {
   fi
 }
 
+# Resolve the human this install is for. Every config, keybind, wallpaper and
+# vault token lands in their home, so guessing wrong writes a whole install into
+# the wrong place — silently, because the paths all still exist.
+#
+# There is deliberately no guess of last resort. If the machine has exactly one
+# regular login user we take it; otherwise we fail and ask for PROTEUS_USER
+# rather than picking one. (This used to fall back to a hardcoded `andrew`,
+# which quietly targeted the author's username on anyone else's machine.)
 proteus_session_user() {
   if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
-    printf '%s' "${SUDO_USER}"
-  elif [[ -n "${PROTEUS_USER:-}" ]]; then
-    printf '%s' "${PROTEUS_USER}"
-  elif [[ "${USER:-}" != "root" && -n "${USER:-}" ]]; then
-    printf '%s' "${USER}"
-  else
-    printf '%s' andrew
+    printf '%s' "${SUDO_USER}"; return 0
   fi
+  if [[ -n "${PROTEUS_USER:-}" && "${PROTEUS_USER}" != "root" ]]; then
+    printf '%s' "${PROTEUS_USER}"; return 0
+  fi
+  if [[ -n "${USER:-}" && "${USER}" != "root" ]]; then
+    printf '%s' "${USER}"; return 0
+  fi
+  local login
+  login="$(logname 2>/dev/null || true)"
+  if [[ -n "${login}" && "${login}" != "root" ]]; then
+    printf '%s' "${login}"; return 0
+  fi
+
+  # Sole regular login account (UID 1000..59999 with a real shell).
+  local -a candidates=()
+  local name uid ushell
+  while IFS=: read -r name _ uid _ _ _ ushell; do
+    [[ "${uid}" =~ ^[0-9]+$ ]] || continue
+    (( uid >= 1000 && uid < 60000 )) || continue
+    case "${ushell}" in */nologin|*/false|"") continue ;; esac
+    candidates+=("${name}")
+  done < <(getent passwd 2>/dev/null || true)
+  if [[ "${#candidates[@]}" -eq 1 ]]; then
+    printf '%s' "${candidates[0]}"; return 0
+  fi
+
+  {
+    echo "proteus-install: cannot determine the session user."
+    if [[ "${#candidates[@]}" -gt 1 ]]; then
+      echo "  more than one login account: ${candidates[*]}"
+    else
+      echo "  no regular login account found (UID 1000-59999 with a login shell)"
+    fi
+    echo "  set it explicitly:  PROTEUS_USER=<name> sudo -E bash install/bootstrap.sh"
+  } >&2
+  return 1
 }
 
 proteus_as_user() {

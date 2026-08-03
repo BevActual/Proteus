@@ -40,6 +40,16 @@ if [[ "${DISK_FREE_MB:-0}" -gt 0 && "${DISK_FREE_MB}" -lt 6000 ]]; then
 fi
 proteus_log "disk OK (${DISK_FREE_MB}MB free on /)"
 
+# Resolve the session user once, here, so an ambiguous machine fails on the
+# first stage with an actionable message instead of part-way through apps/ —
+# by which point configs have already been written somewhere.
+if ! PROTEUS_SESSION_USER="$(proteus_session_user)"; then
+  echo "preflight: refusing to continue without a session user" >&2
+  exit 1
+fi
+export PROTEUS_USER="${PROTEUS_SESSION_USER}"
+proteus_log "session user: ${PROTEUS_SESSION_USER}"
+
 # Every package stage needs a working mirror. Checking once here turns a
 # confusing mid-run pacman failure into an immediate, actionable message.
 # proteus_root, not bare pacman: -Sy needs root, and a permission error here

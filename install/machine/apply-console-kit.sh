@@ -6,8 +6,6 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
 SCRIPTS="${ROOT}/shell/scripts"
-USER_NAME="${SUDO_USER:-${PROTEUS_USER:-${USER:-andrew}}}"
-USER_HOME="$(getent passwd "${USER_NAME}" 2>/dev/null | cut -d: -f6 || echo "/home/${USER_NAME}")"
 
 as_root() {
   if [[ "${EUID}" -eq 0 ]]; then
@@ -25,11 +23,15 @@ as_user() {
   fi
 }
 
-# Shared install helpers (proteus_install_helper: symlink when tree is live at
-# /mnt/proteus so dogfood always tracks the share; otherwise install a copy).
-export PROTEUS_USER="${USER_NAME}"
-# shellcheck source=../install/helpers.sh
+# Shared install helpers (proteus_install_helper: symlink when the tree is live
+# so dogfood always tracks edits; otherwise install a copy).
+# shellcheck source=../helpers.sh
 source "${ROOT}/install/helpers.sh"
+
+# Resolved by the shared helper, not guessed — see proteus_session_user.
+USER_NAME="$(proteus_session_user)"
+USER_HOME="$(getent passwd "${USER_NAME}" 2>/dev/null | cut -d: -f6 || echo "/home/${USER_NAME}")"
+export PROTEUS_USER="${USER_NAME}"
 
 install_helper() {
   proteus_install_helper "$1"

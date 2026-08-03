@@ -203,6 +203,28 @@ grep -q 'findmnt -no FSTYPE /' "${INSTALL}/snapshots.sh" \
 grep -q 'snap-pac' "${INSTALL}/snapshots.sh" \
   && ok "snapshots stage installs snap-pac" || bad "snapshots stage missing snap-pac"
 
+# --- no hardcoded usernames in the install path -------------------------------
+# A guessed username writes an entire install into the wrong home, silently,
+# because every path still exists. The shared resolver refuses to guess; nothing
+# under install/ may reintroduce a literal fallback. (dev/ is exempt: the VM
+# harness legitimately creates a known account.)
+# --exclude=check.sh: this file necessarily contains the pattern it searches for.
+user_hard="$(grep -rniE '(:-|\|\||=)[[:space:]]*"?andrew"?[[:space:]]*(\}|\)|$)|/home/andrew\b' \
+  "${INSTALL}" --include='*.sh' --exclude=check.sh 2>/dev/null \
+  | grep -vE ':[[:space:]]*#' || true)"
+if [[ -n "${user_hard}" ]]; then
+  bad "install/ hardcodes a username fallback (use proteus_session_user)"
+  printf '%s\n' "${user_hard}" | head -3
+else
+  ok "install/ has no hardcoded username fallback"
+fi
+grep -q 'cannot determine the session user' "${INSTALL}/helpers.sh" \
+  && ok "proteus_session_user refuses to guess" \
+  || bad "proteus_session_user still has a guess of last resort"
+grep -q 'proteus_session_user' "${INSTALL}/preflight.sh" \
+  && ok "preflight resolves the session user up front" \
+  || bad "preflight does not resolve the session user (failure would land mid-install)"
+
 # --- package names must still exist upstream ----------------------------------
 # `p7zip` sat in the desktop roster long after Arch replaced it with `7zip`.
 # Nothing caught it: desktop.sh silently reclassifies an unknown name as AUR and

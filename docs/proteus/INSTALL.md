@@ -208,6 +208,7 @@ Steam/RetroArch specifics, and VM audio/GL caveats live in
 | Steam missing after overlay | multilib not enabled / `console` stage skipped → re-run overlay or `PROTEUS_INSTALL_ONLY=console` |
 | Gamescope exits instantly in the VM | No Vulkan under QEMU/VirGL → expected; seats run bare (`proteus-console-capabilities` reports `gamescope_usable:false`) |
 | Helpers on PATH behave stale | Copied (not linked) bins from an old run → `bootstrap.sh repair` re-links from the live tree |
+| `preflight: cannot determine the session user` | Machine has no (or several) regular login accounts and no sudo context → `PROTEUS_USER=<name> sudo -E bash install/bootstrap.sh`. The installer refuses to guess: a wrong username writes the whole install into the wrong home |
 | `preflight: only NMB free on /` | Overlay needs ~6GB (console stage pulls Steam + lib32 + cores) → free space or `PROTEUS_INSTALL_SKIP=console,desktop` |
 | `preflight: cannot refresh pacman databases` | No network, dead mirror, or no sudo → fix connectivity; `bootstrap.sh repair` re-runs config/apps offline (skips preflight) |
 | Stage failed and later stages show `n/a` | Expected — the run stops at the first failure. The summary names the stage and prints `PROTEUS_INSTALL_ONLY=<stage>` to retry just it |

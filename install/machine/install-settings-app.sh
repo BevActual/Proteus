@@ -3,6 +3,8 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
 APP="${ROOT}/apps/proteus-settings"
+# shellcheck source=../helpers.sh
+source "${ROOT}/install/helpers.sh"
 
 # Brand marks into icon theme (proteus / proteus-settings)
 bash "${ROOT}/install/machine/install-icons.sh"
@@ -192,11 +194,22 @@ if [[ "${SUDO_USER:-}" != "" && "${SUDO_USER}" != "root" ]]; then
 else
   bash "${ROOT}/install/machine/install-keybinds.sh"
   bash "${ROOT}/install/machine/install-desktop-conf.sh"
-  if [[ "${HOME:-}" != "" && "${HOME}" != "/root" ]]; then
+  if [[ -n "${HOME:-}" && "${HOME}" != "/root" ]]; then
     seed_backgrounds "${HOME}"
     ensure_flathub_for "$(id -un)"
-  elif [[ -d /home/andrew ]]; then
-    seed_backgrounds /home/andrew
-    ensure_flathub_for andrew
+  # Root with no sudo context: resolve the real session user instead of
+  # guessing a username. This branch used to hardcode /home/andrew, which
+  # targeted the author's account on anyone else's machine — and was wrong
+  # even on his own, where the account is `andrewlancebevington`.
+  elif session_user="$(proteus_session_user)"; then
+    session_home="$(getent passwd "${session_user}" 2>/dev/null | cut -d: -f6 || true)"
+    if [[ -n "${session_home}" && -d "${session_home}" ]]; then
+      seed_backgrounds "${session_home}"
+      ensure_flathub_for "${session_user}"
+    else
+      echo "note: no home for ${session_user} — skipped backgrounds / flathub seed"
+    fi
+  else
+    echo "note: session user unresolved — skipped backgrounds / flathub seed" >&2
   fi
 fi
