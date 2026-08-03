@@ -32,7 +32,7 @@ before inventing a second store.
 | `~/.config/hypr/proteus-monitors.conf` | `Displays.qml` | Hyprland |
 | `~/.config/hypr/proteus-profile.conf` | `set-hypr-profile.sh` / `HyprProfile.qml` / `proteus-posture` / seed | Hyprland `source =` → `profiles/*.conf` |
 | `~/.config/proteus/posture` | `proteus-posture` | Hard-switch Fact (`desktop` \| `console` \| `host`); boot / `proteus-qs` when `PROTEUS_SURFACE` unset; mid-session flips also set env `PROTEUS_SKIP_SESSION_LOCK=1` |
-| `~/.config/proteus/host-chrome` | `proteus-posture host --headless\|--chrome` | Host UI Fact (`full` \| `none`); `none` → proteus-qs skips Quickshell (headless-no-QS); restore with `--chrome` |
+| `~/.config/proteus/host-chrome` | `proteus-posture host` (defaults `none`) / `--chrome` / `proteus-host-seat attach\|detach` | Host **seat chrome** Fact (`full` \| `none`); `none` = no seat → proteus-qs skips Quickshell + wallpaper quiet; `full` = ops UI attached (local stand-in for later graphical-remote); not a second posture |
 | `~/.config/proteus/console-session-mode` | `proteus-console-session` | Console nested session preference (`seat` \| `gamescope`); launch wraps when `gamescopeUsable`; does **not** replace Hyprland |
 | `/run/user/$UID/proteus-console-seat.log` | `proteus-console-seat` | Console Phase 1 seat map/fullscreen trail (runtime; not settings.json) |
 | `~/.config/hypr/profiles/*.conf` | seed / manual / Settings soft picker | Active soft profile via pointer |

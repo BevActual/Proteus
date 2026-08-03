@@ -2,7 +2,7 @@
 doc: postures
 role: architecture
 audience: architects, contributors, coding agents
-last_updated: "2026-07-30"
+last_updated: "2026-08-02"
 doc_status: active
 scope: Focus postures (hard switches); parked later jobs; host vs home vs hypervisor; resolver
 related:
@@ -67,6 +67,7 @@ Compositor engines: [COMPOSITOR.md](./COMPOSITOR.md).
 |---------|----------|
 | [1. Focus postures](#1-focus-postures) | Desktop · console · host |
 | [2. Hard switches](#2-hard-switches) | What “mode change” means |
+| [2a. Separation rules](#2a-separation-rules) | Mode-owned process trees, input, surfaces |
 | [3. Device environments](#3-device-environments) | Variation within a posture |
 | [4. Host vs home](#4-host-vs-home) | Lab box vs house brain (home parked) |
 | [5. Host vs hypervisor](#5-host-vs-hypervisor) | Critical distinction |
@@ -86,8 +87,8 @@ Compositor engines: [COMPOSITOR.md](./COMPOSITOR.md).
 | Posture | Job | Chrome / engines | Status |
 |---------|-----|------------------|--------|
 | **desktop** | Create / windowed work (desk + laptop) | Full shell (bar, dock, Beacon); Hyprland tiling backend | `partial` — primary spine |
-| **console** | Lean-back consume + play (TV, film, games) | Sparse ConsoleShell — tvOS-style shelf Home (cinematic Featured tracks focus, curated shelves, Library = full catalog), lean sheets; Hyprland kiosk + **supervised seat** (`proteus-console-seat`); **per-title Gamescope** when Vulkan usable; **nested session mode** (`proteus-console-session` · ConsoleBar toggle); Guide / Super+Home | `partial` — Phase 1 seat + Phase 2 nested session Fact/flags/UI + console-smoke / INSTALL; Hyprland→Gamescope sole compositor Out |
-| **host** | Operate the box (VMs, containers, services, updates) | Default lean/headless; **UI on demand** (local or remote) — not a DE clone; little/no creative chrome | `partial` (HostShell + HostHome ops + thin workloads glance/app + `proteus-posture host` + `host.conf`) |
+| **console** | Lean-back **launcher** (media-center list IA) — Games · Media (streaming) · Apps · Search · Settings; stores (Steam, …) are **backends** | End state: **Gamescope owns the session** — one focused app at a time; Guide **focus-flips** (game ↔ web ↔ Home). Interim (no hardware Vulkan): Hyprland kiosk + ConsoleShell list chrome + supervised seat + per-title/nested Gamescope | `partial` — list IA/seat/session Fact shipped; **Gamescope-as-session + focus-flip `partial`** (gs-session + Proteus Home + `proteus-console-focus`; prove paths: bare metal / VFIO passthrough) |
+| **host** | Operate the box (VMs, containers, services, updates, shares) | **Seat-driven:** default headless (no QS); attach lean HostShell when a local/remote seat asks — not a creative DE. Attached seat = **Command-Deck dashboard** (HexOS-style read-only cards: processor · memory · storage/SMART/pools · network · health · workloads · apps · shares) deep-linking into the **Workloads app** (Workloads · Apps · Shares tabs — the single mutation surface) | `partial` — HostShell + dashboard (`proteus-host-metrics`) + Workloads (+ one-click apps catalog + Samba usershares) + `proteus-posture host` + `host-chrome` / `proteus-host-seat`; graphical-remote attach `planned` |
 
 **Naming:** **Console** is the locked product name for lean-back. Legacy docs /
 files may still say `media` / `couch` — treat them as aliases until renamed.
@@ -114,18 +115,90 @@ A focus posture change is a **session-level job flip**:
 Soft hypr profile reload alone is **not** enough for console or host. Profile
 fragments may still express desktop tuning; they do not define the product flip.
 
+**Flip contract (uniform): a posture flip is a session restart ending at the
+login screen.** Devices live in a posture for sustained time; a flip is a
+re-purposing event, not an alt-tab. `proteus-posture` writes the Fact + profile
+pointer, stops seats, then terminates the graphical session
+(`loginctl terminate-session`); the greeter shows; the next login runs
+`proteus-session`, which is the **only place a compositor is chosen** (console
+Fact + usable `game_scope` → Gamescope session; otherwise Hyprland with the
+posture profile). Apps do **not** survive a flip — “different process trees”
+is literal, and logging in again is accepted UX. If the Gamescope engine fails
+fast at login, `proteus-session` degrades the session Fact to `seat` and falls
+back to Hyprland in the same login — a bad console Fact can never lock the
+user out.
+
 Soft helper: `vm/guest/set-hypr-profile.sh desktop|console|media|host|home`
 (`media` ≡ `console` → `profiles/console.conf`); Settings → About soft select
 via `HyprProfile.qml` (soft≠hard). **Hard switch:**
-`vm/guest/proteus-posture console|desktop|host` — Fact + chrome restart + profile;
-Settings → About **Session posture** (`SessionPosture.qml`, confirm before flip);
-Beacon / Control Center / `Super+Shift+C` enter; console Desktop tile exits.
-CC / Quick Settings prefer the **live tree** helper (`$PROTEUS_ROOT/vm/guest/…`)
-over a stale `/usr/local` copy. Posture flips set
-`PROTEUS_SKIP_SESSION_LOCK=1` so chrome does not re-lock mid-session (cold boot
-still honors `lockOnSessionStart`). `proteus-qs --restart` waits for the flock
-so a flip cannot leave a blank session with no chrome.
+`vm/guest/proteus-posture console|desktop|host` — Fact + profile + session
+restart; Settings → About **Session posture** (`SessionPosture.qml`, confirm
+before flip); Beacon / Control Center / `Super+Shift+C` enter; console Desktop
+tile exits. CC / Quick Settings prefer the **live tree** helper
+(`$PROTEUS_ROOT/vm/guest/…`) over a stale `/usr/local` copy.
 
+**Dev fallback (only outside managed sessions):** when `PROTEUS_SESSION` is
+unset (nested Hyprland on a workstation, SSH automation), `proteus-posture`
+falls back to the legacy in-place chrome flip (with
+`PROTEUS_SKIP_SESSION_LOCK=1`) so dogfood scripts and nested dev keep working
+— product sessions always restart. Cold-boot `lockOnSessionStart` semantics
+are untouched because every product flip is a real login.
+
+---
+
+## 2a. Separation rules
+
+Each focus posture is a **session template**. Share Facts, Theme tokens, and
+Settings schema; do **not** fake all three jobs with one chrome skin.
+
+| Rule | Meaning |
+|------|---------|
+| **Different process trees** | Flip stops the previous mode’s chrome (and host-headless stops QS / wallpaper). Do not hide desktop layers under console/host. |
+| **Different input grammars** | Console: pad/Guide/remote. Host: keyboard/SSH (+ ops UI when attached). Desktop: pointer + chords. Shared keybind catalog filtered by posture. |
+| **Different primary surfaces** | Desktop: bar/dock/Beacon. Console: Games/Media/Search/Settings list launcher (+ in-chrome Settings). Host: Workloads/ops (or none). |
+| **Different Settings faces** | One Facts/apps SoT (`settings.json`, packages, Theme). Three **disconnected** Settings faces: desktop = `proteus-settings` full IA; console = in-chrome living-room hubs; host = ops/Virtualization + core. Not one chrome skin. See [SETTINGS-IA.md](./SETTINGS-IA.md) § Posture faces. |
+| **One exit affordance** | Hard switch only (`proteus-posture` / Guide / Desktop tile / Session posture). Soft Hypr profile is Advanced window rules — never “exit mode.” |
+| **Smoke the flip** | Guest smokes assert engines up/down (QS absent on host-headless; console surface; desktop restore). |
+
+### Mode session templates
+
+| Mode | Template |
+|------|----------|
+| **desktop** | Hyprland + full Quickshell — multi-window tiling |
+| **console** | Living-room **launcher** → title cards → Gamescope focus; stores install/update only |
+| **host** | Daemons always; `host-chrome=none` until `proteus-host-seat attach` (or `--chrome`) |
+
+### Console launcher (product)
+
+- Primary chrome: **Games · Media · Apps · Search · Settings** top bar; left A–Z list
+  (Search + Filter fields) + right detail/Launch. Lands on **Games**. Slim footer =
+  status hint (launch/errors) + pad/keyboard legend.
+- **Games** = **Recent** (Jump Back In) · **Installed** titles
+  (`proteus-console-games.py`: Steam appmanifests + RetroArch playlists →
+  `steam -applaunch` / `retroarch -L` through the seat) · **Launchers** (Steam,
+  RetroArch, Heroic, Lutris desktop entries).
+- **Apps** = curated lean-back tools (browser, Discord, Terminal, non-stream web apps)
+  — not games or streaming (those have their own destinations).
+- **Media** = streaming apps **only** (Spotify, Apple Music, HBO, Netflix, Plex,
+  YouTube, …) — allowlist, no desktop AudioVideo-category fallback; local players
+  (mpv/VLC) live under Search ("Play a media file…" sheet).
+- **Settings** = **Console Settings face** (in-chrome, pad-first) — shared Facts with
+  desktop; **primary hubs** = living-room catalog (`EnvGate.settingsFaceHubs("console")`),
+  not the full desktop IA. Does **not** launch `proteus-settings` for ordinary jobs.
+  Full Settings = **desktop face** escape only.
+- Launch **through Console chrome** whenever possible.
+- Steam / Heroic / store UIs are backends — not the default shell.
+- Shelf Home / Featured hero are secondary / retired from the primary path.
+- One focus screen at a time; Guide flips among running apps + Home (end state).
+- Compositor end state: [COMPOSITOR.md](./COMPOSITOR.md) (Gamescope session).
+
+### Host ops Settings (product)
+
+- **Host Settings face** when chrome is attached: Virtualization / seat + shared core
+  (Network, Software, About, …) — not Desktop creative hubs.
+- Workloads app owns mutations; Settings Virtualization stays a thin hub.
+- Default path is ops-first (`openSettingsSmart`); full `proteus-settings` spine is
+  escape, not the host home.
 ---
 
 ## 3. Device environments
@@ -157,14 +230,28 @@ Examples:
 - Console **with gamepad** → game-first grammar; console **with remote** →
   lean-back film/TV grammar — same posture.
 
-#### Host: headless vs UI (same posture)
+#### Host: seat-driven UI (same posture)
 
 | Kit / access | Capabilities (typical) | What runs |
 |--------------|------------------------|-----------|
-| **Headless by default** | `headless` (or no local seat), `libvirt` / `containers`, … | Daemons always; no chrome until requested |
+| **No seat (default)** | `headless` / screens off, `libvirt` / `containers`, … | Daemons always; `host-chrome=none` — no QS |
 | **Terminal access** | SSH / serial / console TTY | Operator stays in the shell — no UI required |
-| **UI on demand** | `display` and/or remote graphical session | Calm ops chrome / Settings **when someone asks for it** |
+| **Seat attached** | local display and/or `session.graphical_remote` | `proteus-host-seat attach` → lean HostShell + Workloads; detach returns to headless |
 | **Host + home radios** | above + `home_control` | May later offer parked **home** on the same box |
+
+Fact: `~/.config/proteus/host-chrome` (`none` \| `full`) — seat chrome, not a
+second posture. Helper: `proteus-host-seat attach|detach|status`.
+`proteus-posture host` defaults headless; `--chrome` for sticky local ops seat.
+
+Attached-seat chrome = **Command-Deck dashboard** (HostHome): read-only glance
+cards fed by `proteus-host-metrics.py` (drives + SMART via `smartctl -jH`,
+mounts, ZFS pools, net rates, Samba usershares, health alerts) + `Workloads`.
+Every mutation deep-links into the **Workloads app** tabs: **Workloads**
+(VM/container ops) · **Apps** (curated one-click container catalog —
+`env/apps/host-apps.json`, containers named `proteus-app-<id>`) · **Shares**
+(Samba usershare add/remove — no root once the `host` install stage sets up
+`/var/lib/samba/usershares` + the `sambashare` group). Honesty gates: samba
+missing → install path; no smartctl/sudo drop → SMART shows `—`, never fake.
 
 **Access is not a fork of the product.** Prefer staying in **host** when UI
 appears over silently becoming **desktop**.
@@ -286,7 +373,7 @@ Capabilities are **normalized flags** from hardware + session. They describe
 | `battery` | Portable power profile |
 | `qs_hyprland` / `qs_pipewire` | Shell/audio engines available |
 | `display_hotplug_fragile` | Plan QS respawn / degrade rearrange |
-| `game_scope` *(planned)* | Console game-scoped compositor path available |
+| `game_scope` *(partial)* | Console game-scoped compositor path available (gamescope + hardware Vulkan — bare metal / VFIO passthrough; VirGL false) |
 
 Compositor notes: [COMPOSITOR.md](./COMPOSITOR.md) § Capabilities.
 
@@ -317,8 +404,8 @@ posture only, no capability profile; hypr profile helper is soft-only.
 | Focus posture | `PROTEUS_SURFACE` today | Hypr profile file | Notes |
 |---------------|-------------------------|-------------------|--------|
 | desktop | `desktop` | `profiles/desktop.conf` | Default |
-| console | `console` (`couch` alias) | `profiles/console.conf` | Hard flip: `proteus-posture` (skip re-lock); shelf Home + Library/Search destinations + lean sheets |
-| host | `host` | `profiles/host.conf` | Hard flip: `proteus-posture host` [`--headless`\|`--chrome`]; HostShell + HostHome + Workloads; Settings → Virtualization thin hub; `host-chrome` Fact; auto-resolver Out |
+| console | `console` (`couch` alias) | `profiles/console.conf` (interim) · Gamescope session when `game_scope` | Hard flip: `proteus-posture` (session restart → greeter); Games · Media · Apps · Search · Settings list IA + lean sheets |
+| host | `host` | `profiles/host.conf` | Hard flip: `proteus-posture host` defaults **headless** (`host-chrome=none`); `--chrome` or `proteus-host-seat attach` for ops UI; HostShell + Workloads; Settings → Virtualization; graphical-remote Out |
 
 | Parked / other | `PROTEUS_SURFACE` | Notes |
 |----------------|-------------------|--------|

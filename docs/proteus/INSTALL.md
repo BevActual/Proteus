@@ -14,7 +14,7 @@ the `vm/install/` overlay.
 | Host drive | [`vm/provision.sh`](../../vm/provision.sh) → [`vm/bootstrap.sh`](../../vm/bootstrap.sh) | Host | Cache ISO/disk, wait for SSH, run the overlay remotely |
 
 Overlay stages (detail: [vm/install/README.md](../../vm/install/README.md)):
-`preflight → packaging → config → hardware → login → apps → desktop → console → post-install`.
+`preflight → packaging → config → hardware → login → apps → desktop → console → host → post-install`.
 
 ## Happy path (empty cache → console dogfood)
 
@@ -48,15 +48,24 @@ Or run the overlay directly on the guest: `sudo bash /mnt/proteus/vm/install/boo
 Package sets: [`proteus-base.packages`](../../vm/install/proteus-base.packages)
 (session stack) · [`proteus-desktop.packages`](../../vm/install/proteus-desktop.packages)
 (browser, files, viewers, capture) · [`proteus-console.packages`](../../vm/install/proteus-console.packages)
-(Gamescope, Steam + lib32, RetroArch + cores, pad udev rules — needs multilib,
-which the `console` stage enables).
+(Gamescope, Steam + lib32, RetroArch + cores, pad udev rules, focus-router X
+tools + vulkan-tools — needs multilib, which the `console` stage enables) ·
+[`proteus-host.packages`](../../vm/install/proteus-host.packages)
+(samba + smartmontools — the `host` stage also seeds the usershares dir,
+`sambashare` group, smb service and a read-only `smartctl -jH` sudoers drop
+for the host dashboard).
 
 ## Console dogfood after the overlay
 
 The `console` stage (and the earlier `apps` stage) put the seat kit on PATH —
 `proteus-console-seat`, `proteus-console-capabilities`, `proteus-console-launch`,
-`proteus-console-session` (symlinked to the live tree when
-`PROTEUS_ROOT=/mnt/proteus`) — and seeds `console.conf`.
+`proteus-console-session`, `proteus-console-gs-session`, `proteus-console-focus`
+(symlinked to the live tree when `PROTEUS_ROOT=/mnt/proteus`) — and seeds
+`console.conf`. With hardware Vulkan (bare metal / VFIO passthrough — see
+[vm/README.md](../../vm/README.md) §VFIO) and
+`proteus-console-session set-mode session`, the next console login boots the
+**Gamescope session** (Proteus Home + Guide focus-flip) instead of the
+Hyprland kiosk.
 
 ### Flip to console and launch a title
 

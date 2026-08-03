@@ -104,7 +104,7 @@ Mobius gates; implementation later).
 | `SpacesNames.qml` | Named Spaces labels (`workspaceNames` → strip + `apply-names`) |
 | `PrivacyAsk.qml` | Ask prompt — launch + mid-session mic/camera/screen (Allow once / Always Allow / Deny) |
 | `SessionPosture.qml` | Hard session posture Fact + `proteus-posture` (About confirm picker) |
-| `HyprProfile.qml` | Soft hypr profile pointer (`media` ≡ console); About soft picker — not a hard posture switch |
+| `HyprProfile.qml` | Soft hypr profile pointer (`media` ≡ console); About **Advanced · window rules** only — not a hard posture switch |
 | `SystemInfo.qml` · `SystemLoad.qml` | About OS/kernel/QS/Hypr facts + About-active load strip |
 | `MissionCenter.qml` | Detect/open Mission Center escape (About / glance) |
 | `Accounts.qml` | Online accounts catalog + seats via `proteus-accounts` |

@@ -2,7 +2,7 @@
 doc: compositor
 role: architecture
 audience: architects, contributors, coding agents
-last_updated: "2026-08-01"
+last_updated: "2026-08-02"
 doc_status: active
 scope: Engines under hard-switch postures; Hyprland + Quickshell; profiles, capabilities, limits
 related:
@@ -52,9 +52,9 @@ capabilities + role  →  hard-switch posture  →  engines + QS chrome + Settin
 
 | Focus posture | Typical engines |
 |---------------|-----------------|
-| **desktop** | Hyprland + full QS shell |
-| **console** | Game-scoped compositor (Gamescope-class or equivalent) + sparse QS (or lean chrome) |
-| **host** | Little/no DE; UI on demand — still Proteus ([POSTURES.md](./POSTURES.md) § Host vs hypervisor) |
+| **desktop** | Hyprland + full QS shell (multi-window) |
+| **console** | **End state (`partial`):** Gamescope as **session** compositor (`proteus-console-gs-session`) — Proteus Home (QS xdg client, `shell/console-home`) + titles as siblings; Guide focus-flips via `proteus-console-focus` (`GAMESCOPECTRL_BASELAYER_APPID`). Engine picked at login by `proteus-session` (posture Fact + `game_scope`). Launcher-first (Games · Media · Apps · Search · Settings list IA); stores are backends ([POSTURES.md](./POSTURES.md)). **Interim (no hardware Vulkan — e.g. VirGL VM):** Hyprland kiosk + ConsoleShell + per-title/nested Gamescope |
+| **host** | No DE by default; lean Hypr + HostShell when seat attached ([POSTURES.md](./POSTURES.md) § Host seat-driven) |
 
 Soft hypr **profile reload alone is not a posture flip** for console/host.
 
@@ -127,11 +127,19 @@ Do **not** fork Quickshell — wrap it; upstream bugs when we hit them.
 ## 4. Profiles on disk
 
 `partial` — desktop + **console** + **host** profiles + active pointer
-`shipped`; home stub `shipped`. Console hard switch `partial` (`proteus-posture`
-+ ConsoleShell + per-title Gamescope; flip skips cold-boot re-lock); host hard
-switch `partial` (`proteus-posture host` + HostShell + lean `host.conf`).
-Keyboard + Desktop + Displays fragments `shipped` (Displays: drag layout +
-full-snapshot Revert):
+`shipped`; home stub `shipped`. Console hard switch `partial`:
+**Gamescope-as-session + focus-flip is now `partial`** — `proteus-session`
+picks the engine at login (console Fact + usable `game_scope` →
+`proteus-console-gs-session`: Gamescope owns the session, Proteus Home is the
+primary xdg client, Guide flips via `proteus-console-focus`); no hardware
+Vulkan → interim Hypr kiosk + ConsoleShell + per-title/nested Gamescope.
+Posture flips are **session restarts to the greeter** inside managed sessions
+(dev/nested fallback stays in-place). Do not couple desktop/host QS Hypr IPC
+to Gamescope. **Lock honesty:** Gamescope does not implement
+`WlSessionLock` — Lock inside the console session ends the session; login is
+the lock. Host hard switch `partial` (`proteus-posture host` defaults headless
++ seat attach; HostShell + lean `host.conf`). Keyboard + Desktop + Displays
+fragments `shipped` (Displays: drag layout + full-snapshot Revert):
 
 ```
 ~/.config/hypr/
@@ -149,9 +157,10 @@ full-snapshot Revert):
 
 Soft helper: `vm/guest/set-hypr-profile.sh desktop|console|media|host|home`
 (`media` ≡ `console`). Settings → About soft-selects the same pointer.
-**Hard console/host flip:** `vm/guest/proteus-posture` (Fact + chrome + profile;
-`PROTEUS_SKIP_SESSION_LOCK=1` on restart) — see [POSTURES.md](./POSTURES.md)
-§ Hard switches.
+**Hard console/host flip:** `vm/guest/proteus-posture` — Fact + profile
+pointer, then **session restart to the greeter** (managed sessions;
+`proteus-session` picks the engine at next login). Dev/nested fallback:
+in-place chrome flip. See [POSTURES.md](./POSTURES.md) § Hard switches.
 
 Nested template today: `env/hypr/hyprland.conf` sources `proteus-monitors.conf`,
 `proteus-general.conf`, `proteus-keybinds.conf`, and `proteus-profile.conf`.
@@ -174,7 +183,7 @@ posture. Full product table: [POSTURES.md](./POSTURES.md) § Device environments
 | `qs_hyprland` / `qs_pipewire` | Which Settings backends light up |
 | `display_hotplug_fragile` | Respawn policy; degrade live rearrange |
 | `libvirt` / `containers` / `home_control` | Host / parked-home eligibility |
-| `game_scope` | Console game-scoped compositor path (*planned*) |
+| `game_scope` | Console game-scoped compositor path (*partial* — probed: gamescope + hardware Vulkan; bare metal / VFIO passthrough true, VirGL false) |
 | `battery` | Power panes (UPower via QS later) |
 
 Resolver (planned): probe → capability set → hard-switch posture → engines +
@@ -208,8 +217,8 @@ compositor chrome for that unit.
 | Settings → keybinds → hypr conf | `shipped` |
 | Settings → gaps/borders via hyprctl | `shipped` — incl. `resize_on_border` (floating edge/corner resize) + accent focus ring (active accent / inactive transparent) + ⌘+drag `bindm` window move |
 | Per-posture hypr profiles | `partial` — desktop + console + host lean + home stub + soft `set-hypr-profile.sh` + Settings About soft picker; hard Session posture picker also in About |
-| Console hard switch | `partial` — proteus-posture + ConsoleShell + console.conf + per-title Gamescope + nested session Fact (`proteus-console-session`); posture flip skips cold-boot re-lock; Hyprland→Gamescope sole compositor still Out |
-| Host hard switch | `partial` — proteus-posture host + HostShell/HostHome + thin workloads glance + host.conf; full app/headless later |
+| Console hard switch | `partial` — Gamescope-as-session `partial` (gs-session + Proteus Home QS xdg client + `proteus-console-focus` Guide flip; engine chosen at login; VFIO/bare-metal prove paths); interim Hypr + ConsoleShell + per-title/nested Gamescope on no-Vulkan; launcher-first / stores-as-backend locked in POSTURES |
+| Host hard switch | `partial` — proteus-posture host defaults headless; `proteus-host-seat` attach/detach; HostShell/HostHome + workloads; graphical-remote later |
 | QS respawn / crash policy | `shipped` — `proteus-qs` flock/backoff/`--restart` (restart waits for prior flock — avoids blank chrome-less sessions) + orphan reap (lock fd closed for the child); wallpaper runner `proteus-bg` = crash-respawn wrapper + in-shell 15s watchdog; optional `proteus-qs.service` user unit (hypr exec-once still default); version recorded in smoke (IgnorePkg/ISO pin Out) |
 | Capability resolver | `planned` |
 | Pin QS version in guest docs/ISO | `shipped` — version **recorded** in smoke; IgnorePkg/ISO pin Out |

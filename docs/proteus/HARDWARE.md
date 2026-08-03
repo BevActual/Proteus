@@ -163,7 +163,7 @@ Aggregate capability `vitals` = any of `sensor.hr` / `spo2` / related streams.
 | `virt.kvm` | Hardware virtualization | `p1` |
 | `virt.gpu` | Mediated / passthrough GPU | `p2` |
 | `container.engine` | Podman/Docker available | `p1` |
-| `storage.pool` | Large disk / ZFS / LVM pool | `p1` |
+| `storage.pool` | Large disk / ZFS / LVM pool — `partial`: host dashboard reads pools/drives/SMART via `proteus-host-metrics.py` (glance CLI, not hw-probe yet) | `p1` |
 | `home.radio` | Speaks to house devices (via net.* above) | `p1` |
 
 ### 2.9 Presence / session (soft modules)
@@ -174,8 +174,8 @@ Not always silicon — still part of the environment probe:
 |-----------|---------|----------|
 | `session.local_seat` | Local keyboard/display seat | `p0` |
 | `session.ssh` | Remote terminal access | `p0` |
-| `session.graphical_remote` | RDP/Waypipe/etc. (later) | `p1` |
-| `session.headless` | No local interactive seat | `p1` |
+| `session.graphical_remote` | RDP/Waypipe/etc. — later **host seat attach** path (`proteus-host-seat` local stand-in today) | `p1` |
+| `session.headless` | No local interactive seat (host default / screens off) | `p1` |
 
 ---
 

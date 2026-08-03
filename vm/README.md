@@ -195,11 +195,46 @@ sudo bash /mnt/proteus/vm/guest/apply-console-kit.sh   # once
 /mnt/proteus/vm/guest/proteus-posture console         # prefer live tree
 ```
 
-Hard flip writes `~/.config/proteus/posture`, reloads `console.conf`, and
-restarts chrome with `PROTEUS_SKIP_SESSION_LOCK=1` (cold boot still locks).
-Return via console Desktop seat / CC Desktop tile / `proteus-posture desktop`.
-See [docs/proteus/POSTURES.md](../docs/proteus/POSTURES.md) ·
+Hard flip writes `~/.config/proteus/posture` and — inside a managed session
+(started via `proteus-session`) — **ends the session**: the greeter shows and
+the next login picks the engine from the Facts (Hyprland kiosk, or the
+Gamescope session when capabilities allow). Outside a managed session (SSH /
+nested dev) the legacy in-place chrome flip is used so automation keeps
+working. Return via console Desktop seat / CC Desktop tile /
+`proteus-posture desktop`. See
+[docs/proteus/POSTURES.md](../docs/proteus/POSTURES.md) ·
 [CURRENT.md](../docs/proteus/CURRENT.md).
+
+### GPU passthrough (VFIO) — Gamescope session prove path
+
+VirGL has no hardware Vulkan, so the VM console stays interim (Hyprland kiosk
++ bare seats). To dogfood the **Gamescope-owned console session** in the same
+disk/SSH loop, pass a host GPU through:
+
+1. **IOMMU on** — kernel cmdline `intel_iommu=on` / `amd_iommu=on`
+   (+ `iommu=pt`); verify groups: `find /sys/kernel/iommu_groups -type l`.
+2. **Bind the GPU to vfio-pci** (host) — e.g. for `0000:01:00.0` (+ its audio
+   function `.1`): `modprobe vfio-pci` then either kernel cmdline
+   `vfio-pci.ids=VVVV:DDDD,VVVV:DDDD` (from `lspci -nn`) or a driverctl
+   override. The GPU must not be driving the host desktop.
+3. **Boot with the device:**
+
+```bash
+PROTEUS_VM_VFIO=0000:01:00.0,0000:01:00.1 ./vm/run.sh
+# GPU as the only display (attach a monitor to it, or use Looking Glass):
+PROTEUS_VM_VFIO=… PROTEUS_VM_VFIO_PRIMARY=1 ./vm/run.sh
+```
+
+4. **Verify in the guest** — `proteus-console-capabilities` must report
+   `"vulkanHw": true` and `"gamescopeUsable": true`; then
+   `proteus-console-session set-mode session` and
+   `PROTEUS_EXPECT_GS_SESSION=1 bash /mnt/proteus/vm/guest/dogfood-console.sh`
+   asserts `replacesHyprland`. The next console login lands in the Gamescope
+   session (Proteus Home + Guide focus-flip).
+
+Pad still rides `PROTEUS_VM_PAD=auto`. This harness is the bridge toward
+hosting game instances under host posture later; that product UI is out of
+scope here.
 
 ### Start a graphical session (manual / debug)
 

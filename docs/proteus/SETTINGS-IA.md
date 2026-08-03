@@ -20,24 +20,63 @@ status_legend:
 
 # Settings — information architecture
 
-**proteus-settings** is the product face of “usable custom OS”: Mac-smooth
-controls, Linux facts underneath. Shell ⚙ / dock / `Super+,` only **launch** it.
+**One Facts SoT** (`settings.json`, helpers, Theme). **Three disconnected faces**
+per focus posture — same idea, different primary catalog and chrome. Apps and
+files are shared; Settings **faces** are not one skin.
+
+| Face | Surface | Primary catalog |
+|------|---------|-----------------|
+| **Desktop** | `proteus-settings` app (pointer, full IA) | Full `settingsCatalog` |
+| **Console** | In-chrome `ConsoleSettingsPane` (pad) | `settingsFaceHubs("console")` — living-room + shared core |
+| **Host** | HostShell / Workloads + Settings deep links (ops) | `settingsFaceHubs("host")` — virt + shared core |
+
+Shell ⚙ / dock / `Super+,` launch the **desktop face**. Console/host default
+paths use `ShellState.openSettingsSmart` / `openConsoleSettings` — not the
+desktop app for ordinary jobs. Escape: “Open in Full Settings…” → desktop face.
+
+**Shared core hubs** (all faces when capability-ok): Network, Sound, Power,
+Notifications, Software (`packages`), About (`system`), Users.
+
+**Face-only emphasis:** Desktop → Desktop hub / Style depth / Privacy / Accounts /
+Datetime / CC layout. Console → Appearance light, Displays/brightness, Gamepads,
+Web apps leaf, session. Host → Virtualization / seat chrome, updates/ops.
+
+**Console couch depth (Network · Sound):** Hub status strip + drill modes
+(`hub` · `wifi` · `sinks` · `wifiPassword`). Wi‑Fi rescan/list/connect via
+`ConsoleSettingsNet` + `Config.wifiConnect` / `wifiConnectPassword` /
+`wifiDisconnect` (nmcli; secured SSIDs → password `TextField`). Sound volume /
+mute stay on hub; **Choose output…** → `Audio.listSinks` / `setDefaultSink`.
+Ⓑ / Back exits drill before leaving Settings. Software install UI · captive
+portals · on-screen keyboard stay Out (Full Settings escape for deep leaves).
 
 Code: `apps/proteus-settings/` (`Settings.qml` shell + `kit/*` form primitives +
-`panes/*`; `SettingsNav.qml`; `shared/` → `shell/shared`).
+`panes/*`; `SettingsNav.qml`; `shared/` → `shell/shared`). Face hub lists:
+`EnvGate.settingsFaceHubs` / `availableSettingsPanesForFace`.
 
 ## Document map
 
 | Section | Contents |
 |---------|----------|
+| [Posture faces](#posture-faces) | Shared Facts · three faces · escape |
 | [1. Pattern](#1-pattern) | Elegant UI → inspectable fact |
-| [2. Categories](#2-categories) | Sidebar IA |
+| [2. Categories](#2-categories) | Sidebar IA (desktop face) |
 | [3. Containers](#3-containers) | Top-level vs submenu vs sections |
 | [4. Appearance hub](#4-appearance-hub) | Drill-in |
 | [5. Keyboard pattern](#5-keyboard-pattern) | Prototype hybrid feature |
 | [6. Desktop + Displays](#6-desktop--displays) | Same hybrid pattern (+ Sound · Network) |
 | [7. Growth](#7-growth) | Next panes |
 | [8. UX locks](#8-ux-locks) | Calm chrome |
+
+---
+
+## Posture faces
+
+Do **not** fork `settings.json` per posture. Do **not** ship three Settings apps.
+Do disconnect **primary navigation** and **input grammar**:
+
+- Legality stays `EnvGate.paneAvailable` (posture + hardware + Focus).
+- Face lists are **emphasis** — what Console/Host Settings home shows first.
+- Desktop face remains the deep editor; console/host escape into it when needed.
 
 ---
 
@@ -116,11 +155,11 @@ Left-nav + content pane (macOS System Settings style).
 | **Notifications** (`notifications`) | Prefs: hard DND · jump to Focus · live list stays Control Center | `notificationsDnd` · FocusMode | `shipped` |
 | **Privacy & security** (`privacy`) | Hub → What leaves + weather mute + session; **In use now**; category leaves (Allow/Deny + per-app Allow/Ask/Deny); Flatpak overrides; portal PermissionStore sync; capture enforce (Deny + Ask mute/destroy mic/camera/**screen**); **portal Session.Close** best-effort; **Ask launch + mid-session mic/camera/screen** | `permissions.json` · `proteus-permissions.py` · PrivacyAsk · PrivacyIndicators · EnvGate · portal Session.Close + pactl/PW enforce | `partial` |
 | **Software** (`packages`) | Hub → Updates; Repos / AUR / Flathub (Install\|Installed mode-safe, per-mode search, op narrative); AppImages; **Web apps** (URL → `proteus-web-*.desktop` via `proteus-webapp`, no polkit); Orphans — helper honesty when yay/paru/flatpak missing | `pacman` + `proteus-pkg` · yay/paru · flatpak + Flathub · local AppImages · `proteus-webapp` | `shipped` |
-| **Virtualization** (`virtualization`) | Thin host ops hub — Workloads › jump · engines status · headless chrome Fact | `Workloads` · `proteus-posture` · `host-chrome` (mutations / auto-resolver / Portainer Out) | `shipped` |
-| **About** (`system`) | OS/kernel/hostname · QS/Hypr · load/mem/storage · battery when present · Mission Center (Install… → Flathub · `io.missioncenter.MissionCenter`) · Check for updates → Software; hardware caps; **hard Session posture** (`SessionPosture` → `proteus-posture`, confirm) + soft Hyprland profile (`HyprProfile`); Copy + Copied; Virtualization › jump | `SystemInfo` · `SystemLoad` · `MissionCenter` · `Power` · probe · `SessionPosture` · `HyprProfile` | `shipped` |
+| **Virtualization** (`virtualization`) | Thin host ops hub — Workloads › jump · engines status · **seat chrome** (`proteus-host-seat` attach/detach · `host-chrome`) | `Workloads` · `proteus-host-seat` · `proteus-posture` · `host-chrome` (mutations / auto-resolver / Portainer / graphical-remote Out) | `shipped` |
+| **About** (`system`) | OS/kernel/hostname · QS/Hypr · load/mem/storage · battery when present · Mission Center (Install… → Flathub · `io.missioncenter.MissionCenter`) · Check for updates → Software; hardware caps; **hard Session posture** (`SessionPosture` → `proteus-posture`, confirm); soft Hyprland profile under **Advanced · window rules** (`HyprProfile`); Copy + Copied; Virtualization › jump | `SystemInfo` · `SystemLoad` · `MissionCenter` · `Power` · probe · `SessionPosture` · `HyprProfile` | `shipped` |
 
 VM / container **mutations** stay in the Workloads app; Settings → Virtualization
-is jumps + engine/headless status only. Soft Hyprland profile select does **not**
+is jumps + engine/headless status only. Soft Hyprland profile (Advanced) does **not**
 flip hard posture — use Session posture (or Beacon / CC / `proteus-posture`).
 Hostname **edit** stays under Network.
 
@@ -368,8 +407,8 @@ PAM · PIN in settings.json Out.)*
 *(Software hub + six leaves + reliability/guest smoke shipped — dep graphs / Snap stay Out.)*
 *(Appearance hub + Date, time & weather locale/forecast shipped — manual time/RTC Out.)*
 *(About OS/kernel/hostname · load strip · Mission Center escape · Copy+Copied ·
-hard Session posture picker + soft Hyprland profile shipped — Beacon/CC still
-flip hard too; no in-Settings live dashboard.)*
+hard Session posture picker + soft Hyprland profile under Advanced · window rules
+shipped — Beacon/CC still flip hard too; no in-Settings live dashboard.)*
 *(Privacy & security hub · In use now · category grants · Flatpak overrides ·
 portal PermissionStore sync · capture enforce (mic/camera/screen) · Beacon/dock
 grant parity · Diagnostics deny → Network Diagnostics · smoke/install privacy

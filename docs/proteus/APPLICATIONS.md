@@ -20,7 +20,9 @@ status_legend:
 
 Proteus apps are **not** forked per posture or per device SKU. An application is
 **one product identity** that **adapts** to the environment it is running in —
-and is **not enabled everywhere by default**.
+and is **not enabled everywhere by default**. Settings **faces** follow the same
+rule: one Facts/files SoT, disconnected chrome per posture
+([SETTINGS-IA.md](./SETTINGS-IA.md) § Posture faces) — not three settings trees.
 
 This is the opposite of “ship five APKs.” It is closer to adaptive layouts, with
 an explicit **capability contract**.
@@ -118,14 +120,21 @@ Example sketches:
   postures `desktop` (+ maybe compact on `phone` device class later).  
 - **Host workloads app** — requires `libvirt` or `containers`; posture `host`;
   separate from Settings (VM/container *setup* is not a Settings category);
-  works headless via CLI/API; GUI facet only when UI session exists.
-  **Today:** HostHome glance + QML app (`apps/proteus-workloads` · catalog
-  `proteus-workloads`) with start/stop/kill/create/destroy; Settings virt ·
-  Settings virt · headless-no-QS stay Out.  
+  works headless via CLI/API; GUI facet only when seat attached
+  (`host-chrome=full` / `proteus-host-seat attach`).
+  **Today:** HostHome **Command-Deck dashboard** (read-only cards via
+  `proteus-host-metrics.py`) + QML app (`apps/proteus-workloads`) grown into
+  tabs — **Workloads** (start/stop/kill/create/destroy) · **Apps** (one-click
+  container catalog `env/apps/host-apps.json`, deploy → `proteus-app-<id>`) ·
+  **Shares** (Samba usershare add/remove); dashboard cards deep-link tabs
+  (`proteus-workloads --tab …`); Settings → Virtualization thin hub.
 - **Vitals glance** — requires `vitals`; `device_classes: ["watch","phone"]`
   (catalog example; blocks on desktop/laptop VM); no Hyprland needed.  
-- **Media / console player** — posture `console` or `desktop`; adapts to `remote` /
-  `gamepad` / `touch`.
+- **Console titles** (games, Plex, streaming/web apps) — posture `console`
+  (and often `desktop`); launch from Console shelves, not store Big Picture.
+  Adapts to `remote` / `gamepad`. **Store apps** (Steam, Heroic, …) may list
+  on `console` + `desktop` but are **backends** (install/update) — not Console
+  Games/Media list primary rows ([POSTURES.md](./POSTURES.md) § Console launcher).
 
 ---
 
@@ -200,7 +209,7 @@ adaptive app can honor the contract.
 | App capability manifest | `partial` — `env/apps/` schema + catalog; EnvGate load + postures/prefers/device_classes/adapts + launch env |
 | Beacon filtering by contract | `partial` — manifest match + heuristic fallback + prefers boost + adapts hint + Dock/Beacon/`openSettings` `PROTEUS_ADAPT_*` + Settings About `AdaptEnv` |
 | DesktopEntries launcher | `shipped` (desktop) |
-| Console lean seats | `partial` — Browser / Media / Terminal / Steam / RetroArch / Desktop via `proteus-console-launch`; Jump Back In = `consoleRecents`; Library/Search = DesktopEntries (+ Games tag); Web apps from Software leaf |
+| Console lean seats | `partial` — Browser / Media / Terminal / Steam / RetroArch / Desktop via `proteus-console-launch`; Games · Media · Apps · Search · Settings list IA; Apps = curated lean-back; Media = streaming; **Console Settings face**; Search = DesktopEntries + extras |
 
 ---
 

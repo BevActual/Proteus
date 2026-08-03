@@ -38,8 +38,8 @@ Built on Arch Linux + [Quickshell](https://quickshell.org/) (Qt/QML) + Hyprland.
 ## Status
 
 Desktop spine is dogfoodable in the VM (shell + Settings largely shipped).
-Console hard switch is dogfoodable (`proteus-posture`); host hard switch remains
-planned; parked postures are thesis only. Honest inventory:
+Console and host hard switches are `partial` (`proteus-posture`; host defaults
+headless / seat attach); parked postures are thesis only. Honest inventory:
 [docs/proteus/CURRENT.md](docs/proteus/CURRENT.md).
 
 ## Test in a VM (recommended)

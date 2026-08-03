@@ -79,7 +79,7 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 | Theme tokens | `shipped` — space/radius scale + accent/font from Config; company lock [CHROME.md](./CHROME.md) |
 | Themed controls (`ThemeSlider` / `ThemeSwitch`) | `shipped` — shared accent Slider/Switch wrappers (`shell/shared/`) used by all Settings panes, Control Center Sound plate, and lock clock HUD; stock Controls variants smoke-banned (`chrome-tokens-smoke`) |
 | Shared package layout (flat + helpers) | `shipped` — Config/Background ownership split; Settings `kit/`; guest dogfood OK |
-| Smoke suite (`scripts/smoke/*-smoke.sh`) | `shipped` — layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · accounts · users · lock-pin · permissions · desktop · spaces · focus · control-center · beacon · audio-mix-serve · hw-probe · install · session · posture-hard · console · host · qs-version; optional `qs-guest` + `software-guest` + `console-guest` via `smoke-all` / `PROTEUS_GUEST=1` |
+| Smoke suite (`scripts/smoke/*-smoke.sh`) | `shipped` — layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · accounts · users · lock-pin · permissions · desktop · spaces · focus · control-center · beacon · audio-mix-serve · hw-probe · install · session · posture-hard · console · host · qs-version; optional `qs-guest` + `software-guest` + `console-guest` + `host-guest` via `smoke-all` / `PROTEUS_GUEST=1` |
 
 ---
 
@@ -101,7 +101,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Users (session actions + read-only local users · greetd autologin) | `shipped` — Session Lock/Logout; Reboot/Shutdown confirm strip; **lock screen PIN** set/change/clear (`proteus-pin.py`, PAM password gate; hash not in settings.json); current user GECOS/home/UID/groups; other users read-only; Online accounts jump; greetd status + **autologin toggle** via `proteus-greetd` (pkexec `[initial_session]`; no greetd restart); conf escape; no add/remove |
 | Online accounts (provider seats) | `partial` — **hub → per-provider leaves** (`AccountsPane` Connected / Add account · `AccountsProviderLeaf` · SettingsNav `accounts` hub); canonical provider list (Google / Microsoft / **Exchange** / Nextcloud / IMAP / CalDAV / CardDAV / Apple) with friendly blurbs — status/seats merge from `proteus-accounts` (stale catalog cannot inject Coming-later rows); OAuth Connect inline when client id ready; multi-seat Disconnect + OAuth Reconnect; vault tokens (not settings.json); **calendar + mail + contacts glances** (CalendarPanel · `CalendarEvents` / `MailGlance` / `ContactsGlance` · fetch scripts · IMAP/CalDAV/CardDAV/Apple + Google/MS/Exchange Graph — reconnect older Google/MS seats for write/send/contacts scopes); **calendar event create/edit/delete** (`proteus-calendar-mutate.py` · CalDAV + Google `calendar.events` + MS/Exchange `Calendars.ReadWrite` · CalendarPanel Add/Edit/✕ · title/day thin); **recurrence thin create+edit** (daily/weekly/monthly · **COUNT end presets** Forever/2×/5×/10× · whole series); **mail compose thin** (`proteus-mail-send.py` · Google `gmail.send` + MS/Exchange `Mail.Send` + IMAP/Apple SMTP · To/Cc/Bcc/Subject/Body · **one-file attach**); **contacts create/edit/delete thin** (`proteus-contacts-mutate.py` · CardDAV + Apple Basic + Google People `contacts` + MS/Exchange `Contacts.ReadWrite` · CalendarPanel Add/Edit/✕ · name + one email · reconnect older OAuth seats for contacts scopes); Proteus mail/contacts/Drive apps · photos/groups/full vCard · HTML/drafts/reply/multi-file · this-vs-all/UNTIL date/attendees/exceptions · EWS/NTLM · Sign in with Apple OAuth Out |
 | Privacy & security (transparency · mute · session · grants) | `partial` — hub + leaves; what leaves; weather mute; DND / Lock / clipboard / LocalSend; **In use now** (mic/camera/screen apps via `privacy-indicators.py`); category Allow/Deny + per-app Allow/Ask/Deny in `permissions.json` (`proteus-permissions.py` · `Permissions.qml`); Flatpak mic/camera overrides; **portal PermissionStore sync** (devices mic/camera + screencast best-effort); **capture enforce** (Deny + Ask mute/destroy active mic/camera/**screen** screencast-like PW nodes; session Allow-once via runtime session file); **portal Session.Close** best-effort on screen Deny/Ask (`org.freedesktop.portal.Session.Close` + PW destroy fallback); **Ask prompt** (`PrivacyAsk` · Allow once / Always Allow / Deny at Dock/Beacon launch **+ mid-session mic/camera/screen** via activity probe); EnvGate ask≠deny; **fail-closed until `Permissions.ready`** (privacy-gated apps + Diagnostics); smoke/install harness; **not a full OS sandbox** (no AppArmor/v4l2 ACL · perfect screencast attribution Out) |
-| About (hardware class / capabilities) | `shipped` — OS/kernel/hostname (`SystemInfo`); Hyprland/Quickshell versions; tip hash; hw-probe class/caps; CPU/mem/swap/storage/uptime (`SystemLoad`, About-active only); battery when present (`Power`/UPower); Mission Center escape; Check for updates → Software; **hard Session posture** (`SessionPosture` → `proteus-posture`, confirm before chrome restart) + soft Hyprland profile (`HyprProfile`); Copy + Copied; session power under Users only; no in-Settings live dashboard |
+| About (hardware class / capabilities) | `shipped` — OS/kernel/hostname (`SystemInfo`); Hyprland/Quickshell versions; tip hash; hw-probe class/caps; CPU/mem/swap/storage/uptime (`SystemLoad`, About-active only); battery when present (`Power`/UPower); Mission Center escape; Check for updates → Software; **hard Session posture** (`SessionPosture` → `proteus-posture`, confirm); soft Hyprland profile under **Advanced · window rules** (`HyprProfile`); Copy + Copied; session power under Users only; no in-Settings live dashboard |
 | Host / VM·container setup | **thin Settings hub** (`virtualization`) — Workloads jump · engines status · headless chrome Fact; mutations stay in `proteus-workloads` app; auto-resolver / Portainer Out |
 | Cold-start (open feel) | `shipped` — async `shell.qml` → `Settings.qml`; `kit/StickyPaneLoader` (active category first, sticky after visit); Keyboard/Keybinds deferred; Settings QS skips live hw-probe (`Hardware.isSettingsApp` → cache only) |
 | Window & layout | `shipped` — normal app window (tiles / floats like any other; legacy float+center windowrule removed, config.sh strips it from old installs); wide/tiled windows cap + center the pane column (`paneMaxW` 760; back/title track it, ✕ stays at the corner; Mixer full-bleed); **single-instance** (`proteus-settings` reuses via `nav` IPC + `raise` / hypr focus; `quickshell -n` race guard) |
@@ -120,30 +120,24 @@ Locked product set: [POSTURES.md](./POSTURES.md).
 | Posture | Status |
 |---------|--------|
 | desktop | `partial` — primary focus spine |
-| console | `partial` — layered ConsoleShell + hard `proteus-posture` (posture flip skips cold-boot re-lock + workspace hygiene); **tvOS-style shelf Home** — pinned cinematic Featured (tracks focused card), one active shelf (others peek/dim), curated lean-back Apps (not desktop dump) + Web/Games/Media + Jump Back In; **Library** = full DesktopEntries catalog; Search = Shortcuts + typed catalog; cards/hero without category chips (shelf titles); **Phase 1 seat:** `proteus-console-seat` + `proteus-console-capabilities` (supervised map→fullscreen, Gamescope only when Vulkan usable / skip in QEMU); **Phase 2 nested session:** `proteus-console-session` Fact (`seat`\|`gamescope`) + launch adaptive flags + ConsoleBar toggle when usable — **does not** replace Hyprland as sole compositor; Theme accent/icons; Media lean sheet + Details; Jump ✕ remove; CC/HUD/toasts; pad Menu/Open/Details; Guide long-hold → exit; cold-boot lock; `apply-console-kit.sh` |
-| host | `partial` — lean `HostShell` + hard `proteus-posture host` (Fact + profile + chrome restart; skip cold-boot re-lock); **Phase 2 HostHome** ops glance (hostname · SystemLoad) + **thin VM/container glance** (`Workloads` / `proteus-workloads.py`) + **Workloads app** (`apps/proteus-workloads` · inventory + **start/stop/kill/create/destroy** · ✕/Escape quit · HostHome tile; **closed on leave-host** via `proteus-posture`); **Settings → Virtualization** thin hub (Workloads jump · engines · headless) + About jump; **headless-no-QS** (`host-chrome` none · HostHome Headless tile · `proteus-posture host --headless|--chrome`); Settings quick actions · Terminal · Mission Center; StatusHud/toasts; bar load; enter via Beacon/CC Host tile / `Super+Shift+H`; return Desktop; same Settings spine; **auto-resolver** Out |
+| console | `partial` — lean-back **launcher** (Games · Media · Apps · Search · Settings list IA) + **Console Settings face** (in-chrome · `settingsFaceHubs(console)` · Network Wi‑Fi scan/connect + Sound sink picker · status strip · Full Settings = desktop escape) + hard `proteus-posture`; Media = streaming allowlist only (no AudioVideo-category fallback; local play = Search sheet); Apps = browser/Discord/terminal curated; Games = Recent · **Installed titles** (`proteus-console-games.py` Steam appmanifest + RetroArch playlist scan → per-title seat launch) · Launchers; footer status strip + pad legend; stores-as-backend locked in POSTURES; **Gamescope-as-session `partial`** — `proteus-session` engine switch at login (`game_scope` = gamescope + hardware Vulkan) → `proteus-console-gs-session` (Gamescope owns the session; **Proteus Home** = QS xdg client `shell/console-home`; Guide focus-flip via `proteus-console-focus` baselayer atoms; Lock = session exit — login is the lock; host-side spike `scripts/spike/gs-qs-spike.sh` PASSED); prove paths bare metal / **VFIO passthrough** (`PROTEUS_VM_VFIO`); **interim** (VirGL / no hardware Vulkan) Hypr kiosk + seat + per-title/nested Gamescope; shelf Home retired from primary path; Guide long-hold → exit desktop; pad input **single-fire** (`proteus-guide` single-instance lock · BTN_DPAD/HAT dual-report dedupe · hold-repeat delay); `apply-console-kit.sh` |
+| host | `partial` — seat-driven: `proteus-posture host` **defaults headless** (`host-chrome=none`); `proteus-host-seat attach\|detach` for ops UI; **HexOS-style Command-Deck dashboard** (HostHome card grid: processor · memory · storage/SMART/pools · network · health · workloads · apps · shares — read-only, fed by `proteus-host-metrics.py` + `HostMetrics.qml`); **Workloads app tabs** = single mutation surface: Workloads (VM/ctr ops) · **Apps** (one-click catalog `env/apps/host-apps.json` → `proteus-app-<id>` containers) · **Shares** (Samba usershare CRUD — `host` install stage seeds usershares dir + `sambashare` group + smb); honesty gates (no samba/smartctl/engine → install path, `—`, never fake); **Host Settings face** (virt + shared core via `openSettingsSmart`); enter Beacon/CC / `Super+Shift+H`; graphical-remote attach Out |
 | home · wearable · xr · vehicle | `parked` — thesis only; not in proof order |
 
-Focus set + hard switches: [POSTURES.md](./POSTURES.md). Hard flips:
-`proteus-posture console|desktop|host` (Fact `~/.config/proteus/posture` + chrome +
-profile; sets `PROTEUS_SKIP_SESSION_LOCK=1` so mid-session flips do not blank
-the surface). Enter from desktop: Beacon Action · Control Center tiles ·
-`Super+Shift+C` (console) / `Super+Shift+H` (host) — CC prefers live
-`$PROTEUS_ROOT/vm/guest/proteus-posture`. Settings → About **Session posture**
-is the hard picker (`SessionPosture` → `proteus-posture`, confirm). Soft hypr
-helper `set-hypr-profile.sh` + About **Hyprland profile** remain soft-only
-(window-rule component, not the product flip).
+Focus set + separation rules: [POSTURES.md](./POSTURES.md) §2a. Hard flips:
+`proteus-posture console|desktop|host` — **uniform session restart to the
+greeter** in managed sessions (`proteus-session` picks the engine at next
+login); dev/nested fallback = in-place chrome flip
+(`PROTEUS_SKIP_SESSION_LOCK=1`). Host defaults headless; `--chrome` or
+`proteus-host-seat attach` for UI. Enter from desktop: Beacon · CC ·
+`Super+Shift+C` / `Super+Shift+H`. Settings → About **Session posture** = hard
+picker; **Hyprland profile** = Advanced soft window rules only (not exit).
 
-Console dogfood (guest): full packages via overlay `console` stage or
-`sudo bash /mnt/proteus/vm/guest/install-console-software.sh`; helpers/seed repair
-via `apply-console-kit.sh` (not a substitute for Steam/RetroArch/cores). One-command
-flip+verify: `bash /mnt/proteus/vm/guest/dogfood-console.sh` (optional
-`--launch browser|retroarch`; `--restore` → desktop). Manual: `proteus-posture console`.
-Titles via `proteus-console-seat` → `proteus-console-launch` (VM bare kiosk;
-Gamescope when Vulkan usable). Session mode Fact `~/.config/proteus/console-session-mode`
-(`seat` default · `gamescope` nested wraps when usable). Toggle from ConsoleBar when
-`gamescopeUsable`. Check `chrome state.surface === console` and seat log. Home is
-tvOS-inspired shelves + full-bleed Featured; Library/Search from slim top chrome.
+Console dogfood (guest): `bash /mnt/proteus/vm/guest/dogfood-console.sh`
+(`--launch browser|retroarch`; `--restore`). Host dogfood:
+`bash /mnt/proteus/vm/guest/dogfood-host.sh` (default headless → seat attach/detach;
+`--restore` → desktop). Titles via `proteus-console-seat` (Gamescope when usable).
+Primary chrome is Games/Media/Search/Settings list IA; stores-as-backend locked in POSTURES.
 
 ---
 
@@ -161,6 +155,7 @@ tvOS-inspired shelves + full-bleed Featured; Library/Search from slim top chrome
 | `~/.config/hypr/proteus-monitors.conf` | Displays live `monitor =` lines (sourced) |
 | `~/.config/hypr/proteus-profile.conf` | Active posture profile pointer → `profiles/*.conf` |
 | `~/.config/proteus/posture` | Hard-switch Fact (`desktop` \| `console` \| `host`) — boot + `proteus-qs` when `PROTEUS_SURFACE` unset |
+| `~/.config/proteus/host-chrome` | Host seat chrome (`none` \| `full`) — `proteus-posture` / `proteus-host-seat` |
 | `~/.config/hypr/profiles/*.conf` | Posture fragments (desktop + console fullscreen + host lean ops shipped; home stub) |
 | `~/.config/hypr/hyprland.conf` | Guest/session compositor config |
 | `env/hypr/hyprland.conf` | Nested template (sources general / monitors / keybinds / profile) |
@@ -188,7 +183,7 @@ tvOS-inspired shelves + full-bleed Featured; Library/Search from slim top chrome
 | `bash /mnt/proteus/vm/guest/install-desktop-conf.sh` | `proteus-general.conf` + `proteus-monitors.conf` + sources |
 | `bash /mnt/proteus/vm/guest/install-lock-pam.sh` | `/etc/pam.d/proteus-lock` (falls back to `login` if absent) |
 | `./scripts/run-nested.sh` | Nested Hyprland on host |
-| `./scripts/smoke-all.sh` | Host smokes (layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · accounts · users · lock-pin · permissions · desktop · spaces · focus · control-center · beacon · audio-mix-serve · hw-probe · install · session · posture-hard · console · host · workloads-app · qs-version); guest `qs-guest` + `software-guest` + `console-guest` if SSH or `PROTEUS_GUEST=1` |
+| `./scripts/smoke-all.sh` | Host smokes (layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · accounts · users · lock-pin · permissions · desktop · spaces · focus · control-center · beacon · audio-mix-serve · hw-probe · install · session · posture-hard · console · host · workloads-app · qs-version); guest `qs-guest` + `software-guest` + `console-guest` + `host-guest` if SSH or `PROTEUS_GUEST=1` |
 | `./scripts/smoke/layout-smoke.sh` | Flat `shell/shared/` + Settings `kit/` structure |
 | `./scripts/smoke/widget-layout-resolve-smoke.sh` | Widget free/snap resolve capped + flush/no-overlap geometry stress |
 | `./scripts/smoke/ipc-contract-smoke.sh` | Smoke `qs ipc call` sites ⊆ shell/Settings `IpcHandler` methods |
@@ -212,9 +207,10 @@ tvOS-inspired shelves + full-bleed Featured; Library/Search from slim top chrome
 | `./scripts/smoke/install-smoke.sh` | Overlay installer tree check (stages incl. console · package roster split · repair preset · provision status · INSTALL.md) |
 | `./scripts/smoke/session-smoke.sh` | Host gate for `proteus-session` contract + `proteus.desktop` |
 | `./scripts/smoke/posture-hard-smoke.sh` | Host static checks for hard `proteus-posture` (desktop/console/host) + console profile rename (no live compositor flip) |
-| `./scripts/smoke/console-smoke.sh` | Host Phase 1/2 gate — ConsoleShelf/Lean · seat/caps/session · dogfood-console · install wiring (no live posture flip) |
+| `./scripts/smoke/console-smoke.sh` | Host Phase 1/2 gate — SideList/detail · Games/Media/Search/Settings · streaming classifier · seat/caps/session · dogfood-console · install wiring (no live posture flip) |
 | `./scripts/smoke/console-guest-smoke.sh` | Guest console dogfood flip+verify + restore desktop (`dogfood-console.sh`); in `smoke-all` (SKIP unless SSH / `PROTEUS_GUEST=1`) |
-| `./scripts/smoke/host-smoke.sh` | Host Phase 1 gate — HostShell loader · enter-host wires · Fact/profile host (no live posture flip) |
+| `./scripts/smoke/host-smoke.sh` | Host Phase 1 gate — HostShell · default headless · proteus-host-seat · enter-host --chrome wires (no live posture flip) |
+| `./scripts/smoke/host-guest-smoke.sh` | Guest host dogfood flip+seat+restore (`dogfood-host.sh`); in `smoke-all` (SKIP unless SSH / `PROTEUS_GUEST=1`) |
 | `./scripts/smoke/workloads-app-smoke.sh` | Host static checks for thin `proteus-workloads` app + HostHome handoff |
 | `./scripts/smoke/qs-version-smoke.sh` | Record QS version policy (no IgnorePkg); checks `qs-guest-smoke` upgrade path |
 | `./scripts/smoke/qs-guest-smoke.sh` | Guest cold-start `SHELL_OK` / `SETTINGS_OK` + record `quickshell` version + polkit agent + nav deep link + Beacon + calendar + Customize/widgets IPC (add/move/snap/remove worldclock probe) |
@@ -230,7 +226,8 @@ Install path SoT (three layers, knobs, repair, failures): [INSTALL.md](./INSTALL
 | Lock | Doc | Code status |
 |------|-----|-------------|
 | Stack split (QML / Tauri / Rust) | [STACK.md](./STACK.md) | Settings+shell = QML; no Tauri apps yet |
-| Hyprland as backend + QS limits | [COMPOSITOR.md](./COMPOSITOR.md) | Desktop Hyprland `shipped`; console + host hard switches `partial` (ConsoleShell/HostShell + proteus-posture skip re-lock + profiles); home parked |
+| Hyprland as backend + QS limits | [COMPOSITOR.md](./COMPOSITOR.md) | Desktop Hyprland `shipped`; console interim Hypr+nested Gamescope `partial`; Gamescope-as-session + focus-flip `planned`; host seat-driven `partial`; home parked |
+| Posture separation rules | [POSTURES.md](./POSTURES.md) §2a | Shared rules `partial` this pass (EnvGate panes, keybind filter, soft≠hard Advanced, host seat scaffold) |
 | Adaptive apps / environment contract | [APPLICATIONS.md](./APPLICATIONS.md) | `partial` — `env/apps` manifests + EnvGate requires/postures/device_classes/prefers + adapts (input/nav/panes via FocusMode + Beacon hint + `PROTEUS_ADAPT_*` launch env) + Settings Focus hard pane hide + About `AdaptEnv` consumer; **remote** via probe CEC/IR/lirc / Bluetooth HID + soft stub (`PROTEUS_REMOTE_PROBE`) |
 | Hardware module catalog | [HARDWARE.md](./HARDWARE.md) | Wave A probe + `Hardware.qml` session load |
 | Capability / posture resolver | [POSTURES.md](./POSTURES.md) | Probe → caps in shell; posture still stub |
@@ -241,8 +238,9 @@ Install path SoT (three layers, knobs, repair, failures): [INSTALL.md](./INSTALL
 
 ## 8. Not yet
 
-- Host virt auto-resolver · Portainer-style Settings UI (thin Virtualization hub + Workloads app + headless-no-QS shipped); Hyprland→Gamescope sole compositor (nested session Fact shipped)
-- Soft hypr profile reload sold as posture (use `proteus-posture` for console/host)
+- Host virt auto-resolver · Portainer-style Settings UI · graphical-remote seat attach (thin Virtualization + Workloads + host-chrome / proteus-host-seat shipped)
+- Gamescope-as-session console + Guide focus-flip (interim nested session Fact shipped; launcher-first / stores-as-backend locked)
+- Soft hypr profile reload sold as posture (Advanced window rules only; use `proteus-posture`)
 - Parked postures (home / wearable / xr / vehicle) before focus three are proven  
 - Snap / dependency graphs in Software  
 - pacman IgnorePkg / ISO QS version pin (record + smoke only today)  
