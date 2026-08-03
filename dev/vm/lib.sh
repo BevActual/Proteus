@@ -22,6 +22,9 @@ PROTEUS_VM_BOOT_DIR="${PROTEUS_VM_CACHE}/boot"
 PROTEUS_VM_VARS_DIR="${PROTEUS_VM_CACHE}/vars"
 PROTEUS_VM_RUNTIME_DIR="${PROTEUS_VM_CACHE}/runtime"
 
+# Consumed by the scripts that source this file (run.sh, provision.sh,
+# download-iso.sh, auto-install.py). shellcheck cannot see cross-file use, so
+# SC2034 flags every one of them — that tier is a shellcheck limitation, not debt.
 PROTEUS_VM_ISO="${PROTEUS_VM_ISO_DIR}/archlinux-x86_64.iso"
 PROTEUS_VM_DISK="${PROTEUS_VM_DISK_DIR}/proteus.qcow2"
 PROTEUS_VM_VARS="${PROTEUS_VM_VARS_DIR}/proteus_VARS.fd"

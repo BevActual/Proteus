@@ -134,7 +134,6 @@ status() {
 # watched it complete. Treat the first run as a test of this function, not of
 # your tree, and expect to read dev/vm/auto-install.py when it stalls.
 fresh() {
-  local disk_state
   echo "==> fresh: prepare"
   prepare
 

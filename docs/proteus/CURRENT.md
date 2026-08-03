@@ -35,8 +35,11 @@ postures are thesis only. Docs describe the thesis ahead of code where marked
 |---------|----------|
 | [1. Platform](#1-platform) | Arch guest, Hyprland, Quickshell |
 | [2. Shell](#2-shell) | Desktop chrome |
+| ↳ [2a. Top bar detail](#2a-top-bar-detail) · [2b. Desktop widgets detail](#2b-desktop-widgets-detail) | Expanded from the table |
 | [3. Settings](#3-settings) | Control center |
+| ↳ [3a. Online accounts detail](#3a-online-accounts-detail) | Expanded from the table |
 | [4. Postures](#4-postures) | Loader status |
+| ↳ [4a. Console detail](#4a-console-detail) | Expanded from the table |
 | [5. Config facts](#5-config-facts) | On-disk paths |
 | [6. Harness](#6-harness) | VM / nested |
 | [7. Docs locks (ahead of code)](#7-docs-locks-ahead-of-code) | Stack / compositor / chrome |
@@ -64,14 +67,14 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 
 | Feature | Status |
 |---------|--------|
-| Top bar (workspaces, title, clock+weather center, CC icon) | `shipped` — wallpaper-first glass menu bar (`menuBarAlpha` clearer than dock; soft text outline when thin, including DND/Awake chips); **left**: **traffic-light window controls** for the focused toplevel (Hyprland draws no decorations — bar owns ✕ close · − minimize to `special:minimized` · + maximize `fullscreen 1`; symbols on hover; hidden with no focused window) + app name (desktop-entry lookup via `ActiveWindow.barText`) + dynamic workspace strip (logical Spaces 1–10 via `proteus-workspace`; per-monitor ID bands; default **synced** multi-display switch, Settings → Desktop → Spaces for per-display; Super+Ctrl+N always this display; pills min 4 / cap 10; occupied dots = has toplevels on the logical slot; wheel cycles; "+" jumps to next); **center**: date · time · weather cluster (date dim + time demi · weather glyph/temp; accent soft while calendar open; date drops then cluster fades when left/right chrome crowds the mid band; `…`/`—` while loading/error when location is set) → date/time opens **calendar popover**; weather chip opens **weather glance** (`WeatherPanel` · Open-Meteo conditions/forecast; **Open Weather** → `gnome-weather`); CalendarPanel weather row jumps to weather glance; `chrome calendar` / `chrome weather` IPC); **right**: **app tray** (StatusNotifier — 1Password etc.) · **privacy dots** (mic orange · camera green · screen purple; click → Privacy) · **system services** (network · Bluetooth · volume scroll · battery) + **tiling toggle** (COSMIC-adjacent — grid glyph = tiled, accent overlapping panes = floating; click `togglefloating` on the focused window; floating windows resize by grabbing any edge/corner — hypr `resize_on_border` + 12px grab area — and move with **⌘+drag anywhere on the window** (`bindm` mouse binds emitted with the generated keybinds; ⌘+right-drag resizes); the **accent focus ring** follows hover/keyboard focus: `col.active_border` accent, inactive fully transparent) + status cluster (unread badge · DND · Awake · battery) + **Control Center glyph** (three mini sliders with staggered knobs — ThemeSlider language; knobs slide + accent while open); Beacon button removed from the bar (dock pin + `Super+Space` own it); battery % only with a real battery (`Power.hasBattery` — VM/desktop shows none, not 0%) |
+| Top bar (workspaces, title, clock+weather center, CC icon) | `shipped` — wallpaper-first glass menu bar. **Left:** traffic-light window controls · app name · Spaces strip. **Center:** date · time · weather → calendar / weather popovers. **Right:** tray · privacy dots · system services · tiling toggle · status cluster · Control Center. Detail: [§2a](#2a-top-bar-detail) |
 | Spaces (multi-display) | `partial` — Settings configures `workspaceMode` synced \| perDisplay (`proteus-workspace` bands); Super+**1–10** (Super+0 = Space 10) logical SoT / Super+Ctrl local / Super+Shift move / strip / wheel; **Named Spaces** (`workspaceNames`); **strip drag reorder** (`workspaceOrder` visual perm); **Scratchpad** Super+S / Super+Alt+S (`special:scratch` ≠ dock `special:minimized`); **custom specials** (`specialWorkspaces` CRUD · strip pills up to 8 · Super+Alt+1–8 / Super+Alt+Shift+1–8 index fallback · **optional per-special toggle chords** via `specialWorkspaceChords` → `special-toggle <slug>` · **optional per-special move chords** via `specialWorkspaceMoveChords` → `special-move <slug>`); **multi-head:** `status` / `ensure` + SpacesDisplays; **disconnect:** `migrate-disconnect` orphan bands → primary; spaces-smoke; **strip Scratchpad ◇ pill** |
 | Control Center (notifications + quick settings) | `shipped` — notifications (grouped by app) + Focus Mode (profiles · allowlist · critical · schedules) · Privacy In-use strip · Sound (Listen/Sources/**Output**) · Display · layout-driven tiles (`ControlCenterLayout` / `controlCenterLayout` — order/visibility/span/size/**columns 2|3**) · Appearance Dark/Light · Wi‑Fi SSID list · BT devices · Power/Awake/LocalSend/posture · Screenshot Region/Screen · Edit tiles › Settings · multi-monitor host via `controlCenterMonitor`; soft Focus ≠ posture |
 | Status HUD (volume · brightness) | `shipped` — top-right elevated glass chip (`Hud` / `StatusHud`, toast plate language); XF86 + IPC; suppressed while Control Center open; brightness honest-skip without `/sys/class/backlight` |
 | **Beacon** — system search (`Super+Space` / `Super+D`; `Beacon.qml`, internal ids stay `launcher*`) | `shipped` — **universal Apps surface**: apps + Settings + Actions + calc + running **Windows** (focus) + Privacy **In use** / per-app grant search; empty Apps = Recents + Pinned + Windows; Files via **beacon-file-index** (fd/walk cache); file rows show default app; Clipboard paste via **wtype**; Actions: calendar/weather/screenshot; privacy-blocked Enter → Privacy leaf; `chrome beacon` / `beaconState` IPC |
 | Dock (pins, magnify, running dots) | `shipped` — continuous frosted glass shelf (`glassAlpha` frost floor + curve-following edge glow **looping the full plate** — plate lifts 1px so the bottom band isn't clipped at the surface edge; no straight specular); smooth magnify; running disc vs active accent pill; hairline divider pins ‖ transients; launch bounce until first window; **window management**: click minimizes the focused app (parks on `special:minimized`; click restores — multi-window focused apps cycle instead), **hover-dwell preview popup** (glass plate, live `ScreencopyView` thumbnail per window · click focuses/restores · ✕ closes · "Hidden" badge on parked; popup band is a **fixed surface reserve + input mask** — resizing the layer on hover made Hyprland clip the dock bottom, and the mask keeps the transparent band click-through); **Settings pin** title-matches `Proteus Settings` (not shared `quickshell` class) — click toggles minimize/restore, never spawns a second instance; Beacon + desktop entry also route through `openSettings` single-instance; long-press edit (−/+ · Done); press-drag reorder / drag-off remove (`beginDrag` uses `cellLefts` so the separator doesn't skew the ghost); glass Keep/Remove/Quit (`ChromeMenuPlate`) |
 | Session start (`proteus-session`) | `shipped` — prefers `start-hyprland` (known paths; fail-closed to Hyprland); hypr seed `exec-once` = qs/bg/cliphist/polkit agent (install strips terminal autostart); Settings tiles like any app window (legacy float+center rule removed; config.sh migrates old installs); `hide-system-apps` via apps + post-install (Settings-covered tools + Quickshell; Calculator stays); host `session-smoke` + `install-smoke` |
-| Desktop widgets (free place; Customize) | `shipped` — long-press (empty desktop or a widget) or `Super+Shift+W` (probe: `chrome customizeDesktop` IPC); free-place + optional Snap to Grid (16px edge lattice · no overlap); **tight packing** (frame width/height tables match the drawn cards — no invisible slack; `overlapGap: 0`; collision resolve caches neighbors, prefers flush seats + min-penetration separate, capped spiral — avoids free-drag freezes); **alignment guides** while dragging free or snap (accent hairlines magnetize edges/centers to neighbors + surface center, 10px threshold; snap mode keeps magnetized axes off the lattice so stacks stay flush; dropped if collision resolution moves the frame); **arrow keys nudge the selected widget** (8px · Shift 40px · one pitch when snapping; Customize grabs the keyboard so Esc/arrows land); **widgets are click-interactive outside Customize** (clock/calendar → calendar popover · weather → popover or Settings → Date, time & weather when no location · system → Mission Center/Software · battery → Settings → Power · note → edit in place · world clock → city picker) — the old per-widget hold timer armed on an unaccepted press and fired customize after normal clicks (phantom Customize); long-press now lives on the surface (with press hit-test select) + interactive areas' own `onPressAndHold`; **Add Widget gallery renders live scaled previews** (real widget instances, non-interactive; catalog glyph while loading); catalog via `Widgets.qml` — clock · media · battery · weather · **calendar** (today tile at S, month grid + today disc at M/L, midnight rollover) · **system glance** (CPU/mem bars + uptime via `SystemLoad` retain/release refcount; storage at L) · **note** (sticky — click to write in place, debounced save to `noteText`, widget layer raises + grabs keyboard while editing via `ShellState.desktopNoteEditing`; read-only on lock) · **world clock** (first multi-instance type, `unique: false` — one per city; `TZ=<zone> date` owns the tz math; in-widget city picker persists `tzId`/`tzLabel`); separate from lock; **not** in Settings; widget store Out |
+| Desktop widgets (free place; Customize) | `shipped` — long-press or `Super+Shift+W`; free-place + optional Snap to Grid, alignment guides, arrow-key nudge; widgets stay click-interactive outside Customize; Add Widget gallery renders live previews. Catalog: clock · media · battery · weather · calendar · system glance · note · world clock. Separate from lock; **not** in Settings; widget store Out. Detail: [§2b](#2b-desktop-widgets-detail) |
 | Lock screen (`Super+L`, PAM + `WlSessionLock`) | `shipped` — Customize mode, zone layout, applets; cold boot auto-lock **with no desktop peek** (bar/dock/widgets **and** Beacon/CC/calendar/toasts/HUD gate on `sessionStartLockPending`; overlay toggles blocked while pending; held until first unlock — only the wallpaper maps beneath the lock); wake-up keystroke is kept for password mode (PIN digits already were); attempt cooldown after 3 misses; optional **unlock PIN** (numpad + keyboard digits, auto-submit; password still works) — PIN pad vertically centered above applets, strip widgets hide while PIN is up, layout reserve keeps tiles out of the auth band; via `check-unlock.py` + hashed `~/.local/share/proteus/auth/pin`; **console** reuses the same `LockSurface` / PAM+PIN path (`ConsoleShell` hosts `WlSessionLock`) |
 | Global shortcuts (Beacon, settings, lock) | `shipped` |
 | Hardware probe at session start (`Hardware.qml`) | `shipped` — Wave A |
@@ -81,6 +84,94 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 | Themed controls (`ThemeSlider` / `ThemeSwitch`) | `shipped` — shared accent Slider/Switch wrappers (`shell/shared/`) used by all Settings panes, Control Center Sound plate, and lock clock HUD; stock Controls variants smoke-banned (`chrome-tokens-smoke`) |
 | Shared package layout (flat + helpers) | `shipped` — Config/Background ownership split; Settings `kit/`; guest dogfood OK |
 | Smoke suite (`dev/smoke/*-smoke.sh`) | `shipped` — layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · accounts · users · lock-pin · permissions · desktop · spaces · focus · control-center · beacon · audio-mix-serve · hw-probe · install · session · posture-hard · console · host · qs-version; optional `qs-guest` + `software-guest` + `console-guest` + `host-guest` via `smoke-all` / `PROTEUS_GUEST=1` |
+
+
+### 2a. Top bar detail
+
+Glass menu bar, wallpaper-first (`menuBarAlpha` clearer than the dock; soft text
+outline when thin, including DND/Awake chips).
+
+**Left**
+- **Traffic-light window controls** for the focused toplevel — Hyprland draws no
+  decorations, so the bar owns ✕ close · − minimize to `special:minimized` ·
+  + maximize (`fullscreen 1`). Symbols on hover; hidden with no focused window.
+- App name via desktop-entry lookup (`ActiveWindow.barText`).
+- **Dynamic workspace strip** — logical Spaces 1–10 via `proteus-workspace`;
+  per-monitor ID bands; default **synced** multi-display switch (Settings →
+  Desktop → Spaces for per-display); `Super+Ctrl+N` always targets this display;
+  pills min 4 / cap 10; occupied dots = has toplevels on the logical slot; wheel
+  cycles; "+" jumps to next.
+
+**Center** — date · time · weather cluster
+- Date dim + time demi; weather glyph/temp; accent soft while the calendar is open.
+- Date drops, then the cluster fades, when left/right chrome crowds the mid band.
+- `…` / `—` while loading or on error when a location is set.
+- Date/time opens the **calendar popover**; the weather chip opens the **weather
+  glance** (`WeatherPanel` · Open-Meteo conditions/forecast; **Open Weather** →
+  `gnome-weather`). CalendarPanel's weather row jumps to the glance.
+- IPC: `chrome calendar` · `chrome weather`.
+
+**Right**
+- **App tray** (StatusNotifier — 1Password etc.).
+- **Privacy dots** — mic orange · camera green · screen purple; click → Privacy.
+- **System services** — network · Bluetooth · volume scroll · battery.
+- **Tiling toggle** (COSMIC-adjacent) — grid glyph = tiled, accent overlapping
+  panes = floating; click `togglefloating` on the focused window. Floating windows
+  resize by grabbing any edge/corner (hypr `resize_on_border` + 12px grab area)
+  and move with **⌘+drag anywhere on the window** (`bindm` mouse binds emitted
+  with the generated keybinds; ⌘+right-drag resizes). The **accent focus ring**
+  follows hover/keyboard focus: `col.active_border` accent, inactive fully
+  transparent.
+- Status cluster — unread badge · DND · Awake · battery.
+- **Control Center glyph** — three mini sliders with staggered knobs (ThemeSlider
+  language); knobs slide + accent while open.
+
+**Notes**
+- Beacon button is off the bar — the dock pin and `Super+Space` own it.
+- Battery % shows only with a real battery (`Power.hasBattery`) — a VM/desktop
+  shows none rather than 0%.
+
+### 2b. Desktop widgets detail
+
+Enter Customize by long-press (empty desktop or a widget) or `Super+Shift+W`
+(probe: `chrome customizeDesktop` IPC).
+
+**Placement**
+- Free-place, plus optional Snap to Grid (16px edge lattice, no overlap).
+- **Tight packing** — frame width/height tables match the drawn cards, so there is
+  no invisible slack (`overlapGap: 0`). Collision resolve caches neighbours,
+  prefers flush seats and min-penetration separation, and caps the spiral — an
+  earlier version froze on free-drag.
+- **Alignment guides** while dragging free or snapped — accent hairlines magnetize
+  edges/centres to neighbours and the surface centre (10px threshold). Snap mode
+  keeps magnetized axes off the lattice so stacks stay flush; guides are dropped
+  if collision resolution moves the frame.
+- **Arrow keys nudge the selection** — 8px, Shift 40px, one pitch when snapping.
+  Customize grabs the keyboard so Esc and arrows land.
+
+**Interaction outside Customize** — widgets stay clickable: clock/calendar →
+calendar popover · weather → popover, or Settings → Date, time & weather when no
+location is set · system → Mission Center/Software · battery → Settings → Power ·
+note → edit in place · world clock → city picker.
+
+> The old per-widget hold timer armed on an unaccepted press and fired Customize
+> after ordinary clicks (phantom Customize). Long-press now lives on the surface
+> (with press hit-test select) plus the interactive areas' own `onPressAndHold`.
+
+**Add Widget gallery** renders live scaled previews — real widget instances,
+non-interactive, with a catalog glyph while loading.
+
+**Catalog** (`Widgets.qml`)
+
+| Widget | Notes |
+|--------|-------|
+| clock · media · battery · weather | — |
+| **calendar** | today tile at S; month grid + today disc at M/L; midnight rollover |
+| **system glance** | CPU/mem bars + uptime via `SystemLoad` retain/release refcount; storage at L |
+| **note** | sticky — click to write in place, debounced save to `noteText`; widget layer raises and grabs the keyboard while editing (`ShellState.desktopNoteEditing`); read-only on lock |
+| **world clock** | first multi-instance type (`unique: false`) — one per city; `TZ=<zone> date` owns the tz math; in-widget city picker persists `tzId`/`tzLabel` |
+
+Separate from the lock screen; **not** surfaced in Settings; a widget store is Out.
 
 ---
 
@@ -100,7 +191,7 @@ App: `apps/proteus-settings/` · launcher `proteus-settings` · `Super+,`
 | Power (PPD mode + battery + idle/lid + charge limits) | `shipped` — Performance/Balanced/Eco via `powerprofilesctl`; battery via UPower; `pkexec proteus-logind` drop-in + reload (not restart); CC Power tile; **Charge limits** when sysfs `charge_control_*` present (`pkexec proteus-battery-threshold` · fail-closed otherwise); TLP Out |
 | Date, time & weather (clock, timezone search, NTP, locale, **Location**) | `shipped` — timezone/NTP/`localectl set-locale` polkit-gated; searchable locale picker + locale.conf escape; Location explicit place search (never IP); Open-Meteo current + **5-day forecast** + Conditions H/L/sunrise; Match time zone to place when TZ differs; desktop/lock weather widget; manual time / RTC writers Out |
 | Users (session actions + read-only local users · greetd autologin) | `shipped` — Session Lock/Logout; Reboot/Shutdown confirm strip; **lock screen PIN** set/change/clear (`proteus-pin.py`, PAM password gate; hash not in settings.json); current user GECOS/home/UID/groups; other users read-only; Online accounts jump; greetd status + **autologin toggle** via `proteus-greetd` (pkexec `[initial_session]`; no greetd restart); conf escape; no add/remove |
-| Online accounts (provider seats) | `partial` — **hub → per-provider leaves** (`AccountsPane` Connected / Add account · `AccountsProviderLeaf` · SettingsNav `accounts` hub); canonical provider list (Google / Microsoft / **Exchange** / Nextcloud / IMAP / CalDAV / CardDAV / Apple) with friendly blurbs — status/seats merge from `proteus-accounts` (stale catalog cannot inject Coming-later rows); OAuth Connect inline when client id ready; multi-seat Disconnect + OAuth Reconnect; vault tokens (not settings.json); **calendar + mail + contacts glances** (CalendarPanel · `CalendarEvents` / `MailGlance` / `ContactsGlance` · fetch scripts · IMAP/CalDAV/CardDAV/Apple + Google/MS/Exchange Graph — reconnect older Google/MS seats for write/send/contacts scopes); **calendar event create/edit/delete** (`proteus-calendar-mutate.py` · CalDAV + Google `calendar.events` + MS/Exchange `Calendars.ReadWrite` · CalendarPanel Add/Edit/✕ · title/day thin); **recurrence thin create+edit** (daily/weekly/monthly · **COUNT end presets** Forever/2×/5×/10× · whole series); **mail compose thin** (`proteus-mail-send.py` · Google `gmail.send` + MS/Exchange `Mail.Send` + IMAP/Apple SMTP · To/Cc/Bcc/Subject/Body · **one-file attach**); **contacts create/edit/delete thin** (`proteus-contacts-mutate.py` · CardDAV + Apple Basic + Google People `contacts` + MS/Exchange `Contacts.ReadWrite` · CalendarPanel Add/Edit/✕ · name + one email · reconnect older OAuth seats for contacts scopes); Proteus mail/contacts/Drive apps · photos/groups/full vCard · HTML/drafts/reply/multi-file · this-vs-all/UNTIL date/attendees/exceptions · EWS/NTLM · Sign in with Apple OAuth Out |
+| Online accounts (provider seats) | `partial` — hub → per-provider leaves across Google / Microsoft / Exchange / Nextcloud / IMAP / CalDAV / CardDAV / Apple; OAuth Connect + multi-seat Disconnect/Reconnect; vault tokens (not settings.json); calendar · mail · contacts glances with thin create/edit/delete. Detail: [§3a](#3a-online-accounts-detail) |
 | Privacy & security (transparency · mute · session · grants) | `partial` — hub + leaves; what leaves; weather mute; DND / Lock / clipboard / LocalSend; **In use now** (mic/camera/screen apps via `privacy-indicators.py`); category Allow/Deny + per-app Allow/Ask/Deny in `permissions.json` (`proteus-permissions.py` · `Permissions.qml`); Flatpak mic/camera overrides; **portal PermissionStore sync** (devices mic/camera + screencast best-effort); **capture enforce** (Deny + Ask mute/destroy active mic/camera/**screen** screencast-like PW nodes; session Allow-once via runtime session file); **portal Session.Close** best-effort on screen Deny/Ask (`org.freedesktop.portal.Session.Close` + PW destroy fallback); **Ask prompt** (`PrivacyAsk` · Allow once / Always Allow / Deny at Dock/Beacon launch **+ mid-session mic/camera/screen** via activity probe); EnvGate ask≠deny; **fail-closed until `Permissions.ready`** (privacy-gated apps + Diagnostics); smoke/install harness; **not a full OS sandbox** (no AppArmor/v4l2 ACL · perfect screencast attribution Out) |
 | About (hardware class / capabilities) | `shipped` — OS/kernel/hostname (`SystemInfo`); Hyprland/Quickshell versions; tip hash; hw-probe class/caps; CPU/mem/swap/storage/uptime (`SystemLoad`, About-active only); battery when present (`Power`/UPower); Mission Center escape; Check for updates → Software; **hard Session posture** (`SessionPosture` → `proteus-posture`, confirm); soft Hyprland profile under **Advanced · window rules** (`HyprProfile`); Copy + Copied; session power under Users only; no in-Settings live dashboard |
 | Host / VM·container setup | **thin Settings hub** (`virtualization`) — Workloads jump · engines status · headless chrome Fact; mutations stay in `proteus-workloads` app; auto-resolver / Portainer Out |
@@ -112,6 +203,36 @@ Modular panes: `apps/proteus-settings/panes/*` · form kit: `kit/*` (shell stays
 Shared spine: flat `shell/shared/` + named helpers — [FACTS.md](./FACTS.md).
 North-star IA: [SETTINGS-IA.md](./SETTINGS-IA.md).
 
+
+### 3a. Online accounts detail
+
+**Shape** — hub → per-provider leaves (`AccountsPane` Connected / Add account ·
+`AccountsProviderLeaf` · SettingsNav `accounts` hub). Canonical provider list with
+friendly blurbs: Google · Microsoft · **Exchange** · Nextcloud · IMAP · CalDAV ·
+CardDAV · Apple. Status and seats merge from `proteus-accounts`, so a stale
+catalog cannot inject Coming-later rows.
+
+**Auth** — OAuth Connect inline once a client id is ready; multi-seat Disconnect
+and OAuth Reconnect; tokens live in the vault, never `settings.json`.
+
+**Glances** — calendar + mail + contacts (CalendarPanel · `CalendarEvents` /
+`MailGlance` / `ContactsGlance` · fetch scripts) over IMAP/CalDAV/CardDAV/Apple
+plus Google/MS/Exchange Graph. Older Google/MS seats must reconnect to pick up
+write/send/contacts scopes.
+
+**Thin write paths**
+
+| Area | Backend | Surface |
+|------|---------|---------|
+| Calendar create/edit/delete | `proteus-calendar-mutate.py` — CalDAV · Google `calendar.events` · MS/Exchange `Calendars.ReadWrite` | CalendarPanel Add/Edit/✕ (title + day) |
+| Recurrence create+edit | daily/weekly/monthly · **COUNT end presets** Forever/2×/5×/10× | whole series only |
+| Mail compose | `proteus-mail-send.py` — Google `gmail.send` · MS/Exchange `Mail.Send` · IMAP/Apple SMTP | To/Cc/Bcc/Subject/Body · **one-file attach** |
+| Contacts create/edit/delete | `proteus-contacts-mutate.py` — CardDAV · Apple Basic · Google People `contacts` · MS/Exchange `Contacts.ReadWrite` | CalendarPanel Add/Edit/✕ (name + one email) |
+
+**Out** — first-party Proteus mail/contacts/Drive apps · photos/groups/full vCard ·
+HTML, drafts, reply, multi-file attach · this-vs-all, UNTIL date, attendees,
+exceptions · EWS/NTLM · Sign in with Apple OAuth.
+
 ---
 
 ## 4. Postures
@@ -121,7 +242,7 @@ Locked product set: [POSTURES.md](./POSTURES.md).
 | Posture | Status |
 |---------|--------|
 | desktop | `partial` — primary focus spine |
-| console | `partial` — lean-back **launcher** (Games · Media · Apps · Search · Settings list IA) + **Console Settings face** (in-chrome · `settingsFaceHubs(console)` · Network Wi‑Fi scan/connect + Sound sink picker · status strip · Full Settings = desktop escape) + hard `proteus-posture`; Media = streaming allowlist only (no AudioVideo-category fallback; local play = Search sheet); Apps = browser/Discord/terminal curated; Games = Recent · **Installed titles** (`proteus-console-games.py` Steam appmanifest + RetroArch playlist scan → per-title seat launch) · Launchers; footer status strip + pad legend; stores-as-backend locked in POSTURES; **Gamescope-as-session `partial`** — `proteus-session` engine switch at login (`game_scope` = gamescope + hardware Vulkan) → `proteus-console-gs-session` (Gamescope owns the session; **Proteus Home** = QS xdg client `shell/console-home`; Guide focus-flip via `proteus-console-focus` baselayer atoms; Lock = session exit — login is the lock; host-side spike `dev/spike/gs-qs-spike.sh` PASSED); prove paths bare metal / **VFIO passthrough** (`PROTEUS_VM_VFIO`); **interim** (VirGL / no hardware Vulkan) Hypr kiosk + seat + per-title/nested Gamescope; shelf Home retired from primary path; Guide long-hold → exit desktop; pad input **single-fire** (`proteus-guide` single-instance lock · BTN_DPAD/HAT dual-report dedupe · hold-repeat delay); `apply-console-kit.sh` |
+| console | `partial` — lean-back launcher (Games · Media · Apps · Search · Settings list IA) + in-chrome **Console Settings face** + hard `proteus-posture`. **Gamescope-as-session `partial`** — engine switch at login when `game_scope` is available; interim path is a Hypr kiosk + seat. Detail: [§4a](#4a-console-detail) |
 | host | `partial` — seat-driven: `proteus-posture host` **defaults headless** (`host-chrome=none`); `proteus-host-seat attach\|detach` for ops UI; **HexOS-style Command-Deck dashboard** (HostHome card grid: processor · memory · storage/SMART/pools · network · health · workloads · apps · shares — read-only, fed by `proteus-host-metrics.py` + `HostMetrics.qml`); **Workloads app tabs** = single mutation surface: Workloads (VM/ctr ops) · **Apps** (one-click catalog `env/apps/host-apps.json` → `proteus-app-<id>` containers) · **Shares** (Samba usershare CRUD — `host` install stage seeds usershares dir + `sambashare` group + smb); honesty gates (no samba/smartctl/engine → install path, `—`, never fake); **Host Settings face** (virt + shared core via `openSettingsSmart`); enter Beacon/CC / `Super+Shift+H`; graphical-remote attach Out |
 | home · wearable · xr · vehicle | `parked` — thesis only; not in proof order |
 
@@ -139,6 +260,38 @@ Console dogfood (guest): `bash /mnt/proteus/dev/dogfood/dogfood-console.sh`
 `bash /mnt/proteus/dev/dogfood/dogfood-host.sh` (default headless → seat attach/detach;
 `--restore` → desktop). Titles via `proteus-console-seat` (Gamescope when usable).
 Primary chrome is Games/Media/Search/Settings list IA; stores-as-backend locked in POSTURES.
+
+### 4a. Console detail
+
+**Primary chrome** — list IA: Games · Media · Apps · Search · Settings, with a
+footer status strip and pad legend.
+
+| Destination | Contents |
+|-------------|----------|
+| **Games** | Recent · **Installed titles** (`proteus-console-games.py` scans Steam appmanifests + RetroArch playlists → per-title seat launch) · Launchers |
+| **Media** | Streaming allowlist **only** — no AudioVideo-category fallback; local playback lives in the Search sheet |
+| **Apps** | Curated lean-back tools — browser, Discord, terminal |
+| **Settings** | In-chrome **Console Settings face** (`settingsFaceHubs(console)`) — Wi‑Fi scan/connect, Sound sink picker, status strip; Full Settings is the desktop escape |
+
+Stores are backends, not the shell — locked in [POSTURES.md](./POSTURES.md).
+
+**Gamescope-as-session** (`partial`) — `proteus-session` switches engine at login
+when `game_scope` is available (gamescope + hardware Vulkan) and hands off to
+`proteus-console-gs-session`:
+
+- Gamescope owns the session; **Proteus Home** is a QS xdg client (`shell/console-home`).
+- Guide focus-flip via `proteus-console-focus` baselayer atoms.
+- Lock = session exit — the login screen *is* the lock.
+- Host-side spike `dev/spike/gs-qs-spike.sh` PASSED.
+- Prove paths: bare metal, or **VFIO passthrough** (`PROTEUS_VM_VFIO`).
+
+**Interim** (VirGL / no hardware Vulkan) — Hyprland kiosk + supervised seat +
+per-title/nested Gamescope. Shelf Home is retired from the primary path; Guide
+long-hold exits to desktop.
+
+**Pad input** is **single-fire** — `proteus-guide` single-instance lock,
+BTN_DPAD/HAT dual-report dedupe, hold-repeat delay. Kit: `apply-console-kit.sh`.
+
 
 ---
 
@@ -192,7 +345,7 @@ Primary chrome is Games/Media/Search/Settings list IA; stores-as-backend locked 
 | `bash /mnt/proteus/install/machine/install-lock-pam.sh` | `/etc/pam.d/proteus-lock` (falls back to `login` if absent) |
 | `./dev/run-nested.sh` | Nested Hyprland on host |
 | `./dev/smoke-all.sh` | Host smokes (layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · accounts · users · lock-pin · permissions · desktop · spaces · focus · control-center · beacon · audio-mix-serve · hw-probe · install · session · posture-hard · console · host · workloads-app · qs-version); guest `qs-guest` + `software-guest` + `console-guest` + `host-guest` if SSH or `PROTEUS_GUEST=1` |
-| `./dev/smoke/shellcheck-smoke.sh` | **Executable** static analysis of 116 shell sources — gate = severity `error` (green); backlog **33 warning · 169 info** reported, not gated. SKIPs honestly without `shellcheck`. Found a live `SC2259` bug on adoption (piped stdin swallowed by a heredoc) |
+| `./dev/smoke/shellcheck-smoke.sh` | **Executable** static analysis of 116 shell sources — gate = severity `error` (green); backlog **24 warning · 170 info** (mostly cross-file `SC2034` shellcheck cannot resolve) reported, not gated. SKIPs honestly without `shellcheck`. Found a live `SC2259` bug on adoption (piped stdin swallowed by a heredoc) |
 | `./dev/smoke/doc-links-smoke.sh` | **Executable** — every relative link in every tracked `.md` must resolve (201 links / 39 docs). Caught 5 breaks the install/ rename left behind |
 | `./dev/smoke/layout-smoke.sh` | Flat `shell/shared/` + Settings `kit/` structure |
 | `./dev/smoke/widget-layout-resolve-smoke.sh` | Widget free/snap resolve capped + flush/no-overlap geometry stress |

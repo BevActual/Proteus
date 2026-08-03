@@ -81,7 +81,7 @@ proteus_log "log=${PROTEUS_INSTALL_LOG}"
 
 run_stage() {
   local stage="$1"
-  local t0 t1 elapsed result
+  local t0 t1 elapsed
 
   if [[ -n "${PROTEUS_INSTALL_ONLY:-}" && "${PROTEUS_INSTALL_ONLY}" != "${stage}" ]]; then
     STAGE_RESULTS+=("omit")

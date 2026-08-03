@@ -32,6 +32,9 @@
 #                                   (IOMMU on, device bound to vfio-pci). Guest drives its own
 #                                   output by default; virtio-vga stays for early boot unless
 #                                   PROTEUS_VM_VFIO_PRIMARY=1 drops it.
+# QEMU device/args strings are comma-separated by design; SC2054 reads those
+# commas as array separators and is wrong for every one of them in this file.
+# shellcheck disable=SC2054
 set -euo pipefail
 
 # shellcheck source=lib.sh
@@ -76,7 +79,7 @@ AUDIO_BACKEND="${PROTEUS_VM_AUDIO:-pa}"
 case "${AUDIO_BACKEND}" in
   0|none|off|false) AUDIO_BACKEND="none" ;;
   pulse|pulseaudio) AUDIO_BACKEND="pa" ;;
-  pipewire|pa|alsa|sdl|none) ;;
+  pipewire|pa|alsa|sdl) ;;   # `none` is handled above; listing it here was dead
   *)
     echo "Unknown PROTEUS_VM_AUDIO=${AUDIO_BACKEND} (use pipewire|pa|sdl|0)" >&2
     AUDIO_BACKEND="pa"
