@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Host: bring an empty Proteus VM from ISO/disk → overlay → snapshot hint.
 #
-# This does NOT fully unattended-install Arch in one click (that still needs
-# live ISO + guest-install / auto-install). It orchestrates the dogfood path:
+# `fresh` drives the whole thing unattended (auto-install.py talks to the live
+# ISO over QEMU's serial socket). The default modes orchestrate the dogfood path:
 #
 #   1. Ensure ISO + qcow exist (download/create if missing)
 #   2. Tell you how to finish base Arch if the disk is empty
@@ -12,6 +12,7 @@
 # Usage:
 #   ./dev/vm/provision.sh              # wait SSH → overlay (fails fast if disk empty)
 #   ./dev/vm/provision.sh prepare      # ISO + disk only
+#   ./dev/vm/provision.sh fresh        # UNPROVEN: prepare → unattended base Arch → overlay
 #   ./dev/vm/provision.sh overlay      # bootstrap only (alias)
 #   ./dev/vm/provision.sh status       # read-only checklist (ISO/disk/SSH/last overlay)
 #   PROTEUS_INSTALL_DESKTOP=0 ./dev/vm/provision.sh
@@ -124,15 +125,49 @@ status() {
   echo "  next:   docs/proteus/INSTALL.md (happy path + failure table)"
 }
 
+# Fully unattended: prepare, boot the live ISO with a serial socket, drive
+# guest-install.sh over it, then run the overlay.
+#
+# UNPROVEN — auto-install.py was written, never wired, and has not been run
+# end-to-end since. The pieces line up (run.sh exposes PROTEUS_VM_SERIAL at the
+# path auto-install.py reads; passwords match guest-install.sh) but nobody has
+# watched it complete. Treat the first run as a test of this function, not of
+# your tree, and expect to read dev/vm/auto-install.py when it stalls.
+fresh() {
+  local disk_state
+  echo "==> fresh: prepare"
+  prepare
+
+  echo "==> fresh: booting live ISO with serial socket (background)"
+  PROTEUS_VM_SERIAL=1 "${ROOT}/dev/vm/run.sh" install &
+  local vm_pid=$!
+
+  echo "==> fresh: driving guest-install.sh over serial (several minutes)"
+  if ! python3 "${ROOT}/dev/vm/auto-install.py"; then
+    echo "vm/provision: unattended base install FAILED" >&2
+    echo "  serial log: ${PROTEUS_VM_RUNTIME_DIR}/auto-install.log" >&2
+    echo "  fall back to the manual path in docs/proteus/INSTALL.md" >&2
+    kill "${vm_pid}" 2>/dev/null || true
+    return 1
+  fi
+  wait "${vm_pid}" 2>/dev/null || true
+
+  echo "==> fresh: base Arch installed — boot the guest, then run the overlay:"
+  echo "     ./dev/vm/run.sh &"
+  echo "     ssh-copy-id -p 2222 ${PROTEUS_GUEST_USER:-andrew}@127.0.0.1"
+  echo "     ./dev/vm/provision.sh overlay"
+}
+
 case "${MODE}" in
   prepare) prepare ;;
+  fresh) fresh ;;
   overlay|bootstrap|"") overlay ;;
   status) status ;;
   -h|--help|help)
     sed -n '2,22p' "$0"
     ;;
   *)
-    echo "Unknown mode: ${MODE} (prepare|overlay|status)" >&2
+    echo "Unknown mode: ${MODE} (prepare|fresh|overlay|status)" >&2
     exit 1
     ;;
 esac

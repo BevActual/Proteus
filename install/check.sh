@@ -192,6 +192,29 @@ else
   ok "no references to the retired overlay paths"
 fi
 
+# --- unattended VM install wiring ---------------------------------------------
+# auto-install.py sat orphaned for weeks. It is wired now but UNPROVEN, so gate
+# the contract between its three moving parts rather than the behaviour: the
+# path it drives, the socket run.sh must expose, and the dispatch that calls it.
+AUTOINST="${ROOT}/dev/vm/auto-install.py"
+if [[ -f "${AUTOINST}" ]]; then
+  python3 -m py_compile "${AUTOINST}" 2>/dev/null \
+    && ok "auto-install.py compiles" || bad "auto-install.py py_compile"
+  grep -q 'dev/vm/guest-install.sh' "${AUTOINST}" \
+    && ok "auto-install drives the real guest-install path" \
+    || bad "auto-install.py points at a stale guest-install path"
+  grep -q 'PROTEUS_VM_SERIAL' "${ROOT}/dev/vm/run.sh" \
+    && ok "run.sh exposes the serial socket auto-install needs" \
+    || bad "run.sh no longer exposes PROTEUS_VM_SERIAL"
+  grep -q 'fresh) fresh ;;' "${ROOT}/dev/vm/provision.sh" \
+    && ok "provision.sh dispatches fresh" || bad "provision.sh fresh mode not wired"
+  grep -q 'UNPROVEN' "${ROOT}/dev/vm/provision.sh" \
+    && ok "fresh mode is labelled unproven" \
+    || bad "fresh mode lost its unproven caveat (it has not been run end-to-end)"
+else
+  bad "dev/vm/auto-install.py missing"
+fi
+
 # --- snapshots (bare-metal rollback net) --------------------------------------
 SNAP_HELPER="${ROOT}/shell/scripts/proteus-snapshot"
 [[ -x "${SNAP_HELPER}" ]] && ok "proteus-snapshot helper executable" \

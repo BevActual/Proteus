@@ -33,6 +33,7 @@ run beacon-smoke.sh
 run audio-mix-serve-smoke.sh
 run hw-probe-smoke.sh
 run install-smoke.sh
+run install-idempotency-smoke.sh
 run session-smoke.sh
 run posture-hard-smoke.sh
 run console-smoke.sh

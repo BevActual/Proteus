@@ -84,6 +84,20 @@ PROTEUS_GUEST=1 ./dev/smoke-all.sh
 
 Or run the overlay directly on the guest: `sudo bash /mnt/proteus/install/bootstrap.sh`.
 
+### Unattended (`fresh`) — unproven
+
+`./dev/vm/provision.sh fresh` drives the whole loop with no typing:
+`auto-install.py` talks to the live ISO over QEMU's serial socket and runs
+`guest-install.sh` for you.
+
+**It has never been run end-to-end.** The helper was written, left unwired for
+weeks, and only connected once the pieces were verified to line up (`run.sh`
+exposes `PROTEUS_VM_SERIAL` at the path it reads; passwords match
+`guest-install.sh`). `check.sh` gates that contract, not the behaviour. Treat
+the first run as a test of `fresh` itself, read
+`$PROTEUS_VM_CACHE/runtime/auto-install.log` when it stalls, and fall back to
+the manual happy path above.
+
 ## Overlay knobs (`PROTEUS_INSTALL_*`)
 
 | Env / arg | Effect |
