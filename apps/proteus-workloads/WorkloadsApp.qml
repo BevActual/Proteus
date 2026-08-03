@@ -4,11 +4,23 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "shared"
 
-// Thin Host workloads inventory + start/stop/kill/create/destroy.
+// Host workloads app: Workloads (VM/container ops) · Apps (one-click catalog
+// deploys) · Shares (Samba usershares) tabs — the single host mutation surface.
 // Settings virt = About jump here. headless-no-QS = host-chrome Fact.
 FocusScope {
   id: root
   focus: true
+
+  property string currentTab: {
+    const t = String(Quickshell.env("PROTEUS_WORKLOADS_TAB") || "").trim()
+    return ["workloads", "apps", "shares"].indexOf(t) >= 0 ? t : "workloads"
+  }
+
+  function openTab(tab) {
+    const t = String(tab || "").trim()
+    if (["workloads", "apps", "shares"].indexOf(t) >= 0)
+      root.currentTab = t
+  }
 
   property string pendingAction: ""
   property string pendingKind: ""
@@ -20,14 +32,28 @@ FocusScope {
   property string createDisk: ""
   property string createImage: ""
 
+  property string shareName: ""
+  property string sharePath: ""
+
   readonly property bool confirmOpen: pendingAction.length > 0 && pendingName.length > 0
 
   Component.onCompleted: {
     Workloads.retain()
     Workloads.refresh()
+    Workloads.refreshApps()
+    Workloads.refreshShares()
     root.forceActiveFocus()
   }
   Component.onDestruction: Workloads.release()
+
+  function openAppWeb(app) {
+    const port = Number(app && app.webPort) || 0
+    if (port <= 0)
+      return
+    Quickshell.execDetached({
+      command: ["xdg-open", "http://localhost:" + port]
+    })
+  }
 
   function quitApp() {
     Qt.quit()
@@ -103,6 +129,14 @@ FocusScope {
       Workloads.create(k, n, extra)
     else if (a === "destroy")
       Workloads.destroy(k, n)
+    else if (a === "deploy")
+      Workloads.deployApp(n)
+    else if (a === "share-add") {
+      Workloads.shareAdd(n, extra)
+      root.shareName = ""
+      root.sharePath = ""
+    } else if (a === "share-remove")
+      Workloads.shareRemove(n)
   }
 
   function confirmVerb() {
@@ -116,6 +150,12 @@ FocusScope {
       return "Create"
     if (root.pendingAction === "destroy")
       return "Remove"
+    if (root.pendingAction === "deploy")
+      return "Deploy"
+    if (root.pendingAction === "share-add")
+      return "Share"
+    if (root.pendingAction === "share-remove")
+      return "Stop sharing"
     return "Confirm"
   }
 
@@ -134,6 +174,12 @@ FocusScope {
           : "Runs a detached container (pull may occur)."
     if (root.pendingAction === "destroy")
       return "Removes definition/container when stopped — Force stop first if running."
+    if (root.pendingAction === "deploy")
+      return "Pulls the image and runs it as a container — data lives under ~/.local/share/proteus/apps/."
+    if (root.pendingAction === "share-add")
+      return "Creates a guest-readable Samba usershare for this folder."
+    if (root.pendingAction === "share-remove")
+      return "Removes the usershare only — the folder and its files stay."
     return ""
   }
 
@@ -223,6 +269,50 @@ FocusScope {
           onClicked: root.quitApp()
         }
       }
+    }
+
+    // Tabs: Workloads · Apps · Shares
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: Theme.spaceSm
+
+      Repeater {
+        model: [
+          { id: "workloads", label: "Workloads" },
+          { id: "apps", label: "Apps" },
+          { id: "shares", label: "Shares" }
+        ]
+
+        Rectangle {
+          required property var modelData
+          Layout.preferredHeight: 30
+          Layout.preferredWidth: tabTxt.implicitWidth + 26
+          radius: 15
+          color: root.currentTab === modelData.id
+              ? Theme.chromeAccentSoft
+              : (tabMa.containsMouse ? Theme.bgHover : Theme.chromeHover)
+
+          Text {
+            id: tabTxt
+            anchors.centerIn: parent
+            text: parent.modelData.label
+            color: root.currentTab === parent.modelData.id ? Theme.accent : Theme.textDim
+            font.family: Theme.fontFamily
+            font.pixelSize: 12
+            font.weight: Font.DemiBold
+          }
+
+          MouseArea {
+            id: tabMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.currentTab = parent.modelData.id
+          }
+        }
+      }
+
+      Item { Layout.fillWidth: true }
     }
 
     // Confirm strip
@@ -334,6 +424,7 @@ FocusScope {
     // Create strip
     Rectangle {
       Layout.fillWidth: true
+      visible: root.currentTab === "workloads"
       implicitHeight: createCol.implicitHeight + 16
       radius: Theme.radiusMd
       color: Theme.elevatedFill
@@ -480,6 +571,7 @@ FocusScope {
     Flickable {
       Layout.fillWidth: true
       Layout.fillHeight: true
+      visible: root.currentTab === "workloads"
       clip: true
       contentWidth: width
       contentHeight: listCol.implicitHeight
@@ -853,8 +945,495 @@ FocusScope {
       }
     }
 
+    // ---------------------------------------------------------- Apps tab
+    Flickable {
+      Layout.fillWidth: true
+      Layout.fillHeight: true
+      visible: root.currentTab === "apps"
+      clip: true
+      contentWidth: width
+      contentHeight: appsCol.implicitHeight
+      boundsBehavior: Flickable.StopAtBounds
+
+      ColumnLayout {
+        id: appsCol
+        width: parent.width
+        spacing: Theme.spaceSm
+
+        Text {
+          Layout.fillWidth: true
+          text: "One-click apps — curated services deployed as containers. Data lives under ~/.local/share/proteus/apps/<id>/."
+          color: Theme.textDim
+          font.family: Theme.fontFamily
+          font.pixelSize: 11
+          wrapMode: Text.WordWrap
+        }
+
+        Text {
+          Layout.fillWidth: true
+          visible: {
+            const _r = Workloads.rev
+            return Workloads.hostAppsReady && !Workloads.hostAppsAvailable
+          }
+          text: "podman / docker not available on this host — install a container engine for one-click apps"
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: 11
+          wrapMode: Text.WordWrap
+        }
+
+        Repeater {
+          model: {
+            const _r = Workloads.rev
+            return Workloads.hostApps || []
+          }
+
+          Rectangle {
+            required property var modelData
+            Layout.fillWidth: true
+            implicitHeight: appRow.implicitHeight + 20
+            radius: Theme.radiusMd
+            color: Theme.elevatedFill
+            border.width: 1
+            border.color: Theme.chromeBorder
+
+            RowLayout {
+              id: appRow
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              anchors.margins: Theme.spaceMd
+              spacing: Theme.spaceSm
+
+              ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 1
+
+                RowLayout {
+                  spacing: 6
+
+                  Rectangle {
+                    width: 8
+                    height: 8
+                    radius: 4
+                    visible: !!modelData.deployed
+                    color: modelData.running ? "#32d74b" : Theme.textMute
+                  }
+
+                  Text {
+                    text: String(modelData.name || modelData.id || "—")
+                    color: Theme.text
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 13
+                    font.weight: Font.Medium
+                  }
+
+                  Text {
+                    visible: !!modelData.deployed
+                    text: String(modelData.status || "deployed")
+                    color: Theme.textMute
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 11
+                  }
+                }
+
+                Text {
+                  Layout.fillWidth: true
+                  text: String(modelData.blurb || "")
+                      + (modelData.webPort ? " · port " + modelData.webPort : "")
+                  color: Theme.textDim
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  wrapMode: Text.WordWrap
+                }
+              }
+
+              Rectangle {
+                Layout.preferredHeight: 28
+                Layout.preferredWidth: appDeployTxt.implicitWidth + 20
+                radius: Theme.radiusMd
+                visible: !modelData.deployed
+                opacity: (Workloads.mutating || !Workloads.hostAppsAvailable) ? 0.45 : 1
+                color: appDeployMa.containsMouse ? Theme.chromeAccentSoft : Theme.chromeHover
+
+                Text {
+                  id: appDeployTxt
+                  anchors.centerIn: parent
+                  text: "Deploy"
+                  color: Theme.accent
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  font.weight: Font.DemiBold
+                }
+
+                MouseArea {
+                  id: appDeployMa
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  enabled: !Workloads.mutating && Workloads.hostAppsAvailable
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.requestAction("deploy", "app", String(modelData.id || ""))
+                }
+              }
+
+              Rectangle {
+                Layout.preferredHeight: 28
+                Layout.preferredWidth: appOpenTxt.implicitWidth + 20
+                radius: Theme.radiusMd
+                visible: !!modelData.deployed && !!modelData.running && !!modelData.webPort
+                color: appOpenMa.containsMouse ? Theme.chromeAccentSoft : Theme.chromeHover
+
+                Text {
+                  id: appOpenTxt
+                  anchors.centerIn: parent
+                  text: "Open"
+                  color: Theme.accent
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  font.weight: Font.DemiBold
+                }
+
+                MouseArea {
+                  id: appOpenMa
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.openAppWeb(modelData)
+                }
+              }
+
+              Rectangle {
+                Layout.preferredHeight: 28
+                Layout.preferredWidth: appPowerTxt.implicitWidth + 20
+                radius: Theme.radiusMd
+                visible: !!modelData.deployed
+                opacity: Workloads.mutating ? 0.5 : 1
+                color: appPowerMa.containsMouse ? Theme.chromeAccentSoft : Theme.chromeHover
+
+                Text {
+                  id: appPowerTxt
+                  anchors.centerIn: parent
+                  text: modelData.running ? "Stop" : "Start"
+                  color: Theme.accent
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  font.weight: Font.DemiBold
+                }
+
+                MouseArea {
+                  id: appPowerMa
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  enabled: !Workloads.mutating
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.requestAction(
+                      modelData.running ? "stop" : "start",
+                      "container",
+                      String(modelData.containerName || ""))
+                }
+              }
+
+              Rectangle {
+                Layout.preferredHeight: 28
+                Layout.preferredWidth: appRmTxt.implicitWidth + 20
+                radius: Theme.radiusMd
+                visible: !!modelData.deployed
+                opacity: (Workloads.mutating || modelData.running) ? 0.45 : 1
+                color: appRmMa.containsMouse ? Theme.chromeAccentSoft : Theme.chromeHover
+
+                Text {
+                  id: appRmTxt
+                  anchors.centerIn: parent
+                  text: "Remove"
+                  color: Theme.accent
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  font.weight: Font.DemiBold
+                }
+
+                MouseArea {
+                  id: appRmMa
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  enabled: !Workloads.mutating && !modelData.running
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.requestAction(
+                      "destroy", "container", String(modelData.containerName || ""))
+                }
+              }
+            }
+          }
+        }
+
+        Text {
+          Layout.fillWidth: true
+          visible: {
+            const _r = Workloads.rev
+            return Workloads.hostAppsReady && !(Workloads.hostApps || []).length
+          }
+          text: "No catalog found (env/apps/host-apps.json)"
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: 11
+        }
+      }
+    }
+
+    // ---------------------------------------------------------- Shares tab
+    Flickable {
+      Layout.fillWidth: true
+      Layout.fillHeight: true
+      visible: root.currentTab === "shares"
+      clip: true
+      contentWidth: width
+      contentHeight: sharesCol.implicitHeight
+      boundsBehavior: Flickable.StopAtBounds
+
+      ColumnLayout {
+        id: sharesCol
+        width: parent.width
+        spacing: Theme.spaceSm
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 6
+
+          Rectangle {
+            width: 8
+            height: 8
+            radius: 4
+            color: Workloads.smbActive ? "#32d74b" : Theme.textMute
+          }
+
+          Text {
+            Layout.fillWidth: true
+            text: {
+              const _r = Workloads.rev
+              if (!Workloads.sharesReady)
+                return "Reading shares…"
+              if (!Workloads.sharesAvailable)
+                return "Samba not installed"
+              return Workloads.smbActive
+                  ? "Samba service active — shares reachable on the network"
+                  : "Samba service stopped — shares exist but are not reachable"
+            }
+            color: Theme.textDim
+            font.family: Theme.fontFamily
+            font.pixelSize: 12
+            wrapMode: Text.WordWrap
+          }
+        }
+
+        // Honest gate: no samba → install path, no fake share UI.
+        Text {
+          Layout.fillWidth: true
+          visible: {
+            const _r = Workloads.rev
+            return Workloads.sharesReady && !Workloads.sharesAvailable
+          }
+          text: "Install samba to share folders on the network — Software › samba"
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: 11
+          wrapMode: Text.WordWrap
+        }
+
+        Repeater {
+          model: {
+            const _r = Workloads.rev
+            return Workloads.sharesAvailable ? (Workloads.sharesItems || []) : []
+          }
+
+          Rectangle {
+            required property var modelData
+            Layout.fillWidth: true
+            Layout.preferredHeight: 48
+            radius: Theme.radiusMd
+            color: Theme.elevatedFill
+            border.width: 1
+            border.color: Theme.chromeBorder
+
+            RowLayout {
+              anchors.fill: parent
+              anchors.margins: Theme.spaceMd
+              spacing: Theme.spaceSm
+
+              ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 1
+
+                Text {
+                  Layout.fillWidth: true
+                  text: String(modelData.name || "—")
+                      + (modelData.guestOk ? " · guest" : "")
+                  color: Theme.text
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 13
+                  elide: Text.ElideRight
+                }
+
+                Text {
+                  Layout.fillWidth: true
+                  text: String(modelData.path || "")
+                  color: Theme.textMute
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  elide: Text.ElideMiddle
+                }
+              }
+
+              Rectangle {
+                Layout.preferredHeight: 28
+                Layout.preferredWidth: shareRmTxt.implicitWidth + 20
+                radius: Theme.radiusMd
+                opacity: Workloads.mutating ? 0.5 : 1
+                color: shareRmMa.containsMouse ? Theme.chromeAccentSoft : Theme.chromeHover
+
+                Text {
+                  id: shareRmTxt
+                  anchors.centerIn: parent
+                  text: "Stop sharing"
+                  color: Theme.accent
+                  font.family: Theme.fontFamily
+                  font.pixelSize: 11
+                  font.weight: Font.DemiBold
+                }
+
+                MouseArea {
+                  id: shareRmMa
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  enabled: !Workloads.mutating
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.requestAction(
+                      "share-remove", "share", String(modelData.name || ""))
+                }
+              }
+            }
+          }
+        }
+
+        Text {
+          Layout.fillWidth: true
+          visible: {
+            const _r = Workloads.rev
+            return Workloads.sharesReady && Workloads.sharesAvailable
+                && !(Workloads.sharesItems || []).length
+          }
+          text: "No shared folders yet"
+          color: Theme.textMute
+          font.family: Theme.fontFamily
+          font.pixelSize: 11
+        }
+
+        // Create share
+        Rectangle {
+          Layout.fillWidth: true
+          visible: Workloads.sharesAvailable
+          implicitHeight: shareCreateCol.implicitHeight + 16
+          radius: Theme.radiusMd
+          color: Theme.elevatedFill
+          border.width: 1
+          border.color: Theme.chromeBorder
+
+          ColumnLayout {
+            id: shareCreateCol
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.margins: Theme.spaceMd
+            spacing: Theme.spaceSm
+
+            Text {
+              text: "Share a folder"
+              color: Theme.text
+              font.family: Theme.fontFamily
+              font.pixelSize: 13
+              font.weight: Font.Medium
+            }
+
+            TextField {
+              Layout.fillWidth: true
+              placeholderText: "Share name"
+              text: root.shareName
+              onTextChanged: root.shareName = text
+              color: Theme.text
+              font.family: Theme.fontFamily
+              background: Rectangle {
+                radius: Theme.radiusSm
+                color: Theme.bgHover
+                border.width: 1
+                border.color: Theme.chromeBorder
+              }
+            }
+
+            TextField {
+              Layout.fillWidth: true
+              placeholderText: "Folder path (e.g. /home/user/Public)"
+              text: root.sharePath
+              onTextChanged: root.sharePath = text
+              color: Theme.text
+              font.family: Theme.fontFamily
+              background: Rectangle {
+                radius: Theme.radiusSm
+                color: Theme.bgHover
+                border.width: 1
+                border.color: Theme.chromeBorder
+              }
+            }
+
+            Rectangle {
+              Layout.preferredHeight: 32
+              Layout.preferredWidth: shareAddTxt.implicitWidth + 24
+              radius: Theme.radiusMd
+              opacity: Workloads.mutating ? 0.5 : 1
+              color: shareAddMa.containsMouse ? Theme.chromeAccentSoft : Theme.chromeHover
+
+              Text {
+                id: shareAddTxt
+                anchors.centerIn: parent
+                text: "Share…"
+                color: Theme.accent
+                font.family: Theme.fontFamily
+                font.pixelSize: 12
+                font.weight: Font.DemiBold
+              }
+
+              MouseArea {
+                id: shareAddMa
+                anchors.fill: parent
+                hoverEnabled: true
+                enabled: !Workloads.mutating
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  const n = String(root.shareName || "").trim()
+                  const p = String(root.sharePath || "").trim()
+                  if (n.length && p.length)
+                    root.requestAction("share-add", "share", n, p)
+                }
+              }
+            }
+          }
+        }
+
+        Text {
+          Layout.fillWidth: true
+          visible: {
+            const _r = Workloads.rev
+            return !!Workloads.sharesHint.length
+          }
+          text: Workloads.sharesHint
+          color: Theme.textDim
+          font.family: Theme.fontFamily
+          font.pixelSize: 11
+          wrapMode: Text.WordWrap
+        }
+      }
+    }
+
     RowLayout {
       Layout.fillWidth: true
+      visible: root.currentTab === "workloads"
       spacing: Theme.spaceSm
 
       Rectangle {
@@ -887,7 +1466,7 @@ FocusScope {
 
     Text {
       Layout.fillWidth: true
-      text: "Fact: start/stop/kill/create/destroy In · Settings About jumps here · headless-no-QS via proteus-posture host --headless · no Virtualization Settings hub."
+      text: "Fact: start/stop/kill/create/destroy + one-click deploy + usershare add/remove In · remove-while-running and privileged deploys Out · Settings About jumps here · headless-no-QS via proteus-posture host --headless · no Virtualization Settings hub."
       color: Theme.textMute
       font.family: Theme.fontFamily
       font.pixelSize: 11
@@ -900,8 +1479,13 @@ FocusScope {
     running: true
     repeat: true
     onTriggered: {
-      if (!Workloads.mutating)
+      if (!Workloads.mutating) {
         Workloads.refresh()
+        if (root.currentTab === "apps")
+          Workloads.refreshApps()
+        else if (root.currentTab === "shares")
+          Workloads.refreshShares()
+      }
     }
   }
 }

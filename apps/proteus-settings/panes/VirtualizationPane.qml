@@ -19,6 +19,8 @@ ColumnLayout {
     if (active) {
       Workloads.retain()
       Workloads.refresh()
+      Workloads.refreshApps()
+      Workloads.refreshShares()
       root.refreshChrome()
     } else {
       Workloads.release()
@@ -29,6 +31,8 @@ ColumnLayout {
     if (root.active) {
       Workloads.retain()
       Workloads.refresh()
+      Workloads.refreshApps()
+      Workloads.refreshShares()
       root.refreshChrome()
     }
   }
@@ -79,6 +83,21 @@ ColumnLayout {
     chromeRefreshTimer.restart()
   }
 
+  function runHostSeat(cmd) {
+    const proot = String(Quickshell.env("PROTEUS_ROOT") || "/mnt/proteus")
+    const c = String(cmd || "").trim()
+    Quickshell.execDetached({
+      command: [
+        "bash", "-lc",
+        "S=" + proot + "/vm/guest/proteus-host-seat; "
+            + "if [[ -x \"$S\" ]]; then setsid \"$S\" " + c + " >/dev/null 2>&1 & "
+            + "elif command -v proteus-host-seat >/dev/null 2>&1; then "
+            + "setsid proteus-host-seat " + c + " >/dev/null 2>&1 & fi"
+      ]
+    })
+    chromeRefreshTimer.restart()
+  }
+
   Timer {
     id: chromeRefreshTimer
     interval: 800
@@ -98,11 +117,39 @@ ColumnLayout {
         const v = String(text || "").trim().toLowerCase()
         root.hostChrome = v.length ? v : "full"
         if (root.hostChrome === "none")
-          root.chromeHint = "Headless — QS stopped (restore: proteus-posture host --chrome)"
+          root.chromeHint = "Headless — QS stopped (restore: proteus-host-seat attach)"
         else
-          root.chromeHint = "Full chrome (host-chrome=" + root.hostChrome + ")"
+          root.chromeHint = "Seat attached (host-chrome=" + root.hostChrome + ")"
       }
     }
+  }
+
+  readonly property string appsHint: {
+    const _ = Workloads.rev
+    if (!Workloads.hostAppsReady)
+      return "Reading one-click apps…"
+    if (!Workloads.hostAppsAvailable)
+      return "podman/docker missing — install an engine for one-click apps"
+    const list = Workloads.hostApps || []
+    let deployed = 0
+    for (let i = 0; i < list.length; i++) {
+      if (list[i] && list[i].deployed)
+        deployed++
+    }
+    return deployed
+        ? deployed + " deployed · " + list.length + " in catalog"
+        : list.length + " in catalog (Jellyfin, Nextcloud, …)"
+  }
+
+  readonly property string sharesHint: {
+    const _ = Workloads.rev
+    if (!Workloads.sharesReady)
+      return "Reading shares…"
+    if (!Workloads.sharesAvailable)
+      return "samba missing — install for shared folders"
+    const n = (Workloads.sharesItems || []).length
+    return (n ? n + " share" + (n === 1 ? "" : "s") : "No shared folders")
+        + " · smb " + (Workloads.smbActive ? "active" : "stopped")
   }
 
   SettingsGroup {
@@ -111,11 +158,39 @@ ColumnLayout {
     SettingsFormRow {
       label: "VMs · containers"
       hint: root.workloadsHint
-      showSeparator: false
+      showSeparator: true
       interactive: true
-      onActivated: ShellState.openWorkloadsApp()
+      onActivated: ShellState.openWorkloadsApp("workloads")
       Text {
         text: "Workloads ›"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+      }
+    }
+
+    SettingsFormRow {
+      label: "One-click apps"
+      hint: root.appsHint
+      showSeparator: true
+      interactive: true
+      onActivated: ShellState.openWorkloadsApp("apps")
+      Text {
+        text: "Apps ›"
+        color: Theme.accent
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+      }
+    }
+
+    SettingsFormRow {
+      label: "Shared folders"
+      hint: root.sharesHint
+      showSeparator: false
+      interactive: true
+      onActivated: ShellState.openWorkloadsApp("shares")
+      Text {
+        text: "Shares ›"
         color: Theme.accent
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSize
@@ -158,10 +233,10 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "Stop chrome"
-      hint: "proteus-posture host --headless · CLI stays"
+      hint: "proteus-host-seat detach · CLI stays"
       showSeparator: true
       interactive: true
-      onActivated: root.runPosture("host --headless")
+      onActivated: root.runHostSeat("detach")
       Text {
         text: "Headless ›"
         color: Theme.accent
@@ -172,10 +247,10 @@ ColumnLayout {
 
     SettingsFormRow {
       label: "Restore chrome"
-      hint: "proteus-posture host --chrome"
+      hint: "proteus-host-seat attach"
       showSeparator: false
       interactive: true
-      onActivated: root.runPosture("host --chrome")
+      onActivated: root.runHostSeat("attach")
       Text {
         text: "Chrome ›"
         color: Theme.accent
@@ -188,7 +263,7 @@ ColumnLayout {
   Text {
     Layout.fillWidth: true
     Layout.maximumWidth: 480
-    text: "Fact: thin Settings hub — jumps + engine/headless status. Mutations in Workloads app. Auto-resolver · Portainer-style UI · virt-manager embed Out."
+    text: "Fact: thin Settings hub — jumps + engine/headless status. Mutations in Workloads app (Workloads · Apps · Shares tabs). Auto-resolver · Portainer-style UI · virt-manager embed Out."
     color: Theme.textMute
     font.family: Theme.fontFamily
     font.pixelSize: 11

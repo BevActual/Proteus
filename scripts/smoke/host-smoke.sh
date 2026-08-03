@@ -18,6 +18,8 @@ SS="${ROOT}/shell/shared/ShellState.qml"
 
 [[ -x "${POSTURE}" ]] || die "proteus-posture not executable"
 [[ -x "${QS}" ]] || die "proteus-qs not executable"
+[[ -x "${ROOT}/vm/guest/dogfood-host.sh" ]] || die "dogfood-host.sh missing/not executable"
+[[ -x "${ROOT}/scripts/smoke/host-guest-smoke.sh" ]] || die "host-guest-smoke.sh missing"
 [[ -f "${HOST_CONF}" ]] || die "missing env/hypr/profiles/host.conf"
 [[ -f "${HSHELL}" ]] || die "missing HostShell.qml"
 ok "helpers + HostShell + host.conf"
@@ -34,7 +36,12 @@ grep -q 'hostSurfaceActive' "${SS}" || die "ShellState missing hostSurfaceActive
 ok "loader + Fact surface allowlist"
 
 grep -q 'enter-host' "${US}" || die "UniversalSearch missing enter-host"
-grep -q 'runPosture("host")' "${US}" || die "UniversalSearch missing runPosture host"
+grep -q 'runPosture("host --chrome")' "${US}" || die "UniversalSearch must enter host with --chrome (seated)"
+SEAT="${ROOT}/vm/guest/proteus-host-seat"
+[[ -x "${SEAT}" ]] || die "proteus-host-seat not executable"
+grep -qE 'attach\|detach\|status' "${SEAT}" || die "proteus-host-seat missing attach|detach|status"
+grep -q 'write_host_chrome none' "${POSTURE}" || die "proteus-posture must default host-chrome none"
+grep -q 'stop_wallpaper' "${POSTURE}" || die "proteus-posture missing stop_wallpaper on headless"
 grep -q 'id: "host"' "${CCL}" || die "ControlCenterLayout missing host tile"
 grep -q 'id: "host"' "${QSGRID}" || die "QuickSettingsGrid missing host tile"
 grep -q 'hostSurfaceActive' "${QSGRID}" || die "QuickSettingsGrid missing hostSurfaceActive gate"
@@ -55,17 +62,53 @@ grep -q 'openSettings\|MissionCenter\|openTerminal' "${HOST_HOME}" \
   || die "HostHome missing ops quick actions"
 grep -q 'StatusHud' "${HSHELL}" || die "HostShell missing StatusHud"
 grep -q 'NotificationToast' "${HSHELL}" || die "HostShell missing NotificationToast"
+# Home glance is a Top layer — it must yield to real app windows
+# (Settings / Workloads toplevels) and the bar must reserve its strip.
+grep -q 'appWindowOpen' "${HSHELL}" \
+  || die "HostShell must hide Home while an app window is open (appWindowOpen)"
+grep -q '&& !appWindowOpen' "${HSHELL}" \
+  || die "HostShell homeWanted must gate on appWindowOpen"
+grep -q 'ExclusionMode.Auto' "${HSHELL}" \
+  || die "HostShell bar must reserve its strip (ExclusionMode.Auto)"
 grep -q 'hostnameLabel\|SystemLoad.summaryLabel' "${HSHELL}" \
   || die "HostShell bar missing hostname/load"
 grep -q 'Workloads' "${HOST_HOME}" || die "HostHome missing Workloads glance"
-grep -q 'openWorkloadsApp\|Workloads ›' "${HOST_HOME}" \
-  || die "HostHome missing thin Workloads app handoff"
+grep -q 'openWorkloadsApp\|openWorkloads(' "${HOST_HOME}" \
+  || die "HostHome missing Workloads app handoff"
 grep -q 'headless\|host-chrome\|Workloads' "${HOST_HOME}" \
   || die "HostHome must state headless / Workloads honesty"
-grep -q 'id: "headless"\|host --headless' "${HOST_HOME}" \
-  || die "HostHome missing Headless tile / host --headless"
-grep -qiE 'Settings → Virtualization|Virtualization \(jumps|mutations stay in Workloads' "${HOST_HOME}" \
-  || die "HostHome must state Settings Virtualization hub honesty"
+grep -q '"Headless"' "${HOST_HOME}" || die "HostHome missing Headless quick action"
+grep -q 'runHostSeat("detach")' "${HOST_HOME}" \
+  || die "HostHome must use proteus-host-seat for detach"
+grep -qiE 'Host Settings face|Virtualization|Settings → Virtualization|mutations in Workloads|desktop face escape' "${HOST_HOME}" \
+  || die "HostHome must state Host Settings face / Virtualization honesty"
+grep -q 'openSettingsSmart\|fullsettings' "${HOST_HOME}" \
+  || die "HostHome must use openSettingsSmart + Full Settings escape"
+
+# HexOS-style Command-Deck dashboard: read-only resource cards + deep links.
+grep -q 'HostMetrics' "${HOST_HOME}" || die "HostHome missing HostMetrics glance"
+for card in '"Processor"' '"Memory"' '"Storage"' '"Network"' '"Health"' '"Workloads"' '"Apps"' '"Shares"'; do
+  grep -q "title: ${card}" "${HOST_HOME}" || die "HostHome missing ${card} card"
+done
+grep -q 'openWorkloads("workloads")' "${HOST_HOME}" || die "Workloads card must deep-link workloads tab"
+grep -q 'openWorkloads("apps")' "${HOST_HOME}" || die "Apps card must deep-link apps tab"
+grep -q 'openWorkloads("shares")' "${HOST_HOME}" || die "Shares card must deep-link shares tab"
+grep -q 'component Spark' "${HOST_HOME}" || die "HostHome missing sparkline component"
+# Dashboard stays mutation-free — all mutations live in the Workloads app.
+if grep -qE 'Workloads\.(start|stop|kill|create|destroy|deployApp|shareAdd|shareRemove)\(' "${HOST_HOME}"; then
+  die "HostHome must not mutate workloads (dashboard is read-only)"
+fi
+HM="${ROOT}/shell/shared/HostMetrics.qml"
+HM_PY="${ROOT}/shell/scripts/proteus-host-metrics.py"
+[[ -f "${HM}" ]] || die "missing HostMetrics.qml"
+[[ -x "${HM_PY}" ]] || die "proteus-host-metrics.py not executable"
+grep -q 'proteus-host-metrics.py' "${HM}" || die "HostMetrics.qml missing script path"
+grep -q 'retain\|release' "${HM}" || die "HostMetrics.qml missing retain/release pattern"
+ok "Command-Deck dashboard (cards · deep links · read-only)"
+grep -q 'hostSurfaceActive' "${ROOT}/shell/shared/ShellState.qml" || die "ShellState missing hostSurfaceActive"
+grep -q 'settingsFaceHostHubs\|openSettingsSmart' \
+  "${ROOT}/shell/shared/EnvGate.qml" "${ROOT}/shell/shared/ShellState.qml" \
+  || die "Host Settings face wiring missing"
 ok "Phase 2 HostHome + HUD/toast + headless"
 
 WL="${ROOT}/shell/shared/Workloads.qml"
@@ -117,20 +160,26 @@ got="$(tr -d '[:space:]' <"${HOME}/.config/proteus/posture")"
 [[ "${got}" == "host" ]] || die "expected Fact host, got '${got}'"
 grep -q 'profiles/host.conf' "${HOME}/.config/hypr/proteus-profile.conf" \
   || die "hypr pointer not set to host.conf"
-ok "Fact write + profile pointer host"
+[[ -f "${HOME}/.config/proteus/host-chrome" ]] || die "host-chrome Fact not written on default host"
+hc0="$(tr -d '[:space:]' <"${HOME}/.config/proteus/host-chrome")"
+[[ "${hc0}" == "none" ]] || die "default host must be headless (host-chrome=none), got '${hc0}'"
+ok "Fact write + profile pointer host + default headless"
 
 # headless-no-QS Fact + --stop path
 grep -qE -- '--stop' "${QS}" || die "proteus-qs missing --stop"
 grep -q 'host-chrome\|host_chrome_mode' "${QS}" || die "proteus-qs missing host-chrome gate"
 grep -qE -- '--headless' "${POSTURE}" || die "proteus-posture missing --headless"
-bash "${FAKE_ROOT}/vm/guest/proteus-posture" host --headless || true
-[[ -f "${HOME}/.config/proteus/host-chrome" ]] || die "host-chrome Fact not written"
-hc="$(tr -d '[:space:]' <"${HOME}/.config/proteus/host-chrome")"
-[[ "${hc}" == "none" ]] || die "expected host-chrome none, got '${hc}'"
+cp "${SEAT}" "${FAKE_ROOT}/vm/guest/proteus-host-seat"
+chmod +x "${FAKE_ROOT}/vm/guest/proteus-host-seat"
+bash "${FAKE_ROOT}/vm/guest/proteus-host-seat" status | grep -q 'host-chrome=none' \
+  || die "proteus-host-seat status missing host-chrome=none"
 bash "${FAKE_ROOT}/vm/guest/proteus-posture" host --chrome || true
 hc2="$(tr -d '[:space:]' <"${HOME}/.config/proteus/host-chrome")"
 [[ "${hc2}" == "full" ]] || die "expected host-chrome full after --chrome, got '${hc2}'"
-ok "host-chrome Fact + --headless/--chrome"
+bash "${FAKE_ROOT}/vm/guest/proteus-posture" host --headless || true
+hc="$(tr -d '[:space:]' <"${HOME}/.config/proteus/host-chrome")"
+[[ "${hc}" == "none" ]] || die "expected host-chrome none, got '${hc}'"
+ok "host-chrome Fact + seat helper + --headless/--chrome"
 
 SP="${ROOT}/apps/proteus-settings/panes/SystemPane.qml"
 VP="${ROOT}/apps/proteus-settings/panes/VirtualizationPane.qml"
@@ -143,8 +192,13 @@ grep -q 'VirtualizationPane.qml\|page === "virtualization"' "${SET}" \
 grep -q 'Virtualization' "${SP}" || die "SystemPane missing Virtualization jump"
 grep -q 'virtualization' "${SP}" || die "SystemPane must jump to Virtualization hub"
 grep -q 'openWorkloadsApp' "${VP}" || die "VirtualizationPane must open Workloads"
-grep -q 'host --headless\|host --chrome' "${VP}" \
-  || die "VirtualizationPane missing headless/chrome posture actions"
+grep -q 'openWorkloadsApp("apps")' "${VP}" || die "VirtualizationPane must deep-link Apps tab"
+grep -q 'openWorkloadsApp("shares")' "${VP}" || die "VirtualizationPane must deep-link Shares tab"
+# Bar: Workloads entry + host Settings face (not the desktop face)
+grep -q 'openWorkloadsApp' "${HSHELL}" || die "HostShell bar missing Workloads link"
+grep -q 'openSettingsSmart' "${HSHELL}" || die "HostShell bar Settings must open host face"
+grep -q 'runHostSeat\|proteus-host-seat' "${VP}" \
+  || die "VirtualizationPane missing proteus-host-seat actions"
 grep -qiE 'auto-resolver|Portainer|mutations' "${VP}" \
   || die "VirtualizationPane must state mutations/auto-resolver Out"
 ok "Settings Virtualization hub (thin)"

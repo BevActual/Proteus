@@ -18,8 +18,28 @@ Scope {
     return v === "1" || v === "true"
   }
 
+  // Home rides a Top layer-shell panel, which always paints over real app
+  // windows (Settings / Workloads are separate quickshell toplevels, not
+  // chrome). Hide the glance while any app window is open — it returns when
+  // the last window closes (same pattern as console nav vs titles).
+  readonly property bool appWindowOpen: {
+    const tops = Hyprland.toplevels ? Hyprland.toplevels.values : []
+    for (let i = 0; i < tops.length; i++) {
+      const t = tops[i]
+      if (!t)
+        continue
+      const ipc = t.lastIpcObject || {}
+      const cls = String(t.class || ipc.class || "").toLowerCase()
+      const title = String(t.title || ipc.title || "")
+      if (!cls.length && !title.length)
+        continue
+      return true
+    }
+    return false
+  }
+
   readonly property bool homeWanted: !ShellState.sessionLocked && !ShellState.sessionStartLockPending
-      && !ShellState.controlCenterOpen && !ShellState.launcherOpen
+      && !ShellState.controlCenterOpen && !ShellState.launcherOpen && !appWindowOpen
 
   function runPosture(target) {
     const proot = String(Quickshell.env("PROTEUS_ROOT") || "/mnt/proteus")
@@ -42,6 +62,10 @@ Scope {
     SystemInfo.refresh()
     SystemLoad.retain()
     SystemLoad.refresh()
+    try {
+      Keybinds.persistAndApply()
+    } catch (e) {
+    }
   }
 
   Component.onDestruction: SystemLoad.release()
@@ -88,6 +112,17 @@ Scope {
     }
     function beaconState(): string {
       return ShellState.launcherOpen ? '{"open":true}' : '{"open":false}'
+    }
+    // Smoke/dogfood probe — same contract as Desktop/Console shells.
+    function state(): string {
+      return JSON.stringify({
+        surface: "host",
+        controlCenter: ShellState.controlCenterOpen,
+        locked: ShellState.sessionLocked,
+        launcher: ShellState.launcherOpen,
+        home: root.homeWanted,
+        appWindowOpen: root.appWindowOpen
+      })
     }
   }
 
@@ -149,7 +184,9 @@ Scope {
       required property var modelData
       screen: modelData
       visible: !ShellState.sessionLocked && !ShellState.sessionStartLockPending
-      exclusionMode: ExclusionMode.Ignore
+      // Auto so the 40px strip is actually reserved — tiled app windows
+      // (Settings / Workloads) map below the bar instead of under it.
+      exclusionMode: ExclusionMode.Auto
       exclusiveZone: 40
       implicitHeight: 40
       color: "transparent"
@@ -215,6 +252,19 @@ Scope {
           }
 
           Text {
+            text: "Workloads"
+            color: Theme.textDim
+            font.family: Theme.fontFamily
+            font.pixelSize: 13
+            MouseArea {
+              anchors.fill: parent
+              anchors.margins: -8
+              cursorShape: Qt.PointingHandCursor
+              onClicked: ShellState.openWorkloadsApp()
+            }
+          }
+
+          Text {
             text: "Settings"
             color: Theme.textDim
             font.family: Theme.fontFamily
@@ -223,7 +273,8 @@ Scope {
               anchors.fill: parent
               anchors.margins: -8
               cursorShape: Qt.PointingHandCursor
-              onClicked: ShellState.openSettings()
+              // Host Settings face (virt hub default), not the desktop face.
+              onClicked: ShellState.openSettingsSmart("")
             }
           }
 

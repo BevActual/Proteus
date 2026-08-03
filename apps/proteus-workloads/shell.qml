@@ -51,6 +51,11 @@ ShellRoot {
       return "open"
     }
 
+    function openTab(tab: string): void {
+      if (appLoader.item && typeof appLoader.item.openTab === "function")
+        appLoader.item.openTab(tab)
+    }
+
     function raise(): void {
       win.visible = true
       try {

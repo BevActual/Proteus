@@ -2,12 +2,17 @@
 """VM/container inventory + mutate for Proteus Host.
 
 Probes libvirt (virsh) and podman/docker when present.
-Mutations: start|stop|kill|create|destroy
+Mutations: start|stop|kill|create|destroy|deploy|share-add|share-remove
   VM: virsh start/shutdown · destroy (force power-off) · define · undefine (stopped)
   CTR: engine start/stop/kill · run -d · rm (stopped only)
+  APP: deploy = curated one-click catalog (env/apps/host-apps.json) → container
+       named proteus-app-<id>; volumes under ~/.local/share/proteus/apps/<id>/
+  SHARE: Samba usershares (net usershare add/delete) — no root once the
+       usershare dir exists and the user is in sambashare
+Reads: apps (catalog + deploy status) · shares (usershare list + smb state)
 Stdout: one JSON object. Fixture: PROTEUS_WORKLOADS_FIXTURE=1.
 Honesty: kill = force power-off (keep definition). Settings virt · headless-no-QS Out.
-Remove while running (rm -f) stays Out.
+Remove while running (rm -f) stays Out. Privileged deploys stay Out.
 """
 from __future__ import annotations
 
@@ -23,6 +28,24 @@ from pathlib import Path
 from typing import Any
 
 _NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$")
+_APP_PREFIX = "proteus-app-"
+
+
+def _proteus_root() -> Path:
+    env = os.environ.get("PROTEUS_ROOT", "").strip()
+    if env and (Path(env) / "env").is_dir():
+        return Path(env)
+    return Path(__file__).resolve().parent.parent.parent
+
+
+def _load_catalog() -> list[dict[str, Any]]:
+    path = _proteus_root() / "env" / "apps" / "host-apps.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    apps = data.get("apps")
+    return apps if isinstance(apps, list) else []
 
 
 def _run(cmd: list[str], timeout: float = 30.0) -> tuple[int, str, str]:
@@ -584,19 +607,266 @@ def _mutate_destroy(kind: str, name: str, dry_run: bool) -> int:
     )
 
 
+# -------------------------------------------------------- one-click apps
+
+def _apps_fixture() -> dict[str, Any]:
+    apps = _load_catalog()
+    for a in apps:
+        a["containerName"] = _APP_PREFIX + str(a.get("id") or "")
+        a["deployed"] = a.get("id") == "jellyfin"
+        a["running"] = a.get("id") == "jellyfin"
+        a["status"] = "Up 3 hours" if a.get("id") == "jellyfin" else ""
+    return {
+        "ok": True,
+        "fixture": True,
+        "engine": "podman",
+        "available": True,
+        "apps": apps,
+    }
+
+
+def _emit_apps() -> int:
+    if os.environ.get("PROTEUS_WORKLOADS_FIXTURE") == "1":
+        print(json.dumps(_apps_fixture(), separators=(",", ":")))
+        return 0
+    apps = _load_catalog()
+    containers, _errs = _containers()
+    by_name = {str(c.get("name") or ""): c for c in containers.get("items") or []}
+    for a in apps:
+        cname = _APP_PREFIX + str(a.get("id") or "")
+        a["containerName"] = cname
+        ctr = by_name.get(cname)
+        a["deployed"] = ctr is not None
+        a["running"] = _ctr_running(str(ctr.get("status") or "")) if ctr else False
+        a["status"] = str(ctr.get("status") or "") if ctr else ""
+    print(json.dumps({
+        "ok": True,
+        "fixture": False,
+        "engine": containers.get("engine") or "",
+        "available": bool(containers.get("available")),
+        "apps": apps,
+    }, separators=(",", ":")))
+    return 0
+
+
+def _mutate_deploy(app_id: str, dry_run: bool) -> int:
+    app_id = app_id.strip().lower()
+    if not _valid_name(app_id):
+        return _err_json("invalid app id")
+    catalog = {str(a.get("id") or ""): a for a in _load_catalog()}
+    app = catalog.get(app_id)
+    if not app:
+        return _err_json(f"unknown app: {app_id} (see env/apps/host-apps.json)")
+    name = _APP_PREFIX + app_id
+    image = str(app.get("image") or "")
+    if not image or any(c in image for c in (";", "|", "&", "`", "\n", " ")):
+        return _err_json("catalog image ref invalid")
+
+    if os.environ.get("PROTEUS_WORKLOADS_FIXTURE") == "1":
+        return _ok_json(
+            fixture=True, action="deploy", app=app_id, name=name, dryRun=dry_run,
+            command=["fixture", "deploy", app_id], noop=False,
+        )
+
+    engine, tool = _container_engine()
+    if not tool:
+        return _err_json("podman/docker not available")
+    code, stdout, _err = _run(
+        [tool, "ps", "-a", "--format", "{{.Names}}", "--filter", f"name=^{name}$"],
+        timeout=8.0,
+    )
+    if code == 0 and any(ln.strip() == name for ln in stdout.splitlines()):
+        return _err_json(
+            f"already deployed: {name} — use Start/Stop/Remove instead",
+            action="deploy", app=app_id, name=name,
+        )
+
+    data_root = Path.home() / ".local" / "share" / "proteus" / "apps" / app_id
+    # Never a privileged deploy; graceful lifecycle only (rm -f stays Out).
+    cmd = [tool, "run", "-d", "--name", name, "--restart", "unless-stopped"]
+    for spec in app.get("ports") or []:
+        spec = str(spec)
+        if not re.match(r"^\d{1,5}:\d{1,5}$", spec):
+            return _err_json(f"catalog port spec invalid: {spec}")
+        cmd += ["-p", spec]
+    volumes = []
+    for vol in app.get("volumes") or []:
+        vname = str(vol.get("name") or "")
+        vpath = str(vol.get("path") or "")
+        if not _valid_name(vname) or not vpath.startswith("/"):
+            return _err_json(f"catalog volume invalid: {vname}:{vpath}")
+        host_dir = data_root / vname
+        volumes.append((host_dir, vpath))
+        cmd += ["-v", f"{host_dir}:{vpath}"]
+    for k, v in (app.get("env") or {}).items():
+        k = str(k)
+        v = str(v)
+        if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", k):
+            return _err_json(f"catalog env key invalid: {k}")
+        cmd += ["-e", f"{k}={v}"]
+    cmd.append(image)
+
+    if dry_run:
+        return _ok_json(
+            action="deploy", app=app_id, name=name, dryRun=True,
+            command=cmd, engine=engine, noop=False,
+        )
+    for host_dir, _cpath in volumes:
+        try:
+            host_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            return _err_json(f"could not create {host_dir}: {e}")
+    code, out, err = _run(cmd, timeout=600.0)
+    if code != 0:
+        return _err_json(
+            (err or out or f"{engine} run failed")[:240],
+            action="deploy", app=app_id, name=name, engine=engine,
+        )
+    return _ok_json(
+        action="deploy", app=app_id, name=name, dryRun=False, noop=False,
+        command=cmd, engine=engine,
+    )
+
+
+# -------------------------------------------------------- samba shares
+
+def _shares_fixture() -> dict[str, Any]:
+    return {
+        "ok": True,
+        "fixture": True,
+        "available": True,
+        "smbActive": True,
+        "items": [
+            {"name": "media", "path": "/tank/media", "guestOk": True},
+        ],
+    }
+
+
+def _smb_active() -> bool:
+    systemctl = _which("systemctl")
+    if not systemctl:
+        return False
+    for unit in ("smb", "smbd"):
+        code, out, _err = _run([systemctl, "is-active", unit], timeout=5.0)
+        if code == 0 and out.strip() == "active":
+            return True
+    return False
+
+
+def _emit_shares() -> int:
+    if os.environ.get("PROTEUS_WORKLOADS_FIXTURE") == "1":
+        print(json.dumps(_shares_fixture(), separators=(",", ":")))
+        return 0
+    net = _which("net")
+    if not net:
+        print(json.dumps({
+            "ok": True, "fixture": False, "available": False,
+            "smbActive": False, "items": [],
+            "hint": "samba not installed — install samba for shared folders",
+        }, separators=(",", ":")))
+        return 0
+    code, out, err = _run([net, "usershare", "info"], timeout=8.0)
+    items: list[dict[str, Any]] = []
+    errors: list[str] = []
+    if code != 0 and err:
+        errors.append(err.split("\n")[0][:160])
+    elif out:
+        cur: dict[str, Any] = {}
+        for line in out.splitlines():
+            line = line.strip()
+            if line.startswith("[") and line.endswith("]"):
+                if cur.get("name"):
+                    items.append(cur)
+                cur = {"name": line[1:-1], "path": "", "guestOk": False}
+            elif line.startswith("path=") and cur:
+                cur["path"] = line[len("path="):]
+            elif line.startswith("guest_ok=") and cur:
+                cur["guestOk"] = line[len("guest_ok="):].strip().lower() == "y"
+        if cur.get("name"):
+            items.append(cur)
+    print(json.dumps({
+        "ok": True, "fixture": False, "available": True,
+        "smbActive": _smb_active(), "items": items,
+        "errors": errors[:3],
+    }, separators=(",", ":")))
+    return 0
+
+
+def _share_add(name: str, path: str, dry_run: bool) -> int:
+    name = name.strip()
+    path = path.strip()
+    if not _valid_name(name):
+        return _err_json("invalid share name")
+    if not path.startswith("/"):
+        return _err_json("share path must be absolute")
+
+    if os.environ.get("PROTEUS_WORKLOADS_FIXTURE") == "1":
+        return _ok_json(
+            fixture=True, action="share-add", name=name, path=path,
+            dryRun=dry_run, command=["fixture", "share-add", name, path], noop=False,
+        )
+
+    if not Path(path).is_dir():
+        return _err_json(f"not a directory: {path}")
+    net = _which("net")
+    if not net:
+        return _err_json("samba (net) not available — install samba")
+    # Guest-readable usershare; ACL edits beyond this are Out (use Samba tools).
+    cmd = [net, "usershare", "add", name, path, "", "Everyone:F", "guest_ok=y"]
+    if dry_run:
+        return _ok_json(action="share-add", name=name, path=path,
+                        dryRun=True, command=cmd, noop=False)
+    code, out, err = _run(cmd, timeout=15.0)
+    if code != 0:
+        return _err_json((err or out or "net usershare add failed")[:240],
+                         action="share-add", name=name, path=path)
+    return _ok_json(action="share-add", name=name, path=path,
+                    dryRun=False, noop=False, command=cmd)
+
+
+def _share_remove(name: str, dry_run: bool) -> int:
+    name = name.strip()
+    if not _valid_name(name):
+        return _err_json("invalid share name")
+
+    if os.environ.get("PROTEUS_WORKLOADS_FIXTURE") == "1":
+        return _ok_json(
+            fixture=True, action="share-remove", name=name, dryRun=dry_run,
+            command=["fixture", "share-remove", name], noop=False,
+        )
+
+    net = _which("net")
+    if not net:
+        return _err_json("samba (net) not available")
+    cmd = [net, "usershare", "delete", name]
+    if dry_run:
+        return _ok_json(action="share-remove", name=name, dryRun=True,
+                        command=cmd, noop=False)
+    code, out, err = _run(cmd, timeout=15.0)
+    if code != 0:
+        return _err_json((err or out or "net usershare delete failed")[:240],
+                         action="share-remove", name=name)
+    return _ok_json(action="share-remove", name=name, dryRun=False,
+                    noop=False, command=cmd)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Proteus workloads inventory / mutate")
     ap.add_argument(
         "action",
         nargs="?",
         default="list",
-        choices=["list", "start", "stop", "kill", "create", "destroy"],
-        help="list (default) | start | stop | kill | create | destroy",
+        choices=["list", "start", "stop", "kill", "create", "destroy",
+                 "apps", "deploy", "shares", "share-add", "share-remove"],
+        help="list (default) | start | stop | kill | create | destroy | "
+             "apps | deploy | shares | share-add | share-remove",
     )
     ap.add_argument("--kind", default="", help="vm | container")
-    ap.add_argument("--name", default="", help="domain or container name")
+    ap.add_argument("--name", default="", help="domain or container name / share name")
     ap.add_argument("--disk", default="", help="existing qcow2 path (vm create)")
     ap.add_argument("--image", default="", help="container image ref (container create)")
+    ap.add_argument("--app", default="", help="catalog app id (deploy)")
+    ap.add_argument("--path", default="", help="folder path (share-add)")
     ap.add_argument("--dry-run", action="store_true", help="print command only")
     args = ap.parse_args()
 
@@ -608,6 +878,16 @@ def main() -> int:
         return _mutate_create(args.kind, args.name, args.disk, args.image, args.dry_run)
     if args.action == "destroy":
         return _mutate_destroy(args.kind, args.name, args.dry_run)
+    if args.action == "apps":
+        return _emit_apps()
+    if args.action == "deploy":
+        return _mutate_deploy(args.app, args.dry_run)
+    if args.action == "shares":
+        return _emit_shares()
+    if args.action == "share-add":
+        return _share_add(args.name, args.path, args.dry_run)
+    if args.action == "share-remove":
+        return _share_remove(args.name, args.dry_run)
     return _err_json("unknown action")
 
 

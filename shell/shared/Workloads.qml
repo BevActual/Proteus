@@ -5,7 +5,8 @@ import Quickshell.Io
 import QtQuick
 
 // Host VM/container probe + graceful mutate for thin Workloads app.
-// Create/destroy + start/stop/kill In; Settings Virtualization hub · host-chrome headless.
+// Create/destroy + start/stop/kill In; one-click app deploys (curated catalog)
+// + Samba usershare CRUD In; Settings Virtualization hub · host-chrome headless.
 Singleton {
   id: root
 
@@ -25,6 +26,19 @@ Singleton {
   property bool libvirtAvailable: false
   property bool containersAvailable: false
   property int rev: 0
+
+  // One-click apps (env/apps/host-apps.json catalog + deploy status)
+  property var hostApps: []
+  property bool hostAppsReady: false
+  property bool hostAppsAvailable: false
+  property string hostAppsEngine: ""
+
+  // Samba usershares
+  property var sharesItems: []
+  property bool sharesReady: false
+  property bool sharesAvailable: false
+  property bool smbActive: false
+  property string sharesHint: ""
 
   readonly property string script: Config.scriptsDir + "/proteus-workloads.py"
 
@@ -54,6 +68,18 @@ Singleton {
     fetchProc.running = true
   }
 
+  function refreshApps() {
+    appsProc.command = ["python3", root.script, "apps"]
+    appsProc.running = false
+    appsProc.running = true
+  }
+
+  function refreshShares() {
+    sharesProc.command = ["python3", root.script, "shares"]
+    sharesProc.running = false
+    sharesProc.running = true
+  }
+
   function start(kind, name) {
     return root._mutate("start", kind, name, "", "")
   }
@@ -77,6 +103,43 @@ Singleton {
 
   function destroy(kind, name) {
     return root._mutate("destroy", kind, name, "", "")
+  }
+
+  function deployApp(appId) {
+    const id = String(appId || "").trim()
+    if (!id.length || root.mutating)
+      return false
+    root.mutating = true
+    root.mutateError = ""
+    mutateProc.command = ["python3", root.script, "deploy", "--app", id]
+    mutateProc.running = false
+    mutateProc.running = true
+    return true
+  }
+
+  function shareAdd(name, path) {
+    const n = String(name || "").trim()
+    const p = String(path || "").trim()
+    if (!n.length || !p.length || root.mutating)
+      return false
+    root.mutating = true
+    root.mutateError = ""
+    mutateProc.command = ["python3", root.script, "share-add", "--name", n, "--path", p]
+    mutateProc.running = false
+    mutateProc.running = true
+    return true
+  }
+
+  function shareRemove(name) {
+    const n = String(name || "").trim()
+    if (!n.length || root.mutating)
+      return false
+    root.mutating = true
+    root.mutateError = ""
+    mutateProc.command = ["python3", root.script, "share-remove", "--name", n]
+    mutateProc.running = false
+    mutateProc.running = true
+    return true
   }
 
   function _mutate(action, kind, name, disk, image) {
@@ -193,6 +256,8 @@ Singleton {
           }
           root.mutateError = ""
           root.refresh()
+          root.refreshApps()
+          root.refreshShares()
         } catch (e) {
           root.mutateError = "Could not parse action result"
           root.rev++
@@ -205,6 +270,57 @@ Singleton {
         if (!root.mutateError.length)
           root.mutateError = "Action failed"
         root.rev++
+      }
+    }
+  }
+
+  Process {
+    id: appsProc
+    command: ["true"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const data = JSON.parse(String(text).trim() || "{}")
+          if (data.ok === false) {
+            root.hostAppsReady = true
+            root.rev++
+            return
+          }
+          root.hostApps = Array.isArray(data.apps) ? data.apps : []
+          root.hostAppsAvailable = !!data.available
+          root.hostAppsEngine = String(data.engine || "")
+          root.hostAppsReady = true
+          root.rev++
+        } catch (e) {
+          root.hostAppsReady = true
+          root.rev++
+        }
+      }
+    }
+  }
+
+  Process {
+    id: sharesProc
+    command: ["true"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const data = JSON.parse(String(text).trim() || "{}")
+          if (data.ok === false) {
+            root.sharesReady = true
+            root.rev++
+            return
+          }
+          root.sharesItems = Array.isArray(data.items) ? data.items : []
+          root.sharesAvailable = !!data.available
+          root.smbActive = !!data.smbActive
+          root.sharesHint = String(data.hint || "")
+          root.sharesReady = true
+          root.rev++
+        } catch (e) {
+          root.sharesReady = true
+          root.rev++
+        }
       }
     }
   }

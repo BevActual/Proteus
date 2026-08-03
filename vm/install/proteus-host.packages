@@ -1,0 +1,5 @@
+# Proteus host posture kit — HexOS-style ops dashboard backends.
+# samba: shared folders (usershares — no-root CRUD from the Workloads app)
+# smartmontools: drive health for the Storage/Health dashboard cards
+samba
+smartmontools

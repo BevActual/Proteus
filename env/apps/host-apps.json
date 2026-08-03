@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "comment": "Curated one-click host apps (single-container honest set — no compose stacks). Deployed via proteus-workloads.py deploy as containers named proteus-app-<id>; volumes live under ~/.local/share/proteus/apps/<id>/.",
+  "apps": [
+    {
+      "id": "jellyfin",
+      "name": "Jellyfin",
+      "blurb": "Media server — movies, shows, music on your network",
+      "image": "docker.io/jellyfin/jellyfin:latest",
+      "ports": ["8096:8096"],
+      "volumes": [
+        { "name": "config", "path": "/config" },
+        { "name": "cache", "path": "/cache" },
+        { "name": "media", "path": "/media" }
+      ],
+      "env": {},
+      "webPort": 8096
+    },
+    {
+      "id": "nextcloud",
+      "name": "Nextcloud",
+      "blurb": "Files, calendars, contacts — your own cloud",
+      "image": "docker.io/library/nextcloud:latest",
+      "ports": ["8080:80"],
+      "volumes": [
+        { "name": "data", "path": "/var/www/html" }
+      ],
+      "env": {},
+      "webPort": 8080
+    },
+    {
+      "id": "syncthing",
+      "name": "Syncthing",
+      "blurb": "Continuous folder sync between your devices",
+      "image": "docker.io/syncthing/syncthing:latest",
+      "ports": ["8384:8384", "22000:22000"],
+      "volumes": [
+        { "name": "data", "path": "/var/syncthing" }
+      ],
+      "env": {},
+      "webPort": 8384
+    },
+    {
+      "id": "adguard-home",
+      "name": "AdGuard Home",
+      "blurb": "Network-wide ad and tracker blocking DNS",
+      "image": "docker.io/adguard/adguardhome:latest",
+      "ports": ["3000:3000", "5353:53"],
+      "volumes": [
+        { "name": "work", "path": "/opt/adguardhome/work" },
+        { "name": "conf", "path": "/opt/adguardhome/conf" }
+      ],
+      "env": {},
+      "webPort": 3000
+    },
+    {
+      "id": "home-assistant",
+      "name": "Home Assistant",
+      "blurb": "Open home automation hub",
+      "image": "ghcr.io/home-assistant/home-assistant:stable",
+      "ports": ["8123:8123"],
+      "volumes": [
+        { "name": "config", "path": "/config" }
+      ],
+      "env": { "TZ": "UTC" },
+      "webPort": 8123
+    },
+    {
+      "id": "vaultwarden",
+      "name": "Vaultwarden",
+      "blurb": "Self-hosted Bitwarden-compatible password vault",
+      "image": "docker.io/vaultwarden/server:latest",
+      "ports": ["8222:80"],
+      "volumes": [
+        { "name": "data", "path": "/data" }
+      ],
+      "env": {},
+      "webPort": 8222
+    }
+  ]
+}
