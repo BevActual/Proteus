@@ -5,7 +5,7 @@ import QtQuick
 import "surfaces"
 
 ShellRoot {
-  // Override with: PROTEUS_SURFACE=console ./scripts/run-desktop.sh
+  // Override with: PROTEUS_SURFACE=console ./dev/run-desktop.sh
   // Later: auto-detect from form factor / session.
   readonly property string surface: {
     const e = Quickshell.env("PROTEUS_SURFACE")

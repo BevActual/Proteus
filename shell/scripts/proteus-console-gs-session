@@ -9,7 +9,7 @@
 #   proteus-console-gs-session            # exec gamescope -- $0 --client
 #   proteus-console-gs-session --client   # inside gamescope: guide + Home
 #
-# Spike learnings (scripts/spike/gs-qs-spike.sh):
+# Spike learnings (dev/spike/gs-qs-spike.sh):
 #   - gamescope exports DISPLAY (Xwayland) to children but not WAYLAND_DISPLAY
 #   - Quickshell IPC is display-scoped — guide/helpers must share these
 #   - gamescopereaper must be on PATH

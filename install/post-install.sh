@@ -37,11 +37,11 @@ Next:
   1. Reboot the guest (or: sudo systemctl restart greetd)
   2. Unlock the Proteus lock screen with the user password
   3. On the host, snapshot when healthy:
-       ./vm/run.sh snapshot hyprland-base
+       ./dev/vm/run.sh snapshot hyprland-base
 
 Dogfood:
   ssh -p 2222 ${USER_NAME}@127.0.0.1
-  PROTEUS_GUEST=1 ./scripts/smoke-all.sh
+  PROTEUS_GUEST=1 ./dev/smoke-all.sh
 
 Status: ${STATUS}/complete
 Log:    ${PROTEUS_INSTALL_LOG:-}

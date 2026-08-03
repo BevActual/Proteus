@@ -6,7 +6,7 @@ exists or is planned yet ([CURRENT.md](CURRENT.md) §8). Dogfood = vanilla Arch
 base + the `install/` overlay.
 
 > **Layout:** `install/` is the machine-agnostic overlay (VM and bare metal).
-> `vm/` is now only the QEMU harness — one kind of machine, not the install
+> `dev/vm/` is now only the QEMU harness — one kind of machine, not the install
 > path. Runtime helpers live in `shell/scripts/`; `install/machine/` holds
 > install-time mutators only.
 
@@ -14,9 +14,9 @@ base + the `install/` overlay.
 
 | Layer | Entry | Runs where | Role |
 |-------|--------|-----------|------|
-| Base Arch | [`vm/guest-install.sh`](../../vm/guest-install.sh) (VM) · manual Arch (bare metal) | Live ISO, root | Unattended disk: partition, pacstrap, user, sshd |
+| Base Arch | [`dev/vm/guest-install.sh`](../../dev/vm/guest-install.sh) (VM) · manual Arch (bare metal) | Live ISO, root | Unattended disk: partition, pacstrap, user, sshd |
 | Overlay | [`install/bootstrap.sh`](../../install/bootstrap.sh) | Installed machine (sudo) | Hyprland / Quickshell / Settings / desktop + console kit |
-| Host drive | [`vm/provision.sh`](../../vm/provision.sh) → [`vm/bootstrap.sh`](../../vm/bootstrap.sh) | Host | Cache ISO/disk, wait for SSH, run the overlay remotely (VM only) |
+| Host drive | [`dev/vm/provision.sh`](../../dev/vm/provision.sh) → [`dev/vm/bootstrap.sh`](../../dev/vm/bootstrap.sh) | Host | Cache ISO/disk, wait for SSH, run the overlay remotely (VM only) |
 
 Overlay stages (detail: [install/README.md](../../install/README.md)):
 `preflight → snapshots → packaging → config → hardware → login → apps → desktop → console → host → post-install`.
@@ -70,16 +70,16 @@ for a single-operator dogfood box, **not** appropriate on a shared machine. Set
 ## Happy path (empty cache → console dogfood)
 
 ```bash
-./vm/provision.sh prepare        # 1. Arch ISO + 40G qcow2 into PROTEUS_VM_CACHE
-./vm/run.sh install              # 2. boot live ISO + disk
+./dev/vm/provision.sh prepare        # 1. Arch ISO + 40G qcow2 into PROTEUS_VM_CACHE
+./dev/vm/run.sh install              # 2. boot live ISO + disk
 # in the live ISO:
 #   mount -t 9p -o trans=virtio,version=9p2000.L proteus /mnt/proteus  (usually automatic)
-#   bash /mnt/proteus/vm/guest-install.sh
-./vm/run.sh                      # 3. reboot into the installed disk
+#   bash /mnt/proteus/dev/vm/guest-install.sh
+./dev/vm/run.sh                      # 3. reboot into the installed disk
 ssh-copy-id -p 2222 andrew@127.0.0.1   # 4. once — host bootstrap is publickey-only
-./vm/provision.sh                # 5. SSH → overlay (all stages incl. console)
-./vm/run.sh snapshot hyprland-base
-PROTEUS_GUEST=1 ./scripts/smoke-all.sh
+./dev/vm/provision.sh                # 5. SSH → overlay (all stages incl. console)
+./dev/vm/run.sh snapshot hyprland-base
+PROTEUS_GUEST=1 ./dev/smoke-all.sh
 ```
 
 Or run the overlay directly on the guest: `sudo bash /mnt/proteus/install/bootstrap.sh`.
@@ -101,7 +101,7 @@ Or run the overlay directly on the guest: `sudo bash /mnt/proteus/install/bootst
 
 ## Snapshots (bare-metal rollback net)
 
-The VM has `./vm/run.sh snapshot|restore`. Bare metal gets the equivalent from
+The VM has `./dev/vm/run.sh snapshot|restore`. Bare metal gets the equivalent from
 the `snapshots` stage, which runs **immediately after preflight** so its
 baseline is genuinely "before Proteus touched this machine."
 
@@ -143,7 +143,7 @@ The `console` stage (and the earlier `apps` stage) put the seat kit on PATH —
 `proteus-console-session`, `proteus-console-gs-session`, `proteus-console-focus`
 (symlinked to the live tree when `PROTEUS_ROOT=/mnt/proteus`) — and seeds
 `console.conf`. With hardware Vulkan (bare metal / VFIO passthrough — see
-[vm/README.md](../../vm/README.md) §VFIO) and
+[dev/vm/README.md](../../dev/vm/README.md) §VFIO) and
 `proteus-console-session set-mode session`, the next console login boots the
 **Gamescope session** (Proteus Home + Guide focus-flip) instead of the
 Hyprland kiosk.
@@ -152,9 +152,9 @@ Hyprland kiosk.
 
 ```bash
 # Preferred one-command (Fact + profile + chrome.surface === console)
-bash /mnt/proteus/scripts/dogfood/dogfood-console.sh
-bash /mnt/proteus/scripts/dogfood/dogfood-console.sh --launch retroarch   # optional seat
-bash /mnt/proteus/scripts/dogfood/dogfood-console.sh --restore            # back to desktop
+bash /mnt/proteus/dev/dogfood/dogfood-console.sh
+bash /mnt/proteus/dev/dogfood/dogfood-console.sh --launch retroarch   # optional seat
+bash /mnt/proteus/dev/dogfood/dogfood-console.sh --restore            # back to desktop
 
 # Manual equivalent
 proteus-posture console
@@ -173,8 +173,8 @@ session Fact via `proteus-console-session` (`seat`\|`gamescope`) + launch
 adaptive flags + ConsoleBar toggle — still nested under Hyprland (sole
 Gamescope compositor Out). Pad passthrough (`PROTEUS_VM_PAD=auto`),
 Steam/RetroArch specifics, and VM audio/GL caveats live in
-[vm/README.md](../../vm/README.md). Guest gate:
-`./scripts/smoke/console-guest-smoke.sh` (SKIP unless SSH / `PROTEUS_GUEST=1`).
+[dev/vm/README.md](../../dev/vm/README.md). Guest gate:
+`./dev/smoke/console-guest-smoke.sh` (SKIP unless SSH / `PROTEUS_GUEST=1`).
 
 ## Honesty / expectations
 
@@ -202,8 +202,8 @@ Steam/RetroArch specifics, and VM audio/GL caveats live in
 
 | Symptom | Cause → fix |
 |---------|-------------|
-| `provision.sh` refuses: "disk looks empty" | Base Arch never installed → `./vm/run.sh install` + `guest-install.sh` first (`./vm/provision.sh status` to inspect) |
-| `vm/bootstrap: FAIL SSH unreachable` | Guest down, sshd off, or no key auth → boot guest, `ssh-copy-id -p 2222 andrew@127.0.0.1` |
+| `provision.sh` refuses: "disk looks empty" | Base Arch never installed → `./dev/vm/run.sh install` + `guest-install.sh` first (`./dev/vm/provision.sh status` to inspect) |
+| `dev/vm/bootstrap: FAIL SSH unreachable` | Guest down, sshd off, or no key auth → boot guest, `ssh-copy-id -p 2222 andrew@127.0.0.1` |
 | Apps launch in desktop chrome while posture says console | Fact ≠ hypr profile drift → `bootstrap.sh repair` or `proteus-posture console` (seat also self-heals) |
 | Steam missing after overlay | multilib not enabled / `console` stage skipped → re-run overlay or `PROTEUS_INSTALL_ONLY=console` |
 | Gamescope exits instantly in the VM | No Vulkan under QEMU/VirGL → expected; seats run bare (`proteus-console-capabilities` reports `gamescope_usable:false`) |
@@ -212,7 +212,7 @@ Steam/RetroArch specifics, and VM audio/GL caveats live in
 | `preflight: cannot refresh pacman databases` | No network, dead mirror, or no sudo → fix connectivity; `bootstrap.sh repair` re-runs config/apps offline (skips preflight) |
 | Stage failed and later stages show `n/a` | Expected — the run stops at the first failure. The summary names the stage and prints `PROTEUS_INSTALL_ONLY=<stage>` to retry just it |
 | Bare metal: login lands in a bare compositor, no chrome | `proteus-session` could not resolve the root → check `cat ~/.config/proteus/root`, then `bootstrap.sh repair` |
-| Upgraded across the layout split; helpers missing | `/usr/local/bin` symlinks pointed at the old `vm/guest` path → `bootstrap.sh repair` re-points them and prunes the dangling ones |
+| Upgraded across the layout split; helpers missing | `/usr/local/bin` symlinks pointed at the old `dev/vm/guest` path → `bootstrap.sh repair` re-points them and prunes the dangling ones |
 | Bare metal: moved the checkout, session broke | Stale root Fact → re-run `PROTEUS_ROOT="$PWD" sudo -E bash install/bootstrap.sh repair` |
 | `proteus-snapshot status` says unavailable | Root is not btrfs, or no snapper `root` config → run the `snapshots` stage, or accept no rollback net |
 | Console reports `gamescope_usable:false` on real hardware | Missing 32-bit Vulkan driver → enable multilib (the `console` stage does) then re-run `PROTEUS_INSTALL_ONLY=hardware` |

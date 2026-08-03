@@ -9,15 +9,15 @@
 .env.*
 
 # QEMU VM artifacts — default under PROTEUS_VM_CACHE (~/.cache/proteus-vm).
-# Legacy in-tree paths still ignored if present (see vm/lib.sh migrate).
-vm/iso/
-vm/disks/
-vm/boot/
-vm/vars/
-vm/*.log
-vm/*.sock
-vm/qmp.sock
-vm/serial.sock
+# Legacy in-tree paths still ignored if present (see dev/vm/lib.sh migrate).
+dev/vm/iso/
+dev/vm/disks/
+dev/vm/boot/
+dev/vm/vars/
+dev/vm/*.log
+dev/vm/*.sock
+dev/vm/qmp.sock
+dev/vm/serial.sock
 
 # Python bytecode
 __pycache__/

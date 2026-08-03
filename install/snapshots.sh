@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # snapshots — btrfs rollback safety net for bare-metal dogfood.
 #
-# The VM harness has `vm/run.sh snapshot|restore`. Bare metal has no undo, and a
+# The VM harness has `dev/vm/run.sh snapshot|restore`. Bare metal has no undo, and a
 # posture flip / greetd change / GPU driver swap can cost a boot. This stage
 # restores that property on btrfs roots via snapper.
 #
@@ -30,7 +30,7 @@ ROOT_SRC="$(findmnt -no SOURCE / 2>/dev/null || true)"
 
 if [[ "${ROOT_FS}" != "btrfs" ]]; then
   proteus_log "snapshots: root is ${ROOT_FS:-unknown}, not btrfs — skip (no rollback net)"
-  proteus_log "snapshots: VM harness users keep ./vm/run.sh snapshot|restore"
+  proteus_log "snapshots: VM harness users keep ./dev/vm/run.sh snapshot|restore"
   exit 0
 fi
 

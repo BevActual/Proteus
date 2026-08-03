@@ -102,15 +102,49 @@ else
   ok "self-locating helpers resolve symlinks (readlink -f)"
 fi
 
-# --- layout split: install/ vs vm/ vs shell/scripts ---------------------------
-# vm/ is one kind of machine, not the install path. Runtime helpers live with
+# --- layout split: install/ vs dev/vm/ vs shell/scripts ---------------------------
+# dev/vm/ is one kind of machine, not the install path. Runtime helpers live with
 # every other PATH helper; install/machine/ holds install-time mutators only.
-[[ -d "${ROOT}/vm/guest" ]] && bad "vm/guest still exists (moved to install/machine + shell/scripts)" \
-  || ok "vm/guest gone"
-[[ -d "${ROOT}/vm/install" ]] && bad "vm/install still exists (moved to install/)" \
-  || ok "vm/install gone"
+[[ -d "${ROOT}/dev/vm/guest" ]] && bad "dev/vm/guest still exists (moved to install/machine + shell/scripts)" \
+  || ok "dev/vm/guest gone"
+[[ -d "${ROOT}/dev/vm/install" ]] && bad "dev/vm/install still exists (moved to install/)" \
+  || ok "dev/vm/install gone"
 [[ -d "${ROOT}/install/machine" ]] && ok "install/machine present" || bad "install/machine missing"
-[[ -d "${ROOT}/scripts/dogfood" ]] && ok "scripts/dogfood present" || bad "scripts/dogfood missing"
+[[ -d "${ROOT}/dev/dogfood" ]] && ok "dev/dogfood present" || bad "dev/dogfood missing"
+
+# --- product vs maintainer boundary -------------------------------------------
+# Everything under dev/ is maintainer tooling and must never be installed onto a
+# machine. The root holds product directories only, so "what ships" is legible
+# from `ls` rather than from tribal knowledge.
+for d in vm smoke dogfood spike fixtures; do
+  [[ -d "${ROOT}/dev/${d}" ]] && ok "dev/${d} present" || bad "dev/${d} missing"
+done
+[[ -f "${ROOT}/dev/smoke-all.sh" ]] && ok "dev/smoke-all.sh entry point" || bad "dev/smoke-all.sh missing"
+for stale in "${ROOT}/scripts" "${ROOT}/tests" "${ROOT}/vm"; do
+  [[ -e "${stale}" ]] && bad "$(basename "${stale}")/ still at repo root (moved under dev/)" || true
+done
+ok "repo root is product-only (dev/ holds maintainer tooling)"
+
+# The installer must never EXECUTE anything from dev/ — that would make a real
+# machine depend on maintainer tooling. Mentioning a dev/ path in an echo or log
+# line is fine (those are operator hints), so this matches invocation only.
+#
+# Deliberately narrow: an earlier version of this check matched `2>/dev/null`
+# (the device, not the directory) and, under `pipefail`, `grep -q`'s early exit
+# made the pipeline return non-zero — so it reported OK while real references
+# existed. A gate that cannot fail is worse than no gate.
+# Lines that only *print* a dev/ path (echo/printf/log hints telling the operator
+# what to run next) are fine — filter those before judging.
+dev_exec="$(grep -rnE '(bash|source|exec|\.)[[:space:]]+[^[:space:]]*(^|/)dev/' \
+  "${INSTALL}" --include='*.sh' 2>/dev/null \
+  | grep -vE ':[[:space:]]*#' \
+  | grep -vE ':[[:space:]]*(echo|printf|proteus_log|log)[[:space:]]' || true)"
+if [[ -n "${dev_exec}" ]]; then
+  bad "install/ executes something from dev/ (maintainer tooling must not be installed)"
+  printf '%s\n' "${dev_exec}" | head -3
+else
+  ok "install/ never executes anything from dev/"
+fi
 
 for h in proteus-session proteus-posture proteus-host-seat proteus-guide proteus-bg set-hypr-profile.sh; do
   if [[ -f "${ROOT}/shell/scripts/${h}" ]]; then
@@ -152,8 +186,8 @@ grep -q 'prune_dangling_helpers' "${INSTALL}/apps.sh" \
 
 # No source file may reference the retired paths. `:!` excludes this checker,
 # whose own failure message necessarily contains the strings it looks for.
-if git -C "${ROOT}" grep -qE 'vm/(guest/|install/)' -- . ':!install/check.sh' 2>/dev/null; then
-  bad "tree still references the retired overlay paths (see: git grep -nE 'vm/(guest/|install/)')"
+if git -C "${ROOT}" grep -qE 'dev/vm/(guest/|install/)' -- . ':!install/check.sh' 2>/dev/null; then
+  bad "tree still references the retired overlay paths (see: git grep -nE 'dev/vm/(guest/|install/)')"
 else
   ok "no references to the retired overlay paths"
 fi
@@ -242,9 +276,9 @@ grep -q 'console.sh' "${ROOT}/install/machine/install-console-software.sh" \
   && ok "install-console-software → console stage" || bad "install-console-software must wrap console stage"
 
 # Host provision: read-only status mode; qemu-img must not choke on a running VM
-grep -q '^  status) status ;;' "${ROOT}/vm/provision.sh" \
+grep -q '^  status) status ;;' "${ROOT}/dev/vm/provision.sh" \
   && ok "provision.sh status mode" || bad "provision.sh missing status mode"
-grep -q 'qemu-img info -U' "${ROOT}/vm/provision.sh" \
+grep -q 'qemu-img info -U' "${ROOT}/dev/vm/provision.sh" \
   && ok "provision.sh qemu-img -U (running-VM safe)" || bad "provision.sh qemu-img needs -U"
 
 # Install path SoT doc
@@ -260,7 +294,7 @@ grep -q 'guest-install.sh' "${ROOT}/docs/proteus/INSTALL.md" 2>/dev/null \
 [[ -x "${ROOT}/shell/scripts/proteus-posture" ]] && ok shell/scripts/proteus-posture || bad shell/scripts/proteus-posture
 [[ -x "${ROOT}/shell/scripts/proteus-host-seat" ]] && ok shell/scripts/proteus-host-seat || bad shell/scripts/proteus-host-seat
 [[ -x "${ROOT}/shell/scripts/proteus-guide" ]] && ok shell/scripts/proteus-guide || bad shell/scripts/proteus-guide
-[[ -x "${ROOT}/scripts/dogfood/dogfood-host.sh" ]] && ok scripts/dogfood/dogfood-host.sh || bad scripts/dogfood/dogfood-host.sh
+[[ -x "${ROOT}/dev/dogfood/dogfood-host.sh" ]] && ok dev/dogfood/dogfood-host.sh || bad dev/dogfood/dogfood-host.sh
 [[ -x "${ROOT}/install/machine/apply-console-kit.sh" ]] && ok install/machine/apply-console-kit.sh || bad install/machine/apply-console-kit.sh
 [[ -x "${ROOT}/shell/scripts/proteus-console-launch" ]] && ok shell/scripts/proteus-console-launch || bad shell/scripts/proteus-console-launch
 [[ -x "${ROOT}/shell/scripts/proteus-console-seat" ]] && ok shell/scripts/proteus-console-seat || bad shell/scripts/proteus-console-seat
@@ -270,7 +304,7 @@ grep -q 'guest-install.sh' "${ROOT}/docs/proteus/INSTALL.md" 2>/dev/null \
 [[ -x "${ROOT}/shell/scripts/proteus-console-gs-session" ]] && ok shell/scripts/proteus-console-gs-session || bad shell/scripts/proteus-console-gs-session
 [[ -x "${ROOT}/shell/scripts/proteus-console-focus" ]] && ok shell/scripts/proteus-console-focus || bad shell/scripts/proteus-console-focus
 [[ -f "${ROOT}/shell/console-home/shell.qml" ]] && ok shell/console-home/shell.qml || bad shell/console-home/shell.qml
-[[ -x "${ROOT}/scripts/dogfood/dogfood-console.sh" ]] && ok scripts/dogfood/dogfood-console.sh || bad scripts/dogfood/dogfood-console.sh
+[[ -x "${ROOT}/dev/dogfood/dogfood-console.sh" ]] && ok dev/dogfood/dogfood-console.sh || bad dev/dogfood/dogfood-console.sh
 grep -q 'proteus-console-seat' "${ROOT}/install/apps.sh" && ok "apps.sh installs proteus-console-seat" || bad "apps.sh missing proteus-console-seat"
 grep -q 'proteus-console-capabilities' "${ROOT}/install/apps.sh" && ok "apps.sh installs proteus-console-capabilities" || bad "apps.sh missing proteus-console-capabilities"
 grep -q 'proteus-console-launch' "${ROOT}/install/apps.sh" && ok "apps.sh installs proteus-console-launch" || bad "apps.sh missing proteus-console-launch"
@@ -395,8 +429,8 @@ else
   bad shell/scripts/set-hypr-profile.sh
 fi
 [[ -d "${ROOT}/install/machine" ]] && ok install/machine/ || bad install/machine/
-[[ -x "${ROOT}/vm/bootstrap.sh" || -f "${ROOT}/vm/bootstrap.sh" ]] && ok vm/bootstrap.sh || bad vm/bootstrap.sh
-[[ -f "${ROOT}/vm/provision.sh" ]] && ok vm/provision.sh || bad vm/provision.sh
+[[ -x "${ROOT}/dev/vm/bootstrap.sh" || -f "${ROOT}/dev/vm/bootstrap.sh" ]] && ok dev/vm/bootstrap.sh || bad dev/vm/bootstrap.sh
+[[ -f "${ROOT}/dev/vm/provision.sh" ]] && ok dev/vm/provision.sh || bad dev/vm/provision.sh
 [[ -f "${ROOT}/install/machine/install-icons.sh" ]] && ok install/machine/install-icons.sh || bad install/machine/install-icons.sh
 [[ -f "${ROOT}/brand/proteus-mark.svg" ]] && ok brand/proteus-mark.svg || bad brand/proteus-mark.svg
 grep -q '^Icon=proteus-settings' "${ROOT}/apps/proteus-settings/proteus-settings.desktop" && ok "settings.desktop Icon" || bad "settings.desktop Icon"

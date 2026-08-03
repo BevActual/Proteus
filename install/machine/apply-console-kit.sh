@@ -101,5 +101,5 @@ else
   echo "  kit mode: helpers + Steam/RetroArch present (cores/udev via console stage)"
 fi
 echo "==> apply-console-kit done"
-echo "    Enter console: bash ${ROOT}/scripts/dogfood/dogfood-console.sh"
+echo "    Enter console: bash ${ROOT}/dev/dogfood/dogfood-console.sh"
 echo "                or: proteus-posture console"

@@ -32,5 +32,5 @@ User-scoped online-account seats for Proteus Settings.
 cargo build --release
 ./target/release/proteus-accounts smoke
 ./target/release/proteus-accounts token nextcloud   # after connect
-./scripts/smoke/accounts-smoke.sh
+./dev/smoke/accounts-smoke.sh
 ```

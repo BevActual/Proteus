@@ -352,8 +352,8 @@ mutators / browse: `shell/shared/Packages.qml` + `pkexec proteus-pkg`. Kit:
 | Web apps | URL → `~/.local/share/applications/proteus-web-*.desktop` via `proteus-webapp`; no polkit |
 | Orphans | `pacman -Qdt` list; remove via `proteus-pkg orphans`; empty honesty |
 
-**Smoke matrix:** host `./scripts/smoke/software-reliability-smoke.sh` (hub + leaves +
-Web apps); guest `./scripts/smoke/software-guest-smoke.sh` in `smoke-all` (SKIP unless SSH /
+**Smoke matrix:** host `./dev/smoke/software-reliability-smoke.sh` (hub + leaves +
+Web apps); guest `./dev/smoke/software-guest-smoke.sh` in `smoke-all` (SKIP unless SSH /
 `PROTEUS_GUEST=1`). **Out:** Snap; dependency graphs.
 
 **Module rule:** Software leaf helpers stay in `panes/Packages*Pane.qml` + `kit/`

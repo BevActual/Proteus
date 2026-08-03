@@ -14,7 +14,7 @@ proteus_root pacman -S --noconfirm --needed mesa vulkan-virtio 2>/dev/null || \
   proteus_root pacman -S --noconfirm --needed mesa || true
 
 proteus_hw_hypr_envs "proteus-hw-virt" "# Virtio / QEMU — no NVIDIA proprietary stack
-# Prefer nested host dogfood if VirGL is painful: PROTEUS_VM_GL=0 or ./scripts/run-nested.sh"
+# Prefer nested host dogfood if VirGL is painful: PROTEUS_VM_GL=0 or ./dev/run-nested.sh"
 
 echo "hardware/virt: OK (skip nvidia/amd discrete installs on this machine)"
 # Signal siblings via env for this bootstrap process tree

@@ -19,7 +19,7 @@ if [[ "${EUID}" -eq 0 ]]; then
   fi
 fi
 
-# Migration: the layout split moved runtime helpers out of the old vm/guest
+# Migration: the layout split moved runtime helpers out of the old dev/vm/guest
 # path, so an install from before it has dangling /usr/local/bin symlinks.
 # proteus_install_helper re-points everything it still installs, but a broken
 # symlink left behind by a removed helper would shadow PATH forever.

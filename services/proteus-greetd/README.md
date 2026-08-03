@@ -19,5 +19,5 @@ command: `/usr/local/bin/proteus-session`.
 ```bash
 cargo build --release
 sudo ../../install/machine/install-proteus-greetd.sh
-./scripts/smoke/users-smoke.sh
+./dev/smoke/users-smoke.sh
 ```

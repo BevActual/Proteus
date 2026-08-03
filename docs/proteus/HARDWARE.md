@@ -243,14 +243,14 @@ the resolver maps modules → capabilities.
 
 ```bash
 ./services/proteus-hw-probe/proteus-hw-probe
-./scripts/smoke/hw-probe-smoke.sh
+./dev/smoke/hw-probe-smoke.sh
 ```
 
 | Path | Role |
 |------|------|
 | `services/proteus-hw-probe/proteus_hw_probe.py` | Probe logic |
 | `services/proteus-hw-probe/proteus-hw-probe` | CLI wrapper |
-| `scripts/smoke/hw-probe-smoke.sh` | JSON shape gate |
+| `dev/smoke/hw-probe-smoke.sh` | JSON shape gate |
 | `shell/shared/Hardware.qml` | Cache-first; shell live-probes + deferred refresh; Settings cache-only; `Hardware.has("wifi")`; `has("remote")` honors probe CEC/IR/BT HID or `PROTEUS_REMOTE_PROBE` stub |
 | `ShellState` | Mirrors class / caps; `refreshHardware()` |
 | Probe `--cache` | Writes `~/.config/proteus/hw-probe.json` (no QML hex encode) |

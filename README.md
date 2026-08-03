@@ -46,13 +46,13 @@ headless / seat attach); parked postures are thesis only. Honest inventory:
 
 ```bash
 sudo pacman -S qemu-desktop qemu-img edk2-ovmf   # once, if needed
-./vm/download-iso.sh
-./vm/create-disk.sh
-./vm/run.sh install   # first time
-./vm/run.sh           # thereafter
+./dev/vm/download-iso.sh
+./dev/vm/create-disk.sh
+./dev/vm/run.sh install   # first time
+./dev/vm/run.sh           # thereafter
 ```
 
-Guest install, 9p share, SSH, snapshots: **[vm/README.md](vm/README.md)**.
+Guest install, 9p share, SSH, snapshots: **[dev/vm/README.md](dev/vm/README.md)**.
 
 ```bash
 # On guest after boot:
@@ -66,11 +66,11 @@ SSH: `ssh -p 2222 andrew@127.0.0.1`
 Shell-only experiments (does not replace the VM for distro work):
 
 ```bash
-./scripts/run-nested.sh
+./dev/run-nested.sh
 ```
 
 - Exit: `Super+Shift+E` · Terminal: `Super+Return` · Settings: `Super+,`
-- Surface override: `PROTEUS_SURFACE=phone ./scripts/run-nested.sh`
+- Surface override: `PROTEUS_SURFACE=phone ./dev/run-nested.sh`
 
 ## Layout
 
@@ -79,9 +79,7 @@ docs/            # POSITIONING, ARCHITECTURE, POSTURES, CURRENT, …
 install/         # Overlay installer — VM and bare metal alike
   hardware/      # GPU + CPU microcode detection
   machine/       # install-time mutators (install-*.sh, apply-*.sh)
-vm/              # QEMU/KVM Arch guest harness (one kind of machine)
 env/             # Seeds: hypr/ · ghostty/ · fastfetch/
-scripts/         # run-nested.sh, run-desktop.sh, smoke-all.sh · smoke/ · dogfood/
 shell/           # Quickshell (chrome)
   shared/        # Theme, Config, Keybinds, ShellState, …
   surfaces/      # Desktop + posture stubs
@@ -94,6 +92,10 @@ services/
   proteus-logind/     # privileged logind drop-in (Power)
   proteus-audio-mix/  # resident dump+peaks (Sound Mixer)
   proteus-accounts/   # online-accounts vault + Google PKCE
+dev/             # Maintainer tooling — never installed onto a machine
+  vm/            # QEMU/KVM Arch guest harness
+  smoke/  smoke-all.sh   # gates + suite entry
+  dogfood/  spike/  fixtures/
 ```
 
 ### Desktop shell (today)

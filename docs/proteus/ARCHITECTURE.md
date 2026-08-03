@@ -54,7 +54,7 @@ Cold-start map for `~/Projects/Proteus`. Where this disagrees with code,
 │  ~/.config/proteus/* · hypr · pipewire · nm · pacman…   │
 ├─────────────────────────────────────────────────────────┤
 │  Platform                                               │
-│  Arch · Hyprland (backend) · greetd · polkit · vm/      │
+│  Arch · Hyprland (backend) · greetd · polkit · dev/vm/      │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -141,12 +141,15 @@ Proteus/
     *.packages        # base · desktop · console · host rosters
     hardware/         # GPU + CPU microcode detection
     machine/          # install-time mutators only: install-*.sh · apply-*.sh
-  vm/                 # QEMU harness ONLY — run/provision/guest-install; ISO/qcow in PROTEUS_VM_CACHE
   services/           # proteus-hw-probe (read) · proteus-pkg · proteus-logind · proteus-audio-mix · proteus-accounts
-  scripts/            # runners + tools: run-nested, run-desktop, smoke-all (entry)
-    smoke/            # all *-smoke.sh gates (host + guest); run via ./scripts/smoke-all.sh
+  dev/                # MAINTAINER TOOLING ONLY — never installed onto a machine
+    vm/               # QEMU harness: run · provision · guest-install; ISO/qcow in PROTEUS_VM_CACHE
+    smoke/            # all *-smoke.sh gates (host + guest)
+    smoke-all.sh      # suite entry point
     dogfood/          # dogfood-console.sh · dogfood-host.sh
-  tests/              # fixtures for schema/layout smokes (not a QML unit runner)
+    spike/            # throwaway experiments
+    fixtures/         # schema/layout smoke fixtures (not a QML unit runner)
+    run-nested.sh · run-desktop.sh · generate-wallpapers.py
 ```
 
 Public QML import path: `import "../../shared"` / Settings `shared` symlink.
@@ -208,13 +211,13 @@ Do not reimplement Meridian providers or Mobius queue inside Proteus.
 
 | Change | Gate |
 |--------|------|
-| Shell / Settings QML | Dogfood in VM (`./vm/run.sh`) or nested (`./scripts/run-nested.sh`); `./scripts/smoke/qs-guest-smoke.sh` when guest up |
-| Layout / Config keys | `./scripts/smoke/layout-smoke.sh` · `./scripts/smoke/config-schema-smoke.sh` · fixtures in `tests/` |
-| Host smoke suite | `./scripts/smoke-all.sh` |
+| Shell / Settings QML | Dogfood in VM (`./dev/vm/run.sh`) or nested (`./dev/run-nested.sh`); `./dev/smoke/qs-guest-smoke.sh` when guest up |
+| Layout / Config keys | `./dev/smoke/layout-smoke.sh` · `./dev/smoke/config-schema-smoke.sh` · fixtures in `tests/` |
+| Host smoke suite | `./dev/smoke-all.sh` |
 | Guest installers | `install/machine/*.sh` on running guest |
 | Keybinds | Settings → Peripherals → Keyboard round-trip + `~/.config/hypr/proteus-keybinds.conf` |
 | Desktop / Displays | Settings → `proteus-general.conf` / `proteus-monitors.conf` |
-| Hardware probe | `./scripts/smoke/hw-probe-smoke.sh` |
+| Hardware probe | `./dev/smoke/hw-probe-smoke.sh` |
 | Docs-only | Keep CURRENT cites honest |
 
 SSH (default): `ssh -p 2222 andrew@127.0.0.1`

@@ -6,8 +6,8 @@ Full install path (all three layers): [docs/proteus/INSTALL.md](../docs/proteus/
 
 ```
 # Host (after guest has Arch + SSH + 9p):
-./vm/provision.sh                 # prepare ISO/disk hints + overlay over SSH
-./vm/bootstrap.sh                 # overlay only
+./dev/vm/provision.sh                 # prepare ISO/disk hints + overlay over SSH
+./dev/vm/bootstrap.sh                 # overlay only
 
 # On guest:
 sudo bash /mnt/proteus/install/bootstrap.sh

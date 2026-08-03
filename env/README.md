@@ -1,6 +1,6 @@
 # env/ — host / nested session seeds
 
-Templates for **nested** Proteus (`scripts/run-nested.sh`) and copy-sources
+Templates for **nested** Proteus (`dev/run-nested.sh`) and copy-sources
 for guest overlay install.
 
 | Path | Role |

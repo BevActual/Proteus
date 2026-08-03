@@ -12,4 +12,4 @@ Spec: [CHROME.md](../../docs/proteus/CHROME.md) §10 · live binding
 **Not** a Theme substitute inside Quickshell. **Not** canvas/product theming.
 `accent` is Config-driven at runtime; JSON lists a default for export only.
 
-Smoke: `./scripts/smoke/chrome-tokens-smoke.sh`.
+Smoke: `./dev/smoke/chrome-tokens-smoke.sh`.

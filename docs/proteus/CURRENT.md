@@ -14,7 +14,7 @@ related:
   - STACK.md
   - COMPOSITOR.md
   - ../../README.md
-  - ../../vm/README.md
+  - ../../dev/vm/README.md
 status_legend:
   shipped: Works in dogfood path
   partial: Present; gaps remain
@@ -48,11 +48,11 @@ postures are thesis only. Docs describe the thesis ahead of code where marked
 
 | Piece | Status | Notes |
 |-------|--------|-------|
-| Arch Linux guest | `shipped` | QEMU/KVM via `vm/run.sh` |
+| Arch Linux guest | `shipped` | QEMU/KVM via `dev/vm/run.sh` |
 | Bare-metal install path | `partial` — overlay is path-agnostic (root Fact + `readlink`-resolved helpers + `PROTEUS_INSTALL_COPY_HELPERS` escape); base Arch is still a manual install, and **no bare-metal dogfood run has happened yet** — untested against real GPU/battery/backlight ([INSTALL.md](./INSTALL.md)) |
 | Hyprland session | `shipped` | Backend for desktop posture; greetd / proteus-session |
 | Quickshell shell | `shipped` | Chrome runtime; `/mnt/proteus/shell` via 9p |
-| Nested Hyprland (host) | `shipped` | `scripts/run-nested.sh` — shell-only quick test |
+| Nested Hyprland (host) | `shipped` | `dev/run-nested.sh` — shell-only quick test |
 | Hyprland posture profiles | `partial` — desktop + console (fullscreen rules) / host (lean ops) / home stub + soft `set-hypr-profile.sh` + Settings About soft picker; hard Session posture picker in About (`proteus-posture`) — [POSTURES.md](./POSTURES.md) · [COMPOSITOR.md](./COMPOSITOR.md) |
 | QS version pin / respawn policy | `shipped` — `proteus-qs` flock + `--restart` + orphan reap + backoff; optional systemd `--user` unit; version **recorded** in `qs-guest-smoke` / `qs-version-smoke` (not IgnorePkg); after QS upgrade re-run guest smoke; IgnorePkg/ISO pin Out |
 
@@ -80,7 +80,7 @@ Desktop (`shell/surfaces/DesktopShell.qml` + `desktop/`):
 | Theme tokens | `shipped` — space/radius scale + accent/font from Config; company lock [CHROME.md](./CHROME.md) |
 | Themed controls (`ThemeSlider` / `ThemeSwitch`) | `shipped` — shared accent Slider/Switch wrappers (`shell/shared/`) used by all Settings panes, Control Center Sound plate, and lock clock HUD; stock Controls variants smoke-banned (`chrome-tokens-smoke`) |
 | Shared package layout (flat + helpers) | `shipped` — Config/Background ownership split; Settings `kit/`; guest dogfood OK |
-| Smoke suite (`scripts/smoke/*-smoke.sh`) | `shipped` — layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · accounts · users · lock-pin · permissions · desktop · spaces · focus · control-center · beacon · audio-mix-serve · hw-probe · install · session · posture-hard · console · host · qs-version; optional `qs-guest` + `software-guest` + `console-guest` + `host-guest` via `smoke-all` / `PROTEUS_GUEST=1` |
+| Smoke suite (`dev/smoke/*-smoke.sh`) | `shipped` — layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · accounts · users · lock-pin · permissions · desktop · spaces · focus · control-center · beacon · audio-mix-serve · hw-probe · install · session · posture-hard · console · host · qs-version; optional `qs-guest` + `software-guest` + `console-guest` + `host-guest` via `smoke-all` / `PROTEUS_GUEST=1` |
 
 ---
 
@@ -121,7 +121,7 @@ Locked product set: [POSTURES.md](./POSTURES.md).
 | Posture | Status |
 |---------|--------|
 | desktop | `partial` — primary focus spine |
-| console | `partial` — lean-back **launcher** (Games · Media · Apps · Search · Settings list IA) + **Console Settings face** (in-chrome · `settingsFaceHubs(console)` · Network Wi‑Fi scan/connect + Sound sink picker · status strip · Full Settings = desktop escape) + hard `proteus-posture`; Media = streaming allowlist only (no AudioVideo-category fallback; local play = Search sheet); Apps = browser/Discord/terminal curated; Games = Recent · **Installed titles** (`proteus-console-games.py` Steam appmanifest + RetroArch playlist scan → per-title seat launch) · Launchers; footer status strip + pad legend; stores-as-backend locked in POSTURES; **Gamescope-as-session `partial`** — `proteus-session` engine switch at login (`game_scope` = gamescope + hardware Vulkan) → `proteus-console-gs-session` (Gamescope owns the session; **Proteus Home** = QS xdg client `shell/console-home`; Guide focus-flip via `proteus-console-focus` baselayer atoms; Lock = session exit — login is the lock; host-side spike `scripts/spike/gs-qs-spike.sh` PASSED); prove paths bare metal / **VFIO passthrough** (`PROTEUS_VM_VFIO`); **interim** (VirGL / no hardware Vulkan) Hypr kiosk + seat + per-title/nested Gamescope; shelf Home retired from primary path; Guide long-hold → exit desktop; pad input **single-fire** (`proteus-guide` single-instance lock · BTN_DPAD/HAT dual-report dedupe · hold-repeat delay); `apply-console-kit.sh` |
+| console | `partial` — lean-back **launcher** (Games · Media · Apps · Search · Settings list IA) + **Console Settings face** (in-chrome · `settingsFaceHubs(console)` · Network Wi‑Fi scan/connect + Sound sink picker · status strip · Full Settings = desktop escape) + hard `proteus-posture`; Media = streaming allowlist only (no AudioVideo-category fallback; local play = Search sheet); Apps = browser/Discord/terminal curated; Games = Recent · **Installed titles** (`proteus-console-games.py` Steam appmanifest + RetroArch playlist scan → per-title seat launch) · Launchers; footer status strip + pad legend; stores-as-backend locked in POSTURES; **Gamescope-as-session `partial`** — `proteus-session` engine switch at login (`game_scope` = gamescope + hardware Vulkan) → `proteus-console-gs-session` (Gamescope owns the session; **Proteus Home** = QS xdg client `shell/console-home`; Guide focus-flip via `proteus-console-focus` baselayer atoms; Lock = session exit — login is the lock; host-side spike `dev/spike/gs-qs-spike.sh` PASSED); prove paths bare metal / **VFIO passthrough** (`PROTEUS_VM_VFIO`); **interim** (VirGL / no hardware Vulkan) Hypr kiosk + seat + per-title/nested Gamescope; shelf Home retired from primary path; Guide long-hold → exit desktop; pad input **single-fire** (`proteus-guide` single-instance lock · BTN_DPAD/HAT dual-report dedupe · hold-repeat delay); `apply-console-kit.sh` |
 | host | `partial` — seat-driven: `proteus-posture host` **defaults headless** (`host-chrome=none`); `proteus-host-seat attach\|detach` for ops UI; **HexOS-style Command-Deck dashboard** (HostHome card grid: processor · memory · storage/SMART/pools · network · health · workloads · apps · shares — read-only, fed by `proteus-host-metrics.py` + `HostMetrics.qml`); **Workloads app tabs** = single mutation surface: Workloads (VM/ctr ops) · **Apps** (one-click catalog `env/apps/host-apps.json` → `proteus-app-<id>` containers) · **Shares** (Samba usershare CRUD — `host` install stage seeds usershares dir + `sambashare` group + smb); honesty gates (no samba/smartctl/engine → install path, `—`, never fake); **Host Settings face** (virt + shared core via `openSettingsSmart`); enter Beacon/CC / `Super+Shift+H`; graphical-remote attach Out |
 | home · wearable · xr · vehicle | `parked` — thesis only; not in proof order |
 
@@ -134,9 +134,9 @@ login); dev/nested fallback = in-place chrome flip
 `Super+Shift+C` / `Super+Shift+H`. Settings → About **Session posture** = hard
 picker; **Hyprland profile** = Advanced soft window rules only (not exit).
 
-Console dogfood (guest): `bash /mnt/proteus/scripts/dogfood/dogfood-console.sh`
+Console dogfood (guest): `bash /mnt/proteus/dev/dogfood/dogfood-console.sh`
 (`--launch browser|retroarch`; `--restore`). Host dogfood:
-`bash /mnt/proteus/scripts/dogfood/dogfood-host.sh` (default headless → seat attach/detach;
+`bash /mnt/proteus/dev/dogfood/dogfood-host.sh` (default headless → seat attach/detach;
 `--restore` → desktop). Titles via `proteus-console-seat` (Gamescope when usable).
 Primary chrome is Games/Media/Search/Settings list IA; stores-as-backend locked in POSTURES.
 
@@ -173,13 +173,14 @@ Primary chrome is Games/Media/Search/Settings list IA; stores-as-backend locked 
 
 | Command | Role |
 |---------|------|
-| `./vm/run.sh` | Boot installed guest (disk under `PROTEUS_VM_CACHE`, default `~/.cache/proteus-vm`) |
-| `./vm/run.sh snapshot\|restore` | qcow2 snapshots (`hyprland-base`, …) |
-| `./vm/download-iso.sh` / `create-disk.sh` | Fetch ISO / create disk in cache |
-| `./vm/provision.sh` | Prepare ISO/disk hints + SSH overlay (`bootstrap.sh`); `status` = read-only checklist (ISO/disk/SSH/last overlay; running-VM-safe `qemu-img -U`) |
-| `./vm/bootstrap.sh` | SSH guest → light overlay (`install/bootstrap.sh`; passes REPAIR/UPDATE knobs) |
+| `./dev/vm/run.sh` | Boot installed guest (disk under `PROTEUS_VM_CACHE`, default `~/.cache/proteus-vm`) |
+| `./dev/vm/run.sh snapshot\|restore` | qcow2 snapshots (`hyprland-base`, …) |
+| `./dev/vm/download-iso.sh` / `create-disk.sh` | Fetch ISO / create disk in cache |
+| `./dev/vm/provision.sh` | Prepare ISO/disk hints + SSH overlay (`bootstrap.sh`); `status` = read-only checklist (ISO/disk/SSH/last overlay; running-VM-safe `qemu-img -U`) |
+| `./dev/vm/bootstrap.sh` | SSH guest → light overlay (`install/bootstrap.sh`; passes REPAIR/UPDATE knobs) |
 | `bash /mnt/proteus/install/bootstrap.sh` | On guest: staged overlay incl. `console` stage (multilib + Steam/RetroArch/cores/pads); `repair` = fast config→apps→console preset; `PROTEUS_INSTALL_UPDATE=1` = -Syu + list refresh; skip/resume/only knobs |
-| Repo layout (post-split) | `install/` overlay (VM + bare metal) · `install/machine/` install-time mutators · `shell/scripts/` **all** runtime PATH helpers · `scripts/dogfood/` · `vm/` QEMU harness only — asserted by `check.sh` ([ARCHITECTURE.md](./ARCHITECTURE.md) §4) |
+| Repo layout (post-split) | `install/` overlay (VM + bare metal) · `install/machine/` install-time mutators · `shell/scripts/` **all** runtime PATH helpers · `dev/dogfood/` · `dev/vm/` QEMU harness only — asserted by `check.sh` ([ARCHITECTURE.md](./ARCHITECTURE.md) §4) |
+| Product vs maintainer boundary | `dev/` holds **all** maintainer tooling (vm harness · smoke · dogfood · spike · fixtures · runners) and is never installed onto a machine; repo root is product-only. Enforced by `check.sh` — including that `install/` never *executes* anything from `dev/` |
 | `./install/check.sh` | Host tree/`bash -n` gate for overlay stages + roster split + repair/status wiring + bare-metal root chain + snapshots + INSTALL.md |
 | `PROTEUS_ROOT="$PWD" sudo -E bash install/bootstrap.sh` | **Bare metal** — same overlay, no 9p; writes the root Fact ([INSTALL.md](./INSTALL.md)) |
 | `proteus-snapshot status\|list\|create\|pre-flip\|rollback` | Bare-metal rollback net (btrfs + snapper); `rollback` is a dry run without `--yes`; honest when unsupported |
@@ -187,41 +188,41 @@ Primary chrome is Games/Media/Search/Settings list IA; stores-as-backend locked 
 | `bash /mnt/proteus/install/machine/install-keybinds.sh` | Keybinds file + hypr source (user home) |
 | `bash /mnt/proteus/install/machine/install-desktop-conf.sh` | `proteus-general.conf` + `proteus-monitors.conf` + sources |
 | `bash /mnt/proteus/install/machine/install-lock-pam.sh` | `/etc/pam.d/proteus-lock` (falls back to `login` if absent) |
-| `./scripts/run-nested.sh` | Nested Hyprland on host |
-| `./scripts/smoke-all.sh` | Host smokes (layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · accounts · users · lock-pin · permissions · desktop · spaces · focus · control-center · beacon · audio-mix-serve · hw-probe · install · session · posture-hard · console · host · workloads-app · qs-version); guest `qs-guest` + `software-guest` + `console-guest` + `host-guest` if SSH or `PROTEUS_GUEST=1` |
-| `./scripts/smoke/shellcheck-smoke.sh` | **Executable** static analysis of 116 shell sources — gate = severity `error` (green); backlog **33 warning · 167 info** reported, not gated. SKIPs honestly without `shellcheck`. Found a live `SC2259` bug on adoption (piped stdin swallowed by a heredoc) |
-| `./scripts/smoke/doc-links-smoke.sh` | **Executable** — every relative link in every tracked `.md` must resolve (201 links / 39 docs). Caught 5 breaks the install/ rename left behind |
-| `./scripts/smoke/layout-smoke.sh` | Flat `shell/shared/` + Settings `kit/` structure |
-| `./scripts/smoke/widget-layout-resolve-smoke.sh` | Widget free/snap resolve capped + flush/no-overlap geometry stress |
-| `./scripts/smoke/ipc-contract-smoke.sh` | Smoke `qs ipc call` sites ⊆ shell/Settings `IpcHandler` methods |
-| `./scripts/smoke/config-roundtrip-smoke.sh` | Mutate `settings.minimal.json` prefs; still ⊆ Config keys + JSON round-trip |
-| `./scripts/smoke/config-schema-smoke.sh` | Config FileView keys ↔ `tests/fixtures/settings.minimal.json` |
-| `./scripts/smoke/app-manifest-smoke.sh` | `env/apps` schema + catalog + EnvGate postures/prefers/device_classes wiring |
-| `./scripts/smoke/chrome-tokens-smoke.sh` | `env/chrome` tokens JSON/CSS + ThemeSlider/ThemeSwitch stock-ban |
-| `./scripts/smoke/software-reliability-smoke.sh` | Host static checks — all six Software leaves + hub helper honesty + op narrative / leafUi |
-| `./scripts/smoke/power-logind-smoke.sh` | Host static checks for `proteus-logind` + Power.qml wiring |
-| `./scripts/smoke/accounts-smoke.sh` | Host static checks for `proteus-accounts` + Online accounts wiring |
-| `./scripts/smoke/users-smoke.sh` | Host static checks for `proteus-greetd` + Users autologin wiring |
-| `./scripts/smoke/lock-pin-smoke.sh` | Host static checks for unlock PIN hash store + `check-unlock.py` / `proteus-pin.py` / `proteus_auth.py` + apps.sh install + `shell/pam/proteus-lock` source (no live PAM auth) |
-| `./scripts/smoke/permissions-smoke.sh` | Host static checks for `permissions.json` store + Privacy leaves + EnvGate grant gate |
-| `./scripts/smoke/desktop-smoke.sh` | Host static checks for Desktop leaves + `proteus-defaults.py` / `beacon-file-index.py` + CC Edit › wiring |
-| `./scripts/smoke/spaces-smoke.sh` | Host checks for `proteus-workspace` band math + `status --fixture` 2-head + ensure/SpacesDisplays/hotplug + scratch/special CRUD fixtures (no live 2-head required) |
-| `./scripts/smoke/focus-smoke.sh` | Host checks for FocusMode add/rename/delete + DesktopFocusLeaf CRUD UI + roundtrip `name` field |
-| `./scripts/smoke/control-center-smoke.sh` | Host checks for ControlCenterLayout.setColumns + Settings columns UI + QuickSettingsGrid bind |
-| `./scripts/smoke/beacon-smoke.sh` | Host checks for Beacon Files index rebuild/search/status + UniversalSearch / defaultAppSubtitle / wtype wiring |
-| `./scripts/smoke/audio-mix-serve-smoke.sh` | Host checks for `proteus-audio-mix` dump/serve + Audio.qml wiring |
-| `./scripts/smoke/hw-probe-smoke.sh` | Wave A probe JSON (device_class + capabilities) |
-| `./scripts/smoke/install-smoke.sh` | Overlay installer tree check (stages incl. console · package roster split · repair preset · provision status · INSTALL.md) |
-| `./scripts/smoke/session-smoke.sh` | Host gate for `proteus-session` contract + `proteus.desktop` |
-| `./scripts/smoke/posture-hard-smoke.sh` | Host static checks for hard `proteus-posture` (desktop/console/host) + console profile rename (no live compositor flip) |
-| `./scripts/smoke/console-smoke.sh` | Host Phase 1/2 gate — SideList/detail · Games/Media/Search/Settings · streaming classifier · seat/caps/session · dogfood-console · install wiring (no live posture flip) |
-| `./scripts/smoke/console-guest-smoke.sh` | Guest console dogfood flip+verify + restore desktop (`dogfood-console.sh`); in `smoke-all` (SKIP unless SSH / `PROTEUS_GUEST=1`) |
-| `./scripts/smoke/host-smoke.sh` | Host Phase 1 gate — HostShell · default headless · proteus-host-seat · enter-host --chrome wires (no live posture flip) |
-| `./scripts/smoke/host-guest-smoke.sh` | Guest host dogfood flip+seat+restore (`dogfood-host.sh`); in `smoke-all` (SKIP unless SSH / `PROTEUS_GUEST=1`) |
-| `./scripts/smoke/workloads-app-smoke.sh` | Host static checks for thin `proteus-workloads` app + HostHome handoff |
-| `./scripts/smoke/qs-version-smoke.sh` | Record QS version policy (no IgnorePkg); checks `qs-guest-smoke` upgrade path |
-| `./scripts/smoke/qs-guest-smoke.sh` | Guest cold-start `SHELL_OK` / `SETTINGS_OK` + record `quickshell` version + polkit agent + nav deep link + Beacon + calendar + Customize/widgets IPC (add/move/snap/remove worldclock probe) |
-| `./scripts/smoke/software-guest-smoke.sh` | Guest Software dogfood (browse/inventory + Flatpak install/remove; yay\|paru; pacman mutator if passwordless sudo); in `smoke-all` (SKIP unless SSH / `PROTEUS_GUEST=1`) |
+| `./dev/run-nested.sh` | Nested Hyprland on host |
+| `./dev/smoke-all.sh` | Host smokes (layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · accounts · users · lock-pin · permissions · desktop · spaces · focus · control-center · beacon · audio-mix-serve · hw-probe · install · session · posture-hard · console · host · workloads-app · qs-version); guest `qs-guest` + `software-guest` + `console-guest` + `host-guest` if SSH or `PROTEUS_GUEST=1` |
+| `./dev/smoke/shellcheck-smoke.sh` | **Executable** static analysis of 116 shell sources — gate = severity `error` (green); backlog **33 warning · 169 info** reported, not gated. SKIPs honestly without `shellcheck`. Found a live `SC2259` bug on adoption (piped stdin swallowed by a heredoc) |
+| `./dev/smoke/doc-links-smoke.sh` | **Executable** — every relative link in every tracked `.md` must resolve (201 links / 39 docs). Caught 5 breaks the install/ rename left behind |
+| `./dev/smoke/layout-smoke.sh` | Flat `shell/shared/` + Settings `kit/` structure |
+| `./dev/smoke/widget-layout-resolve-smoke.sh` | Widget free/snap resolve capped + flush/no-overlap geometry stress |
+| `./dev/smoke/ipc-contract-smoke.sh` | Smoke `qs ipc call` sites ⊆ shell/Settings `IpcHandler` methods |
+| `./dev/smoke/config-roundtrip-smoke.sh` | Mutate `settings.minimal.json` prefs; still ⊆ Config keys + JSON round-trip |
+| `./dev/smoke/config-schema-smoke.sh` | Config FileView keys ↔ `dev/fixtures/settings.minimal.json` |
+| `./dev/smoke/app-manifest-smoke.sh` | `env/apps` schema + catalog + EnvGate postures/prefers/device_classes wiring |
+| `./dev/smoke/chrome-tokens-smoke.sh` | `env/chrome` tokens JSON/CSS + ThemeSlider/ThemeSwitch stock-ban |
+| `./dev/smoke/software-reliability-smoke.sh` | Host static checks — all six Software leaves + hub helper honesty + op narrative / leafUi |
+| `./dev/smoke/power-logind-smoke.sh` | Host static checks for `proteus-logind` + Power.qml wiring |
+| `./dev/smoke/accounts-smoke.sh` | Host static checks for `proteus-accounts` + Online accounts wiring |
+| `./dev/smoke/users-smoke.sh` | Host static checks for `proteus-greetd` + Users autologin wiring |
+| `./dev/smoke/lock-pin-smoke.sh` | Host static checks for unlock PIN hash store + `check-unlock.py` / `proteus-pin.py` / `proteus_auth.py` + apps.sh install + `shell/pam/proteus-lock` source (no live PAM auth) |
+| `./dev/smoke/permissions-smoke.sh` | Host static checks for `permissions.json` store + Privacy leaves + EnvGate grant gate |
+| `./dev/smoke/desktop-smoke.sh` | Host static checks for Desktop leaves + `proteus-defaults.py` / `beacon-file-index.py` + CC Edit › wiring |
+| `./dev/smoke/spaces-smoke.sh` | Host checks for `proteus-workspace` band math + `status --fixture` 2-head + ensure/SpacesDisplays/hotplug + scratch/special CRUD fixtures (no live 2-head required) |
+| `./dev/smoke/focus-smoke.sh` | Host checks for FocusMode add/rename/delete + DesktopFocusLeaf CRUD UI + roundtrip `name` field |
+| `./dev/smoke/control-center-smoke.sh` | Host checks for ControlCenterLayout.setColumns + Settings columns UI + QuickSettingsGrid bind |
+| `./dev/smoke/beacon-smoke.sh` | Host checks for Beacon Files index rebuild/search/status + UniversalSearch / defaultAppSubtitle / wtype wiring |
+| `./dev/smoke/audio-mix-serve-smoke.sh` | Host checks for `proteus-audio-mix` dump/serve + Audio.qml wiring |
+| `./dev/smoke/hw-probe-smoke.sh` | Wave A probe JSON (device_class + capabilities) |
+| `./dev/smoke/install-smoke.sh` | Overlay installer tree check (stages incl. console · package roster split · repair preset · provision status · INSTALL.md) |
+| `./dev/smoke/session-smoke.sh` | Host gate for `proteus-session` contract + `proteus.desktop` |
+| `./dev/smoke/posture-hard-smoke.sh` | Host static checks for hard `proteus-posture` (desktop/console/host) + console profile rename (no live compositor flip) |
+| `./dev/smoke/console-smoke.sh` | Host Phase 1/2 gate — SideList/detail · Games/Media/Search/Settings · streaming classifier · seat/caps/session · dogfood-console · install wiring (no live posture flip) |
+| `./dev/smoke/console-guest-smoke.sh` | Guest console dogfood flip+verify + restore desktop (`dogfood-console.sh`); in `smoke-all` (SKIP unless SSH / `PROTEUS_GUEST=1`) |
+| `./dev/smoke/host-smoke.sh` | Host Phase 1 gate — HostShell · default headless · proteus-host-seat · enter-host --chrome wires (no live posture flip) |
+| `./dev/smoke/host-guest-smoke.sh` | Guest host dogfood flip+seat+restore (`dogfood-host.sh`); in `smoke-all` (SKIP unless SSH / `PROTEUS_GUEST=1`) |
+| `./dev/smoke/workloads-app-smoke.sh` | Host static checks for thin `proteus-workloads` app + HostHome handoff |
+| `./dev/smoke/qs-version-smoke.sh` | Record QS version policy (no IgnorePkg); checks `qs-guest-smoke` upgrade path |
+| `./dev/smoke/qs-guest-smoke.sh` | Guest cold-start `SHELL_OK` / `SETTINGS_OK` + record `quickshell` version + polkit agent + nav deep link + Beacon + calendar + Customize/widgets IPC (add/move/snap/remove worldclock probe) |
+| `./dev/smoke/software-guest-smoke.sh` | Guest Software dogfood (browse/inventory + Flatpak install/remove; yay\|paru; pacman mutator if passwordless sudo); in `smoke-all` (SKIP unless SSH / `PROTEUS_GUEST=1`) |
 
 SSH default: `ssh -p 2222 andrew@127.0.0.1`
 Install path SoT (three layers, knobs, repair, failures): [INSTALL.md](./INSTALL.md)

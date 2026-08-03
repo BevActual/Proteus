@@ -104,7 +104,7 @@ Prefer these for OS facts before inventing daemons.
 | **Hyprland-shaped integrations** | Best backend for **desktop** — not universal; **console** uses a game-scoped path |
 | **Output / session fragility** | Crashes reported on monitor hotplug, TTY switch, KVM, sleep — **v1:** `shell/scripts/proteus-qs` backoff loop from Hyprland `exec-once`; never keep sole truth in QS memory |
 | **Session start hygiene** | `shell/scripts/proteus-session` prefers `start-hyprland`; hypr seed `exec-once` = qs/bg/cliphist/hyprpolkitagent (no terminal); `hide-system-apps` from apps + post-install; host `session-smoke` / `install-smoke` |
-| **Young / moving target** | **v1:** record `quickshell --version` in `qs-guest-smoke` / `qs-version-smoke` (do **not** `IgnorePkg`-pin rolling Arch); after `pacman -Syu` re-run `PROTEUS_GUEST=1 ./scripts/smoke-all.sh`; ISO pin later |
+| **Young / moving target** | **v1:** record `quickshell --version` in `qs-guest-smoke` / `qs-version-smoke` (do **not** `IgnorePkg`-pin rolling Arch); after `pacman -Syu` re-run `PROTEUS_GUEST=1 ./dev/smoke-all.sh`; ISO pin later |
 | **QML is programming** | Shared modules; Rust helpers for messy IO |
 | **Settings as second `quickshell -p`** | OK now; files are SoT; revisit Tauri Settings if lifecycle hurts |
 | **Not a virt/ops UI kit** | Host console ≠ Portainer in a panel |

@@ -24,7 +24,7 @@ full PLAYBOOK or queue here. Override sibling paths with `MOBIUS_ROOT` /
 | System facts / schema | [docs/proteus/FACTS.md](docs/proteus/FACTS.md) · [CONFIG-SCHEMA.md](docs/proteus/CONFIG-SCHEMA.md) |
 | Honest status | [docs/proteus/CURRENT.md](docs/proteus/CURRENT.md) |
 | Ecosystem seat | [docs/shared/ECOSYSTEM.md](docs/shared/ECOSYSTEM.md) |
-| VM dogfood | [vm/README.md](vm/README.md) |
+| VM dogfood | [dev/vm/README.md](dev/vm/README.md) |
 
 | Sibling | Entry |
 |---------|--------|
@@ -35,10 +35,10 @@ full PLAYBOOK or queue here. Override sibling paths with `MOBIUS_ROOT` /
 ## Product kickoffs
 
 - **`install`** — overlay (VM + bare metal): `install/bootstrap.sh`; helpers `install/machine/`; runtime helpers `shell/scripts/`; SoT: [docs/proteus/INSTALL.md](docs/proteus/INSTALL.md).
-- **`vm`** — boot guest: `./vm/run.sh`; provision: `./vm/provision.sh`; artifacts in `PROTEUS_VM_CACHE`; overlay `install/`; helpers `install/machine/`; install path SoT: [docs/proteus/INSTALL.md](docs/proteus/INSTALL.md).
-- **`nested`** — host quick shell test: `./scripts/run-nested.sh`.
-- **`probe`** — Wave A hardware JSON: `./services/proteus-hw-probe/proteus-hw-probe` · smoke: `./scripts/smoke/hw-probe-smoke.sh`
-- **`smoke`** — host suite: `./scripts/smoke-all.sh` (shellcheck · doc-links · layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · power-threshold · accounts · users · lock-pin · permissions · desktop · spaces · focus · control-center · beacon · audio-mix-serve · hw-probe · install · session · posture-hard · console · host · workloads-app · host-metrics · peripherals · network-vpn · headscale-admin · qs-version; guest `qs-guest` + `software-guest` + `console-guest` + `host-guest` if SSH `:2222` or `PROTEUS_GUEST=1`)
+- **`vm`** — boot guest: `./dev/vm/run.sh`; provision: `./dev/vm/provision.sh`; artifacts in `PROTEUS_VM_CACHE`; overlay `install/`; helpers `install/machine/`; install path SoT: [docs/proteus/INSTALL.md](docs/proteus/INSTALL.md).
+- **`nested`** — host quick shell test: `./dev/run-nested.sh`.
+- **`probe`** — Wave A hardware JSON: `./services/proteus-hw-probe/proteus-hw-probe` · smoke: `./dev/smoke/hw-probe-smoke.sh`
+- **`smoke`** — host suite: `./dev/smoke-all.sh` (shellcheck · doc-links · layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · power-threshold · accounts · users · lock-pin · permissions · desktop · spaces · focus · control-center · beacon · audio-mix-serve · hw-probe · install · session · posture-hard · console · host · workloads-app · host-metrics · peripherals · network-vpn · headscale-admin · qs-version; guest `qs-guest` + `software-guest` + `console-guest` + `host-guest` if SSH `:2222` or `PROTEUS_GUEST=1`)
 - **`settings`** — work in `apps/proteus-settings/` + `shell/shared` (symlink).
 - **`shell`** — Quickshell chrome only; do not grow product apps here ([STACK.md](docs/proteus/STACK.md)).
 - **`loop` / `standing` / …** — follow **Mobius** `AGENTS.md`; Proteus items may be queued there with home: Proteus.
@@ -47,8 +47,8 @@ full PLAYBOOK or queue here. Override sibling paths with `MOBIUS_ROOT` /
 
 | Change | Gate |
 |--------|------|
-| Shell / Settings | Dogfood in VM or nested; `./scripts/smoke-all.sh`; update CURRENT if behavior ships |
-| Layout / schema / install | `./scripts/smoke/layout-smoke.sh` · `./scripts/smoke/config-schema-smoke.sh` · `./scripts/smoke/install-smoke.sh` |
+| Shell / Settings | Dogfood in VM or nested; `./dev/smoke-all.sh`; update CURRENT if behavior ships |
+| Layout / schema / install | `./dev/smoke/layout-smoke.sh` · `./dev/smoke/config-schema-smoke.sh` · `./dev/smoke/install-smoke.sh` |
 | Guest scripts | Run on guest; don’t leave keybinds under `/root` when using sudo |
 | Docs-only | Keep POSITIONING/CURRENT status legends honest |
 

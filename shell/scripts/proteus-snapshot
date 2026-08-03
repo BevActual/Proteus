@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # proteus-snapshot — bare-metal rollback net (btrfs + snapper).
 #
-# The VM harness has `vm/run.sh snapshot|restore`. This is the equivalent for a
+# The VM harness has `dev/vm/run.sh snapshot|restore`. This is the equivalent for a
 # real machine, and it is deliberately thin: snapper owns the mechanism, this
 # owns the Proteus-shaped vocabulary (baseline / pre-flip / status honesty).
 #

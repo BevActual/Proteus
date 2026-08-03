@@ -82,7 +82,7 @@ export QS_ICON_THEME="${QS_ICON_THEME:-Papirus-Dark}"
 export QT_QPA_PLATFORMTHEME="${QT_QPA_PLATFORMTHEME:-gtk3}"
 
 # Prefer the watchdog wrapper (crash recovery / safe mode). Bare `Hyprland`
-# is only for nested debug (scripts/run-nested.sh) or hosts without the wrapper.
+# is only for nested debug (dev/run-nested.sh) or hosts without the wrapper.
 resolve_start_hyprland() {
   if command -v start-hyprland >/dev/null 2>&1; then
     command -v start-hyprland
