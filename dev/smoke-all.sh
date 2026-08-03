@@ -32,6 +32,7 @@ run control-center-smoke.sh
 run beacon-smoke.sh
 run audio-mix-serve-smoke.sh
 run hw-probe-smoke.sh
+run settings-backing-smoke.sh
 run install-smoke.sh
 run install-idempotency-smoke.sh
 run session-smoke.sh

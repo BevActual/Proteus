@@ -78,6 +78,25 @@ Do disconnect **primary navigation** and **input grammar**:
 - Face lists are **emphasis** — what Console/Host Settings home shows first.
 - Desktop face remains the deep editor; console/host escape into it when needed.
 
+### What Settings reads
+
+Three separable concerns, deliberately at different maturities:
+
+| Concern | Source | State |
+|---------|--------|-------|
+| **Availability** — may this hub exist here? | `requires` / `requiresAny` (hw-probe capabilities) + `postures` + Focus density, via `EnvGate.paneAvailable` | capability-driven |
+| **Emphasis** — what does this face show first? | `EnvGate.settingsFaceHubs(posture)` | hardcoded lists — candidate for manifest data |
+| **Backing** — what Fact or CLI does this map to? | `backsFacts` / `backsCli` per hub | declared, and gated (HARD RULE 2) |
+
+The backing declaration is what makes a per-posture **CLI surface** derivable:
+a posture's inspectable command set is the union of `backsCli` across the hubs
+it can reach. That matters most for **host**, which defaults headless — there the
+CLI surface *is* the interface.
+
+Not generated: pane implementations stay bespoke. `SoundMatrixLeaf` is a mixer
+grid and `DisplaysPane` is a drag canvas; the manifest decides *whether*, *where*
+and *what it maps to*, never *how it looks*.
+
 ### What "face" means here — and where each one lives
 
 A face is a **renderer plus a navigation emphasis**, not an app. One catalog

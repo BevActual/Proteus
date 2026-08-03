@@ -177,7 +177,11 @@ Optional later: more Rust CLIs (`proteus-net`, etc.) so QML stays thin
 `locked` for this track:
 
 1. **Shell launches Settings; Settings owns system control.**
-2. **Every Settings control has a file or CLI you can inspect.**
+2. **Every Settings control has a file or CLI you can inspect.** Enforced: each
+   settings hub declares `backsFacts` / `backsCli` in `EnvGate.settingsCatalog`,
+   and `dev/smoke/settings-backing-smoke.sh` resolves every name against the
+   repo helpers, built services, a declared external-tool list, and the Facts
+   table in [CURRENT.md](./CURRENT.md) §5.
 3. **One Config schema for all postures.**
 4. **Accent = action/selection**, not decoration wash.
 5. **VM + scripts are the verify path** (nested Hyprland is shell-only shortcut).

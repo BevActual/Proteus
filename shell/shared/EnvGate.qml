@@ -58,7 +58,15 @@ Singleton {
       label: "Appearance",
       status: "shipped",
       requires: [],
-      requiresAny: []
+      requiresAny: [],
+      // HARD RULE 2: the Facts this hub writes and the CLIs it drives.
+      backsFacts: [
+        "~/.config/proteus/settings.json"
+      ],
+      backsCli: [
+        "proteus-bg",
+        "fetch-daily-wallpaper.py"
+      ]
     },
     {
       id: "desktop",
@@ -66,6 +74,18 @@ Singleton {
       status: "shipped",
       requires: ["display"],
       requiresAny: [],
+      // HARD RULE 2: the Facts this hub writes and the CLIs it drives.
+      backsFacts: [
+        "~/.config/hypr/proteus-general.conf",
+        "~/.config/hypr/proteus-keybinds.conf",
+        "~/.config/proteus/keybinds.json"
+      ],
+      backsCli: [
+        "proteus-workspace",
+        "proteus-defaults.py",
+        "beacon-file-index.py",
+        "hyprctl"
+      ],
       postures: ["desktop"]
     },
     {
@@ -73,77 +93,168 @@ Singleton {
       label: "Displays",
       status: "shipped",
       requires: ["display"],
-      requiresAny: []
+      requiresAny: [],
+      // HARD RULE 2: the Facts this hub writes and the CLIs it drives.
+      backsFacts: [
+        "~/.config/hypr/proteus-monitors.conf"
+      ],
+      backsCli: [
+        "hyprctl"
+      ]
     },
     {
       id: "sound",
       label: "Sound",
       status: "shipped",
       requires: [],
-      requiresAny: ["speaker", "mic", "qs_pipewire"]
+      requiresAny: ["speaker", "mic", "qs_pipewire"],
+      // HARD RULE 2: the Facts this hub writes and the CLIs it drives.
+      backsFacts: [
+        "~/.config/proteus/settings.json"
+      ],
+      backsCli: [
+        "pactl",
+        "wpctl",
+        "audio-mix.py",
+        "proteus-audio-mix"
+      ]
     },
     {
       id: "network",
       label: "Network",
       status: "shipped",
       requires: [],
-      requiresAny: ["wifi", "ethernet", "bt"]
+      requiresAny: ["wifi", "ethernet", "bt"],
+      // HARD RULE 2: the Facts this hub writes and the CLIs it drives.
+      backsFacts: [],
+      backsCli: [
+        "nmcli",
+        "bluetoothctl",
+        "tailscale",
+        "proteus-headscale.py"
+      ]
     },
     {
       id: "peripherals",
       label: "Peripherals",
       status: "shipped",
       requires: [],
-      requiresAny: ["keyboard", "pointer"]
+      requiresAny: ["keyboard", "pointer"],
+      // HARD RULE 2: the Facts this hub writes and the CLIs it drives.
+      backsFacts: [
+        "~/.config/hypr/proteus-general.conf",
+        "~/.config/proteus/keybinds.json"
+      ],
+      backsCli: [
+        "hyprctl"
+      ]
     },
     {
       id: "power",
       label: "Power",
       status: "shipped",
       requires: [],
-      requiresAny: []
+      requiresAny: [],
+      // HARD RULE 2: the Facts this hub writes and the CLIs it drives.
+      backsFacts: [
+        "~/.config/proteus/settings.json"
+      ],
+      backsCli: [
+        "powerprofilesctl",
+        "proteus-logind",
+        "proteus-battery-threshold"
+      ]
     },
     {
       id: "users",
       label: "Users",
       status: "shipped",
       requires: [],
-      requiresAny: []
+      requiresAny: [],
+      // HARD RULE 2: the Facts this hub writes and the CLIs it drives.
+      backsFacts: [
+        "~/.local/share/proteus/auth/pin"
+      ],
+      backsCli: [
+        "proteus-pin.py",
+        "check-unlock.py",
+        "proteus-greetd",
+        "proteus-greetd-status.py"
+      ]
     },
     {
       id: "accounts",
       label: "Online accounts",
       status: "partial",
       requires: [],
-      requiresAny: []
+      requiresAny: [],
+      // HARD RULE 2: the Facts this hub writes and the CLIs it drives.
+      backsFacts: [],
+      backsCli: [
+        "proteus-accounts",
+        "proteus-calendar-events.py",
+        "proteus-calendar-mutate.py",
+        "proteus-mail-glance.py",
+        "proteus-mail-send.py",
+        "proteus-contacts-glance.py",
+        "proteus-contacts-mutate.py"
+      ]
     },
     {
       id: "datetime",
       label: "Date, time & weather",
       status: "shipped",
       requires: [],
-      requiresAny: []
+      requiresAny: [],
+      // HARD RULE 2: the Facts this hub writes and the CLIs it drives.
+      backsFacts: [],
+      backsCli: [
+        "timedatectl",
+        "localectl",
+        "fetch-weather.py"
+      ]
     },
     {
       id: "notifications",
       label: "Notifications",
       status: "shipped",
       requires: [],
-      requiresAny: []
+      requiresAny: [],
+      // HARD RULE 2: the Facts this hub writes and the CLIs it drives.
+      backsFacts: [
+        "~/.config/proteus/settings.json"
+      ],
+      backsCli: []
     },
     {
       id: "privacy",
       label: "Privacy & security",
       status: "partial",
       requires: [],
-      requiresAny: []
+      requiresAny: [],
+      // HARD RULE 2: the Facts this hub writes and the CLIs it drives.
+      backsFacts: [
+        "~/.config/proteus/permissions.json"
+      ],
+      backsCli: [
+        "proteus-permissions.py",
+        "privacy-indicators.py"
+      ]
     },
     {
       id: "packages",
       label: "Software",
       status: "shipped",
       requires: [],
-      requiresAny: []
+      requiresAny: [],
+      // HARD RULE 2: the Facts this hub writes and the CLIs it drives.
+      backsFacts: [],
+      backsCli: [
+        "pacman",
+        "flatpak",
+        "proteus-pkg",
+        "proteus-webapp"
+      ]
     },
     {
       id: "virtualization",
@@ -151,6 +262,15 @@ Singleton {
       status: "shipped",
       requires: [],
       requiresAny: [],
+      // HARD RULE 2: the Facts this hub writes and the CLIs it drives.
+      backsFacts: [
+        "~/.config/proteus/host-chrome"
+      ],
+      backsCli: [
+        "proteus-workloads.py",
+        "proteus-host-metrics.py",
+        "proteus-host-seat"
+      ],
       postures: ["host", "desktop"]
     },
     {
@@ -158,7 +278,19 @@ Singleton {
       label: "About",
       status: "shipped",
       requires: [],
-      requiresAny: []
+      requiresAny: [],
+      // HARD RULE 2: the Facts this hub writes and the CLIs it drives.
+      backsFacts: [
+        "~/.config/proteus/hw-probe.json",
+        "~/.config/proteus/posture",
+        "~/.config/hypr/proteus-profile.conf"
+      ],
+      backsCli: [
+        "proteus-hw-probe",
+        "proteus-posture",
+        "set-hypr-profile.sh",
+        "proteus-snapshot"
+      ]
     }
   ]
 
