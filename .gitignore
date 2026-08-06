@@ -22,3 +22,7 @@ dev/vm/serial.sock
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Rust build artifacts
+/target/
+**/target/
