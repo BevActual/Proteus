@@ -1,0 +1,24 @@
+[package]
+name = "proteus-shell-core"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+description = "Owned shell spine — typed facts, chrome tokens, gating (OWNED-STACK rung 0)"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# env/apps catalog `match` fields are real regexes (\b, escapes, alternation).
+regex = "1"
+
+[lib]
+name = "proteus_shell_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "proteus-shell-core"
+path = "src/main.rs"
+
+[[bin]]
+name = "proteus-open"
+path = "src/bin/proteus-open.rs"

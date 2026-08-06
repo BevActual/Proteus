@@ -1,0 +1,212 @@
+{
+  "comment": "App-gating parity matrix — evaluated against env/apps/catalog.json by proteus-shell-core (cargo test + `gate matrix` via shell-core-smoke). Semantics mirror EnvGate.qml: fail-open before probeReady, empty postures/device_classes = any, adapts soft picks.",
+  "cases": [
+    {
+      "name": "fail-open before probe ready",
+      "entry": { "id": "proteus-workloads" },
+      "posture": "desktop",
+      "probeReady": false,
+      "caps": [],
+      "expect": { "available": true }
+    },
+    {
+      "name": "workloads blocked off host posture",
+      "entry": { "id": "proteus-workloads" },
+      "posture": "desktop",
+      "deviceClass": "laptop",
+      "caps": ["libvirt", "display"],
+      "expect": { "available": false, "blockReason": "Needs host posture" }
+    },
+    {
+      "name": "workloads on host with libvirt",
+      "entry": { "id": "proteus-workloads" },
+      "posture": "host",
+      "deviceClass": "laptop",
+      "caps": ["libvirt", "pointer"],
+      "expect": { "available": true, "prefersSatisfied": true }
+    },
+    {
+      "name": "workloads on host missing engines",
+      "entry": { "id": "proteus-workloads" },
+      "posture": "host",
+      "deviceClass": "laptop",
+      "caps": ["display"],
+      "expect": {
+        "available": false,
+        "blockReason": "Needs virtualization or containers on Host"
+      }
+    },
+    {
+      "name": "vitals glance blocked on laptop device class",
+      "entry": { "id": "proteus-vitals-glance" },
+      "posture": "desktop",
+      "deviceClass": "laptop",
+      "caps": ["vitals", "display"],
+      "expect": { "available": false, "blockReason": "Needs watch / phone device class" }
+    },
+    {
+      "name": "vitals glance on watch",
+      "entry": { "id": "proteus-vitals-glance" },
+      "posture": "desktop",
+      "deviceClass": "watch",
+      "caps": ["vitals"],
+      "expect": { "available": true }
+    },
+    {
+      "name": "unknown device class fails open",
+      "entry": { "id": "proteus-vitals-glance" },
+      "posture": "desktop",
+      "deviceClass": "",
+      "caps": ["vitals"],
+      "expect": { "available": true }
+    },
+    {
+      "name": "steam adapts dense on desktop with pointer",
+      "entry": { "id": "steam" },
+      "posture": "desktop",
+      "deviceClass": "desktop",
+      "caps": ["display", "pointer", "gamepad"],
+      "expect": {
+        "available": true,
+        "adaptInput": "gamepad",
+        "adaptNav": "dense",
+        "adaptPanes": "full",
+        "prefersSatisfied": true
+      }
+    },
+    {
+      "name": "steam adapts sparse nav on console + remote stub",
+      "entry": { "id": "steam" },
+      "posture": "console",
+      "deviceClass": "desktop",
+      "caps": ["display", "gamepad"],
+      "remoteStub": true,
+      "expect": { "available": true, "adaptInput": "remote", "adaptNav": "sparse" }
+    },
+    {
+      "name": "steam minimal panes under focus density",
+      "entry": { "id": "steam" },
+      "posture": "desktop",
+      "deviceClass": "desktop",
+      "caps": ["display", "pointer"],
+      "paneDensity": "minimal",
+      "expect": { "available": true, "adaptPanes": "minimal", "adaptInput": "pointer" }
+    },
+    {
+      "name": "steam blocked on host posture",
+      "entry": { "id": "steam" },
+      "posture": "host",
+      "deviceClass": "desktop",
+      "caps": ["display"],
+      "expect": { "available": false, "blockReason": "Needs desktop / console posture" }
+    },
+    {
+      "name": "couch posture manifest values normalize to console",
+      "entry": { "id": "steam" },
+      "posture": "console",
+      "deviceClass": "desktop",
+      "caps": ["display"],
+      "expect": { "available": true, "prefersSatisfied": false }
+    },
+    {
+      "name": "heuristic audio app without caps",
+      "entry": { "id": "com.example.easyeffects", "name": "EasyEffects" },
+      "posture": "desktop",
+      "deviceClass": "desktop",
+      "caps": ["display"],
+      "expect": { "available": false, "blockReason": "Needs audio" }
+    },
+    {
+      "name": "category fallback network without caps",
+      "entry": { "id": "org.example.netTool", "categories": "Network;Settings" },
+      "posture": "desktop",
+      "deviceClass": "desktop",
+      "caps": ["display"],
+      "expect": { "available": false, "blockReason": "Needs network" }
+    },
+    {
+      "name": "unruled app always available",
+      "entry": { "id": "org.example.editor", "categories": "Utility;TextEditor" },
+      "posture": "console",
+      "deviceClass": "phone",
+      "caps": [],
+      "expect": { "available": true }
+    },
+    {
+      "name": "camera app reports permissions gate",
+      "entry": { "id": "org.gnome.Cheese" },
+      "posture": "desktop",
+      "deviceClass": "desktop",
+      "caps": ["display", "camera"],
+      "expect": { "available": true, "permissionsGated": true }
+    },
+    {
+      "name": "match regex hits exec haystack",
+      "entry": { "id": "custom-launcher", "exec": "/usr/bin/gnome-boxes --full" },
+      "posture": "desktop",
+      "deviceClass": "desktop",
+      "caps": ["display"],
+      "expect": { "available": false, "blockReason": "Needs virtualization" }
+    },
+    {
+      "name": "pane: desktop hub blocked on console",
+      "pane": "desktop",
+      "posture": "console",
+      "caps": ["display"],
+      "expect": { "available": false, "blockReason": "Needs desktop posture" }
+    },
+    {
+      "name": "pane: leaf inherits hub posture gate",
+      "pane": "desktop-gaps",
+      "posture": "console",
+      "caps": ["display"],
+      "expect": { "available": false, "blockReason": "Needs desktop posture" }
+    },
+    {
+      "name": "pane: keyboard resolves to peripherals",
+      "pane": "keyboard",
+      "posture": "desktop",
+      "caps": ["keyboard", "display"],
+      "expect": { "available": true }
+    },
+    {
+      "name": "pane: sound needs audio caps",
+      "pane": "sound",
+      "posture": "desktop",
+      "caps": ["display"],
+      "expect": { "available": false, "blockReason": "Needs speaker or mic or qs_pipewire" }
+    },
+    {
+      "name": "pane: focus minimal hides style",
+      "pane": "style",
+      "posture": "desktop",
+      "caps": ["display"],
+      "paneDensity": "minimal",
+      "expect": { "available": false, "blockReason": "Hidden while Focus is on" }
+    },
+    {
+      "name": "pane: privacy leaf stays under focus minimal",
+      "pane": "privacy-camera",
+      "posture": "desktop",
+      "caps": ["display"],
+      "paneDensity": "minimal",
+      "expect": { "available": true }
+    },
+    {
+      "name": "pane: caps fail open before probe ready",
+      "pane": "sound",
+      "posture": "desktop",
+      "probeReady": false,
+      "caps": [],
+      "expect": { "available": true }
+    },
+    {
+      "name": "pane: virtualization blocked on console even before probe",
+      "pane": "virtualization",
+      "posture": "console",
+      "probeReady": false,
+      "caps": [],
+      "expect": { "available": false }
+    }
+  ]
+}

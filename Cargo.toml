@@ -1,0 +1,36 @@
+# Proteus owned stack — Rust workspace (OWNED-STACK rungs 0–1).
+# Sibling iced apps (ProteusSettings / ProteusWorkloads) path-depend on
+# members here; they are not workspace members (separate git repos).
+
+[workspace]
+resolver = "2"
+members = [
+    "services/proteus-shell-core",
+    "services/proteus-ui",
+    "shell",
+    "compositor-next",
+]
+# compositor-next (Smithay rung-2 spike) is opt-in: build with -p compositor-next.
+default-members = [
+    "services/proteus-shell-core",
+    "services/proteus-ui",
+    "shell",
+]
+
+[workspace.package]
+edition = "2021"
+license = "GPL-3.0-only"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+regex = "1"
+iced = "0.14"
+iced_layershell = "0.19"
+proteus-shell-core = { path = "services/proteus-shell-core" }
+proteus-ui = { path = "services/proteus-ui" }
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1
