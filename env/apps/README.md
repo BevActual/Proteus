@@ -9,7 +9,7 @@ Spec: [APPLICATIONS.md](../../docs/proteus/APPLICATIONS.md).
 | `schema.json` | JSON Schema for one manifest object |
 | `catalog.json` | Seed catalog (`manifests[]`) EnvGate loads at session start |
 
-**EnvGate** (`shell/shared/EnvGate.qml`) prefers a catalog match (desktop id /
+**EnvGate** (`services/proteus-shell-core`) prefers a catalog match (desktop id /
 optional `match` regex) over category heuristics. Fail-open until
 `Hardware.ready`. Unmatched DesktopEntries keep Wave A heuristics.
 

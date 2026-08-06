@@ -2,11 +2,12 @@
 doc: stack
 role: reference
 audience: contributors, coding agents
-last_updated: "2026-07-29"
+last_updated: "2026-08-06"
 doc_status: active
 scope: Languages and runtimes by layer — what to build in what
 related:
   - ARCHITECTURE.md
+  - OWNED-STACK.md
   - COMPOSITOR.md
   - SETTINGS-IA.md
   - APPLICATIONS.md
@@ -18,6 +19,9 @@ related:
 
 Do **not** pick one language for the whole OS. Split by layer.
 Adaptive app behavior (one identity, environment-shaped): [APPLICATIONS.md](./APPLICATIONS.md).
+**Endgame:** owned Rust stack replacing borrowed layers rung by rung —
+[OWNED-STACK.md](./OWNED-STACK.md). Quickshell chrome and Settings QML are
+**retired** (2026-08-06).
 
 ## Document map
 
@@ -34,8 +38,8 @@ Adaptive app behavior (one identity, environment-shaped): [APPLICATIONS.md](./AP
 
 ## 1. Rule
 
-> **If it’s the OS looking at you → QML (Quickshell).**  
-> **If it’s a product window the user runs → Tauri (TypeScript + Rust).**  
+> **If it’s the OS looking at you → iced (`shell/`, `proteus-ui`).**  
+> **If it’s a product window the user runs → iced sibling or Tauri (TypeScript + Rust).**  
 > **If it’s a daemon/CLI that mutates the system → Rust.**  
 > **Hardware / environment probes may be Python** until promoted to Rust
 > (explicit exception — see §2).
@@ -46,17 +50,18 @@ Adaptive app behavior (one identity, environment-shaped): [APPLICATIONS.md](./AP
 
 | What you’re building | Stack | Why |
 |----------------------|-------|-----|
-| Shell chrome (bar, dock, Beacon, overlays) | **QML / Quickshell** | Wayland layer-shell; Hyprland integrations |
-| System control center (`proteus-settings`) | **QML / Quickshell** *(today)* | Same tokens/spine; may revisit Tauri if FloatingWindow lifecycle hurts |
-| **Hardware / env probes** (read-only discovery → JSON) | **Python** *(blessed)* | Fast to iterate; `proteus-hw-probe` Wave A. **Rust rewrite candidate** when schema stabilizes or we need a single static binary on guests |
-| System helpers that **mutate** state (apply config, pacman wrappers, privileged ops) | **Rust** small CLIs (+ bash when tiny) | Thin, smokeable; keeps QML dumb (Meridian habit). Examples: `services/proteus-pkg`, `services/proteus-logind` + polkit, `services/proteus-greetd` + polkit, `services/proteus-accounts` (user-scoped OAuth vault) |
-| Hot-path session helpers (mixer dump/peaks, …) | **Rust** resident CLI (`serve`) | Spawned while Settings leaf open; NDJSON to QML. Example: `services/proteus-audio-mix` |
-| First-party Proteus apps (Files, Host console, …) | **TypeScript + Tauri (Rust)** | Matches **Rowena**; not shell chrome |
-| Host / ops backends (libvirt, containers, status) | **Rust** services or existing Linux tools behind a thin API | Trust + long-running; UI is Tauri or Settings |
+| Shell chrome (bar, dock, Beacon, overlays) | **iced / `shell/`** (`proteus-shell` via `proteus-chrome`) | Wayland layer-shell; faces under `shell/src/faces/` |
+| Shell spine (facts, tokens, gating, launch) | **Rust** — `services/proteus-shell-core` | Typed + `cargo test`; generates `env/chrome/`; `proteus-open` |
+| Shared iced kit | **Rust** — `services/proteus-ui` | Theme from shell-core tokens; widgets for shell + sibling apps |
+| System control center (`proteus-settings`) | **iced** (sibling [`../ProteusSettings`](../../../ProteusSettings/AGENTS.md)) | Sole Settings app; QML deleted |
+| Host Workloads app (`proteus-workloads`) | **iced** (sibling [`../ProteusWorkloads`](../../../ProteusWorkloads/AGENTS.md)) | Same backend + `--tab` contract |
+| **Hardware / env probes** | **Python** *(blessed)* | `proteus-hw-probe` Wave A; Rust rewrite candidate later |
+| System helpers that **mutate** state | **Rust** small CLIs (+ bash when tiny) | Thin, smokeable |
+| Hot-path session helpers | **Rust** resident CLI (`serve`) | NDJSON while Settings leaf open |
+| First-party Proteus apps (Files, …) | **TypeScript + Tauri (Rust)** | Matches **Rowena**; not shell chrome |
+| Host / ops backends | **Rust** services or Linux tools behind thin API | Trust + long-running |
 
 Truth stays on **disk / CLI** regardless of UI stack ([ARCHITECTURE.md](./ARCHITECTURE.md) HARD RULES).
-
-Do **not** grow silent Python helpers for privileged mutation — that stays Rust (or tiny bash). Probes are the documented Python lane.
 
 ---
 
@@ -64,21 +69,21 @@ Do **not** grow silent Python helpers for privileged mutation — that stays Rus
 
 | Monoculture | Problem |
 |-------------|---------|
-| All QML | Great for DE chrome; poor match to Rowena; weak default for rich product apps |
-| All Electron | Heavy; fights “elegant Linux”; diverges from Tauri siblings |
-| All Rust GUI (egui/iced) | Fine for tools; wrong default for Mac-smooth Settings + multi-posture chrome |
-| Fork Quickshell into an app framework | Fights upstream intent; see [COMPOSITOR.md](./COMPOSITOR.md) |
+| All QML | Retired for chrome/Settings; poor match to Rowena for rich apps |
+| All Electron | Heavy; fights “elegant Linux” |
+| All Rust GUI overnight | Wrong while postures are `partial`; iced chrome is the owned path per [OWNED-STACK.md](./OWNED-STACK.md) |
+| Fork Quickshell | Never — replace, don’t fork |
 
 ---
 
 ## 4. New work defaults
 
-1. New **Settings pane** → QML module + optional helper (Python probe / Rust mutator / resident serve)
-2. New **Proteus app** → Tauri + TS, theme aligned with Proteus tokens
+1. New **Settings pane** → iced sibling (`../ProteusSettings`) + optional Rust mutator / serve
+2. New **Proteus app** → Tauri + TS or iced, theme aligned with Proteus tokens
 3. New **mutating system capability** → Rust CLI that Settings/apps call
 4. New **read-only discovery** → Python probe OK (log in §6 if long-lived)
-5. Prefer **built-in Quickshell integrations** (PipeWire, tray, UPower, …) before new daemons — until the fact is privileged, multi-consumer, or a hot poll path (then Rust `serve`)
-6. New **hot-path poll** (mixer peaks/dump, …) → Rust resident helper while the leaf is open; keep mutations thin
+5. New **shell chrome surface** → `shell/src/` (or `shell/src/faces/` for posture faces)
+6. New **hot-path poll** → Rust resident helper while the leaf is open
 
 ---
 
@@ -89,11 +94,7 @@ Do **not** grow silent Python helpers for privileged mutation — that stays Rus
 | **Rowena** | Tauri + TypeScript (+ Rust) |
 | **Meridian** | Rust crates / hub listen |
 | **Mobius** | Docs + TS/JS packages / scripts |
-| **Proteus** | Quickshell chrome + Tauri apps + Rust mutators + Python probes |
-
-Proteus apps should feel like Bevington software running *on* Proteus — not a
-second DE written only in QML. Prefer **one adaptive app** per product
-([APPLICATIONS.md](./APPLICATIONS.md)), not per-device forks.
+| **Proteus** | iced chrome + iced Settings/Workloads + Rust mutators + Python probes |
 
 ---
 
@@ -102,5 +103,5 @@ second DE written only in QML. Prefer **one adaptive app** per product
 | Exception | Status | Notes |
 |-----------|--------|-------|
 | `services/proteus-hw-probe` in Python | `blessed` | Read-only Wave A probe; Rust rewrite when schema/packaging demands it |
-| Trivial one-liner bash from QML (`hyprctl`, `pactl`) | `blessed` | Not “helpers” — direct apply |
-| Settings still Quickshell (not Tauri) | `blessed` for now | Revisit if FloatingWindow lifecycle hurts |
+| Trivial one-liner bash (`hyprctl`, `pactl`) | `blessed` | Not “helpers” — direct apply |
+| Settings / chrome QML | `retired` | Deleted 2026-08-06; iced only |

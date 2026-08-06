@@ -53,7 +53,7 @@ facts: [`install/machine/`](../../install/machine/).
 | **Theme** | Chrome tokens from Config accent/font/mode | System facts |
 | **SystemInfo** | Read-only OS/kernel/hostname/QS/Hypr/tip + About copy summary | Privileged writes; hostname edit |
 | **SystemLoad** | About-active CPU/mem/swap/root storage/uptime from `/proc` + `statvfs` | Process lists; charts; always-on poll |
-| **Workloads** | HostHome glance + `apps/proteus-workloads` via `proteus-workloads.py` (virsh · podman/docker; start/stop/kill/create/destroy); Settings → Virtualization thin hub (jumps/status) | Auto-resolver · Portainer-style Settings UI · mutations inside Settings |
+| **Workloads** | HostHome glance + Tauri app (sibling `../ProteusWorkloads`) via `proteus-workloads.py` (virsh · podman/docker; start/stop/kill/create/destroy); Settings → Virtualization thin hub (jumps/status) | Auto-resolver · Portainer-style Settings UI · mutations inside Settings |
 | **SpacesDisplays / SpacesNames** | Multi-head status + hotplug `ensure` (migrate-disconnect orphan bands → primary, then rebind); Named Spaces labels via `workspaceNames` + `apply-names`; Super+1–10 logical; strip visual order via `workspaceOrder`; Scratchpad `special:scratch` (proteus-workspace scratch-toggle/move + menu-bar ◇ pill) | Special CRUD |
 | **Weather** | Open-Meteo for stored place; respects `Config.weatherEnabled` mute | IP geolocation; fetch when muted |
 | **NetworkDiagnostics** | Diagnostics-active iface rates + calm bars · `ss` · firewall one-liner · route/DNS · ping; Wireshark escape | In-Settings packet decode; always-on promiscuous capture |

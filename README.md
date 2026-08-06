@@ -28,12 +28,12 @@ to inspectable system facts. See **[docs/](docs/README.md)**.
 | [POSTURES](docs/proteus/POSTURES.md) | Jobs, kits, device class |
 | [APPLICATIONS](docs/proteus/APPLICATIONS.md) | Adaptive apps |
 | [HARDWARE](docs/proteus/HARDWARE.md) | Device classes, sensors, modules |
-| [COMPOSITOR](docs/proteus/COMPOSITOR.md) | Hyprland + Quickshell |
-| [STACK](docs/proteus/STACK.md) | QML / Tauri / Rust |
+| [COMPOSITOR](docs/proteus/COMPOSITOR.md) | Hyprland + owned iced chrome |
+| [STACK](docs/proteus/STACK.md) | iced / Tauri / Rust |
 | [CURRENT](docs/proteus/CURRENT.md) | What’s built today |
 | [AGENTS.md](AGENTS.md) | Agent entry |
 
-Built on Arch Linux + [Quickshell](https://quickshell.org/) (Qt/QML) + Hyprland.
+Built on Arch Linux + owned iced shell (`proteus-shell`) + Hyprland.
 
 ## Status
 

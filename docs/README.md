@@ -8,7 +8,9 @@
 | [proteus/APPLICATIONS.md](proteus/APPLICATIONS.md) | Adaptive apps — one identity, environment-shaped |
 | [proteus/HARDWARE.md](proteus/HARDWARE.md) | Device classes + sensors/modules catalog |
 | [proteus/COMPOSITOR.md](proteus/COMPOSITOR.md) | Hyprland backend + Quickshell limits / profiles |
+| [proteus/COMPOSITOR-SPIKE.md](proteus/COMPOSITOR-SPIKE.md) | Smithay rung 2 spike checklist (parked) |
 | [proteus/STACK.md](proteus/STACK.md) | Languages by layer (QML / Tauri / Rust) |
+| [proteus/OWNED-STACK.md](proteus/OWNED-STACK.md) | Owned-stack endgame — tiers, sequencing, `proteus-shell-core` |
 | [proteus/SETTINGS-IA.md](proteus/SETTINGS-IA.md) | Control-center categories and backends |
 | [proteus/CHROME.md](proteus/CHROME.md) | Company chrome design lock (tokens + patterns) |
 | [proteus/FACTS.md](proteus/FACTS.md) | On-disk truth + façade vs services |

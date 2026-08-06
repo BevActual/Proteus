@@ -142,7 +142,7 @@ Proteus/
     *.packages        # base · desktop · console · host rosters
     hardware/         # GPU + CPU microcode detection
     machine/          # install-time mutators only: install-*.sh · apply-*.sh
-  services/           # proteus-hw-probe (read) · proteus-pkg · proteus-logind · proteus-audio-mix · proteus-accounts
+  services/           # proteus-hw-probe (read) · proteus-shell-core (owned spine) · proteus-pkg · proteus-logind · proteus-audio-mix · proteus-accounts
   dev/                # MAINTAINER TOOLING ONLY — never installed onto a machine
     vm/               # QEMU harness: run · provision · guest-install; ISO/qcow in PROTEUS_VM_CACHE
     smoke/            # all *-smoke.sh gates (host + guest)
@@ -158,6 +158,7 @@ Public QML import path: `import "../../shared"` / Settings `shared` symlink.
 do not put façades in domain subdirs behind `qmldir` without a proven cold start.
 On-disk facts: [FACTS.md](./FACTS.md) · key groups: [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md).
 
+`services/proteus-shell-core` — the owned shell spine ([OWNED-STACK.md](./OWNED-STACK.md) rung 0): typed facts, chrome-token generation (`env/chrome/` is its artifact), app/pane gating, `proteus-open` launcher, minimal NDJSON `serve`. Unit-tested (`cargo test`); parity with the QML singletons gated by `shell-core-smoke`.
 `services/proteus-pkg` — privileged pacman mutator (pkexec + polkit) for Settings Software.
 `services/proteus-logind` — privileged logind drop-in writer (pkexec + polkit) for Settings Power.
 `services/proteus-battery-threshold` — privileged sysfs charge_control_* writer (pkexec + polkit) for Settings Power Charge limits.
@@ -189,8 +190,8 @@ Optional later: more Rust CLIs (`proteus-net`, etc.) so QML stays thin
 7. **Host is a posture, not a second distro / hypervisor appliance.**
 8. **Focus postures are hard switches** — prove **desktop · console · host**
    until each is undeniable; park the rest ([POSTURES.md](./POSTURES.md)).
-9. **Hyprland / Quickshell are backends** — profile and wrap; don’t fork early; SoT on disk; plan shell respawn; console may use a game-scoped compositor ([COMPOSITOR.md](./COMPOSITOR.md)).
-10. **Stack split** — chrome/Settings in QML; product apps in Tauri; helpers in Rust ([STACK.md](./STACK.md)).
+9. **Hyprland / Quickshell are backends** — profile and wrap; **never fork**; SoT on disk; plan shell respawn; console may use a game-scoped compositor ([COMPOSITOR.md](./COMPOSITOR.md)). Long-term they are **borrowed interims**: owned replacements land per the [OWNED-STACK.md](./OWNED-STACK.md) ladder — replace behind contracts, never carry patches.
+10. **Stack split** — chrome in QML (interim; owned iced chrome per [OWNED-STACK.md](./OWNED-STACK.md)); product apps in Tauri; helpers in Rust ([STACK.md](./STACK.md)).
 11. **Apps adapt to environment** — one app identity; capability contract; not enabled on every device class/posture by default ([APPLICATIONS.md](./APPLICATIONS.md)).
 12. **Phone is a device class**, not a locked posture.
 
@@ -234,6 +235,7 @@ SSH (default): `ssh -p 2222 andrew@127.0.0.1`
 | Doc | Role |
 |-----|------|
 | [COMPOSITOR.md](./COMPOSITOR.md) | Hyprland + Quickshell roles, limits, profiles |
+| [OWNED-STACK.md](./OWNED-STACK.md) | Owned-stack endgame — tiers, sequencing, `proteus-shell-core` |
 | [POSTURES.md](./POSTURES.md) | Posture + device class + capabilities + host vs hypervisor |
 | [APPLICATIONS.md](./APPLICATIONS.md) | Adaptive apps / environment contract |
 | [HARDWARE.md](./HARDWARE.md) | Device classes + sensors/modules targets |

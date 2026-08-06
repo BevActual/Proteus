@@ -5,7 +5,8 @@ host OS (shell, Settings, postures, VM harness).
 
 **Company loop SoT** stays in the sibling Mobius repo — do not invent a second
 full PLAYBOOK or queue here. Override sibling paths with `MOBIUS_ROOT` /
-`ROWENA_ROOT` / `MERIDIAN_ROOT` / `PROTEUS_ROOT` when needed.
+`ROWENA_ROOT` / `MERIDIAN_ROOT` / `PROTEUS_ROOT` / `PROTEUS_WORKLOADS_ROOT` /
+`PROTEUS_SETTINGS_ROOT` when needed.
 
 | Concern | Where |
 |---------|--------|
@@ -17,10 +18,11 @@ full PLAYBOOK or queue here. Override sibling paths with `MOBIUS_ROOT` /
 | Postures (host vs hypervisor) | [docs/proteus/POSTURES.md](docs/proteus/POSTURES.md) |
 | Adaptive apps / environment | [docs/proteus/APPLICATIONS.md](docs/proteus/APPLICATIONS.md) |
 | Hardware / sensors / modules | [docs/proteus/HARDWARE.md](docs/proteus/HARDWARE.md) |
-| Hyprland + Quickshell | [docs/proteus/COMPOSITOR.md](docs/proteus/COMPOSITOR.md) |
+| Hyprland + owned chrome | [docs/proteus/COMPOSITOR.md](docs/proteus/COMPOSITOR.md) |
 | Languages / stack | [docs/proteus/STACK.md](docs/proteus/STACK.md) |
+| Owned-stack endgame (sequencing) | [docs/proteus/OWNED-STACK.md](docs/proteus/OWNED-STACK.md) |
 | Settings IA | [docs/proteus/SETTINGS-IA.md](docs/proteus/SETTINGS-IA.md) |
-| Chrome / design lock | [docs/proteus/CHROME.md](docs/proteus/CHROME.md) · [`Theme.qml`](shell/shared/Theme.qml) |
+| Chrome / design lock | [docs/proteus/CHROME.md](docs/proteus/CHROME.md) · [`proteus-ui`](services/proteus-ui) |
 | System facts / schema | [docs/proteus/FACTS.md](docs/proteus/FACTS.md) · [CONFIG-SCHEMA.md](docs/proteus/CONFIG-SCHEMA.md) |
 | Honest status | [docs/proteus/CURRENT.md](docs/proteus/CURRENT.md) |
 | Ecosystem seat | [docs/shared/ECOSYSTEM.md](docs/shared/ECOSYSTEM.md) |
@@ -31,6 +33,8 @@ full PLAYBOOK or queue here. Override sibling paths with `MOBIUS_ROOT` /
 | Mobius (loop SoT) | [`../Mobius/AGENTS.md`](../Mobius/AGENTS.md) · [`../Mobius/docs/ISSUES.md`](../Mobius/docs/ISSUES.md) |
 | Meridian (hub) | [`../Meridian/AGENTS.md`](../Meridian/AGENTS.md) |
 | Rowena (writing) | [`../Rowena/AGENTS.md`](../Rowena/AGENTS.md) |
+| ProteusWorkloads (iced Workloads app) | [`../ProteusWorkloads/AGENTS.md`](../ProteusWorkloads/AGENTS.md) |
+| ProteusSettings (iced Settings app) | [`../ProteusSettings/AGENTS.md`](../ProteusSettings/AGENTS.md) |
 
 ## Product kickoffs
 
@@ -38,9 +42,9 @@ full PLAYBOOK or queue here. Override sibling paths with `MOBIUS_ROOT` /
 - **`vm`** — boot guest: `./dev/vm/run.sh`; provision: `./dev/vm/provision.sh`; artifacts in `PROTEUS_VM_CACHE`; overlay `install/`; helpers `install/machine/`; install path SoT: [docs/proteus/INSTALL.md](docs/proteus/INSTALL.md).
 - **`nested`** — host quick shell test: `./dev/run-nested.sh`.
 - **`probe`** — Wave A hardware JSON: `./services/proteus-hw-probe/proteus-hw-probe` · smoke: `./dev/smoke/hw-probe-smoke.sh`
-- **`smoke`** — host suite: `./dev/smoke-all.sh` (shellcheck · doc-links · layout · widget-layout-resolve · ipc-contract · config-schema · config-roundtrip · app-manifest · chrome-tokens · software-reliability · power-logind · power-threshold · accounts · users · lock-pin · permissions · desktop · spaces · focus · control-center · beacon · audio-mix-serve · hw-probe · install · session · posture-hard · console · host · workloads-app · host-metrics · peripherals · network-vpn · headscale-admin · qs-version; guest `qs-guest` + `software-guest` + `console-guest` + `host-guest` if SSH `:2222` or `PROTEUS_GUEST=1`)
-- **`settings`** — work in `apps/proteus-settings/` + `shell/shared` (symlink).
-- **`shell`** — Quickshell chrome only; do not grow product apps here ([STACK.md](docs/proteus/STACK.md)).
+- **`smoke`** — host suite: `./dev/smoke-all.sh` (shellcheck · doc-links · layout · ipc-contract · config-schema · chrome-tokens · shell-core · shell · shell-owned-dogfood · settings-next · install · session · …; guest `owned-guest` + `software-guest` + `console-guest` + `host-guest` if SSH `:2222` or `PROTEUS_GUEST=1`). QML leaf smokes are retired stubs.
+- **`settings`** — iced sibling `../ProteusSettings` (`proteus-settings-next`) via `proteus-settings` only; QML Settings deleted.
+- **`shell`** — owned iced session in `shell/` (`proteus-shell`) via `proteus-chrome` only; faces under `shell/src/faces/` (desktop shipping; console/host thin stubs to rebuild). Quickshell chrome retired.
 - **`loop` / `standing` / …** — follow **Mobius** `AGENTS.md`; Proteus items may be queued there with home: Proteus.
 
 ## Gates (honest)
@@ -56,4 +60,7 @@ full PLAYBOOK or queue here. Override sibling paths with `MOBIUS_ROOT` /
 
 Meridian hub HTTP API, Mobius referee/queue SoT, Rowena vault/editor, a second
 hypervisor distro, seven marketed postures before desktop·console·host are proven,
-forking Hyprland/Quickshell, Electron as default app stack.
+forking Hyprland/Quickshell (owned replacements land per
+[OWNED-STACK.md](docs/proteus/OWNED-STACK.md) — replace behind contracts, never
+carry patches; no rung starts before the one below passes its gates), Electron
+as default app stack.

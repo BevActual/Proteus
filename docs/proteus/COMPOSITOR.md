@@ -2,7 +2,7 @@
 doc: compositor
 role: architecture
 audience: architects, contributors, coding agents
-last_updated: "2026-08-02"
+last_updated: "2026-08-05"
 doc_status: active
 scope: Engines under hard-switch postures; Hyprland + Quickshell; profiles, capabilities, limits
 related:
@@ -122,6 +122,17 @@ Quickshell does not: Host product console, rich Bevington apps,
 
 Do **not** fork Quickshell — wrap it; upstream bugs when we hit them.
 
+### Engine switch (OWNED-STACK rung 1)
+
+`shell/scripts/proteus-chrome` launches owned iced only:
+
+| Fact / env | Runtime |
+|------------|---------|
+| (any / `owned`) | `proteus-chrome` → `proteus-shell` (**sole** path) |
+
+Quickshell chrome **retired** 2026-08-06 (`proteus-qs` deleted). See
+[OWNED-STACK.md](./OWNED-STACK.md) · [STACK.md](./STACK.md).
+
 ---
 
 ## 4. Profiles on disk
@@ -217,7 +228,8 @@ compositor chrome for that unit.
 | Settings → keybinds → hypr conf | `shipped` |
 | Settings → gaps/borders via hyprctl | `shipped` — incl. `resize_on_border` (floating edge/corner resize) + accent focus ring (active accent / inactive transparent) + ⌘+drag `bindm` window move |
 | Per-posture hypr profiles | `partial` — desktop + console + host lean + home stub + soft `set-hypr-profile.sh` + Settings About soft picker; hard Session posture picker also in About |
-| Console hard switch | `partial` — Gamescope-as-session `partial` (gs-session + Proteus Home QS xdg client + `proteus-console-focus` Guide flip; engine chosen at login; VFIO/bare-metal prove paths); interim Hypr + ConsoleShell + per-title/nested Gamescope on no-Vulkan; launcher-first / stores-as-backend locked in POSTURES |
+| Console hard switch | `partial` — Gamescope-as-session `partial` (gs-session + Proteus Home QS xdg client + `proteus-console-focus` Guide flip; engine chosen at login; VFIO/bare-metal prove paths); interim Hypr + ConsoleShell + **owned console face** (`proteus-chrome` / `PROTEUS_SURFACE=console` · list IA); gamescope console-home not swapped; Smithay rung 2 [parked](./COMPOSITOR-SPIKE.md) |
+| Owned compositor (Smithay) | `parked` — spike checklist only ([COMPOSITOR-SPIKE.md](./COMPOSITOR-SPIKE.md)); `compositor-engine` fact always falls through to Hyprland |
 | Host hard switch | `partial` — proteus-posture host defaults headless; `proteus-host-seat` attach/detach; HostShell/HostHome + workloads; graphical-remote later |
 | QS respawn / crash policy | `shipped` — `proteus-qs` flock/backoff/`--restart` (restart waits for prior flock — avoids blank chrome-less sessions) + orphan reap (lock fd closed for the child); wallpaper runner `proteus-bg` = crash-respawn wrapper + in-shell 15s watchdog; optional `proteus-qs.service` user unit (hypr exec-once still default); version recorded in smoke (IgnorePkg/ISO pin Out) |
 | Capability resolver | `planned` |

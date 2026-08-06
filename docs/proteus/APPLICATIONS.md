@@ -123,7 +123,7 @@ Example sketches:
   works headless via CLI/API; GUI facet only when seat attached
   (`host-chrome=full` / `proteus-host-seat attach`).
   **Today:** HostHome **Command-Deck dashboard** (read-only cards via
-  `proteus-host-metrics.py`) + QML app (`apps/proteus-workloads`) grown into
+  `proteus-host-metrics.py`) + Tauri app (sibling `../ProteusWorkloads`) with
   tabs — **Workloads** (start/stop/kill/create/destroy) · **Apps** (one-click
   container catalog `env/apps/host-apps.json`, deploy → `proteus-app-<id>`) ·
   **Shares** (Samba usershare add/remove); dashboard cards deep-link tabs

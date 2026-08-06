@@ -15,7 +15,7 @@ base + the `install/` overlay.
 | Layer | Entry | Runs where | Role |
 |-------|--------|-----------|------|
 | Base Arch | [`dev/vm/guest-install.sh`](../../dev/vm/guest-install.sh) (VM) · manual Arch (bare metal) | Live ISO, root | Unattended disk: partition, pacstrap, user, sshd |
-| Overlay | [`install/bootstrap.sh`](../../install/bootstrap.sh) | Installed machine (sudo) | Hyprland / Quickshell / Settings / desktop + console kit |
+| Overlay | [`install/bootstrap.sh`](../../install/bootstrap.sh) | Installed machine (sudo) | Hyprland / owned iced shell / Settings / desktop + console kit |
 | Host drive | [`dev/vm/provision.sh`](../../dev/vm/provision.sh) → [`dev/vm/bootstrap.sh`](../../dev/vm/bootstrap.sh) | Host | Cache ISO/disk, wait for SSH, run the overlay remotely (VM only) |
 
 Overlay stages (detail: [install/README.md](../../install/README.md)):
@@ -146,9 +146,9 @@ Package sets: [`proteus-base.packages`](../../install/proteus-base.packages)
 (Gamescope, Steam + lib32, RetroArch + cores, pad udev rules, focus-router X
 tools + vulkan-tools — needs multilib, which the `console` stage enables) ·
 [`proteus-host.packages`](../../install/proteus-host.packages)
-(samba + smartmontools — the `host` stage also seeds the usershares dir,
-`sambashare` group, smb service and a read-only `smartctl -jH` sudoers drop
-for the host dashboard).
+(samba + smartmontools + nvme-cli + podman — the `host` stage also seeds the
+usershares dir, `sambashare` group, smb service and a read-only
+`smartctl -jH` sudoers drop for the host dashboard).
 
 ## Console dogfood after the overlay
 
