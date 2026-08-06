@@ -60,9 +60,6 @@ proteus_root bash "${MACHINE}/install-settings-app.sh"
 proteus_root bash "${MACHINE}/install-workloads-app.sh"
 # Idempotent: refresh NoDisplay stubs even if Settings install was a no-op
 proteus_root bash "${MACHINE}/hide-system-apps.sh"
-proteus_root bash "${MACHINE}/install-proteus-qs-user-unit.sh" || {
-  echo "apps: note — proteus-qs user-unit install skipped" >&2
-}
 proteus_root bash "${MACHINE}/install-lock-pam.sh" || {
   echo "apps: note — install-lock-pam skipped or failed (lock falls back to login PAM)" >&2
 }

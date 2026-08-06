@@ -252,14 +252,13 @@ done
   || bad "THIRD-PARTY.md missing (what Proteus is built on)"
 
 # --- env/ must stay adjacent to shell/ ----------------------------------------
-# EnvGate resolves manifests as shellRoot + "/../env/apps/…", so env/ is a
-# runtime dependency of the shell, not an install-only seed directory. Folding
-# it into install/ would break the running shell, not just the installer.
+# Manifests resolve as PROTEUS_ROOT + "/env/apps/…", so env/ is a runtime
+# dependency of the shell, not an install-only seed directory.
 [[ -f "${ROOT}/env/apps/catalog.json" ]] && ok "env/apps/catalog.json present" \
-  || bad "env/apps/catalog.json missing (EnvGate resolves it at runtime)"
-grep -q 'env/apps/catalog.json' "${ROOT}/shell/shared/EnvGate.qml" \
-  && ok "EnvGate reads env/apps relative to shellRoot" \
-  || bad "EnvGate no longer reads env/apps (runtime contract changed)"
+  || bad "env/apps/catalog.json missing (runtime catalog)"
+grep -Rq 'env/apps/catalog\|catalog.json' "${ROOT}/services/proteus-shell-core/src" \
+  && ok "owned stack reads env/apps catalog" \
+  || bad "owned stack no longer reads env/apps catalog"
 grep -q 'env/hypr/profiles' "${ROOT}/shell/scripts/set-hypr-profile.sh" \
   && ok "posture flip installs profiles from env/hypr (runtime consumer)" \
   || bad "set-hypr-profile.sh no longer sources env/hypr/profiles"
@@ -298,6 +297,9 @@ grep -q 'cannot determine the session user' "${INSTALL}/helpers.sh" \
 grep -q 'proteus_session_user' "${INSTALL}/preflight.sh" \
   && ok "preflight resolves the session user up front" \
   || bad "preflight does not resolve the session user (failure would land mid-install)"
+grep -q 'proteus_root timeout' "${INSTALL}/preflight.sh" \
+  && ok "preflight runs timeout under proteus_root (shell function safe)" \
+  || bad "preflight must use 'proteus_root timeout … pacman' (not 'timeout proteus_root')"
 
 # --- package names must still exist upstream ----------------------------------
 # `p7zip` sat in the desktop roster long after Arch replaced it with `7zip`.
@@ -356,12 +358,13 @@ grep -q 'apply-console-kit.sh' "${INSTALL}/console.sh" \
 grep -q 'set-hypr-profile.sh' "${INSTALL}/console.sh" \
   && ok "console.sh drift fix" || bad "console.sh missing posture/profile drift fix"
 
-# host stage — samba usershares + smartmontools (HexOS-style dashboard backends)
+# host stage — samba usershares + smartmontools + podman (HexOS-style dashboard backends)
 [[ -f "${INSTALL}/host.sh" ]] && ok install/host.sh || bad install/host.sh
 bash -n "${INSTALL}/host.sh" 2>/dev/null && ok "host.sh bash -n" || bad "host.sh (bash -n)"
 [[ -f "${INSTALL}/proteus-host.packages" ]] && ok install/proteus-host.packages || bad install/proteus-host.packages
 grep -q '^samba$' "${INSTALL}/proteus-host.packages" && ok "host packages: samba" || bad "host packages missing samba"
 grep -q '^smartmontools$' "${INSTALL}/proteus-host.packages" && ok "host packages: smartmontools" || bad "host packages missing smartmontools"
+grep -q '^podman$' "${INSTALL}/proteus-host.packages" && ok "host packages: podman" || bad "host packages missing podman"
 grep -q 'console host post-install' "${INSTALL}/bootstrap.sh" && ok "bootstrap.sh runs host stage" || bad "bootstrap.sh missing host stage"
 grep -q 'usershare' "${INSTALL}/host.sh" && ok "host.sh configures usershares" || bad "host.sh missing usershares"
 grep -q 'sambashare' "${INSTALL}/host.sh" && ok "host.sh sambashare group" || bad "host.sh missing sambashare group"
@@ -399,7 +402,9 @@ grep -q 'guest-install.sh' "${ROOT}/docs/proteus/INSTALL.md" 2>/dev/null \
 [[ -x "${ROOT}/shell/scripts/proteus-console-session" ]] && ok shell/scripts/proteus-console-session || bad shell/scripts/proteus-console-session
 [[ -x "${ROOT}/shell/scripts/proteus-console-gs-session" ]] && ok shell/scripts/proteus-console-gs-session || bad shell/scripts/proteus-console-gs-session
 [[ -x "${ROOT}/shell/scripts/proteus-console-focus" ]] && ok shell/scripts/proteus-console-focus || bad shell/scripts/proteus-console-focus
-[[ -f "${ROOT}/shell/console-home/shell.qml" ]] && ok shell/console-home/shell.qml || bad shell/console-home/shell.qml
+[[ -f "${ROOT}/shell/src/faces/console.rs" ]] && ok "shell/src/faces/console.rs" || bad "shell face console missing"
+[[ -f "${ROOT}/shell/src/faces/host.rs" ]] && ok "shell/src/faces/host.rs" || bad "shell face host missing"
+[[ -f "${ROOT}/shell/src/faces/desktop.rs" ]] && ok "shell/src/faces/desktop.rs" || bad "shell face desktop missing"
 [[ -x "${ROOT}/dev/dogfood/dogfood-console.sh" ]] && ok dev/dogfood/dogfood-console.sh || bad dev/dogfood/dogfood-console.sh
 grep -q 'proteus-console-seat' "${ROOT}/install/apps.sh" && ok "apps.sh installs proteus-console-seat" || bad "apps.sh missing proteus-console-seat"
 grep -q 'proteus-console-capabilities' "${ROOT}/install/apps.sh" && ok "apps.sh installs proteus-console-capabilities" || bad "apps.sh missing proteus-console-capabilities"
@@ -503,17 +508,26 @@ else
 fi
 [[ -f "${ROOT}/env/hypr/profiles/host.conf" ]] && ok env/hypr/profiles/host.conf || bad env/hypr/profiles/host.conf
 [[ -f "${ROOT}/env/hypr/profiles/home.conf" ]] && ok env/hypr/profiles/home.conf || bad env/hypr/profiles/home.conf
-if [[ -f "${ROOT}/shell/scripts/proteus-qs" ]]; then
-  if bash -n "${ROOT}/shell/scripts/proteus-qs" 2>/dev/null; then
-    ok shell/scripts/proteus-qs
+if [[ -f "${ROOT}/shell/scripts/proteus-chrome" ]]; then
+  if bash -n "${ROOT}/shell/scripts/proteus-chrome" 2>/dev/null; then
+    ok shell/scripts/proteus-chrome
   else
-    bad "shell/scripts/proteus-qs (bash -n)"
+    bad "shell/scripts/proteus-chrome (bash -n)"
   fi
-  grep -q 'flock' "${ROOT}/shell/scripts/proteus-qs" && ok "proteus-qs flock" || bad "proteus-qs missing flock"
-  grep -q -- '--restart' "${ROOT}/shell/scripts/proteus-qs" && ok "proteus-qs --restart" || bad "proteus-qs missing --restart"
-  grep -q 'reap_chrome' "${ROOT}/shell/scripts/proteus-qs" && ok "proteus-qs orphan reap" || bad "proteus-qs missing reap_chrome"
+  grep -q 'proteus-shell' "${ROOT}/shell/scripts/proteus-chrome" \
+    && ok "proteus-chrome launches proteus-shell" || bad "proteus-chrome missing proteus-shell"
+  if grep -qE 'ENGINE=quickshell|proteus-qs' "${ROOT}/shell/scripts/proteus-chrome"; then
+    bad "proteus-chrome still has Quickshell path"
+  else
+    ok "proteus-chrome owned-only"
+  fi
 else
-  bad shell/scripts/proteus-qs
+  bad shell/scripts/proteus-chrome
+fi
+if [[ -f "${ROOT}/shell/scripts/proteus-qs" ]]; then
+  bad "proteus-qs must be retired"
+else
+  ok "proteus-qs retired"
 fi
 if [[ -f "${ROOT}/shell/scripts/set-hypr-profile.sh" ]]; then
   if bash -n "${ROOT}/shell/scripts/set-hypr-profile.sh" 2>/dev/null; then
@@ -529,14 +543,19 @@ fi
 [[ -f "${ROOT}/dev/vm/provision.sh" ]] && ok dev/vm/provision.sh || bad dev/vm/provision.sh
 [[ -f "${ROOT}/install/machine/install-icons.sh" ]] && ok install/machine/install-icons.sh || bad install/machine/install-icons.sh
 [[ -f "${ROOT}/brand/proteus-mark.svg" ]] && ok brand/proteus-mark.svg || bad brand/proteus-mark.svg
-grep -q '^Icon=proteus-settings' "${ROOT}/apps/proteus-settings/proteus-settings.desktop" && ok "settings.desktop Icon" || bad "settings.desktop Icon"
+if [[ -d "${ROOT}/apps/proteus-settings" ]]; then
+  bad "apps/proteus-settings QML must be retired"
+else
+  ok "Settings QML retired"
+fi
 grep -q '^Icon=proteus' "${ROOT}/install/machine/assets/proteus.desktop" && ok "session.desktop Icon" || bad "session.desktop Icon"
 
-# #1168 — seed hyprland.conf: qs/bg/cliphist present; no terminal exec-once
+# #1168 — seed hyprland.conf: chrome/bg/cliphist present; no terminal exec-once
+# Owned iced via proteus-chrome (Quickshell retired).
 HYPR_SEED="${ROOT}/env/hypr/hyprland.conf"
 if [[ -f "${HYPR_SEED}" ]]; then
-  grep -qE '^[[:space:]]*exec-once[[:space:]].*proteus-qs' "${HYPR_SEED}" \
-    && ok "hypr seed proteus-qs exec-once" || bad "hypr seed missing proteus-qs exec-once"
+  grep -qE '^[[:space:]]*exec-once[[:space:]].*proteus-chrome' "${HYPR_SEED}" \
+    && ok "hypr seed proteus-chrome exec-once" || bad "hypr seed missing proteus-chrome exec-once"
   grep -qE '^[[:space:]]*exec-once[[:space:]].*proteus-bg' "${HYPR_SEED}" \
     && ok "hypr seed proteus-bg exec-once" || bad "hypr seed missing proteus-bg exec-once"
   grep -q 'cliphist store' "${HYPR_SEED}" \
@@ -587,21 +606,11 @@ else
   bad "missing hide-system-apps.sh"
 fi
 
-
-UNIT="${ROOT}/env/systemd/user/proteus-qs.service"
-if [[ -f "${UNIT}" ]]; then
-  grep -q 'proteus-qs' "${UNIT}" && ok "proteus-qs.service template" || bad "proteus-qs.service ExecStart"
-  grep -q 'WantedBy=graphical-session.target' "${UNIT}" && ok "proteus-qs.service WantedBy" || bad "proteus-qs.service WantedBy"
-  grep -qiE '^IgnorePkg|pacman.*IgnorePkg' "${UNIT}" && bad "unit must not IgnorePkg-pin" || ok "proteus-qs.service no IgnorePkg pin"
+if [[ -f "${ROOT}/env/systemd/user/proteus-qs.service" ]] \
+  || [[ -f "${ROOT}/install/machine/install-proteus-qs-user-unit.sh" ]]; then
+  bad "proteus-qs systemd unit must be retired"
 else
-  bad "missing env/systemd/user/proteus-qs.service"
-fi
-INST="${ROOT}/install/machine/install-proteus-qs-user-unit.sh"
-if [[ -f "${INST}" ]]; then
-  bash -n "${INST}" 2>/dev/null && ok "install-proteus-qs-user-unit.sh bash -n" || bad "install-proteus-qs-user-unit.sh bash -n"
-  grep -q 'proteus-qs.service' "${INST}" && ok "install-proteus-qs-user-unit installs unit" || bad "install script missing unit"
-else
-  bad "missing install-proteus-qs-user-unit.sh"
+  ok "proteus-qs unit retired"
 fi
 
 # shellcheck source=helpers.sh

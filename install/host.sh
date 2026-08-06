@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # host — host posture kit: samba usershares (no-root share CRUD from the
-# Workloads app), smartmontools for the dashboard health cards, and a
-# read-only smartctl sudoers drop so SMART works without a root shell.
+# Workloads app), smartmontools/nvme-cli for the dashboard health cards,
+# podman for Workloads containers / one-click apps, and a read-only
+# smartctl sudoers drop so SMART works without a root shell.
 # Skip with: PROTEUS_INSTALL_SKIP=host
 set -euo pipefail
 # shellcheck source=helpers.sh

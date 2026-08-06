@@ -22,10 +22,10 @@ sudo bash /mnt/proteus/install/bootstrap.sh
 | `config.sh` | seatd, QS symlink, hypr/ghostty/fastfetch seeds, hypridle |
 | `hardware.sh` | Detect GPU → optional drivers (`hardware/*`) |
 | `login.sh` | greetd / `proteus-session` |
-| `apps.sh` | Settings, keybinds, desktop conf, PAM, `hide-system-apps`, optional `proteus-qs` user-unit install (not enabled), helper bins (symlinked to the live tree under `/mnt/proteus`) |
+| `apps.sh` | Settings (iced), keybinds, desktop conf, PAM, `hide-system-apps`, helper bins (symlinked to the live tree under `/mnt/proteus`) |
 | `desktop.sh` | [`proteus-desktop.packages`](./proteus-desktop.packages) (default on) |
 | `console.sh` | multilib + [`proteus-console.packages`](./proteus-console.packages) (Steam/RetroArch/cores/pads), `apply-console-kit` seed, posture↔profile drift fix |
-| `host.sh` | [`proteus-host.packages`](./proteus-host.packages) (samba + smartmontools), usershares dir + `sambashare` group + smb enable, read-only `smartctl -jH` sudoers drop |
+| `host.sh` | [`proteus-host.packages`](./proteus-host.packages) (samba + smartmontools + nvme-cli + podman), usershares dir + `sambashare` group + smb enable, read-only `smartctl -jH` sudoers drop |
 | `post-install.sh` | status file + next steps; refresh `hide-system-apps` |
 
 ## Knobs
@@ -57,7 +57,7 @@ Host tree check (no guest):
 | `proteus-base.packages` | Hyprland, QS, Ghostty, portals, PipeWire, NM, BT, capture tools, xdg-user-dirs, fastfetch, … |
 | `proteus-desktop.packages` | **Chromium**, Nautilus (interim Files), gnome-calculator/calendar/weather/clocks, loupe, amberol, snapshot, gnome-disk-utility, imv, **celluloid** (desktop video; mpv + yt-dlp stay for console/CLI), **wtype** + **fd** (Beacon clipboard paste + Files search), evince, mousepad, wf-recorder, p7zip, noto-fonts-cjk, **localsend-bin** (AUR prebuilt via yay/paru), mission-center, … (pavucontrol/blueman/nm-editor hidden — Settings) |
 | `proteus-console.packages` | Gamescope, **Steam** (+ ttf-liberation, lib32-mesa), RetroArch + lean cores, game-devices-udev — needs multilib (console stage enables) |
-| `proteus-host.packages` | **samba** (usershares — Workloads app Shares tab) + **smartmontools** (host dashboard drive health) |
+| `proteus-host.packages` | **samba** (usershares — Workloads app Shares tab) + **smartmontools** / **nvme-cli** (host dashboard drive health) + **podman** (Workloads containers / one-click apps) |
 
 ## Hardware (detect-and-install)
 

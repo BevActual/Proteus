@@ -8,7 +8,7 @@
 | `proteus-colorpick` | hyprpicker → clipboard | **interim** |
 | `check-unlock.py` / `proteus-pin.py` / `proteus_auth.py` | Lock unlock (PAM password or hashed PIN) + PIN set/clear | **shipped** |
 | `proteus-pick-media` | Console Media seat file picker (zenity / kdialog) | **shipped** |
-| `proteus-qs` | Chrome supervisor (flock / backoff / `--restart` waits for prior flock) | **shipped** |
+| `proteus-chrome` | Chrome supervisor (flock / backoff / `--restart` waits for prior flock) | **shipped** |
 | `proteus-workspace` | Spaces dispatcher (synced / per-display bands; `status` / `ensure` hotplug; scratch + custom `special-*`; `settings.json` `workspaceMode` / `specialWorkspaces`) | **shipped** |
 | `privacy-indicators.py` | Mic / camera / screen-in-use probe → JSON (+ `apps[]`) for menu-bar + Privacy → In use now | **shipped** |
 | `proteus-permissions.py` | `permissions.json` store + Flatpak override list/set + activity wrapper | **shipped** |

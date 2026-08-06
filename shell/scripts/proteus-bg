@@ -1,28 +1,5 @@
 #!/usr/bin/env bash
-# Proteus reactive / animated desktop background (Quickshell layer-shell).
-# The wrapper's comm stays proteus-bg so pgrep -x / applyBackground find us.
-#
-# Crash guard: background changes (image → video → reactive swaps) can crash
-# the Quickshell wallpaper process, which used to leave the bare compositor
-# splash until reboot. Respawn on crash; stop on clean exit or operator
-# signals so Settings' pkill still actually stops the runtime.
-set -uo pipefail
-ROOT="${PROTEUS_ROOT:-/mnt/proteus}"
-WALLPAPER="${ROOT}/shell/wallpaper"
-export PROTEUS_ROOT="${ROOT}"
-export QS_ICON_THEME="${QS_ICON_THEME:-Papirus-Dark}"
-export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-wayland}"
-
-child=""
-trap '[[ -n "${child}" ]] && kill "${child}" 2>/dev/null; exit 143' TERM INT
-while :; do
-  quickshell -p "${WALLPAPER}" &
-  child=$!
-  wait "${child}"
-  ec=$?
-  case "${ec}" in
-    0 | 129 | 130 | 137 | 143) exit "${ec}" ;;
-  esac
-  echo "proteus-bg: quickshell exited ${ec} — respawning" >&2
-  sleep 1
-done
+# proteus-bg — retired Quickshell wallpaper runner.
+# Owned proteus-shell paints the BG layer. Kept as a no-op so legacy
+# hypr exec-once / Settings apply / pkill paths stay quiet.
+exit 0

@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Install Proteus Settings as a system application on the guest.
+# Install Proteus Settings (iced sibling) + owned shell helpers on the guest.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
-APP="${ROOT}/apps/proteus-settings"
 # shellcheck source=../helpers.sh
 source "${ROOT}/install/helpers.sh"
 
@@ -12,96 +11,130 @@ bash "${ROOT}/install/machine/install-icons.sh"
 bash "${ROOT}/install/machine/hide-system-apps.sh"
 
 install -d /usr/local/bin
-# Launcher uses the live app tree on 9p; single-instance via nav IPC + raise.
-cat > /usr/local/bin/proteus-settings << EOF
-#!/usr/bin/env bash
-set -euo pipefail
-DIR="${APP}"
-export QS_ICON_THEME="\${QS_ICON_THEME:-Papirus-Dark}"
 
-for arg in "\$@"; do
-  case "\$arg" in
-    --page=*) export PROTEUS_SETTINGS_PAGE="\${arg#--page=}" ;;
-    --query=*) export PROTEUS_SETTINGS_QUERY="\${arg#--query=}" ;;
-  esac
-done
-
-ipc() {
-  if command -v qs >/dev/null 2>&1; then
-    qs -p "\${DIR}" ipc call "\$@"
-  else
-    quickshell -p "\${DIR}" ipc call "\$@"
-  fi
-}
-
-# Reuse a live instance — navigate/raise instead of spawning another Quickshell.
-if ipc nav state >/dev/null 2>&1; then
-  page="\${PROTEUS_SETTINGS_PAGE:-}"
-  query="\${PROTEUS_SETTINGS_QUERY:-}"
-  if [[ -n "\${query}" ]]; then
-    leaf="\${page:-packages-search}"
-    ipc nav installSearch "\${query}" "\${leaf}" >/dev/null 2>&1 || true
-  elif [[ -n "\${page}" ]]; then
-    ipc nav go "\${page}" >/dev/null 2>&1 || true
-  fi
-  ipc nav raise >/dev/null 2>&1 || true
-  exit 0
+# iced Settings (sibling repo ../ProteusSettings) — sole Settings app.
+ST_ROOT="${PROTEUS_SETTINGS_ROOT:-}"
+if [[ -z "${ST_ROOT}" ]]; then
+  for cand in "${ROOT}/../ProteusSettings" /mnt/proteus-settings; do
+    if [[ -d "${cand}" ]] && { [[ -f "${cand}/Cargo.toml" ]] || [[ -d "${cand}/app" ]]; }; then
+      ST_ROOT="${cand}"
+      break
+    fi
+  done
+fi
+if [[ -z "${ST_ROOT}" ]] && grep -q 9p /proc/filesystems 2>/dev/null; then
+  install -d /mnt/proteus-settings
+  mount -t 9p -o trans=virtio,version=9p2000.L,msize=262144 \
+    proteus-settings /mnt/proteus-settings 2>/dev/null || true
+  [[ -d /mnt/proteus-settings ]] && ST_ROOT=/mnt/proteus-settings
+fi
+ST_BIN=""
+if [[ -n "${ST_ROOT}" ]]; then
+  for t in target/release/proteus-settings-next \
+           target/release/proteus-settings \
+           app/src-tauri/target/release/proteus-settings \
+           app/bin/proteus-settings; do
+    if [[ -x "${ST_ROOT}/${t}" ]]; then
+      ST_BIN="${ST_ROOT}/${t}"
+      break
+    fi
+  done
+fi
+if [[ -z "${ST_BIN}" && -n "${ST_ROOT}" && -f "${ST_ROOT}/Cargo.toml" ]] \
+  && command -v cargo >/dev/null 2>&1; then
+  echo "note: building proteus-settings-next (release)…"
+  (cd "${ST_ROOT}" && cargo build --release) \
+    && ST_BIN="${ST_ROOT}/target/release/proteus-settings-next" || true
+  [[ -z "${ST_BIN}" && -x "${ST_ROOT}/target/release/proteus-settings" ]] \
+    && ST_BIN="${ST_ROOT}/target/release/proteus-settings"
+fi
+if [[ -z "${ST_BIN}" || ! -x "${ST_BIN}" ]]; then
+  echo "error: proteus-settings (iced) required — build sibling first:" >&2
+  echo "  (cd ${ST_ROOT:-../ProteusSettings} && cargo build --release)" >&2
+  exit 1
 fi
 
-exec quickshell -n -p "\${DIR}"
+install -d /usr/local/libexec/proteus
+install -m 755 "${ST_BIN}" /usr/local/libexec/proteus/proteus-settings-next
+install -m 755 "${ST_BIN}" /usr/local/bin/proteus-settings-next
+# Remove retired QML fallback if present from older installs.
+rm -f /usr/local/bin/proteus-settings-qml
+cat > /usr/local/bin/proteus-settings << 'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+BIN=/usr/local/libexec/proteus/proteus-settings-next
+[[ -x "${BIN}" ]] || BIN="$(command -v proteus-settings-next || true)"
+if [[ -z "${BIN}" || ! -x "${BIN}" ]]; then
+  echo "proteus-settings: iced binary missing" >&2
+  exit 1
+fi
+page="" query=""
+for arg in "$@"; do
+  case "$arg" in
+    --page=*) page="${arg#--page=}" ;;
+    --query=*) query="${arg#--query=}" ;;
+  esac
+done
+args=()
+[[ -n "${page}" ]] && args+=(--page "${page}")
+[[ -n "${query}" ]] && args+=(--query "${query}")
+exec "${BIN}" "${args[@]}"
 EOF
 chmod 755 /usr/local/bin/proteus-settings
+echo "Installed proteus-settings → iced (proteus-settings-next)"
 
-# Animated background runner (Quickshell layer-shell)
-# comm = proteus-bg (script name) so pgrep -x / Settings apply can detect it.
-# Respawn loop: background changes can crash the Quickshell wallpaper process;
-# without the guard the compositor splash stays until reboot. Clean exits and
-# operator signals (TERM/INT/KILL) stop the loop so Settings' pkill works.
-cat > /usr/local/bin/proteus-bg << EOF
+# Wallpaper is owned by proteus-shell BG layer. Keep a thin no-op proteus-bg
+# so older hypr/settings apply paths that pkill/restart it do not fail loud.
+cat > /usr/local/bin/proteus-bg << 'EOF'
 #!/usr/bin/env bash
-set -uo pipefail
-export PROTEUS_ROOT="${ROOT}"
-export QS_ICON_THEME="\${QS_ICON_THEME:-Papirus-Dark}"
-export QT_QPA_PLATFORM="\${QT_QPA_PLATFORM:-wayland}"
-
-child=""
-trap '[[ -n "\${child}" ]] && kill "\${child}" 2>/dev/null; exit 143' TERM INT
-while :; do
-  quickshell -p "${ROOT}/shell/wallpaper" &
-  child=\$!
-  wait "\${child}"
-  ec=\$?
-  case "\${ec}" in
-    0 | 129 | 130 | 137 | 143) exit "\${ec}" ;;
-  esac
-  echo "proteus-bg: quickshell exited \${ec} — respawning" >&2
-  sleep 1
-done
+# Retired Quickshell wallpaper runner — owned shell paints BG.
+# No-op so legacy callers (pkill / Settings apply) stay quiet.
+exit 0
 EOF
 chmod 755 /usr/local/bin/proteus-bg
+echo "Installed proteus-bg → no-op (owned shell paints wallpaper)"
 
 install -d /usr/share/applications
-# Rewrite desktop Icon= to proteus-settings after install-icons
-install -m 644 "${APP}/proteus-settings.desktop" /usr/share/applications/proteus-settings.desktop
+DESKTOP_SRC=""
+for cand in \
+  "${ST_ROOT}/packaging/proteus-settings.desktop" \
+  "${ST_ROOT}/proteus-settings.desktop" \
+  "${ROOT}/env/desktop/proteus-settings.desktop"; do
+  if [[ -f "${cand}" ]]; then
+    DESKTOP_SRC="${cand}"
+    break
+  fi
+done
+if [[ -n "${DESKTOP_SRC}" ]]; then
+  install -m 644 "${DESKTOP_SRC}" /usr/share/applications/proteus-settings.desktop
+else
+  cat > /usr/share/applications/proteus-settings.desktop << 'EOF'
+[Desktop Entry]
+Name=Settings
+Comment=Proteus system settings
+Exec=proteus-settings
+Icon=proteus-settings
+Terminal=false
+Type=Application
+Categories=Settings;X-Proteus;
+EOF
+fi
 if grep -q '^Icon=' /usr/share/applications/proteus-settings.desktop; then
   sed -i 's/^Icon=.*/Icon=proteus-settings/' /usr/share/applications/proteus-settings.desktop
 fi
 
 echo "Installed proteus-settings → /usr/local/bin/proteus-settings"
-echo "Installed proteus-bg → /usr/local/bin/proteus-bg"
-
-# Wallpaper video needs Qt Multimedia (Quickshell / proteus-bg)
-if command -v pacman >/dev/null 2>&1; then
-  pacman -S --noconfirm --needed qt6-multimedia >/dev/null 2>&1 \
-    && echo "Installed qt6-multimedia (video backgrounds)" \
-    || echo "note: install qt6-multimedia for Appearance → Background → Video"
-fi
 
 # Seed per-user backgrounds folder (stock images)
 seed_backgrounds() {
   local home="$1"
   local dest="${home}/.local/share/proteus/backgrounds"
-  mkdir -p "${dest}"
+  local owner group
+  owner="$(stat -c %u "${home}")"
+  group="$(stat -c %g "${home}")"
+  install -d -o "${owner}" -g "${group}" \
+    "${home}/.local" "${home}/.local/share" \
+    "${home}/.local/share/proteus" "${dest}"
   local assets="${ROOT}/shell/assets"
   if [[ -d "${assets}" ]]; then
     shopt -s nullglob
@@ -110,6 +143,7 @@ seed_backgrounds() {
       base="$(basename "$f")"
       if [[ ! -e "${dest}/${base}" ]]; then
         cp -n "$f" "${dest}/${base}" 2>/dev/null || true
+        chown "${owner}:${group}" "${dest}/${base}" 2>/dev/null || true
       fi
     done
     shopt -u nullglob
@@ -124,6 +158,26 @@ if [[ -x "${ROOT}/services/proteus-pkg/bin/proteus-pkg" ]] \
   bash "${ROOT}/install/machine/install-proteus-pkg.sh"
 else
   echo "note: skipped proteus-pkg (build release on host first)"
+fi
+
+# Owned shell spine + launcher (OWNED-STACK rung 0)
+if [[ -x "${ROOT}/services/proteus-shell-core/bin/proteus-shell-core" ]] \
+  || [[ -x "${ROOT}/services/proteus-shell-core/target/release/proteus-shell-core" ]] \
+  || command -v cargo >/dev/null 2>&1; then
+  bash "${ROOT}/install/machine/install-proteus-shell-core.sh"
+else
+  echo "note: skipped proteus-shell-core (build release on host first)"
+fi
+
+# Owned iced shell — fail closed
+if [[ -x "${ROOT}/target/release/proteus-shell" ]] \
+  || [[ -x "${ROOT}/shell/target/release/proteus-shell" ]] \
+  || command -v cargo >/dev/null 2>&1; then
+  bash "${ROOT}/install/machine/install-proteus-shell.sh"
+else
+  echo "error: proteus-shell required — build release on host first:" >&2
+  echo "  (cd ${ROOT} && cargo build -p proteus-shell --release)" >&2
+  exit 1
 fi
 
 # Privileged logind writer (polkit) — Settings → Power
@@ -197,10 +251,6 @@ else
   if [[ -n "${HOME:-}" && "${HOME}" != "/root" ]]; then
     seed_backgrounds "${HOME}"
     ensure_flathub_for "$(id -un)"
-  # Root with no sudo context: resolve the real session user instead of
-  # guessing a username. This branch used to hardcode /home/andrew, which
-  # targeted the author's account on anyone else's machine — and was wrong
-  # even on his own, where the account is `andrewlancebevington`.
   elif session_user="$(proteus_session_user)"; then
     session_home="$(getent passwd "${session_user}" 2>/dev/null | cut -d: -f6 || true)"
     if [[ -n "${session_home}" && -d "${session_home}" ]]; then

@@ -65,10 +65,10 @@ CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus"
 FACT="${CONFIG_DIR}/posture"
 HOST_CHROME_FACT="${CONFIG_DIR}/host-chrome"
 SHELL_DIR="${ROOT}/shell"
-if [[ -x "${HERE}/proteus-qs" ]]; then
-  QS="${HERE}/proteus-qs"
+if [[ -x "${HERE}/proteus-chrome" ]]; then
+  CHROME="${HERE}/proteus-chrome"
 else
-  QS="${SHELL_DIR}/scripts/proteus-qs"
+  CHROME="${SHELL_DIR}/scripts/proteus-chrome"
 fi
 if [[ -x "${HERE}/set-hypr-profile.sh" ]]; then
   PROFILE_HELPER="${HERE}/set-hypr-profile.sh"
@@ -217,34 +217,31 @@ PY
 
 restart_chrome() {
   local surface="$1"
-  if [[ ! -x "${QS}" ]]; then
-    echo "proteus-posture: proteus-qs not found at ${QS}" >&2
+  if [[ ! -x "${CHROME}" ]]; then
+    echo "proteus-posture: proteus-chrome not found at ${CHROME}" >&2
     exit 1
   fi
   export PROTEUS_ROOT="${PROTEUS_ROOT:-${ROOT}}"
   export PROTEUS_SURFACE="${surface}"
   export PATH="/usr/local/bin:${PROTEUS_ROOT}/shell/scripts:${PATH}"
-  # Detached so callers inside Quickshell survive chrome teardown.
-  # Skip cold-boot lock on posture flip — session was already unlocked;
-  # re-locking here often fails to map WlSessionLock after QS restart and
-  # leaves console/desktop on a blank background (nav hidden, no lock UI).
+  # Detached so callers inside chrome survive teardown.
+  # Skip cold-boot lock on posture flip — session was already unlocked.
   setsid env PROTEUS_SURFACE="${surface}" PROTEUS_ROOT="${PROTEUS_ROOT}" \
     PROTEUS_SKIP_SESSION_LOCK=1 \
-    "${QS}" --restart "${SHELL_DIR}" >/dev/null 2>&1 &
+    "${CHROME}" --restart >/dev/null 2>&1 &
 }
 
 stop_chrome() {
-  if [[ ! -x "${QS}" ]]; then
-    echo "proteus-posture: proteus-qs not found at ${QS}" >&2
+  if [[ ! -x "${CHROME}" ]]; then
+    echo "proteus-posture: proteus-chrome not found at ${CHROME}" >&2
     exit 1
   fi
   export PROTEUS_ROOT="${PROTEUS_ROOT:-${ROOT}}"
-  # Detached stop — caller may be inside Quickshell.
   setsid env PROTEUS_ROOT="${PROTEUS_ROOT}" \
-    "${QS}" --stop "${SHELL_DIR}" >/dev/null 2>&1 &
+    "${CHROME}" --stop >/dev/null 2>&1 &
 }
 
-# Wallpaper is a separate QS process — quiet it on host-headless.
+# Wallpaper is owned by proteus-shell BG — quiet any leftover helper.
 stop_wallpaper() {
   pkill -x proteus-bg 2>/dev/null || true
   pkill -f "quickshell -p ${ROOT}/shell/wallpaper" 2>/dev/null || true

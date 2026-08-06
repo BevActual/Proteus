@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import shutil
 import sys
 from pathlib import Path
@@ -66,28 +65,21 @@ def current_posture() -> str:
 
 
 def load_catalog(root: Path) -> list[dict]:
-    src = (root / "shell/shared/EnvGate.qml").read_text()
-    m = re.search(r"readonly property var settingsCatalog: \[(.*?)\n  \]", src, re.S)
-    if not m:
-        sys.exit("proteus-cli-surface: could not parse settingsCatalog")
-    out = []
-    for chunk in re.split(r'\n      id: "', m.group(1))[1:]:
-        hub = chunk.split('"', 1)[0]
-
-        def arr(key: str) -> list[str]:
-            a = re.search(key + r":\s*\[(.*?)\]", chunk, re.S)
-            return re.findall(r'"([^"]+)"', a.group(1)) if a else []
-
-        pm = re.search(r"postures:\s*\[(.*?)\]", chunk, re.S)
-        out.append({
-            "id": hub,
-            "postures": re.findall(r'"([^"]+)"', pm.group(1)) if pm else [],
-            "requires": arr("requires"),
-            "requiresAny": arr("requiresAny"),
-            "cli": arr("backsCli"),
-            "facts": arr("backsFacts"),
-        })
-    return out
+    # Data SoT: env/settings/catalog.json (shared with EnvGate.qml and
+    # proteus-shell-core — OWNED-STACK rung 0).
+    path = root / "env/settings/catalog.json"
+    try:
+        hubs = json.loads(path.read_text())["hubs"]
+    except (OSError, ValueError, KeyError):
+        sys.exit(f"proteus-cli-surface: could not read {path}")
+    return [{
+        "id": h["id"],
+        "postures": h.get("postures") or [],
+        "requires": h.get("requires") or [],
+        "requiresAny": h.get("requiresAny") or [],
+        "cli": h.get("backsCli") or [],
+        "facts": h.get("backsFacts") or [],
+    } for h in hubs]
 
 
 def capabilities() -> tuple[set[str], bool]:

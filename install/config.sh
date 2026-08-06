@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# config — seatd/pipewire user session hooks + QS symlink
+# config — seatd/pipewire user session hooks + hypr chrome seed
 set -euo pipefail
 # shellcheck source=helpers.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/helpers.sh"
@@ -23,10 +23,9 @@ proteus_root systemctl enable seatd.service 2>/dev/null || true
 # PipeWire usually user services after first graphical login; enable lingering helps
 proteus_root loginctl enable-linger "${USER_NAME}" 2>/dev/null || true
 
-# Quickshell → Proteus shell (9p)
-proteus_as_user mkdir -p "${USER_HOME}/.config/quickshell"
-if [[ -L "${USER_HOME}/.config/quickshell/proteus" || ! -e "${USER_HOME}/.config/quickshell/proteus" ]]; then
-  proteus_as_user ln -sfn "${PROTEUS_ROOT}/shell" "${USER_HOME}/.config/quickshell/proteus"
+# Drop retired Quickshell config symlink if present.
+if [[ -L "${USER_HOME}/.config/quickshell/proteus" ]]; then
+  proteus_as_user rm -f "${USER_HOME}/.config/quickshell/proteus"
 fi
 
 # Hyprland config: prefer existing; else seed from env/ templates if guest has none
@@ -35,7 +34,6 @@ proteus_as_user mkdir -p "${HYPR_DIR}"
 if [[ ! -f "${HYPR_DIR}/hyprland.conf" ]]; then
   if [[ -f "${PROTEUS_ROOT}/env/hypr/hyprland.conf" ]]; then
     proteus_log "seeding hyprland.conf from env/hypr/"
-    # Nested template uses SHELL_DIR_PLACEHOLDER — guest wants /mnt/proteus/shell
     sed "s|SHELL_DIR_PLACEHOLDER|${PROTEUS_ROOT}/shell|g" \
       "${PROTEUS_ROOT}/env/hypr/hyprland.conf" \
       | proteus_as_user tee "${HYPR_DIR}/hyprland.conf" >/dev/null
@@ -44,24 +42,23 @@ if [[ ! -f "${HYPR_DIR}/hyprland.conf" ]]; then
   fi
 fi
 
-# Autostart Quickshell via proteus-qs if hypr doesn't already (append once)
+# Autostart owned chrome via proteus-chrome.
 if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
-  && ! grep -qE 'proteus-qs|quickshell -p' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
-  proteus_log "appending proteus-qs exec-once"
+  && ! grep -qE 'proteus-chrome' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
+  proteus_log "appending proteus-chrome exec-once"
   {
     echo ""
-    echo "# Proteus shell (proteus-qs respawn wrapper)"
-    echo "exec-once = qs_icon_theme=\${QS_ICON_THEME:-Papirus-Dark} ${PROTEUS_ROOT}/shell/scripts/proteus-qs ${PROTEUS_ROOT}/shell"
+    echo "# Proteus shell (owned iced via proteus-chrome)"
+    echo "exec-once = ${PROTEUS_ROOT}/shell/scripts/proteus-chrome"
   } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
 fi
 
-# Migrate bare quickshell exec-once → proteus-qs (idempotent)
+# Migrate bare quickshell / proteus-qs / path-arg chrome → proteus-chrome (idempotent)
 if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
-  && grep -qE 'exec-once[[:space:]]*=[[:space:]].*quickshell -p' "${HYPR_DIR}/hyprland.conf" 2>/dev/null \
-  && ! grep -q 'proteus-qs' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
-  proteus_log "migrating quickshell exec-once → proteus-qs"
+  && grep -qE 'exec-once[[:space:]]*=[[:space:]].*(quickshell -p|proteus-qs|proteus-chrome .+shell)' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
+  proteus_log "migrating chrome exec-once → proteus-chrome (owned-only)"
   proteus_as_user sed -i -E \
-    "s|quickshell -p ${PROTEUS_ROOT}/shell|${PROTEUS_ROOT}/shell/scripts/proteus-qs ${PROTEUS_ROOT}/shell|g" \
+    "s|[^[:space:]]*shell/scripts/proteus-qs[^[:space:]]*|${PROTEUS_ROOT}/shell/scripts/proteus-chrome|g; s|quickshell -p [^[:space:]]+|${PROTEUS_ROOT}/shell/scripts/proteus-chrome|g; s|${PROTEUS_ROOT}/shell/scripts/proteus-chrome[[:space:]]+[^[:space:]]+|${PROTEUS_ROOT}/shell/scripts/proteus-chrome|g" \
     "${HYPR_DIR}/hyprland.conf" || true
 fi
 

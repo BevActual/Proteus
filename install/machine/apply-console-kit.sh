@@ -62,7 +62,7 @@ fi
 for s in proteus-posture proteus-guide set-hypr-profile.sh \
          proteus-console-launch proteus-console-seat proteus-console-capabilities \
          proteus-console-session proteus-console-gs-session proteus-console-focus \
-         proteus-terminal proteus-qs proteus-webapp; do
+         proteus-terminal proteus-webapp; do
   install_helper "${SCRIPTS}/${s}"
 done
 

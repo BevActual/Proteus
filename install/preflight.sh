@@ -52,10 +52,10 @@ proteus_log "session user: ${PROTEUS_SESSION_USER}"
 
 # Every package stage needs a working mirror. Checking once here turns a
 # confusing mid-run pacman failure into an immediate, actionable message.
-# proteus_root, not bare pacman: -Sy needs root, and a permission error here
-# would otherwise be misreported as "no network".
+# Run timeout *under* proteus_root — `timeout proteus_root …` cannot invoke a
+# shell function and used to fail instantly as "no network".
 if command -v pacman >/dev/null 2>&1; then
-  if ! timeout 40 proteus_root pacman -Sy >/dev/null 2>&1; then
+  if ! proteus_root timeout 40 pacman -Sy >/dev/null 2>&1; then
     echo "preflight: cannot refresh pacman databases — no network, mirrors down, or no sudo" >&2
     echo "preflight:   check: ping -c1 archlinux.org · sudo pacman -Sy" >&2
     echo "preflight:   offline re-run of config/apps only: bootstrap.sh repair (skips preflight)" >&2
