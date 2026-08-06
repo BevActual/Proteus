@@ -1,0 +1,43 @@
+[package]
+name = "proteus-shell"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+description = "Owned iced layer-shell session (OWNED-STACK rung 1) — parallel to Quickshell"
+
+[[bin]]
+name = "proteus-shell"
+path = "src/main.rs"
+
+[[bin]]
+name = "proteus-shellctl"
+path = "src/bin/proteus-shellctl.rs"
+
+[[bin]]
+name = "proteus-session-lock"
+path = "src/bin/proteus-session-lock.rs"
+
+[lib]
+name = "proteus_shell"
+path = "src/lib.rs"
+
+[dependencies]
+proteus-shell-core = { path = "../services/proteus-shell-core" }
+proteus-ui = { path = "../services/proteus-ui" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+iced = { version = "0.14", default-features = false, features = [
+    "web-colors",
+    "crisp",
+    "wayland",
+    "wgpu",
+    "tiny-skia",
+    "thread-pool",
+    "tokio",
+    "image",
+    "svg",
+] }
+iced_layershell = "0.19"
+iced_sessionlock = "0.19"
+zbus = { version = "5", default-features = true }
+zvariant = "5"

@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# proteus-chrome — session chrome launcher (owned iced only).
+#
+# usage: proteus-chrome [--restart|--stop]
+set -euo pipefail
+
+ROOT="${PROTEUS_ROOT:-}"
+if [[ -z "${ROOT}" || ! -d "${ROOT}/shell" ]]; then
+  HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+  ROOT="$(cd "${HERE}/../.." && pwd)"
+fi
+export PROTEUS_ROOT="${ROOT}"
+
+MODE=start
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --restart) MODE=restart; shift ;;
+    --stop) MODE=stop; shift ;;
+    -*)
+      echo "usage: proteus-chrome [--restart|--stop]" >&2
+      exit 2
+      ;;
+    *)
+      # Legacy shell-path arg ignored (Quickshell retired).
+      shift
+      ;;
+  esac
+done
+
+BIN="$(command -v proteus-shell || true)"
+[[ -z "${BIN}" && -x /usr/local/bin/proteus-shell ]] && BIN=/usr/local/bin/proteus-shell
+[[ -z "${BIN}" && -x "${ROOT}/target/release/proteus-shell" ]] && BIN="${ROOT}/target/release/proteus-shell"
+[[ -z "${BIN}" && -x "${ROOT}/target/debug/proteus-shell" ]] && BIN="${ROOT}/target/debug/proteus-shell"
+if [[ -z "${BIN}" ]]; then
+  echo "proteus-chrome: proteus-shell not found — install owned shell first" >&2
+  exit 1
+fi
+
+case "${MODE}" in
+  stop)
+    pkill -x proteus-shell 2>/dev/null || true
+    exit 0
+    ;;
+  restart)
+    pkill -x proteus-shell 2>/dev/null || true
+    sleep 0.2
+    ;;
+esac
+
+# Session env — hypr instance + wayland (needed when launched outside exec-once)
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+if [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
+  if [[ -S "${XDG_RUNTIME_DIR}/wayland-1" ]]; then
+    export WAYLAND_DISPLAY=wayland-1
+  elif [[ -S "${XDG_RUNTIME_DIR}/wayland-0" ]]; then
+    export WAYLAND_DISPLAY=wayland-0
+  fi
+fi
+if [[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" && -d "${XDG_RUNTIME_DIR}/hypr" ]]; then
+  his=""
+  for d in "${XDG_RUNTIME_DIR}/hypr"/*/; do
+    his="$(basename "${d}")"
+    break
+  done
+  [[ -n "${his}" ]] && export HYPRLAND_INSTANCE_SIGNATURE="${his}"
+fi
+FACE="${PROTEUS_SURFACE:-desktop}"
+case "${FACE}" in console|couch) FACE=console ;; host) FACE=host ;; *) FACE=desktop ;; esac
+
+# Owned shell renders wallpaper on the BG layer — stop any leftover wallpaper helper.
+pkill -x proteus-bg 2>/dev/null || true
+
+# Respawn watchdog: owned chrome self-heals on crash, exits clean on TERM/INT,
+# fails loud on rapid crash loops. Logs via systemd-cat when available.
+child=""
+trap '[[ -n "${child}" ]] && kill "${child}" 2>/dev/null; exit 143' TERM INT
+fails=0
+window_start="$(date +%s)"
+while :; do
+  if command -v systemd-cat >/dev/null 2>&1; then
+    systemd-cat -t proteus-shell -- "${BIN}" --face "${FACE}" &
+  else
+    "${BIN}" --face "${FACE}" &
+  fi
+  child=$!
+  ec=0
+  wait "${child}" || ec=$?
+  child=""
+  case "${ec}" in
+    0 | 129 | 130 | 137 | 143) exit "${ec}" ;;
+  esac
+  now="$(date +%s)"
+  if (( now - window_start > 60 )); then
+    fails=0
+    window_start="${now}"
+  fi
+  fails=$((fails + 1))
+  if (( fails >= 5 )); then
+    echo "proteus-chrome: proteus-shell crashed ${fails}x within 60s — giving up" >&2
+    exit 1
+  fi
+  echo "proteus-chrome: proteus-shell exited ${ec} — respawn ${fails}/5" >&2
+  sleep 1
+done
