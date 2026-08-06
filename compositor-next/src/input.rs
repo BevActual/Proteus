@@ -1,19 +1,25 @@
 //! Input routing — smallvil-derived; layer surfaces get focus via
 //! `CompositorNext::surface_under` (overlay/top layers above windows).
+//! Session Super chords intercepted via [`crate::binds`].
 
 use smithay::{
     backend::input::{
         AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event, InputBackend, InputEvent,
-        KeyboardKeyEvent, PointerAxisEvent, PointerButtonEvent,
+        KeyState, KeyboardKeyEvent, PointerAxisEvent, PointerButtonEvent, PointerMotionEvent,
     },
     input::{
         keyboard::FilterResult,
-        pointer::{AxisFrame, ButtonEvent, MotionEvent},
+        pointer::{
+            AxisFrame, ButtonEvent, Focus, GrabStartData, MotionEvent, RelativeMotionEvent,
+        },
     },
     reexports::wayland_server::protocol::wl_surface::WlSurface,
     utils::SERIAL_COUNTER,
 };
 
+use crate::binds::{self, BindAction};
+use crate::decoration::SsdHit;
+use crate::grabs::MoveSurfaceGrab;
 use crate::state::CompositorNext;
 
 impl CompositorNext {
@@ -22,14 +28,81 @@ impl CompositorNext {
             InputEvent::Keyboard { event, .. } => {
                 let serial = SERIAL_COUNTER.next_serial();
                 let time = Event::time_msec(&event);
-                self.seat.get_keyboard().unwrap().input::<(), _>(
+                let pressed = event.state() == KeyState::Pressed;
+                let action = self.seat.get_keyboard().unwrap().input::<Option<BindAction>, _>(
                     self,
                     event.key_code(),
                     event.state(),
                     serial,
                     time,
-                    |_, _, _| FilterResult::Forward,
+                    |state, modifiers, handle| {
+                        if !pressed {
+                            return FilterResult::Forward;
+                        }
+                        let sym = handle
+                            .raw_latin_sym_or_raw_current_sym()
+                            .unwrap_or_else(|| handle.modified_sym());
+                        let Some(name) = binds::keysym_to_name(sym) else {
+                            return FilterResult::Forward;
+                        };
+                        match state.binds.lookup(modifiers, name) {
+                            Some(action) => FilterResult::Intercept(Some(action.clone())),
+                            None => FilterResult::Forward,
+                        }
+                    },
                 );
+                if let Some(Some(action)) = action {
+                    match &action {
+                        BindAction::Dispatch(verb) => {
+                            match self.wm.dispatch(verb) {
+                                Ok(ops) => self.apply_wm_ops(ops),
+                                Err(e) => {
+                                    eprintln!("proteus-compositor-next: bind dispatch: {e}")
+                                }
+                            }
+                        }
+                        other => binds::spawn_action(other),
+                    }
+                }
+            }
+            InputEvent::PointerMotion { event, .. } => {
+                let Some(output) = self.space.outputs().next() else {
+                    return;
+                };
+                let Some(output_geo) = self.space.output_geometry(output) else {
+                    return;
+                };
+                let pointer = self.seat.get_pointer().unwrap();
+                let mut pos = pointer.current_location() + event.delta();
+                pos.x = pos.x.clamp(
+                    output_geo.loc.x as f64,
+                    (output_geo.loc.x + output_geo.size.w) as f64,
+                );
+                pos.y = pos.y.clamp(
+                    output_geo.loc.y as f64,
+                    (output_geo.loc.y + output_geo.size.h) as f64,
+                );
+                let serial = SERIAL_COUNTER.next_serial();
+                let under = self.surface_under(pos);
+                pointer.motion(
+                    self,
+                    under.clone(),
+                    &MotionEvent {
+                        location: pos,
+                        serial,
+                        time: event.time_msec(),
+                    },
+                );
+                pointer.relative_motion(
+                    self,
+                    under,
+                    &RelativeMotionEvent {
+                        delta: event.delta(),
+                        delta_unaccel: event.delta_unaccel(),
+                        utime: event.time(),
+                    },
+                );
+                pointer.frame(self);
             }
             InputEvent::PointerMotionAbsolute { event, .. } => {
                 let Some(output) = self.space.outputs().next() else {
@@ -57,16 +130,51 @@ impl CompositorNext {
                 let serial = SERIAL_COUNTER.next_serial();
                 let button = event.button_code();
                 let button_state = event.state();
+                let location = pointer.current_location();
 
                 if ButtonState::Pressed == button_state && !pointer.is_grabbed() {
+                    // SSD chrome takes precedence over client surfaces under the bar.
+                    if let Some(hit) = self.ssd_hit_at(location) {
+                        match hit {
+                            SsdHit::Close { address } => {
+                                self.focus_address(&address);
+                                self.close_address(&address);
+                            }
+                            SsdHit::Maximize { address } => {
+                                self.focus_address(&address);
+                                self.toggle_maximized(&address);
+                            }
+                            SsdHit::Titlebar { address } => {
+                                self.start_ssd_move(&address, button, location, serial);
+                            }
+                        }
+                        pointer.button(
+                            self,
+                            &ButtonEvent {
+                                button,
+                                state: button_state,
+                                serial,
+                                time: event.time_msec(),
+                            },
+                        );
+                        pointer.frame(self);
+                        return;
+                    }
+
                     // Focus the surface under the pointer (layer or window).
-                    if let Some((surface, _)) = self.surface_under(pointer.current_location()) {
+                    if let Some((surface, _)) = self.surface_under(location) {
                         if let Some((window, _)) = self
                             .space
-                            .element_under(pointer.current_location())
+                            .element_under(location)
                             .map(|(w, l)| (w.clone(), l))
                         {
                             self.space.raise_element(&window, true);
+                            if let Some(addr) = self.windows.iter().find_map(|(a, w)| {
+                                (w == &window).then(|| a.clone())
+                            }) {
+                                self.wm.focused = Some(addr);
+                                self.broadcast_event("activewindow>>");
+                            }
                         }
                         keyboard.set_focus(self, Some(surface), serial);
                         self.space.elements().for_each(|window| {
@@ -82,6 +190,8 @@ impl CompositorNext {
                             }
                         });
                         keyboard.set_focus(self, Option::<WlSurface>::None, serial);
+                        self.wm.focused = None;
+                        self.broadcast_event("activewindow>>");
                     }
                 };
 
@@ -135,5 +245,40 @@ impl CompositorNext {
             }
             _ => {}
         }
+    }
+
+    fn start_ssd_move(
+        &mut self,
+        address: &str,
+        button: u32,
+        location: smithay::utils::Point<f64, smithay::utils::Logical>,
+        serial: smithay::utils::Serial,
+    ) {
+        let Some(window) = self.windows.get(address).cloned() else {
+            return;
+        };
+        let Some(initial_window_location) = self.space.element_location(&window) else {
+            return;
+        };
+        self.focus_address(address);
+        let Some(pointer) = self.seat.get_pointer() else {
+            return;
+        };
+        let start_data = GrabStartData {
+            focus: None,
+            button,
+            location,
+        };
+        pointer.set_grab(
+            self,
+            MoveSurfaceGrab {
+                start_data,
+                window,
+                initial_window_location,
+                address: Some(address.to_string()),
+            },
+            serial,
+            Focus::Clear,
+        );
     }
 }

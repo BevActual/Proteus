@@ -1,4 +1,5 @@
-//! Hyprland IPC bridge — socket2 events + hyprctl dispatch.
+//! Window-manager IPC bridge — owned compositor-next only
+//! (`PROTEUS_COMPOSITOR_SOCK`). Hyprland / hyprctl purged.
 //!
 //! Mirrors what Quickshell.Hyprland + ConfigHypr provided: workspaces,
 //! toplevels, active window, and keyword dispatch.
@@ -6,7 +7,7 @@
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
-use std::process::Command;
+use std::time::Duration;
 
 use serde::Serialize;
 
@@ -26,7 +27,7 @@ pub struct Toplevel {
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
-pub struct HyprState {
+pub struct WmState {
     pub workspaces: Vec<Workspace>,
     pub toplevels: Vec<Toplevel>,
     pub active_workspace: i64,
@@ -35,53 +36,66 @@ pub struct HyprState {
     pub active_address: String,
 }
 
-pub fn his_socket() -> Option<PathBuf> {
-    let sig = std::env::var("HYPRLAND_INSTANCE_SIGNATURE").ok()?;
-    let rt = std::env::var("XDG_RUNTIME_DIR").ok()?;
-    let p = PathBuf::from(rt).join("hypr").join(&sig).join(".socket.sock");
-    if p.exists() {
-        Some(p)
-    } else {
-        // Legacy path
-        let legacy = PathBuf::from("/tmp/hypr").join(&sig).join(".socket.sock");
-        if legacy.exists() {
-            Some(legacy)
-        } else {
-            Some(p)
+/// One-release alias after Hyprland purge rename.
+pub type HyprState = WmState;
+
+pub fn compositor_sock() -> Option<PathBuf> {
+    if let Ok(p) = std::env::var("PROTEUS_COMPOSITOR_SOCK") {
+        let path = PathBuf::from(p);
+        if path.exists() {
+            return Some(path);
         }
     }
-}
-
-pub fn his_socket2() -> Option<PathBuf> {
-    his_socket().map(|p| p.with_file_name(".socket2.sock"))
-}
-
-/// Run `hyprctl -j <cmd>` and parse JSON.
-pub fn hyprctl_json(args: &[&str]) -> Result<serde_json::Value, String> {
-    let mut cmd = Command::new("hyprctl");
-    cmd.arg("-j");
-    cmd.args(args);
-    let out = cmd.output().map_err(|e| format!("hyprctl: {e}"))?;
-    if !out.status.success() {
-        return Err(format!(
-            "hyprctl {:?}: {}",
-            args,
-            String::from_utf8_lossy(&out.stderr)
-        ));
+    let wd = std::env::var("WAYLAND_DISPLAY").ok()?;
+    let runtime = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
+    let safe = wd.replace('/', "_");
+    let path = PathBuf::from(runtime).join(format!("proteus-compositor-{safe}.sock"));
+    if path.exists() {
+        Some(path)
+    } else {
+        None
     }
-    serde_json::from_slice(&out.stdout).map_err(|e| format!("hyprctl json: {e}"))
+}
+
+/// One-shot line request against the owned compositor control socket.
+fn smithay_request(line: &str) -> Result<String, String> {
+    let path = compositor_sock().ok_or("PROTEUS_COMPOSITOR_SOCK unset")?;
+    let mut stream =
+        UnixStream::connect(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    stream
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .ok();
+    stream
+        .set_write_timeout(Some(Duration::from_secs(2)))
+        .ok();
+    writeln!(stream, "{line}").map_err(|e| e.to_string())?;
+    let mut reader = BufReader::new(stream);
+    let mut resp = String::new();
+    reader.read_line(&mut resp).map_err(|e| e.to_string())?;
+    Ok(resp)
+}
+
+fn smithay_json(cmd: &str) -> Result<serde_json::Value, String> {
+    let resp = smithay_request(cmd)?;
+    serde_json::from_str(resp.trim()).map_err(|e| format!("smithay ctl json: {e}"))
+}
+
+/// Compositor ctl query (hypr-shaped JSON). Name kept for call-site stability.
+pub fn hyprctl_json(args: &[&str]) -> Result<serde_json::Value, String> {
+    let cmd = args.join(" ");
+    smithay_json(&cmd)
 }
 
 pub fn dispatch(dispatcher: &str) -> Result<(), String> {
-    let status = Command::new("hyprctl")
-        .args(["dispatch", dispatcher])
-        .status()
-        .map_err(|e| e.to_string())?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("hyprctl dispatch {dispatcher} failed"))
+    let v = smithay_json(&format!("dispatch {dispatcher}"))?;
+    if v.get("ok").and_then(|o| o.as_bool()) == Some(false) {
+        return Err(v
+            .get("error")
+            .and_then(|e| e.as_str())
+            .unwrap_or("dispatch failed")
+            .to_string());
     }
+    Ok(())
 }
 
 /// Close focused toplevel.
@@ -120,13 +134,12 @@ fn toplevel_minimized(t: &Toplevel) -> bool {
 }
 
 /// Dock click: minimize focused match · restore minimized · focus running · else launch.
-pub fn dock_activate(pin: &str, hypr: &HyprState) -> DockAction {
+pub fn dock_activate(pin: &str, hypr: &WmState) -> DockAction {
     let pin_l = pin.to_lowercase();
     if pin_matches(&pin_l, &hypr.active_class, &hypr.active_title) {
         let _ = window_minimize();
         return DockAction::Minimized;
     }
-    // Restore from special:minimized — clients on special workspaces
     if let Ok(clients) = hyprctl_json(&["clients"]) {
         if let Some(arr) = clients.as_array() {
             for c in arr {
@@ -165,8 +178,8 @@ pub enum DockAction {
     Launch,
 }
 
-pub fn refresh_state() -> HyprState {
-    let mut state = HyprState::default();
+pub fn refresh_state() -> WmState {
+    let mut state = WmState::default();
     if let Ok(ws) = hyprctl_json(&["workspaces"]) {
         if let Some(arr) = ws.as_array() {
             for w in arr {
@@ -204,52 +217,53 @@ pub fn refresh_state() -> HyprState {
     state
 }
 
-pub type SharedHypr = std::sync::Arc<std::sync::Mutex<HyprState>>;
+pub type SharedWm = std::sync::Arc<std::sync::Mutex<WmState>>;
+/// One-release alias after Hyprland purge rename.
+pub type SharedHypr = SharedWm;
 
-/// Spawn socket2 event reader; refreshes SharedHypr on workspace/activewindow events.
-pub fn spawn_socket2_listener(shared: SharedHypr) {
-    std::thread::spawn(move || {
-        let Some(path) = his_socket2() else {
-            return;
+/// Spawn event listener on PROTEUS_COMPOSITOR_SOCK `subscribe`.
+pub fn spawn_socket2_listener(shared: SharedWm) {
+    std::thread::spawn(move || smithay_subscribe_loop(shared));
+}
+
+fn smithay_subscribe_loop(shared: SharedWm) {
+    loop {
+        let Some(path) = compositor_sock() else {
+            std::thread::sleep(Duration::from_secs(2));
+            continue;
         };
-        loop {
-            match UnixStream::connect(&path) {
-                Ok(stream) => {
-                    let reader = BufReader::new(stream);
-                    for line in reader.lines().flatten() {
-                        if line.starts_with("workspace")
-                            || line.starts_with("focusedmon")
-                            || line.starts_with("activewindow")
-                            || line.starts_with("openwindow")
-                            || line.starts_with("closewindow")
-                        {
-                            let next = refresh_state();
-                            if let Ok(mut g) = shared.lock() {
-                                *g = next;
-                            }
+        match UnixStream::connect(&path) {
+            Ok(mut stream) => {
+                if writeln!(stream, "subscribe").is_err() {
+                    std::thread::sleep(Duration::from_secs(1));
+                    continue;
+                }
+                let reader = BufReader::new(stream);
+                for line in reader.lines().flatten() {
+                    if line.starts_with("workspace")
+                        || line.starts_with("activewindow")
+                        || line.starts_with("openwindow")
+                        || line.starts_with("closewindow")
+                        || line.starts_with("dispatch")
+                    {
+                        let next = refresh_state();
+                        if let Ok(mut g) = shared.lock() {
+                            *g = next;
                         }
                     }
                 }
-                Err(_) => {
-                    std::thread::sleep(std::time::Duration::from_secs(2));
-                }
             }
-            std::thread::sleep(std::time::Duration::from_millis(500));
+            Err(_) => {
+                std::thread::sleep(Duration::from_secs(2));
+            }
         }
-    });
+        std::thread::sleep(Duration::from_millis(500));
+    }
 }
 
-/// Write a command to the Hyprland IPC socket (when hyprctl is unavailable).
+/// Write a command to the compositor control socket.
 pub fn socket_command(cmd: &str) -> Result<String, String> {
-    let path = his_socket().ok_or("HYPRLAND_INSTANCE_SIGNATURE unset")?;
-    let mut stream = UnixStream::connect(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-    stream
-        .write_all(cmd.as_bytes())
-        .map_err(|e| e.to_string())?;
-    let mut reader = BufReader::new(stream);
-    let mut resp = String::new();
-    reader.read_line(&mut resp).map_err(|e| e.to_string())?;
-    Ok(resp)
+    smithay_request(cmd)
 }
 
 #[cfg(test)]
@@ -257,9 +271,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn socket_paths_tolerant() {
-        // Without Hyprland env, still returns a constructed path or None.
-        let _ = his_socket();
-        let _ = his_socket2();
+    fn compositor_sock_tolerant() {
+        let _ = compositor_sock();
+    }
+
+    #[test]
+    fn engine_always_smithay_ipc() {
+        assert_eq!(crate::engine::resolve_compositor_engine(), "smithay");
     }
 }

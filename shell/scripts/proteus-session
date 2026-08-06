@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # System session wrapper installed to /usr/local/bin/proteus-session
 #
-# Contract (Session start hygiene #1167 · Phase 3 engine switch):
+# Contract (Hyprland purge · OWNED-STACK):
 #   - Best-effort mount /mnt/proteus when that is the product root
 #   - Export PROTEUS_SURFACE, PROTEUS_ROOT, QS_ICON_THEME, PATH for chrome/scripts
 #   - ENGINE SWITCH — the only place a session compositor is chosen:
 #       posture console + session Fact `session` + usable Gamescope
 #         → proteus-console-gs-session (Gamescope owns the session)
-#       everything else → start-hyprland (watchdog) / bare Hyprland
-#   - Gamescope fast-fail degrades the session Fact to `seat` and falls back
-#     to Hyprland in the SAME login — a bad console Fact can never loop the
-#     greeter or lock the user out of a session
+#       compositor-engine empty|smithay|compositor-next (only shipping engine)
+#         + bare seat → proteus-compositor-next --backend drm -c proteus-chrome
+#       Fact=hyprland / nested display / missing binary / DRM fail → exit 1
+#         (greeter returns; Hyprland is retired — use ./dev/run-nested.sh for nested)
 #   - Never exec-once a terminal from this wrapper (Dock / Super+Return only)
 set -euo pipefail
 
@@ -21,7 +21,7 @@ fi
 export LANG="${LANG:-en_US.UTF-8}"
 export LC_ALL="${LC_ALL:-en_US.UTF-8}"
 export XDG_SESSION_TYPE=wayland
-export XDG_CURRENT_DESKTOP=Hyprland
+export XDG_CURRENT_DESKTOP=wlroots
 
 # Install root — greetd starts this wrapper with a clean environment, so
 # PROTEUS_ROOT is never inherited at login. Resolve in order and fail soft:
@@ -73,35 +73,13 @@ esac
 [[ "${PROTEUS_SURFACE}" == "couch" ]] && PROTEUS_SURFACE=console
 export PROTEUS_SURFACE
 # Managed-session marker — proteus-posture only terminates sessions started
-# through this wrapper (protects nested/dev Hyprland on a workstation).
+# through this wrapper (protects nested/dev on a workstation).
 export PROTEUS_SESSION=1
 # Dock / Super+Return → proteus-terminal (Ghostty + VM GL workaround)
 export PATH="/usr/local/bin:${PROTEUS_ROOT}/shell/scripts:${PATH}"
 # Quickshell chrome icons (Papirus); avoids Adwaita-only / missing glyphs
 export QS_ICON_THEME="${QS_ICON_THEME:-Papirus-Dark}"
 export QT_QPA_PLATFORMTHEME="${QT_QPA_PLATFORMTHEME:-gtk3}"
-
-# Prefer the watchdog wrapper (crash recovery / safe mode). Bare `Hyprland`
-# is only for nested debug (dev/run-nested.sh) or hosts without the wrapper.
-resolve_start_hyprland() {
-  if command -v start-hyprland >/dev/null 2>&1; then
-    command -v start-hyprland
-    return 0
-  fi
-  local candidate
-  for candidate in \
-    /usr/local/bin/start-hyprland \
-    /usr/bin/start-hyprland \
-    "${HOME}/.local/share/omarchy/bin/start-hyprland" \
-    /usr/share/omarchy/bin/start-hyprland
-  do
-    if [[ -x "${candidate}" ]]; then
-      printf '%s\n' "${candidate}"
-      return 0
-    fi
-  done
-  return 1
-}
 
 # --- Phase 3 engine switch: Gamescope-owned console session -----------------
 console_session_wanted() {
@@ -146,22 +124,121 @@ if console_session_wanted; then
     if [[ "${_gs_rc}" -eq 0 || "${_gs_ran}" -ge 10 ]]; then
       exit "${_gs_rc}"
     fi
-    # Fast nonzero exit = engine failed to come up. Degrade to the interim
-    # seat path and continue into Hyprland in this same login.
+    # Fast nonzero exit = engine failed to come up. Degrade Fact and continue
+    # into smithay DRM (Hyprland purged — no Hyprland fallthrough).
     degrade_session_fact
   else
-    echo "proteus-session: gamescope session wanted but proteus-console-gs-session missing — falling back to Hyprland" >&2
+    echo "proteus-session: gamescope session wanted but proteus-console-gs-session missing — continuing to smithay DRM" >&2
   fi
 fi
 # -----------------------------------------------------------------------------
 
-if start_hypr="$(resolve_start_hyprland)"; then
-  exec "${start_hypr}"
+# --- Engine: smithay DRM only (Hyprland purged) -------------------------------
+# Empty Fact/env → smithay. Fact=hyprland refused. Nested → exit (use run-nested).
+# Missing binary / fast DRM fail → exit 1 (greeter).
+resolve_compositor_engine() {
+  local raw="" fact
+  raw="$(printf '%s' "${PROTEUS_COMPOSITOR_ENGINE:-}" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+  if [[ -z "${raw}" ]]; then
+    fact="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/compositor-engine"
+    if [[ -r "${fact}" ]]; then
+      raw="$(tr '[:upper:]' '[:lower:]' <"${fact}" | tr -d '[:space:]')"
+    fi
+  fi
+  case "${raw}" in
+    hyprland|hypr)
+      echo "proteus-session: compositor-engine=${raw} refused — Hyprland purged (use smithay)" >&2
+      return 1
+      ;;
+    ""|smithay|compositor-next)
+      printf 'smithay'
+      return 0
+      ;;
+    *)
+      echo "proteus-session: compositor-engine=${raw} unknown — using smithay" >&2
+      printf 'smithay'
+      return 0
+      ;;
+  esac
+}
+
+resolve_compositor_next() {
+  local candidate
+  if command -v proteus-compositor-next >/dev/null 2>&1; then
+    command -v proteus-compositor-next
+    return 0
+  fi
+  for candidate in \
+    /usr/local/bin/proteus-compositor-next \
+    "${PROTEUS_ROOT}/target/release/proteus-compositor-next" \
+    "${PROTEUS_ROOT}/target/debug/proteus-compositor-next" \
+    "${PROTEUS_ROOT}/compositor-next/target/release/proteus-compositor-next" \
+    "${PROTEUS_ROOT}/compositor-next/target/debug/proteus-compositor-next"
+  do
+    if [[ -x "${candidate}" ]]; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+resolve_proteus_chrome() {
+  local candidate
+  if command -v proteus-chrome >/dev/null 2>&1; then
+    command -v proteus-chrome
+    return 0
+  fi
+  for candidate in \
+    /usr/local/bin/proteus-chrome \
+    "${PROTEUS_ROOT}/shell/scripts/proteus-chrome"
+  do
+    if [[ -x "${candidate}" ]]; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+ENGINE=""
+if ! ENGINE="$(resolve_compositor_engine)"; then
+  exit 1
+fi
+[[ "${ENGINE}" == "smithay" ]] || exit 1
+
+# Session login must own the seat — nested dogfood uses ./dev/run-nested.sh.
+if [[ -n "${WAYLAND_DISPLAY:-}" || -n "${DISPLAY:-}" ]]; then
+  echo "proteus-session: nested display present (WAYLAND_DISPLAY/DISPLAY) — refuse (Hyprland purged; use ./dev/run-nested.sh)" >&2
+  exit 1
 fi
 
-if command -v Hyprland >/dev/null 2>&1; then
-  exec Hyprland
+if ! COMP_NEXT="$(resolve_compositor_next)"; then
+  echo "proteus-session: proteus-compositor-next missing — refuse (Hyprland purged)" >&2
+  exit 1
 fi
 
-echo "proteus-session: neither start-hyprland nor Hyprland found on PATH" >&2
-exit 127
+CHROME_BIN=""
+if CHROME_BIN="$(resolve_proteus_chrome)"; then
+  :
+else
+  echo "proteus-session: proteus-chrome missing — launching compositor without -c chrome" >&2
+fi
+
+export XDG_CURRENT_DESKTOP=wlroots
+export PROTEUS_COMPOSITOR_ENGINE=smithay
+_sm_start="$(date +%s)"
+set +e
+if [[ -n "${CHROME_BIN}" ]]; then
+  "${COMP_NEXT}" --backend drm -c "${CHROME_BIN}"
+else
+  "${COMP_NEXT}" --backend drm
+fi
+_sm_rc=$?
+set -e
+_sm_ran=$(( $(date +%s) - _sm_start ))
+if [[ "${_sm_rc}" -eq 0 || "${_sm_ran}" -ge 10 ]]; then
+  exit "${_sm_rc}"
+fi
+echo "proteus-session: proteus-compositor-next DRM failed fast (rc=${_sm_rc}) — refuse (Hyprland purged)" >&2
+exit 1

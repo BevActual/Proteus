@@ -1,13 +1,16 @@
 # Proteus dogfood overlay — session base (Arch official repos only).
 # One package per line; comments and blanks ignored.
-# Thin: chrome stack that makes Hyprland + Quickshell honest.
-# Desktop apps (browser, files, …) → proteus-desktop.packages
+# Thin: smithay session + owned chrome. Desktop apps → proteus-desktop.packages
 
-# Compositor / session
-hyprland
-xdg-desktop-portal-hyprland
+# Compositor / session — Hyprland purged; proteus-compositor-next is the engine.
+# Shipping portal-wlr for Screenshot/Screencast.
+xdg-desktop-portal-wlr
 xdg-desktop-portal
 xdg-desktop-portal-gtk
+# Retired with Hyprland:
+# hyprland
+# hypridle
+# xdg-desktop-portal-hyprland
 xdg-utils
 # ~/Downloads, ~/Pictures, … — Chromium/Nautilus expect these
 xdg-user-dirs
@@ -17,7 +20,6 @@ polkit
 hyprpolkitagent
 greetd
 greetd-tuigreet
-hypridle
 
 # Shell chrome
 quickshell

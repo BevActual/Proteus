@@ -1,24 +1,25 @@
 # env/ — the default environment Proteus ships
 
 Config templates, app manifests and design tokens that define what Proteus looks
-like out of the box. **Not install-only.** Three different consumers read this
-tree, which is why it is not folded into `install/`:
+like out of the box. **Not install-only.** Consumers read this tree, which is
+why it is not folded into `install/`:
 
 | Consumer | Reads | When |
 |----------|-------|------|
-| **Runtime** | `apps/catalog.json` via `proteus-shell-core` gating; `hypr/profiles/*` via `shell/scripts/set-hypr-profile.sh` | while Proteus is running — including during a posture flip |
-| **Installer** | `hypr/` · `ghostty/` · `fastfetch/` · `bash/` · `systemd/` | `install/config.sh` seeds them into `$HOME` on first install |
-| **Dev harness** | `hypr/` · `ghostty/` · `fastfetch/` · `bash/` | `dev/run-nested.sh` seeds a nested session; smoke gates assert template content |
+| **Runtime** | `apps/catalog.json` via `proteus-shell-core` gating | while Proteus is running — including during a posture flip |
+| **Installer** | `ghostty/` · `fastfetch/` · `bash/` · `portal/` · `systemd/` | `install/config.sh` seeds them into `$HOME` on first install |
+| **Dev harness** | `ghostty/` · `fastfetch/` · `bash/` | `dev/run-nested.sh` seeds a nested session |
 
 | Path | Role |
 |------|------|
-| `hypr/` | Hyprland template + `proteus-*.conf` fragments + posture `profiles/` |
 | `apps/` | App capability manifests (`catalog.json` · `schema.json`) for shell-core gate |
 | `chrome/` | Sibling chrome token export (JSON + CSS vars) |
 | `ghostty/` | Minimal Ghostty seed (no opacity/blur) |
 | `fastfetch/` | P monogram + modules on shell start |
 | `bash/proteus-bashrc.sh` | Run fastfetch when Ghostty opens. Named `bash/`, not `shell/`, because `shell/` at the repo root means the owned iced chrome crate |
-| `systemd/user/` | (empty) — Quickshell user unit retired |
+| `portal/` | xdg-desktop-portal preference (`portals.conf` → wlr) |
+| `systemd/user/` | Optional user units (e.g. idle); Quickshell unit retired |
+| ~~`hypr/`~~ | **Deleted** — Hyprland purged; `set-hypr-profile.sh` is a retired stub |
 
 ## No tooling here
 

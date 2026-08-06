@@ -1,9 +1,11 @@
 # env/settings — Settings hub catalog
 
-`catalog.json` is the Settings hub gating data, extracted from the inline
-`settingsCatalog` in `services/proteus-shell-core`
-([OWNED-STACK.md](../../docs/proteus/OWNED-STACK.md) rung 0) so one file feeds
-every consumer:
+`catalog.json` is the Settings hub gating data…
+
+Also: `keybinds.defaults.json` — seed for `~/.config/proteus/keybinds.json`
+(owned compositor binds; see compositor-next `binds.rs`). Install via
+`install/machine/install-keybinds.sh`.
+
 
 | Consumer | How |
 |----------|-----|

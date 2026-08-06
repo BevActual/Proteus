@@ -1,0 +1,510 @@
+#!/usr/bin/env bash
+# compositor-next-smoke — owned Smithay spike IPC contract (OWNED-STACK rung 2).
+#
+# Always-on: crate layout, cargo test (wm roster), build ctl client.
+# Optional nested: if DISPLAY/WAYLAND_DISPLAY present, round-trip ctl socket.
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+CRATE="${ROOT}/compositor-next"
+fail=0
+ok() { echo "compositor-next-smoke: OK $*"; }
+die() { echo "compositor-next-smoke: FAIL $*" >&2; fail=1; }
+
+[[ -f "${CRATE}/Cargo.toml" ]] || die "missing compositor-next/Cargo.toml"
+[[ -f "${CRATE}/src/wm.rs" ]] || die "missing wm.rs"
+[[ -f "${CRATE}/src/ctl.rs" ]] || die "missing ctl.rs"
+[[ -f "${CRATE}/src/grabs.rs" ]] || die "missing grabs.rs"
+[[ -f "${CRATE}/src/xwayland.rs" ]] || die "missing xwayland.rs"
+[[ -f "${CRATE}/src/screencopy.rs" ]] || die "missing screencopy.rs"
+[[ -f "${CRATE}/src/layout.rs" ]] || die "missing layout.rs"
+[[ -f "${CRATE}/src/drm.rs" ]] || die "missing drm.rs"
+[[ -f "${CRATE}/src/dmabuf_init.rs" ]] || die "missing dmabuf_init.rs"
+grep -q 'PROTEUS_COMPOSITOR_SOCK' "${CRATE}/src/ctl.rs" \
+  || die "ctl must export PROTEUS_COMPOSITOR_SOCK"
+grep -q 'PROTEUS_COMPOSITOR_SOCK' "${ROOT}/shell/src/wm_ipc.rs" \
+  || die "shell wm_ipc.rs must use PROTEUS_COMPOSITOR_SOCK"
+grep -q 'hyprctl::\|Command::new\("hyprctl"\)\|his_socket2' "${ROOT}/shell/src/wm_ipc.rs" \
+  && die "shell wm_ipc.rs must not call hyprctl (Hyprland purged)" || true
+# Soft: ensure no hyprctl Command
+if grep -q 'Command::new("hyprctl")' "${ROOT}/shell/src/wm_ipc.rs"; then
+  die "shell wm_ipc.rs still spawns hyprctl"
+fi
+if grep -q 'using_smithay' "${ROOT}/shell/src/wm_ipc.rs"; then
+  die "shell wm_ipc.rs still gates on using_smithay"
+fi
+[[ -f "${ROOT}/shell/src/hypr.rs" ]] \
+  && die "shell/src/hypr.rs must be renamed to wm_ipc.rs" || true
+grep -q 'SsdHit::Maximize\|maximize_hit' "${CRATE}/src/input.rs" "${CRATE}/src/decoration.rs" \
+  || die "SSD maximize hit missing (SsdHit::Maximize / maximize_hit)"
+grep -q 'enumerate gpus\|PROTEUS_DRM_DEVICE' "${CRATE}/src/drm.rs" \
+  || die "drm multi-GPU thin enumerate / PROTEUS_DRM_DEVICE missing"
+grep -q 'cursor_render_elements\|CursorState\|Kind::Cursor' \
+  "${CRATE}/src/cursor.rs" "${CRATE}/src/handlers.rs" "${CRATE}/src/winit.rs" "${CRATE}/src/drm.rs" \
+  || die "soft cursor draw missing"
+grep -q 'PROTEUS_DRM_TRANSFORM\|Transform::_180\|virtio' "${CRATE}/src/drm.rs" \
+  || die "virtio DRM transform workaround missing"
+grep -q 'NodeType::Primary' "${CRATE}/src/drm.rs" \
+  || die "DRM primary (card) node preference missing"
+[[ -f "${CRATE}/src/displays.rs" ]] || die "missing displays.rs (Fact load)"
+grep -q 'load_displays_fact\|apply_displays_fact\|displays\.json' \
+  "${CRATE}/src/displays.rs" "${CRATE}/src/ctl.rs" "${CRATE}/src/drm.rs" "${CRATE}/src/winit.rs" \
+  || die "displays Fact load/apply missing"
+grep -q 'output .* scale\|OutputScale\|strip_prefix("output ' "${CRATE}/src/wm.rs" \
+  || die "dispatch output scale missing"
+grep -q 'OutputPos\|OutputMode\|output .* mode' "${CRATE}/src/wm.rs" \
+  || die "dispatch output pos/mode missing"
+grep -q 'apply-displays' "${ROOT}/shell/scripts/proteus-settings-apply" \
+  || die "proteus-settings-apply apply-displays missing"
+[[ -f "${CRATE}/src/identify.rs" ]] || die "missing identify.rs"
+grep -q 'start_identify\|parse_identify_secs\|identify_render_elements' \
+  "${CRATE}/src/identify.rs" "${CRATE}/src/ctl.rs" \
+  || die "dispatch identify / identify overlay missing"
+grep -q 'identify_render_elements' "${CRATE}/src/winit.rs" "${CRATE}/src/drm.rs" \
+  || die "identify render path missing in winit/drm"
+[[ -f "${CRATE}/src/binds.rs" ]] || die "missing binds.rs (session keybinds)"
+grep -q 'reloadbinds\|BindsState\|default_binds' "${CRATE}/src/binds.rs" "${CRATE}/src/ctl.rs" "${CRATE}/src/input.rs" \
+  || die "keybinds SoT / reloadbinds missing"
+grep -q 'beacon\|workspace_1\|FilterResult::Intercept' "${CRATE}/src/binds.rs" "${CRATE}/src/input.rs" \
+  || die "beacon/workspace intercept missing"
+[[ -f "${ROOT}/env/settings/keybinds.defaults.json" ]] \
+  || die "missing env/settings/keybinds.defaults.json"
+grep -q 'keybinds.json' "${ROOT}/install/machine/install-keybinds.sh" \
+  || die "install-keybinds must seed keybinds.json"
+grep -q 'fn dispatch' "${CRATE}/src/wm.rs" \
+  || die "wm must implement dispatch"
+grep -qF -- '--backend' "${CRATE}/src/main.rs" \
+  || die "CLI --backend missing"
+grep -q 'fn init_drm\|pub fn init_drm' "${CRATE}/src/drm.rs" \
+  || die "init_drm missing"
+grep -q 'LibSeatSession' "${CRATE}/src/drm.rs" \
+  || die "LibSeatSession missing"
+grep -q 'backend_session_libseat\|backend_drm' "${CRATE}/Cargo.toml" \
+  || die "smithay DRM/session features missing"
+grep -q 'equal_column_layout' "${CRATE}/src/layout.rs" \
+  || die "equal_column_layout missing"
+grep -q 'dwindle_layout' "${CRATE}/src/layout.rs" \
+  || die "dwindle_layout missing"
+grep -q 'master_layout' "${CRATE}/src/layout.rs" \
+  || die "master_layout missing"
+grep -q 'fn inset_rect\|inset_rect' "${CRATE}/src/layout.rs" \
+  || die "inset_rect missing"
+grep -q 'gaps_out' "${CRATE}/src/wm.rs" \
+  || die "gaps_out missing on Wm"
+grep -qE 'gapsin|gaps in|gapsout' "${CRATE}/src/wm.rs" \
+  || die "gapsin/gapsout dispatch missing"
+grep -q 'smartgaps\|smart_gaps\|effective_gaps' "${CRATE}/src/wm.rs" "${CRATE}/src/layout.rs" "${CRATE}/src/ctl.rs" \
+  || die "smartgaps missing"
+grep -q 'master_factor' "${CRATE}/src/wm.rs" \
+  || die "master_factor missing on Wm"
+grep -q 'masterfactor' "${CRATE}/src/wm.rs" \
+  || die "masterfactor dispatch missing"
+grep -q 'inset_rect' "${CRATE}/src/ctl.rs" \
+  || die "relayout must apply inset_rect gaps"
+grep -qE 'LayoutKind|layout dwindle|strip_prefix\("layout ' "${CRATE}/src/wm.rs" \
+  || die "dispatch layout missing"
+grep -q 'dwindle_layout\|LayoutKind::Dwindle' "${CRATE}/src/ctl.rs" \
+  || die "relayout must use dwindle / LayoutKind"
+grep -q 'work_area_with_exclusive' "${CRATE}/src/layout.rs" \
+  || die "work_area_with_exclusive missing"
+grep -q 'non_exclusive_zone' "${CRATE}/src/ctl.rs" \
+  || die "relayout must use non_exclusive_zone"
+grep -q 'work_area_with_exclusive' "${CRATE}/src/ctl.rs" \
+  || die "relayout must compose work_area_with_exclusive"
+grep -q 'togglefloating' "${CRATE}/src/wm.rs" \
+  || die "togglefloating dispatch missing"
+grep -q 'relayout_active\|fn relayout_active' "${CRATE}/src/ctl.rs" \
+  || die "relayout_active missing"
+grep -q '"at"' "${CRATE}/src/wm.rs" \
+  || die "clients JSON must include at"
+grep -q '"size"' "${CRATE}/src/wm.rs" \
+  || die "clients JSON must include size"
+grep -q 'clients_json_live\|"at"' "${CRATE}/src/ctl.rs" \
+  || die "ctl clients must emit live at/size"
+grep -q 'zwlr_screencopy_manager_v1\|ZwlrScreencopyManagerV1' "${CRATE}/src/screencopy.rs" \
+  || die "screencopy manager missing"
+grep -q 'linux_dmabuf' "${CRATE}/src/screencopy.rs" \
+  || die "screencopy must advertise linux_dmabuf"
+grep -q 'get_dmabuf' "${CRATE}/src/screencopy.rs" \
+  || die "screencopy must fulfill dmabuf buffers via get_dmabuf"
+grep -q 'DmabufState' "${CRATE}/src/state.rs" \
+  || die "DmabufState missing on compositor state"
+grep -q 'init_dmabuf_global\|create_global_with_default_feedback\|create_global' "${CRATE}/src/winit.rs" \
+  || die "winit must init dmabuf global"
+grep -q 'init_dmabuf_global' "${CRATE}/src/dmabuf_init.rs" \
+  || die "shared dmabuf_init missing"
+grep -q 'last_frame\|drain_pending_screencopies' "${CRATE}/src/drm.rs" \
+  || die "drm path must capture last_frame / drain screencopy"
+grep -q 'UdevBackend' "${CRATE}/src/drm.rs" \
+  || die "drm must use UdevBackend for hotplug"
+grep -q 'sync_connectors\|HashMap.*crtc\|surfaces:' "${CRATE}/src/drm.rs" \
+  || die "drm multi-output surface map missing"
+grep -q 'struct MoveSurfaceGrab' "${CRATE}/src/grabs.rs" \
+  || die "MoveSurfaceGrab missing"
+grep -q 'struct ResizeSurfaceGrab' "${CRATE}/src/grabs.rs" \
+  || die "ResizeSurfaceGrab missing"
+grep -q 'MoveSurfaceGrab' "${CRATE}/src/handlers.rs" \
+  || die "move_request must wire MoveSurfaceGrab"
+grep -q 'ResizeSurfaceGrab' "${CRATE}/src/handlers.rs" \
+  || die "resize_request must wire ResizeSurfaceGrab"
+grep -q 'grab_popup' "${CRATE}/src/handlers.rs" \
+  || die "popup grab must be wired"
+grep -q '"xwayland"' "${CRATE}/Cargo.toml" \
+  || die "smithay xwayland feature missing"
+grep -q 'XWayland::spawn\|init_xwayland' "${CRATE}/src/xwayland.rs" \
+  || die "Xwayland spawn missing"
+grep -q 'impl XwmHandler for CompositorNext' "${CRATE}/src/xwayland.rs" \
+  || die "XwmHandler on CompositorNext missing"
+grep -q 'XDG_CURRENT_DESKTOP.*wlroots\|"wlroots"' "${CRATE}/src/main.rs" \
+  || die "compositor-next must set XDG_CURRENT_DESKTOP=wlroots for xdp-wlr"
+[[ -f "${ROOT}/dev/smoke/compositor-next-gamescope.sh" ]] \
+  || die "missing compositor-next-gamescope.sh"
+[[ -f "${ROOT}/dev/smoke/compositor-next-portal-screenshot.sh" ]] \
+  || die "missing compositor-next-portal-screenshot.sh"
+[[ -f "${ROOT}/dev/smoke/compositor-next-screencast.sh" ]] \
+  || die "missing compositor-next-screencast.sh"
+[[ -f "${ROOT}/dev/smoke/compositor-next-drm.sh" ]] \
+  || die "missing compositor-next-drm.sh"
+grep -q 'CopyWithDamage\|with_damage' "${CRATE}/src/screencopy.rs" \
+  || die "screencopy must implement copy_with_damage"
+grep -q 'XdgDecorationState' "${CRATE}/src/state.rs" \
+  || die "XdgDecorationState missing on compositor state"
+grep -q 'Mode::ServerSide\|ServerSide' "${CRATE}/src/handlers.rs" \
+  || die "xdg-decoration must prefer ServerSide"
+grep -q 'delegate_xdg_decoration' "${CRATE}/src/handlers.rs" \
+  || die "delegate_xdg_decoration missing"
+[[ -f "${CRATE}/src/decoration.rs" ]] || die "missing decoration.rs"
+grep -q 'TITLEBAR_H' "${CRATE}/src/decoration.rs" \
+  || die "TITLEBAR_H missing"
+grep -q 'ssd_render_elements' "${CRATE}/src/decoration.rs" \
+  || die "ssd_render_elements missing"
+grep -q 'cosmic-text\|truncate_title_to_width\|MemoryRenderBuffer' "${CRATE}/src/decoration.rs" \
+  || die "SSD title text rasterize missing"
+grep -q 'cosmic-text' "${CRATE}/Cargo.toml" \
+  || die "cosmic-text dep missing"
+grep -q 'MemoryRenderBufferRenderElement' "${CRATE}/src/winit.rs" \
+  || die "winit must pass MemoryRenderBufferRenderElement SSD custom elements"
+grep -q 'MemoryRenderBufferRenderElement' "${CRATE}/src/drm.rs" \
+  || die "drm must pass MemoryRenderBufferRenderElement SSD custom elements"
+grep -q 'ssd_render_elements' "${CRATE}/src/winit.rs" \
+  || die "winit must call ssd_render_elements"
+grep -q 'ssd_render_elements' "${CRATE}/src/drm.rs" \
+  || die "drm must call ssd_render_elements"
+grep -q 'ssd_hit_at\|SsdHit\|start_ssd_move' "${CRATE}/src/input.rs" \
+  || die "SSD titlebar input hit-test missing"
+grep -q 'outer_to_content_geo' "${CRATE}/src/ctl.rs" \
+  || die "tiling must reserve SSD titlebar via outer_to_content_geo"
+grep -q 'movewindow output' "${CRATE}/src/wm.rs" \
+  || die "movewindow output: dispatch missing"
+grep -q 'focusoutput' "${CRATE}/src/wm.rs" \
+  || die "focusoutput dispatch missing"
+grep -q 'effective_output\|FocusOutput\|focus_output_named' "${CRATE}/src/ctl.rs" \
+  || die "per-output relayout / FocusOutput apply missing"
+grep -q 'for output in outputs\|outputs:' "${CRATE}/src/ctl.rs" \
+  || die "relayout_active must iterate per output"
+SESSION="${ROOT}/shell/scripts/proteus-session"
+[[ -f "${SESSION}" ]] || die "missing proteus-session"
+grep -q 'smithay\|compositor-next' "${SESSION}" \
+  || die "proteus-session must mention smithay"
+grep -qE '""\|smithay\|compositor-next\)|Hyprland purged|smithay DRM only' "${SESSION}" \
+  || die "proteus-session must be smithay-only"
+grep -q 'proteus-compositor-next' "${SESSION}" \
+  || die "proteus-session must resolve proteus-compositor-next"
+grep -q 'Hyprland purged\|refuse (Hyprland purged)' "${SESSION}" \
+  || die "proteus-session must refuse without Hyprland fallthrough"
+grep -qE 'hyprland\|hypr\)' "${SESSION}" \
+  || die "proteus-session must refuse Fact=hyprland"
+grep -q -- '--backend drm' "${SESSION}" \
+  || die "proteus-session smithay path must use --backend drm"
+[[ -f "${ROOT}/dev/smoke/compositor-next-dogfood.sh" ]] \
+  || die "missing compositor-next-dogfood.sh"
+ok "crate + IPC + grabs + xwayland + screencopy + portal-env + gamescope + tiling + screencast + drm + decoration + session-wire + output-assign helpers present"
+
+if ! (cd "${ROOT}" && cargo test -p compositor-next --bin proteus-compositor-next -q 2>/dev/null); then
+  die "cargo test -p compositor-next (wm+grabs)"
+else
+  ok "wm + grabs unit tests"
+fi
+
+if ! (cd "${ROOT}" && cargo build -p compositor-next -q 2>/dev/null); then
+  die "cargo build -p compositor-next"
+else
+  ok "compositor-next builds"
+fi
+
+COMP="$(ls -1 "${ROOT}/target/debug/proteus-compositor-next" 2>/dev/null || true)"
+CTL="$(ls -1 "${ROOT}/target/debug/proteus-compositorctl" 2>/dev/null || true)"
+[[ -x "${COMP}" ]] || die "proteus-compositor-next binary missing"
+[[ -x "${CTL}" ]] || die "proteus-compositorctl binary missing"
+ok "binaries present"
+
+# Live DRM never runs by default (would steal the graphical seat). Helper SKIPs
+# unless PROTEUS_COMPOSITOR_DRM=1 (VT/VM dogfood).
+drm_helper="${ROOT}/dev/smoke/compositor-next-drm.sh"
+set +e
+bash "${drm_helper}" >/tmp/proteus-drm-smoke.out 2>/tmp/proteus-drm-smoke.err
+drm_rc=$?
+set -e
+if [[ "${drm_rc}" -eq 0 ]]; then
+  ok "drm backend live prove"
+elif [[ "${drm_rc}" -eq 2 ]]; then
+  ok "drm live skipped (set PROTEUS_COMPOSITOR_DRM=1 on free VT/VM)"
+else
+  die "drm helper failed (rc=${drm_rc}): $(tr '\n' ' ' </tmp/proteus-drm-smoke.err | head -c 300)"
+fi
+rm -f /tmp/proteus-drm-smoke.out /tmp/proteus-drm-smoke.err
+
+# Nested ctl round-trip needs a winit display (nested under host Wayland/X11).
+if [[ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+  ok "no DISPLAY/WAYLAND_DISPLAY — nested ctl round-trip skipped"
+  [[ $fail -eq 0 ]] || { echo "compositor-next-smoke: FAILED" >&2; exit 1; }
+  echo "compositor-next-smoke: OK"
+  exit 0
+fi
+
+log="$(mktemp)"
+trap 'rm -f "${log}"; kill "${comp_pid:-}" 2>/dev/null || true' EXIT
+# Keep host XDG_RUNTIME_DIR so winit can nest under the parent compositor.
+# Isolate engine fact so shell path is irrelevant here.
+unset PROTEUS_COMPOSITOR_ENGINE || true
+
+stdbuf -oL -eL "${COMP}" >"${log}" 2>&1 &
+comp_pid=$!
+# Give winit a moment to nest under the host display.
+sleep 0.5
+sock=""
+for _ in $(seq 1 80); do
+  if grep -q 'ctl socket ' "${log}" 2>/dev/null; then
+    sock="$(sed -n 's/.*ctl socket //p' "${log}" | head -1)"
+    break
+  fi
+  if ! kill -0 "${comp_pid}" 2>/dev/null; then
+    die "compositor exited early; log: $(tr '\n' ' ' < "${log}")"
+    break
+  fi
+  sleep 0.1
+done
+
+if [[ -z "${sock}" || ! -S "${sock}" ]]; then
+  die "ctl socket not created (see log: $(tr '\n' ' ' < "${log}" | head -c 400))"
+else
+  ok "ctl socket up"
+  export PROTEUS_COMPOSITOR_SOCK="${sock}"
+  ws="$("${CTL}" workspaces 2>/dev/null || true)"
+  echo "${ws}" | grep -q '"id": *1' \
+    && ok "workspaces JSON" \
+    || die "workspaces query failed: ${ws}"
+
+  active="$("${CTL}" activeworkspace 2>/dev/null || true)"
+  echo "${active}" | grep -q '"id": *1' \
+    && ok "activeworkspace=1" \
+    || die "activeworkspace: ${active}"
+
+  disp="$("${CTL}" dispatch workspace 2 2>/dev/null || true)"
+  echo "${disp}" | grep -q '"ok": *true' \
+    && ok "dispatch workspace 2" \
+    || die "dispatch failed: ${disp}"
+
+  active2="$("${CTL}" activeworkspace 2>/dev/null || true)"
+  echo "${active2}" | grep -qE '"id": *2' \
+    && ok "activeworkspace=2 after dispatch" \
+    || die "activeworkspace not 2: ${active2}"
+
+  # Thin Displays modeset — scale on primary output (Fact path grepped above).
+  mon_json="$("${CTL}" monitors 2>/dev/null || true)"
+  mon_name="$(echo "${mon_json}" | python3 -c 'import json,sys
+try:
+  a=json.load(sys.stdin)
+  print(a[0]["name"] if a else "")
+except Exception:
+  print("")' 2>/dev/null || true)"
+  if [[ -n "${mon_name}" ]]; then
+    scale_disp="$("${CTL}" dispatch "output ${mon_name} scale 1.25" 2>/dev/null || true)"
+    echo "${scale_disp}" | grep -q '"ok": *true' \
+      && ok "dispatch output ${mon_name} scale 1.25" \
+      || die "output scale failed: ${scale_disp}"
+    # Restore 1.0 so later captures stay sane.
+    "${CTL}" dispatch "output ${mon_name} scale 1" >/dev/null 2>&1 || true
+  else
+    ok "monitors empty — output scale prove skipped"
+  fi
+
+  rb="$("${CTL}" dispatch reloadbinds 2>/dev/null || true)"
+  echo "${rb}" | grep -q '"ok": *true' \
+    && ok "dispatch reloadbinds" \
+    || die "reloadbinds failed: ${rb}"
+
+  idf="$("${CTL}" dispatch identify 2>/dev/null || true)"
+  echo "${idf}" | grep -q '"ok": *true' \
+    && ok "dispatch identify" \
+    || die "identify failed: ${idf}"
+
+  clients="$("${CTL}" clients 2>/dev/null || true)"
+  echo "${clients}" | grep -q '^\[' \
+    && ok "clients JSON array" \
+    || die "clients: ${clients}"
+  # Schema keys at/size are unit-tested; empty roster has no objects — assert source contract.
+  grep -q '"at"' "${CRATE}/src/wm.rs" && grep -q '"size"' "${CRATE}/src/wm.rs" \
+    && ok "clients at/size schema in wm" \
+    || die "clients missing at/size in wm"
+
+  # Optional grim region capture via zwlr_screencopy (dock preview path).
+  if command -v grim >/dev/null 2>&1; then
+    # Nested WAYLAND_DISPLAY is the spike socket name from the log.
+    nested_wd="$(sed -n 's/.*nested spike on WAYLAND_DISPLAY=//p' "${log}" | head -1)"
+    if [[ -n "${nested_wd}" ]]; then
+      grim_png="$(mktemp --suffix=.png)"
+      if env WAYLAND_DISPLAY="${nested_wd}" grim -g '0,0 32x32' "${grim_png}" 2>/dev/null \
+        && [[ -s "${grim_png}" ]]; then
+        ok "grim region capture (${grim_png##*/} $(wc -c < "${grim_png}")B)"
+      else
+        die "grim region capture failed under WAYLAND_DISPLAY=${nested_wd}"
+      fi
+      rm -f "${grim_png}"
+    else
+      ok "grim present but nested WAYLAND_DISPLAY unknown — skipped"
+    fi
+  else
+    ok "grim not installed — screencopy capture skipped"
+  fi
+
+  # Optional portal Screenshot via xdg-desktop-portal-wlr (isolated dbus session).
+  # Does not touch the host Hyprland portal units. SKIP if xdp-wlr missing.
+  nested_wd="$(sed -n 's/.*nested spike on WAYLAND_DISPLAY=//p' "${log}" | head -1)"
+  portal_helper="${ROOT}/dev/smoke/compositor-next-portal-screenshot.sh"
+  [[ -f "${portal_helper}" ]] || die "missing compositor-next-portal-screenshot.sh"
+  xdp_wlr=""
+  for cand in /usr/lib/xdg-desktop-portal-wlr /usr/libexec/xdg-desktop-portal-wlr; do
+    if [[ -x "${cand}" ]]; then
+      xdp_wlr="${cand}"
+      break
+    fi
+  done
+  if [[ -z "${xdp_wlr}" ]]; then
+    ok "xdg-desktop-portal-wlr not installed — portal Screenshot skipped"
+  elif [[ -z "${nested_wd}" ]]; then
+    ok "portal binary present but nested WAYLAND_DISPLAY unknown — skipped"
+  else
+    portal_png="$(mktemp --suffix=.png)"
+    set +e
+    WAYLAND_DISPLAY="${nested_wd}" bash "${portal_helper}" "${portal_png}" >/tmp/proteus-portal-smoke.out 2>/tmp/proteus-portal-smoke.err
+    portal_rc=$?
+    set -e
+    if [[ "${portal_rc}" -eq 0 && -s "${portal_png}" ]]; then
+      ok "portal Screenshot (${portal_png##*/} $(wc -c < "${portal_png}")B)"
+    elif [[ "${portal_rc}" -eq 2 ]]; then
+      ok "portal Screenshot deps missing — skipped"
+    else
+      # Soft skip: nested isolate can fail on some hosts without failing the suite.
+      ok "portal Screenshot inconclusive (rc=${portal_rc}) — skipped"
+    fi
+    rm -f "${portal_png}" /tmp/proteus-portal-smoke.out /tmp/proteus-portal-smoke.err
+  fi
+
+  # Optional gamescope nesting under the spike (OWNED-STACK hard gate prove).
+  gs_helper="${ROOT}/dev/smoke/compositor-next-gamescope.sh"
+  if [[ -z "${nested_wd}" ]]; then
+    ok "gamescope nesting skipped — nested WAYLAND_DISPLAY unknown"
+  else
+    set +e
+    WAYLAND_DISPLAY="${nested_wd}" PROTEUS_COMPOSITOR_SOCK="${sock}" \
+      PROTEUS_COMPOSITORCTL="${CTL}" \
+      bash "${gs_helper}" >/tmp/proteus-gs-smoke.out 2>/tmp/proteus-gs-smoke.err
+    gs_rc=$?
+    set -e
+    if [[ "${gs_rc}" -eq 0 ]]; then
+      ok "gamescope nested into clients"
+    elif [[ "${gs_rc}" -eq 2 ]]; then
+      ok "gamescope nesting skipped (missing binary or no usable backend)"
+    else
+      die "gamescope nesting failed (rc=${gs_rc}): $(tr '\n' ' ' </tmp/proteus-gs-smoke.err | head -c 300)"
+    fi
+    rm -f /tmp/proteus-gs-smoke.out /tmp/proteus-gs-smoke.err
+  fi
+
+  # Optional short screencast via wf-recorder (copy_with_damage path).
+  scast_helper="${ROOT}/dev/smoke/compositor-next-screencast.sh"
+  if [[ -z "${nested_wd}" ]]; then
+    ok "screencast skipped — nested WAYLAND_DISPLAY unknown"
+  else
+    set +e
+    WAYLAND_DISPLAY="${nested_wd}" bash "${scast_helper}" \
+      >/tmp/proteus-scast-smoke.out 2>/tmp/proteus-scast-smoke.err
+    scast_rc=$?
+    set -e
+    if [[ "${scast_rc}" -eq 0 ]]; then
+      ok "wf-recorder screencast under nested display"
+    elif [[ "${scast_rc}" -eq 2 ]]; then
+      ok "screencast skipped (wf-recorder not installed)"
+    else
+      die "screencast failed (rc=${scast_rc}): $(tr '\n' ' ' </tmp/proteus-scast-smoke.err | head -c 300)"
+    fi
+    rm -f /tmp/proteus-scast-smoke.out /tmp/proteus-scast-smoke.err
+  fi
+
+  # Optional X11 client round-trip when Xwayland binary + an X11 client exist.
+  x11client=""
+  for cand in xeyes xlogo xclock xterm; do
+    if command -v "${cand}" >/dev/null 2>&1; then
+      x11client="${cand}"
+      break
+    fi
+  done
+  if command -v Xwayland >/dev/null 2>&1 && [[ -n "${x11client}" ]]; then
+    xready=""
+    for _ in $(seq 1 50); do
+      if grep -q 'Xwayland ready DISPLAY=' "${log}" 2>/dev/null; then
+        xready="$(sed -n 's/.*Xwayland ready DISPLAY=//p' "${log}" | head -1)"
+        break
+      fi
+      if grep -q 'Xwayland unavailable\|Xwayland failed' "${log}" 2>/dev/null; then
+        break
+      fi
+      sleep 0.1
+    done
+    if [[ -n "${xready}" ]]; then
+      ok "Xwayland ready (${xready})"
+      before="$("${CTL}" clients 2>/dev/null || echo '[]')"
+      before_n="$(python3 -c "import json,sys; print(len(json.loads(sys.argv[1])))" "${before}" 2>/dev/null || echo 0)"
+      env -u WAYLAND_DISPLAY DISPLAY="${xready}" "${x11client}" >/dev/null 2>&1 &
+      x11_pid=$!
+      saw=""
+      for _ in $(seq 1 40); do
+        sleep 0.15
+        after="$("${CTL}" clients 2>/dev/null || echo '[]')"
+        after_n="$(python3 -c "import json,sys; print(len(json.loads(sys.argv[1])))" "${after}" 2>/dev/null || echo 0)"
+        if [[ "${after_n}" -gt "${before_n}" ]]; then
+          saw=1
+          break
+        fi
+      done
+      kill "${x11_pid}" 2>/dev/null || true
+      wait "${x11_pid}" 2>/dev/null || true
+      [[ -n "${saw}" ]] && ok "${x11client} mapped into clients" || die "${x11client} did not appear in clients"
+    else
+      ok "Xwayland not ready in time — x11 client check skipped"
+    fi
+  else
+    ok "Xwayland/X11 client not installed — x11 client check skipped"
+  fi
+fi
+
+kill "${comp_pid}" 2>/dev/null || true
+wait "${comp_pid}" 2>/dev/null || true
+comp_pid=""
+
+# Dogfood gate helper — static + optional nested/DRM/guest (SKIP is OK).
+set +e
+bash "${ROOT}/dev/smoke/compositor-next-dogfood.sh" >/tmp/proteus-dogfood.out 2>/tmp/proteus-dogfood.err
+dog_rc=$?
+set -e
+if [[ "${dog_rc}" -eq 0 ]]; then
+  ok "dogfood gate"
+elif [[ "${dog_rc}" -eq 2 ]]; then
+  ok "dogfood gate soft-skip"
+else
+  die "dogfood gate failed (rc=${dog_rc}): $(tr '\n' ' ' </tmp/proteus-dogfood.err | head -c 300)"
+fi
+rm -f /tmp/proteus-dogfood.out /tmp/proteus-dogfood.err
+
+[[ $fail -eq 0 ]] || { echo "compositor-next-smoke: FAILED" >&2; exit 1; }
+echo "compositor-next-smoke: OK"

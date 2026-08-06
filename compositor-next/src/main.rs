@@ -1,16 +1,28 @@
 //! proteus-compositor-next — Smithay rung-2 spike (OWNED-STACK).
 //!
-//! Minimal nested compositor: winit backend, xdg-shell toplevels and
-//! wlr-layer-shell so `proteus-shell` chrome layers can map inside it.
-//! Explicit opt-in via `PROTEUS_COMPOSITOR_ENGINE=smithay`; no session
-//! takeover, no DRM backend — Hyprland stays the shipping compositor.
-//! Honest status: docs/proteus/COMPOSITOR-SPIKE.md.
+//! Nested winit by default; opt-in `--backend drm` for libseat/TTY prove.
+//! Explicit opt-in via `PROTEUS_COMPOSITOR_ENGINE=smithay`; Hyprland stays
+//! the shipping compositor. Honest status: docs/proteus/COMPOSITOR-SPIKE.md.
 
+mod binds;
+mod ctl;
+mod cursor;
+mod decoration;
+mod displays;
+mod dmabuf_init;
+mod drm;
+mod grabs;
 mod handlers;
+mod identify;
 mod input;
+mod layout;
+mod screencopy;
 mod state;
+mod wm;
 mod winit;
+mod xwayland;
 
+use smithay::backend::session::Session;
 use smithay::reexports::{
     calloop::EventLoop,
     wayland_server::{Display, DisplayHandle},
@@ -18,16 +30,38 @@ use smithay::reexports::{
 pub use state::CompositorNext;
 
 pub struct CalloopData {
-    state: CompositorNext,
-    display_handle: DisplayHandle,
+    pub state: CompositorNext,
+    pub display_handle: DisplayHandle,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum BackendKind {
+    Winit,
+    Drm,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut event_loop: EventLoop<CalloopData> = EventLoop::try_new()?;
+    // Match xdg-desktop-portal-wlr UseIn=wlroots (Screenshot over zwlr_screencopy).
+    // Hyprland shipping sessions keep their own XDG_CURRENT_DESKTOP; this only
+    // applies to the opt-in smithay spike process and its -c children.
+    std::env::set_var("XDG_CURRENT_DESKTOP", "wlroots");
 
+    let (backend_kind, command) = parse_cli()?;
+
+    let mut event_loop: EventLoop<'static, CalloopData> = EventLoop::try_new()?;
     let display: Display<CompositorNext> = Display::new()?;
     let display_handle = display.handle();
-    let state = CompositorNext::new(&mut event_loop, display);
+
+    let (seat_name, session_pair) = match backend_kind {
+        BackendKind::Winit => ("winit".to_string(), None),
+        BackendKind::Drm => {
+            let (session, notifier) = crate::drm::open_session()?;
+            (session.seat(), Some((session, notifier)))
+        }
+    };
+
+    let state = CompositorNext::new(&mut event_loop, display, &seat_name);
+    state.init_screencopy_global();
 
     let socket = state.socket_name.clone();
     let mut data = CalloopData {
@@ -35,23 +69,97 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         display_handle,
     };
 
-    crate::winit::init_winit(&mut event_loop, &mut data)?;
+    match backend_kind {
+        BackendKind::Winit => {
+            crate::winit::init_winit(&mut event_loop, &mut data)?;
+            eprintln!(
+                "proteus-compositor-next: nested spike on WAYLAND_DISPLAY={}",
+                socket.to_string_lossy()
+            );
+        }
+        BackendKind::Drm => {
+            let (session, notifier) = session_pair.expect("drm session");
+            crate::drm::init_drm(&mut event_loop, &mut data, session, notifier)?;
+            eprintln!(
+                "proteus-compositor-next: drm spike on WAYLAND_DISPLAY={}",
+                socket.to_string_lossy()
+            );
+        }
+    }
 
-    eprintln!(
-        "proteus-compositor-next: nested spike on WAYLAND_DISPLAY={}",
-        socket.to_string_lossy()
-    );
+    crate::ctl::init_ctl(&mut event_loop, &mut data.state)?;
+    crate::xwayland::init_xwayland(&mut event_loop, &mut data);
 
-    // Optional client to spawn inside the spike (e.g. proteus-shell).
-    let mut args = std::env::args().skip(1);
-    if let (Some(flag), Some(command)) = (args.next(), args.next()) {
-        if flag == "-c" || flag == "--command" {
-            let extra: Vec<String> = args.collect();
-            std::process::Command::new(command).args(extra).spawn().ok();
+    if let Some((command, extra)) = command {
+        let mut cmd = std::process::Command::new(&command);
+        cmd.args(&extra);
+        cmd.env("WAYLAND_DISPLAY", &socket);
+        cmd.env("XDG_CURRENT_DESKTOP", "wlroots");
+        if let Some(ref sock) = data.state.ctl_path {
+            cmd.env("PROTEUS_COMPOSITOR_SOCK", sock);
+        }
+        cmd.env("PROTEUS_COMPOSITOR_ENGINE", "smithay");
+        if let Some(n) = data.state.x11_display {
+            cmd.env("DISPLAY", format!(":{n}"));
+        }
+        match cmd.spawn() {
+            Ok(_) => {}
+            Err(e) => eprintln!("proteus-compositor-next: spawn {command}: {e}"),
         }
     }
 
     event_loop.run(None, &mut data, move |_| {})?;
 
     Ok(())
+}
+
+fn parse_cli() -> Result<(BackendKind, Option<(String, Vec<String>)>), Box<dyn std::error::Error>>
+{
+    let mut args: Vec<String> = std::env::args().skip(1).collect();
+
+    let mut backend = match std::env::var("PROTEUS_COMPOSITOR_BACKEND")
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "drm" => BackendKind::Drm,
+        _ => BackendKind::Winit,
+    };
+
+    let mut i = 0;
+    while i < args.len() {
+        if args[i] == "--backend" {
+            let value = args
+                .get(i + 1)
+                .ok_or("--backend requires winit|drm")?
+                .to_ascii_lowercase();
+            backend = match value.as_str() {
+                "winit" => BackendKind::Winit,
+                "drm" => BackendKind::Drm,
+                other => {
+                    return Err(format!("unknown --backend {other} (expected winit|drm)").into())
+                }
+            };
+            args.drain(i..=i + 1);
+            continue;
+        }
+        i += 1;
+    }
+
+    let command = if args.first().map(|s| s.as_str()) == Some("-c")
+        || args.first().map(|s| s.as_str()) == Some("--command")
+    {
+        if args.len() < 2 {
+            return Err("-c / --command requires a program".into());
+        }
+        let cmd = args[1].clone();
+        let extra = args[2..].to_vec();
+        Some((cmd, extra))
+    } else if !args.is_empty() {
+        return Err(format!("unexpected args: {}", args.join(" ")).into());
+    } else {
+        None
+    };
+
+    Ok((backend, command))
 }

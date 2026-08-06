@@ -7,7 +7,7 @@ pub mod beacon;
 pub mod ctl;
 pub mod engine;
 pub mod faces;
-pub mod hypr;
+pub mod wm_ipc;
 pub mod icons;
 pub mod lock_ui;
 pub mod platform;

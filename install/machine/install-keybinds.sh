@@ -1,51 +1,22 @@
 #!/usr/bin/env bash
-# Ensure Hyprland sources Proteus keybinds (Settings → Keyboard).
-# Safe to run repeatedly on the guest or nested host.
+# install-keybinds.sh — seed ~/.config/proteus/keybinds.json (owned compositor binds).
+# Hyprland proteus-keybinds.conf path retired (env/hypr deleted).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
-SRC="${ROOT}/env/hypr/proteus-keybinds.conf"
-HYPR_DIR="${HOME}/.config/hypr"
-HYPR="${HYPR_DIR}/hyprland.conf"
-DEST="${HYPR_DIR}/proteus-keybinds.conf"
+SRC="${ROOT}/env/settings/keybinds.defaults.json"
+DEST_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus"
+DEST="${DEST_DIR}/keybinds.json"
 
-mkdir -p "${HYPR_DIR}"
+if [[ ! -f "${SRC}" ]]; then
+  echo "install-keybinds: SKIP (missing ${SRC})"
+  exit 0
+fi
 
+mkdir -p "${DEST_DIR}"
 if [[ ! -f "${DEST}" ]]; then
   install -m 644 "${SRC}" "${DEST}"
   echo "Installed default ${DEST}"
 else
   echo "Keeping existing ${DEST}"
 fi
-
-if [[ -f "${HYPR}" ]]; then
-  if ! grep -q 'proteus-keybinds.conf' "${HYPR}"; then
-    printf '\n# Proteus keyboard shortcuts (Settings → Keyboard)\nsource = ~/.config/hypr/proteus-keybinds.conf\n' >> "${HYPR}"
-    echo "Added source line to ${HYPR}"
-  fi
-  # Comment out legacy inline binds that duplicate the catalog (first-time migration)
-  if grep -qE '^bind = SUPER, Return,' "${HYPR}" 2>/dev/null; then
-    tmp="$(mktemp)"
-    awk '
-      /^bind = SUPER, Return,/ { print "# migrated to proteus-keybinds.conf: " $0; next }
-      /^bind = SUPER, Q,/ { print "# migrated to proteus-keybinds.conf: " $0; next }
-      /^bind = SUPER SHIFT, E,/ { print "# migrated to proteus-keybinds.conf: " $0; next }
-      /^bind = SUPER, F,/ { print "# migrated to proteus-keybinds.conf: " $0; next }
-      /^bind = SUPER, SPACE,/ { print "# migrated to proteus-keybinds.conf: " $0; next }
-      /^bind = SUPER, D,/ { print "# migrated to proteus-keybinds.conf: " $0; next }
-      /^bind = SUPER, [1-6],/ { print "# migrated to proteus-keybinds.conf: " $0; next }
-      /^bind = SUPER SHIFT, [1-6],/ { print "# migrated to proteus-keybinds.conf: " $0; next }
-      /^bind = SUPER, comma,/ { print "# migrated to proteus-keybinds.conf: " $0; next }
-      { print }
-    ' "${HYPR}" > "${tmp}"
-    mv "${tmp}" "${HYPR}"
-    echo "Commented legacy duplicate binds in ${HYPR}"
-  fi
-else
-  echo "No ${HYPR} yet — source will be added when Settings applies binds"
-fi
-
-if command -v hyprctl >/dev/null 2>&1; then
-  hyprctl reload >/dev/null 2>&1 || true
-fi
-
-echo "Keybinds ready → ${DEST}"
+echo "Keybinds Fact ready → ${DEST} (compositor defaults + optional overrides)"

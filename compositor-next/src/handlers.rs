@@ -1,27 +1,31 @@
 //! Protocol handlers — compositor/shm/seat/output/xdg-shell + wlr-layer-shell.
-//! Spike scope: no interactive move/resize grabs, no popup grabs.
 
 use smithay::{
     backend::renderer::utils::on_commit_buffer_handler,
-    delegate_compositor, delegate_data_device, delegate_layer_shell, delegate_output,
-    delegate_seat, delegate_shm, delegate_xdg_shell,
+    delegate_compositor, delegate_data_device, delegate_dmabuf, delegate_layer_shell, delegate_output,
+    delegate_seat, delegate_shm, delegate_xdg_decoration, delegate_xdg_shell,
     desktop::{
         find_popup_root_surface, get_popup_toplevel_coords, layer_map_for_output, LayerSurface,
-        PopupKind, PopupManager, Space, Window,
+        PopupKeyboardGrab, PopupKind, PopupManager, PopupPointerGrab, Space, Window,
+        WindowSurfaceType,
     },
-    input::{Seat, SeatHandler, SeatState},
+    input::{
+        pointer::{Focus, GrabStartData as PointerGrabStartData},
+        Seat, SeatHandler, SeatState,
+    },
     output::Output,
     reexports::wayland_server::{
         protocol::{wl_buffer, wl_output::WlOutput, wl_seat, wl_surface::WlSurface},
         Client, Resource,
     },
-    utils::Serial,
+    utils::{Rectangle, Serial},
     wayland::{
         buffer::BufferHandler,
         compositor::{
             get_parent, is_sync_subsurface, with_states, CompositorClientState, CompositorHandler,
             CompositorState,
         },
+        dmabuf::{DmabufHandler, DmabufState, ImportNotifier},
         output::OutputHandler,
         selection::{
             data_device::{
@@ -36,6 +40,7 @@ use smithay::{
                 WlrLayerShellState,
             },
             xdg::{
+                decoration::XdgDecorationHandler,
                 PopupSurface, PositionerState, ToplevelSurface, XdgShellHandler, XdgShellState,
                 XdgToplevelSurfaceData,
             },
@@ -43,7 +48,9 @@ use smithay::{
         shm::{ShmHandler, ShmState},
     },
 };
+use smithay::reexports::wayland_protocols::xdg::decoration::zv1::server::zxdg_toplevel_decoration_v1::Mode;
 
+use crate::grabs::{MoveSurfaceGrab, ResizeSurfaceGrab};
 use crate::state::ClientState;
 use crate::CompositorNext;
 
@@ -55,7 +62,13 @@ impl CompositorHandler for CompositorNext {
     }
 
     fn client_compositor_state<'a>(&self, client: &'a Client) -> &'a CompositorClientState {
-        &client.get_data::<ClientState>().unwrap().compositor_state
+        if let Some(state) = client.get_data::<ClientState>() {
+            return &state.compositor_state;
+        }
+        if let Some(state) = client.get_data::<smithay::xwayland::XWaylandClientData>() {
+            return &state.compositor_state;
+        }
+        panic!("Unknown client data type for compositor state");
     }
 
     fn commit(&mut self, surface: &WlSurface) {
@@ -83,6 +96,23 @@ impl BufferHandler for CompositorNext {
     fn buffer_destroyed(&mut self, _buffer: &wl_buffer::WlBuffer) {}
 }
 
+impl DmabufHandler for CompositorNext {
+    fn dmabuf_state(&mut self) -> &mut DmabufState {
+        &mut self.dmabuf_state
+    }
+
+    fn dmabuf_imported(
+        &mut self,
+        _global: &smithay::wayland::dmabuf::DmabufGlobal,
+        _dmabuf: smithay::backend::allocator::dmabuf::Dmabuf,
+        notifier: ImportNotifier,
+    ) {
+        // Thin: accept client dmabufs so screencopy targets can be created.
+        // Surface compositing of client dmabufs is not a goal this slice.
+        let _ = notifier.successful::<CompositorNext>();
+    }
+}
+
 impl ShmHandler for CompositorNext {
     fn shm_state(&self) -> &ShmState {
         &self.shm_state
@@ -91,6 +121,7 @@ impl ShmHandler for CompositorNext {
 
 delegate_compositor!(CompositorNext);
 delegate_shm!(CompositorNext);
+delegate_dmabuf!(CompositorNext);
 
 // --------------------------------------------------------------------- seat --
 
@@ -106,8 +137,9 @@ impl SeatHandler for CompositorNext {
     fn cursor_image(
         &mut self,
         _seat: &Seat<Self>,
-        _image: smithay::input::pointer::CursorImageStatus,
+        image: smithay::input::pointer::CursorImageStatus,
     ) {
+        self.set_cursor_status(image);
     }
 
     fn focus_changed(&mut self, seat: &Seat<Self>, focused: Option<&WlSurface>) {
@@ -149,13 +181,83 @@ impl XdgShellHandler for CompositorNext {
     }
 
     fn new_toplevel(&mut self, surface: ToplevelSurface) {
-        let window = Window::new_wayland_window(surface);
-        self.space.map_element(window, (0, 0), false);
+        let window = Window::new_wayland_window(surface.clone());
+        let address = self.wm.alloc_address();
+        let loc = self.wm.next_cascade_loc();
+        let (class, title) = with_states(surface.wl_surface(), |states| {
+            let data = states
+                .data_map
+                .get::<XdgToplevelSurfaceData>()
+                .and_then(|d| d.lock().ok());
+            let class = data
+                .as_ref()
+                .and_then(|d| d.app_id.clone())
+                .unwrap_or_default();
+            let title = data
+                .as_ref()
+                .and_then(|d| d.title.clone())
+                .unwrap_or_default();
+            (class, title)
+        });
+        self.wm
+            .add_toplevel_on(address.clone(), class, title, loc, self.primary_output_name());
+        self.windows.insert(address.clone(), window.clone());
+        self.space.map_element(window.clone(), loc, false);
+        self.relayout_active();
+        self.focus_address(&address);
+        self.broadcast_event(&format!("openwindow>>{address}"));
+        eprintln!("proteus-compositor-next: toplevel mapped: {address}");
     }
 
     fn new_popup(&mut self, surface: PopupSurface, _positioner: PositionerState) {
         self.unconstrain_popup(&surface);
         let _ = self.popups.track_popup(PopupKind::Xdg(surface));
+    }
+
+    fn toplevel_destroyed(&mut self, surface: ToplevelSurface) {
+        let Some(addr) = self.address_for_surface(surface.wl_surface()) else {
+            return;
+        };
+        if let Some(window) = self.windows.remove(&addr) {
+            self.space.unmap_elem(&window);
+        }
+        self.wm.remove_toplevel(&addr);
+        self.relayout_active();
+        self.broadcast_event(&format!("closewindow>>{addr}"));
+        if let Some(focus) = self.wm.focused.clone() {
+            self.focus_address(&focus);
+        }
+    }
+
+    fn app_id_changed(&mut self, surface: ToplevelSurface) {
+        let Some(addr) = self.address_for_surface(surface.wl_surface()) else {
+            return;
+        };
+        let class = with_states(surface.wl_surface(), |states| {
+            states
+                .data_map
+                .get::<XdgToplevelSurfaceData>()
+                .and_then(|d| d.lock().ok())
+                .and_then(|d| d.app_id.clone())
+                .unwrap_or_default()
+        });
+        self.wm.set_class(&addr, class);
+    }
+
+    fn title_changed(&mut self, surface: ToplevelSurface) {
+        let Some(addr) = self.address_for_surface(surface.wl_surface()) else {
+            return;
+        };
+        let title = with_states(surface.wl_surface(), |states| {
+            states
+                .data_map
+                .get::<XdgToplevelSurfaceData>()
+                .and_then(|d| d.lock().ok())
+                .and_then(|d| d.title.clone())
+                .unwrap_or_default()
+        });
+        self.wm.set_title(&addr, title);
+        self.broadcast_event("activewindow>>");
     }
 
     fn reposition_request(
@@ -173,23 +275,216 @@ impl XdgShellHandler for CompositorNext {
         surface.send_repositioned(token);
     }
 
-    // Spike scope: interactive move/resize are out (no grabs).
-    fn move_request(&mut self, _surface: ToplevelSurface, _seat: wl_seat::WlSeat, _serial: Serial) {
+    fn move_request(&mut self, surface: ToplevelSurface, seat: wl_seat::WlSeat, serial: Serial) {
+        let Some(seat) = Seat::from_resource(&seat) else {
+            return;
+        };
+        let Some(pointer) = seat.get_pointer() else {
+            return;
+        };
+        if !pointer.has_grab(serial) {
+            return;
+        }
+        let Some(start_data) = pointer.grab_start_data() else {
+            return;
+        };
+        if !focus_on_toplevel(&start_data, &surface) {
+            return;
+        }
+
+        let wl = surface.wl_surface();
+        let Some(window) = self
+            .space
+            .elements()
+            .find(|w| w.toplevel().is_some_and(|t| t.wl_surface() == wl))
+            .cloned()
+        else {
+            return;
+        };
+        let Some(initial_window_location) = self.space.element_location(&window) else {
+            return;
+        };
+        let address = self.address_for_surface(wl);
+        pointer.set_grab(
+            self,
+            MoveSurfaceGrab {
+                start_data,
+                window,
+                initial_window_location,
+                address,
+            },
+            serial,
+            Focus::Clear,
+        );
     }
 
     fn resize_request(
         &mut self,
-        _surface: ToplevelSurface,
-        _seat: wl_seat::WlSeat,
-        _serial: Serial,
-        _edges: smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::ResizeEdge,
+        surface: ToplevelSurface,
+        seat: wl_seat::WlSeat,
+        serial: Serial,
+        edges: smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::ResizeEdge,
     ) {
+        let Some(seat) = Seat::from_resource(&seat) else {
+            return;
+        };
+        let Some(pointer) = seat.get_pointer() else {
+            return;
+        };
+        if !pointer.has_grab(serial) {
+            return;
+        }
+        let Some(start_data) = pointer.grab_start_data() else {
+            return;
+        };
+        if !focus_on_toplevel(&start_data, &surface) {
+            return;
+        }
+
+        let wl = surface.wl_surface();
+        let Some(window) = self
+            .space
+            .elements()
+            .find(|w| w.toplevel().is_some_and(|t| t.wl_surface() == wl))
+            .cloned()
+        else {
+            return;
+        };
+        let Some(initial_window_location) = self.space.element_location(&window) else {
+            return;
+        };
+        let geometry = window.geometry();
+        let initial_rect = Rectangle::new(initial_window_location, geometry.size);
+        let address = self.address_for_surface(wl);
+
+        surface.with_pending_state(|state| {
+            state.states.set(
+                smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::State::Resizing,
+            );
+        });
+        surface.send_pending_configure();
+
+        pointer.set_grab(
+            self,
+            ResizeSurfaceGrab {
+                start_data,
+                window,
+                edges,
+                initial_rect,
+                address,
+            },
+            serial,
+            Focus::Clear,
+        );
     }
 
-    fn grab(&mut self, _surface: PopupSurface, _seat: wl_seat::WlSeat, _serial: Serial) {}
+    fn grab(&mut self, surface: PopupSurface, seat: wl_seat::WlSeat, serial: Serial) {
+        let Some(seat) = Seat::from_resource(&seat) else {
+            return;
+        };
+        let kind = PopupKind::Xdg(surface);
+        let Ok(root) = find_popup_root_surface(&kind) else {
+            return;
+        };
+        match self.popups.grab_popup(root.clone(), kind, &seat, serial) {
+            Ok(grab) => {
+                if let Some(keyboard) = seat.get_keyboard() {
+                    if keyboard.has_grab(serial) {
+                        keyboard.set_focus(self, grab.current_grab(), serial);
+                        keyboard.set_grab(self, PopupKeyboardGrab::new(&grab), serial);
+                    }
+                }
+                if let Some(pointer) = seat.get_pointer() {
+                    if pointer.has_grab(serial) {
+                        let ret = pointer.grab_start_data();
+                        pointer.motion(
+                            self,
+                            ret.as_ref().and_then(|s| s.focus.clone()),
+                            &smithay::input::pointer::MotionEvent {
+                                location: pointer.current_location(),
+                                serial,
+                                time: 0,
+                            },
+                        );
+                        pointer.set_grab(self, PopupPointerGrab::new(&grab), serial, Focus::Keep);
+                    }
+                }
+            }
+            Err(err) => {
+                eprintln!("proteus-compositor-next: popup grab denied: {err:?}");
+            }
+        }
+    }
+}
+
+fn focus_on_toplevel(
+    start_data: &PointerGrabStartData<CompositorNext>,
+    surface: &ToplevelSurface,
+) -> bool {
+    let Some((focus, _)) = start_data.focus.as_ref() else {
+        return false;
+    };
+    let mut surf = focus.clone();
+    loop {
+        if &surf == surface.wl_surface() {
+            return true;
+        }
+        match get_parent(&surf) {
+            Some(parent) => surf = parent,
+            None => return false,
+        }
+    }
 }
 
 delegate_xdg_shell!(CompositorNext);
+
+// ----------------------------------------------------------- xdg-decoration --
+
+impl XdgDecorationHandler for CompositorNext {
+    fn new_decoration(&mut self, toplevel: ToplevelSurface) {
+        toplevel.with_pending_state(|state| {
+            state.decoration_mode = Some(Mode::ServerSide);
+        });
+        toplevel.send_configure();
+        self.sync_ssd_for_toplevel(&toplevel, true);
+    }
+
+    fn request_mode(&mut self, toplevel: ToplevelSurface, mode: Mode) {
+        // Prefer SSD; honor ClientSide when the client explicitly asks.
+        let chosen = match mode {
+            Mode::ClientSide => Mode::ClientSide,
+            _ => Mode::ServerSide,
+        };
+        toplevel.with_pending_state(|state| {
+            state.decoration_mode = Some(chosen);
+        });
+        toplevel.send_configure();
+        self.sync_ssd_for_toplevel(&toplevel, chosen == Mode::ServerSide);
+    }
+
+    fn unset_mode(&mut self, toplevel: ToplevelSurface) {
+        toplevel.with_pending_state(|state| {
+            state.decoration_mode = Some(Mode::ServerSide);
+        });
+        toplevel.send_configure();
+        self.sync_ssd_for_toplevel(&toplevel, true);
+    }
+}
+
+impl CompositorNext {
+    fn sync_ssd_for_toplevel(&mut self, toplevel: &ToplevelSurface, ssd: bool) {
+        let Some(addr) = self.address_for_surface(toplevel.wl_surface()) else {
+            return;
+        };
+        let prev = self.wm.find(&addr).map(|t| t.ssd);
+        self.wm.set_ssd(&addr, ssd);
+        if prev != Some(ssd) {
+            self.relayout_active();
+        }
+    }
+}
+
+delegate_xdg_decoration!(CompositorNext);
 
 fn handle_xdg_commit(popups: &mut PopupManager, space: &Space<Window>, surface: &WlSurface) {
     if let Some(window) = space
@@ -258,6 +553,7 @@ impl CompositorNext {
     /// (wlr-layer-shell requires configure after the first commit).
     fn handle_layer_commit(&mut self, surface: &WlSurface) {
         let outputs: Vec<Output> = self.space.outputs().cloned().collect();
+        let mut need_relayout = false;
         for output in outputs {
             let initial = {
                 let mut map = layer_map_for_output(&output);
@@ -268,6 +564,7 @@ impl CompositorNext {
                     continue;
                 };
                 map.arrange();
+                need_relayout = true;
                 let initial_configure_sent = with_states(surface, |states| {
                     states
                         .data_map
@@ -284,12 +581,13 @@ impl CompositorNext {
             if let Some(layer) = initial {
                 layer.layer_surface().send_configure();
             }
-            return;
+            break;
+        }
+        if need_relayout {
+            self.relayout_active();
         }
     }
 }
-
-use smithay::desktop::WindowSurfaceType;
 
 // ------------------------------------------------------------- layer-shell --
 
@@ -320,6 +618,8 @@ impl WlrLayerShellHandler for CompositorNext {
             Ok(()) => eprintln!("proteus-compositor-next: layer mapped: {namespace}"),
             Err(e) => eprintln!("proteus-compositor-next: map_layer failed ({namespace}): {e}"),
         }
+        drop(map);
+        self.relayout_active();
     }
 
     fn layer_destroyed(&mut self, surface: WlrLayerSurface) {
@@ -334,7 +634,10 @@ impl WlrLayerShellHandler for CompositorNext {
                 map.unmap_layer(&layer);
             }
         }
+        self.relayout_active();
     }
 }
 
 delegate_layer_shell!(CompositorNext);
+
+// wlr-screencopy Dispatch/GlobalDispatch live on CompositorNext in screencopy.rs.

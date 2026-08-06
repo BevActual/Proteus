@@ -1035,7 +1035,7 @@ pub fn dock_preview_capture(address: &str) -> Option<Vec<u8>> {
         .map(|e| e.as_secs() < 3)
         .unwrap_or(false);
     if !fresh {
-        let v = crate::hypr::hyprctl_json(&["clients"]).ok()?;
+        let v = crate::wm_ipc::hyprctl_json(&["clients"]).ok()?;
         let c = v
             .as_array()?
             .iter()

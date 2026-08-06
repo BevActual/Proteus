@@ -130,7 +130,7 @@ pub fn filter_desktop_hits(q: &str, limit: usize) -> Vec<String> {
 }
 
 /// Beacon hits: builtins · Settings · Windows · files · desktop apps.
-pub fn filter_beacon_hits(q: &str, limit: usize, windows: &[crate::hypr::Toplevel]) -> Vec<String> {
+pub fn filter_beacon_hits(q: &str, limit: usize, windows: &[crate::wm_ipc::Toplevel]) -> Vec<String> {
     let q = q.trim().to_lowercase();
     let mut hits: Vec<String> = Vec::new();
     for builtin in [
@@ -317,7 +317,7 @@ pub fn launch_hit(hit: &str) {
     let lower = hit.to_lowercase();
     if lower.starts_with("window ·") || lower.starts_with("window ·") {
         if let Some(addr) = hit.rsplit(" · ").next() {
-            let _ = crate::hypr::focus_window_address(addr.trim());
+            let _ = crate::wm_ipc::focus_window_address(addr.trim());
         }
         return;
     }

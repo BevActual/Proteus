@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# config — seatd/pipewire user session hooks + hypr chrome seed
+# config — seatd/pipewire user session hooks + ghostty/fastfetch seeds
 set -euo pipefail
 # shellcheck source=helpers.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/helpers.sh"
@@ -19,6 +19,29 @@ proteus_log "session user ${USER_NAME} (${USER_HOME})"
 # writing /mnt/proteus here — same Fact, no special case.
 proteus_write_root_fact "${PROTEUS_ROOT}"
 
+# Shipping compositor — smithay only (Hyprland purged).
+proteus_as_user mkdir -p "${USER_HOME}/.config/proteus"
+printf 'smithay\n' | proteus_as_user tee "${USER_HOME}/.config/proteus/compositor-engine" >/dev/null
+proteus_log "compositor-engine=smithay (Hyprland purged — no Fact rollback)"
+
+# Prefer installing compositor-next when the tree/binary is available.
+if [[ -x "${PROTEUS_ROOT}/install/machine/install-proteus-compositor-next.sh" ]]; then
+  bash "${PROTEUS_ROOT}/install/machine/install-proteus-compositor-next.sh" \
+    || proteus_log "note: compositor-next install soft-failed (session will refuse without binary)"
+fi
+
+# Portal preference for smithay / wlroots sessions.
+PORTAL_DIR="${USER_HOME}/.config/xdg-desktop-portal"
+proteus_as_user mkdir -p "${PORTAL_DIR}"
+if [[ -f "${PROTEUS_ROOT}/env/portal/portals.conf" ]]; then
+  proteus_as_user cp -f "${PROTEUS_ROOT}/env/portal/portals.conf" "${PORTAL_DIR}/portals.conf"
+elif [[ ! -f "${PORTAL_DIR}/portals.conf" ]]; then
+  proteus_as_user tee "${PORTAL_DIR}/portals.conf" >/dev/null <<'EOF'
+[preferred]
+default=wlr;gtk;
+EOF
+fi
+
 proteus_root systemctl enable seatd.service 2>/dev/null || true
 # PipeWire usually user services after first graphical login; enable lingering helps
 proteus_root loginctl enable-linger "${USER_NAME}" 2>/dev/null || true
@@ -28,125 +51,8 @@ if [[ -L "${USER_HOME}/.config/quickshell/proteus" ]]; then
   proteus_as_user rm -f "${USER_HOME}/.config/quickshell/proteus"
 fi
 
-# Hyprland config: prefer existing; else seed from env/ templates if guest has none
-HYPR_DIR="${USER_HOME}/.config/hypr"
-proteus_as_user mkdir -p "${HYPR_DIR}"
-if [[ ! -f "${HYPR_DIR}/hyprland.conf" ]]; then
-  if [[ -f "${PROTEUS_ROOT}/env/hypr/hyprland.conf" ]]; then
-    proteus_log "seeding hyprland.conf from env/hypr/"
-    sed "s|SHELL_DIR_PLACEHOLDER|${PROTEUS_ROOT}/shell|g" \
-      "${PROTEUS_ROOT}/env/hypr/hyprland.conf" \
-      | proteus_as_user tee "${HYPR_DIR}/hyprland.conf" >/dev/null
-  else
-    proteus_log "note: no ${HYPR_DIR}/hyprland.conf — guest may already use a custom session"
-  fi
-fi
-
-# Autostart owned chrome via proteus-chrome.
-if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
-  && ! grep -qE 'proteus-chrome' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
-  proteus_log "appending proteus-chrome exec-once"
-  {
-    echo ""
-    echo "# Proteus shell (owned iced via proteus-chrome)"
-    echo "exec-once = ${PROTEUS_ROOT}/shell/scripts/proteus-chrome"
-  } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
-fi
-
-# Migrate bare quickshell / proteus-qs / path-arg chrome → proteus-chrome (idempotent)
-if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
-  && grep -qE 'exec-once[[:space:]]*=[[:space:]].*(quickshell -p|proteus-qs|proteus-chrome .+shell)' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
-  proteus_log "migrating chrome exec-once → proteus-chrome (owned-only)"
-  proteus_as_user sed -i -E \
-    "s|[^[:space:]]*shell/scripts/proteus-qs[^[:space:]]*|${PROTEUS_ROOT}/shell/scripts/proteus-chrome|g; s|quickshell -p [^[:space:]]+|${PROTEUS_ROOT}/shell/scripts/proteus-chrome|g; s|${PROTEUS_ROOT}/shell/scripts/proteus-chrome[[:space:]]+[^[:space:]]+|${PROTEUS_ROOT}/shell/scripts/proteus-chrome|g" \
-    "${HYPR_DIR}/hyprland.conf" || true
-fi
-
-# Autostart hypridle (locks via session lock → Proteus lock screen)
-if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
-  && ! grep -q 'hypridle' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
-  {
-    echo ""
-    echo "exec-once = hypridle"
-  } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
-fi
-# Polkit auth agent — pkexec (proteus-pkg / proteus-logind / timedatectl) needs a GUI prompt
-if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
-  && ! grep -q 'hyprpolkitagent' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
-  proteus_log "appending hyprpolkitagent exec-once"
-  {
-    echo ""
-    echo "# Polkit auth agent — GUI prompts for pkexec (proteus-pkg / proteus-logind)"
-    echo "exec-once = /usr/lib/hyprpolkitagent/hyprpolkitagent"
-  } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
-fi
-# Settings behaves like any other application window (tiled / user-floated).
-# Migration: strip the legacy float+center popup rules from older installs.
-if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
-  && grep -q 'Proteus Settings' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
-  proteus_log "removing legacy Proteus Settings float+center windowrules"
-  proteus_as_user sed -i \
-    -e '/^# Settings opens as its designed floating sheet/d' \
-    -e '/^windowrule = .*Proteus Settings.*$/d' \
-    "${HYPR_DIR}/hyprland.conf"
-fi
-# Interim cliphist watchers
-if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
-  && ! grep -q 'cliphist store' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
-  {
-    echo ""
-    echo "# Interim clipboard history (shell/scripts/proteus-clipboard)"
-    echo "exec-once = wl-paste --type text --watch cliphist store"
-    echo "exec-once = wl-paste --type image --watch cliphist store"
-  } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
-fi
-
-# Session start hygiene (#1168): never autostart a terminal — Dock / Super+Return only.
-if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
-  && grep -qiE '^[[:space:]]*exec-once[[:space:]]*=.*(ghostty|kitty|alacritty|foot|proteus-terminal|wezterm)' \
-    "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
-  proteus_log "stripping terminal exec-once from hyprland.conf (on-demand only)"
-  proteus_as_user sed -i -E \
-    '/^[[:space:]]*exec-once[[:space:]]*=.*(ghostty|kitty|alacritty|foot|proteus-terminal|wezterm)/I d' \
-    "${HYPR_DIR}/hyprland.conf" || true
-  if ! grep -q 'do not exec-once' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
-    {
-      echo ""
-      echo "# Terminal is on-demand (Dock / Super+Return) — do not exec-once Ghostty"
-    } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
-  fi
-fi
-
-if [[ ! -f "${HYPR_DIR}/hypridle.conf" ]]; then
-  proteus_as_user tee "${HYPR_DIR}/hypridle.conf" >/dev/null <<'EOF'
-# Proteus — idle → session lock (Quickshell lock screen)
-general {
-  lock_cmd = loginctl lock-session
-  before_sleep_cmd = loginctl lock-session
-}
-
-listener {
-  timeout = 300
-  on-timeout = loginctl lock-session
-}
-EOF
-fi
-
-# Ensure proteus-hw.conf exists and is sourced (hardware stage fills it)
-HW_CONF="${HYPR_DIR}/proteus-hw.conf"
-if [[ ! -f "${HW_CONF}" ]]; then
-  proteus_as_user tee "${HW_CONF}" >/dev/null <<'EOF'
-# Populated by install/hardware/*.sh (NVIDIA / AMD / Intel / virt)
-EOF
-fi
-if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
-  && ! grep -q 'proteus-hw.conf' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
-  {
-    echo ""
-    echo "# GPU / hardware envs (install/hardware)"
-    echo "source = ~/.config/hypr/proteus-hw.conf"
-  } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
-fi
+# env/hypr/ deleted (Hyprland purged) — no hyprland.conf seed.
+proteus_log "note: env/hypr gone (Hyprland purged); Settings apply via proteus-settings-apply"
 
 # Ghostty + fastfetch — terminal open look (seed once; never overwrite user edits)
 seed_file() {
@@ -164,69 +70,6 @@ seed_file "${PROTEUS_ROOT}/env/ghostty/config" "${USER_HOME}/.config/ghostty/con
 seed_file "${PROTEUS_ROOT}/env/fastfetch/config.jsonc" "${USER_HOME}/.config/fastfetch/config.jsonc"
 seed_file "${PROTEUS_ROOT}/env/fastfetch/proteus-helix.txt" "${USER_HOME}/.config/fastfetch/proteus-helix.txt"
 seed_file "${PROTEUS_ROOT}/env/bash/proteus-bashrc.sh" "${USER_HOME}/.config/proteus/proteus-bashrc.sh"
-# Hypr fragments (apps stage also sources these; seed early so partial runs work)
-seed_file "${PROTEUS_ROOT}/env/hypr/proteus-keybinds.conf" "${HYPR_DIR}/proteus-keybinds.conf"
-seed_file "${PROTEUS_ROOT}/env/hypr/proteus-general.conf" "${HYPR_DIR}/proteus-general.conf"
-seed_file "${PROTEUS_ROOT}/env/hypr/proteus-monitors.conf" "${HYPR_DIR}/proteus-monitors.conf"
-proteus_as_user mkdir -p "${HYPR_DIR}/profiles"
-seed_file "${PROTEUS_ROOT}/env/hypr/profiles/desktop.conf" "${HYPR_DIR}/profiles/desktop.conf"
-seed_file "${PROTEUS_ROOT}/env/hypr/profiles/console.conf" "${HYPR_DIR}/profiles/console.conf"
-seed_file "${PROTEUS_ROOT}/env/hypr/profiles/host.conf" "${HYPR_DIR}/profiles/host.conf"
-seed_file "${PROTEUS_ROOT}/env/hypr/profiles/home.conf" "${HYPR_DIR}/profiles/home.conf"
-# Migrate legacy media.conf pointer / file
-if [[ -f "${HYPR_DIR}/profiles/media.conf" && ! -f "${HYPR_DIR}/profiles/console.conf" ]]; then
-  mv "${HYPR_DIR}/profiles/media.conf" "${HYPR_DIR}/profiles/console.conf"
-fi
-if [[ -f "${HYPR_DIR}/proteus-profile.conf" ]] && grep -q 'profiles/media\.conf' "${HYPR_DIR}/proteus-profile.conf" 2>/dev/null; then
-  sed -i 's|profiles/media\.conf|profiles/console.conf|g' "${HYPR_DIR}/proteus-profile.conf"
-fi
-seed_file "${PROTEUS_ROOT}/env/hypr/proteus-profile.conf" "${HYPR_DIR}/proteus-profile.conf"
-
-# Ensure hypr sources for fragments seeded above (idempotent append)
-ensure_hypr_source() {
-  local needle="$1" comment="$2"
-  [[ -f "${HYPR_DIR}/hyprland.conf" ]] || return 0
-  if ! grep -q "${needle}" "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
-    {
-      echo ""
-      echo "# ${comment}"
-      echo "source = ~/.config/hypr/${needle}"
-    } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
-    proteus_log "sourced ${needle}"
-  fi
-}
-ensure_hypr_source "proteus-keybinds.conf" "Proteus keyboard shortcuts (Settings → Keyboard)"
-ensure_hypr_source "proteus-monitors.conf" "Proteus displays (Settings → Displays)"
-ensure_hypr_source "proteus-general.conf" "Proteus desktop (Settings → Desktop)"
-ensure_hypr_source "proteus-profile.conf" "Proteus posture profile (set-hypr-profile.sh)"
-
-# Terminal wrapper on PATH for Hypr exec binds (Ghostty needs GL 4.3; virtio often 4.2)
-if [[ -f "${HYPR_DIR}/hyprland.conf" ]] \
-  && ! grep -q 'shell/scripts' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
-  {
-    echo ""
-    echo "# proteus-terminal on PATH (VM OpenGL workaround for Ghostty)"
-    echo "env = PATH,/usr/local/bin:${PROTEUS_ROOT}/shell/scripts:\$PATH"
-  } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
-fi
-
-# Install root for anything Hyprland spawns (chrome, seats, helper escapes).
-# Complements ~/.config/proteus/root — this covers children of an already-running
-# compositor; the Fact covers session start. Rewritten when the tree moves.
-if [[ -f "${HYPR_DIR}/hyprland.conf" ]]; then
-  if grep -qE '^env = PROTEUS_ROOT,' "${HYPR_DIR}/hyprland.conf" 2>/dev/null; then
-    proteus_as_user sed -i -E \
-      "s|^env = PROTEUS_ROOT,.*$|env = PROTEUS_ROOT,${PROTEUS_ROOT}|" \
-      "${HYPR_DIR}/hyprland.conf" || true
-  else
-    {
-      echo ""
-      echo "# Proteus install root (also ~/.config/proteus/root for session start)"
-      echo "env = PROTEUS_ROOT,${PROTEUS_ROOT}"
-    } | proteus_as_user tee -a "${HYPR_DIR}/hyprland.conf" >/dev/null
-    proteus_log "seeded env = PROTEUS_ROOT,${PROTEUS_ROOT}"
-  fi
-fi
 
 BASHRC="${USER_HOME}/.bashrc"
 MARKER="# Proteus terminal fetch"

@@ -33,9 +33,9 @@ pub fn write_engine_fact(engine: ShellEngine) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-/// Resolve compositor engine fact. Hyprland ships; the Smithay rung-2 spike
-/// (`compositor-next`, nested winit only) is accepted from an explicit fact/env
-/// opt-in — rung 1 gates closed 2026-08-05 per OWNED-STACK.md.
+/// Resolve compositor engine fact. **Smithay only** (Hyprland purged).
+/// Empty / smithay / compositor-next → smithay. Unknown → smithay with eprintln.
+/// Explicit hyprland/hypr → smithay with refuse message (session exits 1).
 pub fn resolve_compositor_engine() -> &'static str {
     let raw = env::var("PROTEUS_COMPOSITOR_ENGINE").unwrap_or_default();
     let from_env = raw.trim().to_lowercase();
@@ -52,13 +52,18 @@ pub fn resolve_compositor_engine() -> &'static str {
         from_fact
     };
     match requested.as_str() {
-        "" | "hyprland" | "hypr" => "hyprland",
-        "smithay" | "compositor-next" => "smithay",
+        "hyprland" | "hypr" => {
+            eprintln!(
+                "proteus-shell: compositor-engine={requested:?} refused — Hyprland purged; using smithay"
+            );
+            "smithay"
+        }
+        "" | "smithay" | "compositor-next" => "smithay",
         other => {
             eprintln!(
-                "proteus-shell: compositor-engine={other:?} unknown — using hyprland"
+                "proteus-shell: compositor-engine={other:?} unknown — using smithay"
             );
-            "hyprland"
+            "smithay"
         }
     }
 }

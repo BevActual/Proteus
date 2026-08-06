@@ -1,6 +1,11 @@
 //! Compositor state — smallvil-derived (smithay 0.7) + wlr-layer-shell.
 
-use std::{ffi::OsString, sync::Arc};
+use std::{
+    collections::HashMap,
+    ffi::OsString,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use smithay::{
     desktop::{PopupManager, Space, Window, WindowSurfaceType},
@@ -10,22 +15,31 @@ use smithay::{
         wayland_server::{
             backend::{ClientData, ClientId, DisconnectReason},
             protocol::wl_surface::WlSurface,
-            Display, DisplayHandle,
+            Client, Display, DisplayHandle,
         },
     },
     utils::{Logical, Point},
     wayland::{
         compositor::{CompositorClientState, CompositorState},
+        dmabuf::{DmabufGlobal, DmabufState},
         fractional_scale::FractionalScaleManagerState,
         output::OutputManagerState,
         selection::data_device::DataDeviceState,
-        shell::{wlr_layer::WlrLayerShellState, xdg::XdgShellState},
+        shell::{
+            wlr_layer::WlrLayerShellState,
+            xdg::{decoration::XdgDecorationState, XdgShellState},
+        },
         shm::ShmState,
         socket::ListeningSocketSource,
         viewporter::ViewporterState,
+        xwayland_shell::XWaylandShellState,
     },
+    xwayland::X11Wm,
 };
 
+use crate::ctl::CtlSubscribers;
+use crate::screencopy::{CapturedFrame, PendingScreencopy};
+use crate::wm::Wm;
 use crate::CalloopData;
 
 pub struct CompositorNext {
@@ -38,36 +52,74 @@ pub struct CompositorNext {
 
     pub compositor_state: CompositorState,
     pub xdg_shell_state: XdgShellState,
+    pub xdg_decoration_state: XdgDecorationState,
     pub layer_shell_state: WlrLayerShellState,
     pub viewporter_state: ViewporterState,
     pub fractional_scale_state: FractionalScaleManagerState,
     pub shm_state: ShmState,
+    pub dmabuf_state: DmabufState,
+    pub dmabuf_global: Option<DmabufGlobal>,
     pub output_manager_state: OutputManagerState,
     pub seat_state: SeatState<CompositorNext>,
     pub data_device_state: DataDeviceState,
     pub popups: PopupManager,
 
     pub seat: Seat<Self>,
+
+    /// Workspace / toplevel roster (IPC contract).
+    pub wm: Wm,
+    /// All known xdg/X11 windows (including unmapped / minimized).
+    pub windows: HashMap<String, Window>,
+    pub ctl_path: Option<PathBuf>,
+    pub ctl_subscribers: CtlSubscribers,
+
+    pub xwayland_shell_state: XWaylandShellState,
+    pub xwm: Option<X11Wm>,
+    pub xwayland_client: Option<Client>,
+    /// X11 display number once Xwayland is Ready (`DISPLAY=:{n}`).
+    pub x11_display: Option<u32>,
+
+    /// Last rendered output frame for wlr-screencopy / grim.
+    pub last_frame: Option<CapturedFrame>,
+    pub pending_screencopies: Vec<PendingScreencopy>,
+    /// SSD titlebar font + MemoryRenderBuffer cache.
+    pub ssd_chrome: crate::decoration::SsdChrome,
+    /// Soft pointer cursor (default arrow).
+    pub cursor: crate::cursor::CursorState,
+    /// Identify flash deadline + badge cache.
+    pub identify_until: Option<std::time::Instant>,
+    pub identify_chrome: crate::identify::IdentifyChrome,
+    /// DRM backend runtime (set by `init_drm`); enables live modeset.
+    pub(crate) drm_runtime: Option<std::rc::Rc<std::cell::RefCell<crate::drm::DrmRuntime>>>,
+    /// Session keybind table (defaults + keybinds.json).
+    pub binds: crate::binds::BindsState,
 }
 
 impl CompositorNext {
-    pub fn new(event_loop: &mut EventLoop<CalloopData>, display: Display<Self>) -> Self {
+    pub fn new(
+        event_loop: &mut EventLoop<'static, CalloopData>,
+        display: Display<Self>,
+        seat_name: &str,
+    ) -> Self {
         let start_time = std::time::Instant::now();
         let dh = display.handle();
 
         let compositor_state = CompositorState::new::<Self>(&dh);
         let xdg_shell_state = XdgShellState::new::<Self>(&dh);
+        let xdg_decoration_state = XdgDecorationState::new::<Self>(&dh);
         let layer_shell_state = WlrLayerShellState::new::<Self>(&dh);
         // iced_layershell clients hard-require wp_viewporter (hidpi path).
         let viewporter_state = ViewporterState::new::<Self>(&dh);
         let fractional_scale_state = FractionalScaleManagerState::new::<Self>(&dh);
         let shm_state = ShmState::new::<Self>(&dh, vec![]);
+        let dmabuf_state = DmabufState::new();
         let output_manager_state = OutputManagerState::new_with_xdg_output::<Self>(&dh);
         let mut seat_state = SeatState::new();
         let data_device_state = DataDeviceState::new::<Self>(&dh);
         let popups = PopupManager::default();
+        let xwayland_shell_state = XWaylandShellState::new::<Self>(&dh);
 
-        let mut seat: Seat<Self> = seat_state.new_wl_seat(&dh, "winit");
+        let mut seat: Seat<Self> = seat_state.new_wl_seat(&dh, seat_name);
         seat.add_keyboard(Default::default(), 200, 25).unwrap();
         seat.add_pointer();
 
@@ -83,21 +135,40 @@ impl CompositorNext {
             socket_name,
             compositor_state,
             xdg_shell_state,
+            xdg_decoration_state,
             layer_shell_state,
             viewporter_state,
             fractional_scale_state,
             shm_state,
+            dmabuf_state,
+            dmabuf_global: None,
             output_manager_state,
             seat_state,
             data_device_state,
             popups,
             seat,
+            wm: Wm::new(),
+            windows: HashMap::new(),
+            ctl_path: None,
+            ctl_subscribers: Arc::new(Mutex::new(Vec::new())),
+            xwayland_shell_state,
+            xwm: None,
+            xwayland_client: None,
+            x11_display: None,
+            last_frame: None,
+            pending_screencopies: Vec::new(),
+            ssd_chrome: crate::decoration::SsdChrome::default(),
+            cursor: crate::cursor::CursorState::default(),
+            identify_until: None,
+            identify_chrome: crate::identify::IdentifyChrome::default(),
+            drm_runtime: None,
+            binds: crate::binds::BindsState::load(),
         }
     }
 
     fn init_wayland_listener(
         display: Display<CompositorNext>,
-        event_loop: &mut EventLoop<CalloopData>,
+        event_loop: &mut EventLoop<'static, CalloopData>,
     ) -> OsString {
         let listening_socket = ListeningSocketSource::new_auto().unwrap();
         let socket_name = listening_socket.socket_name().to_os_string();

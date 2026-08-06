@@ -1,6 +1,5 @@
-# Smithay rung-2 spike (OWNED-STACK) — nested winit compositor hosting
-# xdg-shell toplevels + wlr-layer-shell so proteus-shell layers can map.
-# No session takeover, no DRM backend. Hyprland stays the shipping compositor.
+# Smithay rung-2 spike (OWNED-STACK) — nested winit + DRM session default
+# via proteus-session (Hyprland fail-closed). Build: cargo build -p compositor-next.
 
 [package]
 name = "compositor-next"
@@ -12,9 +11,24 @@ license.workspace = true
 name = "proteus-compositor-next"
 path = "src/main.rs"
 
+[[bin]]
+name = "proteus-compositorctl"
+path = "src/bin/proteus-compositorctl.rs"
+
 [dependencies]
+cosmic-text = "0.15"
+serde_json = { workspace = true }
+xcursor = "0.3"
 smithay = { version = "0.7", default-features = false, features = [
     "backend_winit",
+    "backend_drm",
+    "backend_gbm",
+    "backend_egl",
+    "backend_libinput",
+    "backend_session_libseat",
+    "backend_udev",
+    "renderer_gl",
     "wayland_frontend",
     "desktop",
+    "xwayland",
 ] }

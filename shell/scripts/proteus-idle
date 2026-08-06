@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+# proteus-idle — lock the session after idle timeout / before sleep.
+# Replaces hypridle. Keep Awake stays systemd-inhibit (idle:sleep).
+#
+# Env:
+#   PROTEUS_IDLE_TIMEOUT_SEC  default 300
+#   XDG_SESSION_ID            preferred lock target
+set -euo pipefail
+
+TIMEOUT_SEC="${PROTEUS_IDLE_TIMEOUT_SEC:-300}"
+[[ "${TIMEOUT_SEC}" =~ ^[0-9]+$ ]] || TIMEOUT_SEC=300
+(( TIMEOUT_SEC < 30 )) && TIMEOUT_SEC=30
+
+lock_now() {
+  if [[ -n "${XDG_SESSION_ID:-}" ]]; then
+    loginctl lock-session "${XDG_SESSION_ID}" 2>/dev/null || loginctl lock-session 2>/dev/null || true
+  else
+    loginctl lock-session 2>/dev/null || true
+  fi
+}
+
+# Before-sleep: lock as soon as logind prepares sleep.
+before_sleep_watch() {
+  if command -v gdbus >/dev/null 2>&1; then
+    gdbus monitor --system --dest org.freedesktop.login1 \
+      --object-path /org/freedesktop/login1 2>/dev/null \
+      | while IFS= read -r line; do
+          if [[ "${line}" == *PrepareForSleep* && "${line}" == *true* ]]; then
+            lock_now
+          fi
+        done
+  elif command -v dbus-monitor >/dev/null 2>&1; then
+    dbus-monitor --system \
+      "type='signal',interface='org.freedesktop.login1.Manager',member='PrepareForSleep'" \
+      2>/dev/null \
+      | while IFS= read -r line; do
+          if [[ "${line}" == *boolean*true* ]]; then
+            lock_now
+          fi
+        done
+  else
+    echo "proteus-idle: note — no gdbus/dbus-monitor; before-sleep lock skipped" >&2
+    sleep infinity
+  fi
+}
+
+# Activity via /dev/input when readable; else logind IdleHint.
+activity_idle_loop() {
+  python3 - "$TIMEOUT_SEC" <<'PY' || true
+import glob, os, select, subprocess, sys, time
+
+timeout = int(sys.argv[1])
+fds = []
+for path in sorted(glob.glob("/dev/input/event*")):
+    try:
+        fds.append(open(path, "rb", buffering=0))
+    except OSError:
+        pass
+
+def inhibited() -> bool:
+    try:
+        out = subprocess.check_output(
+            ["systemd-inhibit", "--no-legend", "--no-pager"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception:
+        return False
+    low = out.lower()
+    return "idle" in low or "sleep" in low
+
+def lock():
+    sid = os.environ.get("XDG_SESSION_ID", "").strip()
+    cmd = ["loginctl", "lock-session"]
+    if sid:
+        cmd.append(sid)
+    try:
+        subprocess.run(cmd, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+def idle_hint_yes() -> bool:
+    sid = os.environ.get("XDG_SESSION_ID", "").strip()
+    if not sid:
+        return False
+    try:
+        out = subprocess.check_output(
+            ["loginctl", "show-session", sid, "-p", "IdleHint", "--value"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip().lower()
+        return out == "yes"
+    except Exception:
+        return False
+
+last = time.monotonic()
+poll = select.poll()
+for f in fds:
+    poll.register(f, select.POLLIN)
+
+use_input = bool(fds)
+if not use_input:
+    print(
+        "proteus-idle: no readable /dev/input — using IdleHint / soft timer",
+        file=sys.stderr,
+    )
+
+while True:
+    if use_input:
+        ready = poll.poll(1000)
+        if ready:
+            for fd, _ev in ready:
+                try:
+                    os.read(fd, 4096)
+                except OSError:
+                    pass
+            last = time.monotonic()
+            continue
+    else:
+        time.sleep(1.0)
+        if not idle_hint_yes():
+            last = time.monotonic()
+            continue
+
+    if inhibited():
+        last = time.monotonic()
+        continue
+
+    if time.monotonic() - last >= timeout:
+        lock()
+        last = time.monotonic()
+PY
+}
+
+echo "proteus-idle: timeout=${TIMEOUT_SEC}s session=${XDG_SESSION_ID:-unknown}" >&2
+before_sleep_watch &
+sleep_pid=$!
+trap 'kill "${sleep_pid}" 2>/dev/null || true; exit 0' TERM INT
+activity_idle_loop
+wait "${sleep_pid}" 2>/dev/null || true

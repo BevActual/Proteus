@@ -1,0 +1,4 @@
+{
+  "overrides": [],
+  "_comment": "Optional overrides for compositor-next session binds. Defaults are baked in compositor-next/src/binds.rs (beacon, lock, workspaces, terminal, …). Each override: { \"id\", \"mods\": [\"super\"], \"key\", \"action\": { \"shell\": [\"chrome\",\"beacon\"] } | { \"dispatch\": \"workspace 2\" } | { \"exec\": [\"proteus-terminal\"] } }. Copy to ~/.config/proteus/keybinds.json to customize; then: proteus-compositorctl dispatch reloadbinds"
+}

@@ -9,5 +9,5 @@ user = "andrew"
 
 # After logout / unlock to greeter — still offer tuigreet
 [default_session]
-command = "tuigreet --time --remember --remember-user-session --asterisks --greeting 'Proteus' --sessions /usr/share/wayland-sessions --cmd /usr/local/bin/proteus-session"
+command = "tuigreet --time --remember --remember-user-session --asterisks --greeting 'Proteus (smithay)' --sessions /usr/share/wayland-sessions --cmd /usr/local/bin/proteus-session"
 user = "greeter"

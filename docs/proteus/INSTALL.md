@@ -53,11 +53,15 @@ is not inherited. The root is therefore a Fact on disk, like `posture` and
 
 Every candidate is validated (`<root>/shell` must exist) before it is accepted,
 so a stale Fact after moving the tree degrades to the next source instead of
-stranding the session. `config.sh` also seeds `env = PROTEUS_ROOT,…` into
-`hyprland.conf` for processes the compositor spawns.
+stranding the session. `config.sh` also writes
+`~/.config/proteus/compositor-engine=smithay` and installs `proteus-compositor-next`
+when a release/debug binary (or cargo) is available. **Hyprland is purged** —
+Fact=`hyprland` is refused; `env/hypr/` is **deleted** (not archived). Settings
+apply via `proteus-settings-apply` / `proteus-compositorctl`; idle is
+`proteus-idle` (no hypridle).
 
-**Moved the checkout?** Re-run `bootstrap.sh repair` — it rewrites the Fact, the
-hypr env line, and every `/usr/local/bin` symlink.
+**Moved the checkout?** Re-run `bootstrap.sh repair` — it rewrites the Fact
+and every `/usr/local/bin` symlink.
 
 ### Helpers: symlink vs copy
 

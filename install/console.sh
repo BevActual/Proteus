@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # console — console posture kit: multilib, seats (Steam / RetroArch + cores),
-# Gamescope, pad udev rules, seat helpers on PATH, console.conf seed, and
-# posture-fact ↔ hypr-profile drift fix.
+# Gamescope, pad udev rules, seat helpers on PATH.
 # Skip with: PROTEUS_INSTALL_SKIP=console
 set -euo pipefail
 # shellcheck source=helpers.sh
@@ -9,7 +8,6 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/helpers.sh"
 
 PROTEUS_ROOT="$(proteus_install_root)"
 MACHINE="${PROTEUS_ROOT}/install/machine"
-SCRIPTS="${PROTEUS_ROOT}/shell/scripts"
 LIST="${PROTEUS_ROOT}/install/proteus-console.packages"
 USER_NAME="$(proteus_session_user)"
 USER_HOME="$(getent passwd "${USER_NAME}" 2>/dev/null | cut -d: -f6 || true)"
@@ -67,31 +65,13 @@ else
   proteus_log "console: pacman missing — skip packages"
 fi
 
-# 3. Helpers on PATH + console.conf seed (idempotent; packages owned above)
+# 3. Helpers on PATH (idempotent; packages owned above).
+# Hypr profile seed / set-hypr-profile re-sync retired (env/hypr deleted).
 if [[ -f "${MACHINE}/apply-console-kit.sh" ]]; then
   proteus_root env PROTEUS_SKIP_CONSOLE_PACKAGES=1 \
     PROTEUS_USER="${USER_NAME}" SUDO_USER="${USER_NAME}" \
     bash "${MACHINE}/apply-console-kit.sh" \
     || proteus_log "warn: apply-console-kit failed"
-fi
-
-# 4. Posture fact ≠ hypr profile drift fix (the "console launches desktop
-# chrome" bug class): re-point proteus-profile.conf at the fact's profile.
-FACT_FILE="${USER_HOME}/.config/proteus/posture"
-POINTER="${USER_HOME}/.config/hypr/proteus-profile.conf"
-if [[ -f "${FACT_FILE}" && -f "${POINTER}" ]]; then
-  fact="$(tr -d '[:space:]' < "${FACT_FILE}" 2>/dev/null || true)"
-  case "${fact}" in
-    desktop|console|host|home)
-      if ! grep -q "profiles/${fact}\.conf" "${POINTER}" 2>/dev/null; then
-        proteus_log "posture fact (${fact}) ≠ hypr profile pointer — re-syncing"
-        proteus_as_user env HOME="${USER_HOME}" PROTEUS_ROOT="${PROTEUS_ROOT}" \
-          bash "${SCRIPTS}/set-hypr-profile.sh" "${fact}" \
-          || proteus_log "warn: profile re-sync failed"
-      fi
-      ;;
-    *) ;;
-  esac
 fi
 
 proteus_log "console OK (user=${USER_NAME})"

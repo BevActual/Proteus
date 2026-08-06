@@ -2,5 +2,8 @@
 
 Quickshell `proteus-qs.service` was **retired** with QML chrome (2026-08-06).
 
-Owned chrome starts from Hyprland `exec-once` via
-`shell/scripts/proteus-chrome` (see `env/hypr/hyprland.conf`).
+Owned chrome starts from `proteus-session` → compositor-next →
+`shell/scripts/proteus-chrome` (`env/hypr/` deleted; Hyprland purged).
+
+Idle: `install/machine/assets/proteus-idle.service` (installed by
+`install-proteus-idle.sh`) — not hypridle.

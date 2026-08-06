@@ -137,10 +137,10 @@ Examples:
 |---------|------|
 | Accent / wallpaper / lock / font | `settings.json` + Theme + **Background.qml** / **proteus-bg** (`shell/wallpaper`); Qt FileDialog/FolderDialog in Settings |
 | Gaps / borders / rounding / animations | json + `hyprctl` + `~/.config/hypr/proteus-general.conf` |
-| Keyboard shortcuts | `~/.config/proteus/keybinds.json` + `~/.config/hypr/proteus-keybinds.conf` |
+| Keyboard shortcuts | `~/.config/proteus/keybinds.json` + compositor-next defaults (`binds.rs`) |
 | Mouse sensitivity / accel | json + `hyprctl` input:* (+ general conf `input` block) |
 | Displays (list) | `hyprctl monitors -j` (name-merge on refresh; add/remove status) |
-| Displays scale / mode / orientation / layout | `hyprctl keyword monitor` + `proteus-monitors.conf` (recommended modes; confirm large jumps; 10s full-snapshot Revert keyed by connector; drift/hotplug cancel; Identify flash; drag layout canvas) |
+| Displays scale / mode / orientation / layout | `proteus-compositorctl` `output` scale/pos/mode + `~/.config/proteus/displays.json`; Identify flash; 10s full-snapshot Revert (Settings); transform UI Out |
 | Volume / mute / default sink | `pactl` |
 | Input volume / mute / default source | `pactl` |
 | Audio matrix (node routing) | `pw-link` via `shell/scripts/audio-matrix.py` (Omnibus-style grid) |
@@ -189,7 +189,7 @@ Left-nav + content pane (macOS System Settings style).
 |----------|-------|---------|--------|
 | **Appearance** (`style`) | Category → Accent, Background, Lock screen, Icons (style compare + dock pins), Font (searchable + Add) | `settings.json`, Theme, `proteus-bg`; shared Kind/color/font/icon kit | `shipped` |
 | **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Spaces, Default apps, **Focus**, **Control Center** layout, Beacon | json + hypr · FocusMode · ControlCenterLayout · `proteus-defaults.py` · launcher* | `shipped` |
-| **Displays** (`displays`) | Layout canvas + per-monitor scale/mode/orientation; 10s Revert; Refresh/hotplug honesty; conf escape | hyprctl + `proteus-monitors.conf` | `shipped` |
+| **Displays** (`displays`) | Layout canvas + per-monitor scale; Identify; 10s Revert; Refresh/topology honesty; Fact `displays.json` | compositorctl + `displays.json` | `shipped` (thin; transform Out) |
 | **Sound** (`sound`) | Category → Output / Input / Applications / Mixer / Latency — leaf files + FormRow kit | pactl + `proteus-audio-mix` / `audio-peak.py` + `pw-metadata` + `pw-link` | `shipped` |
 | **Network** (`network`) | Category → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN / Headscale — password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG/OpenVPN import · Headscale admin thin (nodes · users · policy text) | hostnamectl / nmcli / bluetoothctl / localsend / tailscale / `proteus-headscale.py` / `NetworkDiagnostics` | `shipped` |
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse, Touchpad, Tablet, Gamepads (Guide Facts) | keybinds + input hyprctl (`mouse*` · `touchpad*` · `tablet*` · active-area/pressure/eraser · `inputDeviceOverrides` → `device {}`) + `gamepadsGuide*` | `shipped` |
@@ -260,23 +260,19 @@ pickers, segmented chrome) live in `kit/` (or `shell/shared`) — not bare
 
 Reference hybrid leaf under **Peripherals → Keyboard**:
 
-1. Friendly catalog in `shell/shared/Keybinds.qml`
-2. Overrides in `~/.config/proteus/keybinds.json`
-3. Generated `~/.config/hypr/proteus-keybinds.conf` sourced by Hyprland
-4. UI: search, categories, record chord, conflict detection, restore defaults
-5. Guest wiring: `install/machine/install-keybinds.sh`
+1. Defaults baked in compositor-next [`binds.rs`](../../compositor-next/src/binds.rs)
+2. Optional overrides in `~/.config/proteus/keybinds.json`
+3. `proteus-compositorctl dispatch reloadbinds` after Fact edit
+4. UI: honesty stub in iced Settings (full rebind editor Out)
+5. Guest wiring: `install/machine/install-keybinds.sh` (seeds Fact; no hypr conf)
 
 **Peripherals** category (same drill-in as Appearance): Keyboard · Mouse ·
 Touchpad · Tablet · Gamepads. Headphones/speakers stay under **Sound**, not
-Peripherals. Touchpad/tablet Facts live in `settings.json` and apply via
-`hyprctl input:touchpad:*` / `input:tablet:*` / `input:tablettool:*` +
-`proteus-general.conf`. Per-device `device {}` (sensitivity + accel via
-`inputDeviceOverrides` on Mouse) and tablet active-area mm + pressure range
-(global linear) + eraser-as-button + monitor region map are In; bezier
-per-tool curves and gesture maps stay Out.
+Peripherals. Touchpad/tablet Facts live in `settings.json` (libinput apply
+deferred). Per-device / tablet polish holdouts stay Out.
 
 Defaults include Beacon (`Super+Space` / `Super+D`), Settings (`Super+,`),
-terminal, workspaces, etc. (`env/hypr/proteus-keybinds.conf` template).
+terminal (`Super+Return`), lock (`Super+L`), workspaces (`Super+1…0`).
 
 ---
 
@@ -302,7 +298,7 @@ pages via `kit/StickyPaneLoader` (`DesktopGapsLeaf`, `DesktopChromeLeaf`,
 | Pane | Live apply | On-disk fragment | Guest seed |
 |------|------------|------------------|----------|
 | Desktop | `hyprctl keyword` (gaps, border, rounding, animations) + dock/menu sizes + Beacon tags/recents in `settings.json` | `proteus-general.conf` + `settings.json` (`launcherRecents`, `launcherFileRecents`, `launcherTagCatalog`, `launcherAppTags`) | `install/machine/install-desktop-conf.sh` |
-| Displays | Scale + mode + orientation + layout via `hyprctl keyword monitor`; Revert snapshot; Refresh/hotplug rebind | Live `monitor =` lines in `proteus-monitors.conf` | same |
+| Displays | Scale + layout via `output` dispatch; Identify; Revert snapshot; Refresh/topology cancel | `~/.config/proteus/displays.json` | `install/machine/install-settings-app.sh` (Fact seed) |
 
 Templates: `env/hypr/proteus-general.conf`, `env/hypr/proteus-monitors.conf`. Nested
 `env/hypr/hyprland.conf` sources both plus keybinds.
@@ -312,20 +308,20 @@ FormRow/Group — not a single mega-inline `DesktopPane` body.
 
 ### Displays
 
-Displays: single pane `DisplaysPane.qml` (layout canvas + per-monitor FormRows).
-Not a leaf-split hub — follow-ups closed Revert honesty after Refresh / sleep /
-hotplug without redesigning the canvas.
+Displays: iced sibling pane (`ProteusSettings` `panes/displays.rs`) — layout
+canvas + per-monitor scale + Identify + 10s Revert. Transform/orientation UI
+still Out. Not a leaf-split hub.
 
 | Concern | Role |
 |---------|------|
 | Layout canvas | Drag + edge snap; Apply layout |
-| Modes / scale / orientation | Per-connector FormRows; Identify flash |
-| Revert | 10s full-snapshot; connector-name key; cancel on Refresh, re-entry, topology drift, or monitor events |
-| List honesty | `adoptMonitorList` merges by name; keeps dirty drafts; add/remove status |
-| Escape | Edit `proteus-monitors.conf` |
+| Scale / Identify | Per-connector scale presets; Identify → `dispatch identify` |
+| Revert | 10s full-snapshot; connector-name key; cancel on Refresh, leave pane, topology drift, or timeout |
+| List honesty | Live list via `proteus-settings-apply monitors` / compositorctl |
+| Fact | `~/.config/proteus/displays.json` |
 
-**Module rule:** Keep Displays logic in `DisplaysPane.qml` + `shell/shared/Displays.qml`
-— no second conf store.
+**Module rule:** Keep Displays logic in iced `displays.rs` + compositor
+`displays.rs` / `identify.rs` — no second Hypr conf store.
 
 ### Sound
 

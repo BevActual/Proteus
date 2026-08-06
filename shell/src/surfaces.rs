@@ -10,7 +10,7 @@ use proteus_ui::widgets::{
 };
 
 use crate::ctl::ChromeState;
-use crate::hypr::HyprState;
+use crate::wm_ipc::WmState;
 use crate::platform::{MprisPlayer, Notification, PowerStatus, PrivacyDots};
 
 #[derive(Debug, Clone)]
@@ -202,7 +202,7 @@ fn traffic_light<'a>(color: Color, glyph: &'a str, msg: Message) -> Element<'a, 
 pub fn bar_view<'a>(
     theme: &'a Theme,
     chrome: &'a ChromeState,
-    hypr: &'a HyprState,
+    hypr: &'a WmState,
     power: &'a PowerStatus,
     tray: &'a [crate::platform::TrayItem],
     privacy: &'a PrivacyDots,
@@ -434,7 +434,7 @@ fn dock_icon<'a>(
 pub fn dock_view<'a>(
     theme: &'a Theme,
     pins: &'a [String],
-    hypr: &'a HyprState,
+    hypr: &'a WmState,
     preview: Option<(&'a str, &'a iced::widget::image::Handle)>,
     icons: &'a crate::icons::IconCache,
     hover_pin: Option<&'a str>,

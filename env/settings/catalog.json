@@ -64,10 +64,10 @@
       ],
       "requiresAny": [],
       "backsFacts": [
-        "~/.config/hypr/proteus-monitors.conf"
+        "~/.config/proteus/displays.json"
       ],
       "backsCli": [
-        "hyprctl"
+        "proteus-compositorctl"
       ]
     },
     {

@@ -275,7 +275,7 @@ pub fn handle_request(state: &SharedChrome, epoch: &ChromeEpoch, req: &Request) 
             }
         }
         (ipc_targets::CHROME, "focusCycle") => {
-            let _ = crate::hypr::dispatch("cyclenext");
+            let _ = crate::wm_ipc::dispatch("cyclenext");
             Response {
                 ok: true,
                 error: String::new(),

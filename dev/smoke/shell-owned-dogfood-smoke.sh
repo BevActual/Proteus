@@ -40,8 +40,8 @@ for verb in volumeUp volumeDown brightnessUp brightnessDown; do
   grep -q "${verb}" "${ROOT}/shell/src/ctl.rs" \
     && ok "hud ${verb}" || bad "hud ${verb}"
 done
-grep -q 'spawn_socket2_listener' "${ROOT}/shell/src/hypr.rs" \
-  && ok "hypr socket2" || bad "hypr socket2"
+grep -q 'spawn_socket2_listener' "${ROOT}/shell/src/wm_ipc.rs" \
+  && ok "wm_ipc subscribe" || bad "wm_ipc subscribe"
 
 # Headless ctl roundtrip (owned session binary — engine env for chrome script)
 if [[ -x "${SHELL_BIN}" && -x "${CTL_BIN}" ]]; then
@@ -77,9 +77,11 @@ if [[ -x "${SHELL_BIN}" && -x "${CTL_BIN}" ]]; then
 fi
 
 # Nested / VM checklist (manual — do not fail host CI)
-# Nested harness must start proteus-chrome (Wave 4)
-grep -q 'proteus-chrome' "${ROOT}/env/hypr/hyprland.conf" \
-  && ok "nested hypr exec-once proteus-chrome" || bad "nested missing proteus-chrome"
+# Nested harness starts proteus-chrome via compositor-next (env/hypr deleted)
+grep -q 'proteus-chrome' "${ROOT}/shell/scripts/proteus-chrome" \
+  && ok "proteus-chrome present" || bad "proteus-chrome missing"
+grep -q 'proteus-compositor-next\|PROTEUS_SHELL_ENGINE' "${ROOT}/dev/run-nested.sh" \
+  && ok "run-nested compositor/engine" || bad "run-nested missing compositor/engine"
 grep -q 'PROTEUS_SHELL_ENGINE' "${ROOT}/dev/run-nested.sh" \
   && ok "run-nested exports engine" || bad "run-nested missing engine"
 

@@ -59,20 +59,15 @@ else
 fi
 
 # Helpers on PATH — all runtime helpers live in shell/scripts.
-for s in proteus-posture proteus-guide set-hypr-profile.sh \
+# set-hypr-profile.sh retired (env/hypr deleted); do not install.
+for s in proteus-posture proteus-guide \
          proteus-console-launch proteus-console-seat proteus-console-capabilities \
          proteus-console-session proteus-console-gs-session proteus-console-focus \
          proteus-terminal proteus-webapp; do
   install_helper "${SCRIPTS}/${s}"
 done
 
-# Seed console Hypr profile for the session user
-as_user mkdir -p "${USER_HOME}/.config/hypr/profiles" "${USER_HOME}/.config/proteus"
-if [[ -f "${ROOT}/env/hypr/profiles/console.conf" ]]; then
-  as_user install -m 644 "${ROOT}/env/hypr/profiles/console.conf" \
-    "${USER_HOME}/.config/hypr/profiles/console.conf"
-  echo "  seeded ${USER_HOME}/.config/hypr/profiles/console.conf"
-fi
+as_user mkdir -p "${USER_HOME}/.config/proteus"
 
 echo "==> summary"
 command -v gamescope >/dev/null && echo "  gamescope: $(command -v gamescope)" || echo "  gamescope: MISSING"

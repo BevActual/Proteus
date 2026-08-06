@@ -70,7 +70,27 @@ grep -q 'peripherals-mouse\|SetMouseSensitivity' "${ST_ROOT}/src/panes/periphera
 grep -q 'peripherals-touchpad\|SetTouchpadNatural' "${ST_ROOT}/src/panes/peripherals.rs" \
   && ok "peripherals-touchpad leaf" || bad "peripherals-touchpad missing"
 grep -q 'hypr_apply_pointer\|hypr_apply_touchpad' "${ST_ROOT}/src/backend.rs" \
-  && ok "hypr pointer/touchpad apply" || bad "hypr apply missing"
+  && ok "pointer/touchpad apply (Fact-only)" || bad "pointer/touchpad apply missing"
+if grep -q 'Command::new("hyprctl")' "${ST_ROOT}/src/backend.rs"; then
+  bad "Settings backend still spawns hyprctl"
+else
+  ok "Settings backend no hyprctl"
+fi
+grep -qE 'proteus-settings-apply|proteus-compositorctl' "${ST_ROOT}/src/backend.rs" \
+  && ok "Settings apply via proteus-settings-apply / compositorctl" \
+  || bad "Settings missing proteus-settings-apply / compositorctl monitors"
+grep -q 'displays\.json' "${ST_ROOT}/src/backend.rs" \
+  && ok "displays.json Fact" || bad "displays.json Fact missing"
+grep -q 'apply-displays' "${ST_ROOT}/src/backend.rs" "${ROOT}/shell/scripts/proteus-settings-apply" \
+  && ok "apply-displays bridge" || bad "apply-displays missing"
+grep -q 'Apply Fact + live\|is the compositor running' "${ST_ROOT}/src/panes/displays.rs" \
+  && ok "Displays UI honesty (smithay)" || bad "Displays UI still Hyprland-shaped"
+grep -q 'Identify\|displays_identify\|dispatch.*identify' \
+  "${ST_ROOT}/src/panes/displays.rs" "${ST_ROOT}/src/backend.rs" \
+  && ok "Displays Identify" || bad "Displays Identify missing"
+grep -q 'Keep\|RevertNow\|displays_revert\|DisplaysApplyDone' \
+  "${ST_ROOT}/src/panes/displays.rs" "${ST_ROOT}/src/main.rs" \
+  && ok "Displays 10s Revert" || bad "Displays Revert missing"
 grep -q 'network-tailscale\|TailscaleUp' "${ST_ROOT}/src/panes/network.rs" \
   && ok "network-tailscale leaf" || bad "network-tailscale missing"
 grep -q 'tailscale_status\|tailscale_up' "${ST_ROOT}/src/backend.rs" \
@@ -98,16 +118,16 @@ grep -q 'ConnectOAuth\|accounts_connect_oauth' "${ST_ROOT}/src/panes/accounts.rs
   && ok "Accounts OAuth PKCE wire" || bad "Accounts OAuth missing"
 [[ -f "${ST_ROOT}/src/panes/displays.rs" ]] \
   && ok "displays pane module" || bad "displays pane missing"
-grep -q 'displays_list\|displays_apply\|proteus-monitors' "${ST_ROOT}/src/backend.rs" \
-  && ok "displays list+apply backend" || bad "displays backend missing"
+grep -q 'displays_list\|displays_apply\|displays_identify' "${ST_ROOT}/src/backend.rs" \
+  && ok "displays list+apply+identify backend" || bad "displays backend missing"
 grep -q 'sound-matrix\|MixRoute\|audio_mix_status' "${ST_ROOT}/src/panes/sound.rs" "${ST_ROOT}/src/backend.rs" \
   && ok "Mixer list thin" || bad "Mixer thin missing"
 grep -q 'desktop-spaces\|SetWorkspaceMode\|desktop-beacon\|controlCenterColumns' "${ST_ROOT}/src/panes/desktop.rs" \
   && ok "desktop remaining leaves" || bad "desktop leaves missing"
 grep -q 'network-vpn\|VpnUp\|network-headscale\|headscale_status' "${ST_ROOT}/src/panes/network.rs" "${ST_ROOT}/src/backend.rs" \
   && ok "VPN + Headscale thin" || bad "VPN/Headscale missing"
-grep -q 'peripherals-keyboard\|Open QML Keyboard' "${ST_ROOT}/src/panes/peripherals.rs" \
-  && ok "keyboard escape leaf" || bad "keyboard leaf missing"
+grep -q 'peripherals-keyboard\|keybinds.json\|compositor-next' "${ST_ROOT}/src/panes/peripherals.rs" \
+  && ok "keyboard leaf (compositor binds honesty)" || bad "keyboard leaf missing"
 
 # Phase 2 megas — canvas / grid / glances / headscale policy
 grep -q 'Layout canvas\|SetPosition\|NudgeX\|canvas::Program\|Canvas::new' "${ST_ROOT}/src/panes/displays.rs" \

@@ -180,6 +180,12 @@ else
   exit 1
 fi
 
+# Owned compositor (smithay default) — soft-skip; session fail-closes to Hyprland
+if [[ -x "${ROOT}/install/machine/install-proteus-compositor-next.sh" ]]; then
+  bash "${ROOT}/install/machine/install-proteus-compositor-next.sh" \
+    || echo "note: compositor-next install soft-failed"
+fi
+
 # Privileged logind writer (polkit) — Settings → Power
 if [[ -x "${ROOT}/services/proteus-logind/bin/proteus-logind" ]] \
   || [[ -x "${ROOT}/services/proteus-logind/target/release/proteus-logind" ]] \

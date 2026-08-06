@@ -43,7 +43,7 @@ carried as patched copies.
 | Tier | Layers | Notes |
 |------|--------|-------|
 | **Owned endgame** | Facts/state core (`proteus-shell-core`) · shell chrome (iced layer-shell widgets) · compositor (Smithay-based, posture-native) · XR face (own clients on Monado/Stardust model) · app chrome toolkit (post-Tauri) | Each replaces its borrowed layer only after passing the same gates |
-| **Borrowed interim** (behind contracts) | Hyprland (windowing) · Quickshell (chrome runtime) · Tauri/WebKit (app runtime) · gamescope (console session) | Contract smokes at every seam; upstream drift caught by gates, not users |
+| **Borrowed interim** (behind contracts) | Quickshell (chrome leftovers) · Tauri/WebKit (app runtime) · gamescope (console session) | Hyprland **purged** as session engine (2026-08-06) — owned `proteus-compositor-next` only |
 | **Never own** | Kernel · Mesa · PipeWire · Wayland protocol · Monado (OpenXR runtime) · greetd/polkit | Extend and configure only |
 
 ## 2. Sequencing
@@ -55,7 +55,7 @@ useful even if the ladder stops there:
 |------|------|-----------|
 | **0. `proteus-shell-core`** | Facts, gating, posture, theme derivation as a tested Rust crate + subscribe stream (§4) | Prerequisite for every renderer (QML today, iced, XR); turns EnvGate/Theme/Config logic from grep-smoked QML into `cargo test` |
 | **1. Owned chrome, piecemeal** | iced layer-shell widgets (bar first) over the core; Quickshell keeps everything not yet replaced | Biggest testability/iteration win per unit of pain; compositor-agnostic so it survives rung 2 |
-| **2. Compositor spike** | Smithay-based, posture-native (bands, specials, focus router, host headless as first-class); proven in the VM harness against existing guest smokes; `proteus-session` picks engine per session — Hyprland stays the fallback until the owned one wins on merit | Same swap pattern as `proteus-settings-next`: parallel install, per-session choice, gates decide the default. Hard requirements before default: Xwayland (Steam), gamescope nesting, screencopy/portals |
+| **2. Compositor spike** | Smithay-based; **Hyprland purged** — session is smithay DRM only; Displays Fact + live `output` modeset + Identify; Settings 10s Revert; SSD title + maximize + smart-gaps; nested winit; shell IPC `wm_ipc.rs`; Settings via `proteus-settings-apply`; owned idle; `env/hypr` deleted | Deeper multi-GPU / transform still out |
 | **3. Faces on the owned stack** | Console + XR faces land natively (input, surfaces, state — one vocabulary) | Where the integration payoff compounds |
 | **4. App chrome toolkit** | First-party apps move from Tauri/WebKit to the owned iced toolkit | WebKit is the largest remaining black box once 0–2 exist; Tauri is the interim the way QML Settings is today |
 
@@ -102,7 +102,7 @@ their per-app facts readers) · rung-1 iced widgets · rung-3 faces.
 |------|--------|
 | 0 shell-core | `partial` — crate shipped; see slice ledger below (Config write + Permissions now landed) |
 | 1 iced chrome | `shipped` (tree) — **QML chrome retired 2026-08-06**: `shell-next` → `shell/` sole chrome tree; `proteus-chrome` owned-only; Quickshell/`proteus-qs` deleted; face modules under `shell/src/faces/` (desktop shipping; console/host thin stubs). Prior: Wave 4 dogfood, UI/UX parity, boot reliability, wallpaper/previews/Lock Customize |
-| 2 compositor | `partial` (spike) — rung-1 gates permitted the 2026-08-05 nested spike: `compositor-next` (Smithay winit, xdg + layer-shell + viewporter) hosts all ten `proteus-shell` layers; opt-in only, no session takeover — see [COMPOSITOR-SPIKE.md](./COMPOSITOR-SPIKE.md) |
+| 2 compositor | `shipped` (thin) — Displays Fact + `dispatch output`; session Super keybinds (`binds.rs` + `keybinds.json`); owned idle; maximize; multi-GPU enumerate; nested winit; `wm_ipc.rs` — see [COMPOSITOR-SPIKE.md](./COMPOSITOR-SPIKE.md) |
 | 3 owned faces | `partial` — scaffold in `shell/src/faces/{desktop,console,host}.rs`; console/host thin (rebuild later); gamescope console-home not swapped |
 | 4 app toolkit | `partial` — Settings **iced only** (QML Settings deleted 2026-08-06); OAuth Connect · Displays list+apply · Mixer list thin; canvas/grid polish + Headscale deep still holdout |
 

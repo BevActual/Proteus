@@ -20,6 +20,7 @@ run app-manifest-smoke.sh
 run chrome-tokens-smoke.sh
 run shell-core-smoke.sh
 run shell-smoke.sh
+run compositor-next-smoke.sh
 run shell-owned-dogfood-smoke.sh
 run settings-next-smoke.sh
 run software-reliability-smoke.sh

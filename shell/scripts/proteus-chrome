@@ -70,6 +70,40 @@ case "${FACE}" in console|couch) FACE=console ;; host) FACE=host ;; *) FACE=desk
 # Owned shell renders wallpaper on the BG layer — stop any leftover wallpaper helper.
 pkill -x proteus-bg 2>/dev/null || true
 
+# Polkit agent (was hypr exec-once; Hyprland purged).
+if [[ -x /usr/lib/hyprpolkitagent/hyprpolkitagent ]] \
+  && ! pgrep -f hyprpolkitagent >/dev/null 2>&1; then
+  /usr/lib/hyprpolkitagent/hyprpolkitagent >/dev/null 2>&1 &
+fi
+
+# Cliphist watchers (was hypr exec-once).
+if command -v wl-paste >/dev/null 2>&1 && command -v cliphist >/dev/null 2>&1; then
+  if ! pgrep -f 'wl-paste --type text --watch cliphist' >/dev/null 2>&1; then
+    wl-paste --type text --watch cliphist store >/dev/null 2>&1 &
+  fi
+  if ! pgrep -f 'wl-paste --type image --watch cliphist' >/dev/null 2>&1; then
+    wl-paste --type image --watch cliphist store >/dev/null 2>&1 &
+  fi
+fi
+
+# Owned idle lock (no hypridle). Prefer user unit; spawn script if inactive.
+if command -v systemctl >/dev/null 2>&1 \
+  && systemctl --user is-active --quiet proteus-idle.service 2>/dev/null; then
+  :
+else
+  IDLE_BIN="$(command -v proteus-idle || true)"
+  [[ -z "${IDLE_BIN}" && -x /usr/local/bin/proteus-idle ]] && IDLE_BIN=/usr/local/bin/proteus-idle
+  [[ -z "${IDLE_BIN}" && -x "${ROOT}/shell/scripts/proteus-idle" ]] && IDLE_BIN="${ROOT}/shell/scripts/proteus-idle"
+  if [[ -n "${IDLE_BIN}" ]] && ! pgrep -f '[p]roteus-idle' >/dev/null 2>&1; then
+    if command -v systemctl >/dev/null 2>&1 \
+      && systemctl --user start proteus-idle.service 2>/dev/null; then
+      :
+    else
+      "${IDLE_BIN}" >/dev/null 2>&1 &
+    fi
+  fi
+fi
+
 # Respawn watchdog: owned chrome self-heals on crash, exits clean on TERM/INT,
 # fails loud on rapid crash loops. Logs via systemd-cat when available.
 child=""

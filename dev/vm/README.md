@@ -180,14 +180,20 @@ or set `"lockOnSessionStart": false` in `~/.config/proteus/settings.json`.
 
 ### Session chrome (Wave 4)
 
-Default: Hyprland `exec-once` → `proteus-chrome` (owned iced `proteus-shell`;
-falls back to Quickshell when `PROTEUS_SHELL_ENGINE=quickshell` or the owned
-binary is missing). Nested dogfood: `./dev/run-nested.sh` exports
-`PROTEUS_SHELL_ENGINE=owned` and builds `proteus-shell` if needed.
-`proteus-bg` still uses Quickshell for wallpaper video/image surfaces.
-Optional QS supervisor unit remains for the Quickshell fallback path:
-`bash /mnt/proteus/install/machine/install-proteus-qs-user-unit.sh`.
-After upgrading Quickshell (fallback dogfood): `PROTEUS_GUEST=1 ./dev/smoke-all.sh`.
+**Compositor (2026-08-06):** `proteus-session` is **smithay only**
+(`proteus-compositor-next -c proteus-chrome`). Hyprland is **purged** (no
+fail-closed, no Fact rollback). Nested: `./dev/run-nested.sh` (winit).
+
+Dogfood checklist (guest VT or free seat):
+
+1. Confirm Fact + binary: `cat ~/.config/proteus/compositor-engine` → `smithay`;
+   `command -v proteus-compositor-next`.
+2. Log in via greetd → smithay session (Fact=hyprland refuses).
+3. Host/guest smoke: `./dev/smoke/compositor-next-dogfood.sh`.
+4. Nested on host: `./dev/run-nested.sh` (never Hyprland).
+
+Default chrome: compositor `-c` → `proteus-chrome` (owned iced
+`proteus-shell`).
 
 ### Console posture (dogfood)
 

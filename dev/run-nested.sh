@@ -1,23 +1,15 @@
 #!/usr/bin/env bash
-# Launch Proteus inside a nested Hyprland window.
-# Leaves your Omarchy session alone — close the nested window / Super+Shift+E to exit.
+# Launch Proteus nested under an existing Wayland/X11 session via compositor-next
+# (winit). Leaves your host session alone — close the nested window to exit.
 #
 # Wave 4: chrome defaults to owned iced (`proteus-chrome` → `proteus-shell`).
 # Override: PROTEUS_SHELL_ENGINE=quickshell ./dev/run-nested.sh
+# Hyprland purged — this path never execs Hyprland.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SHELL_DIR="${ROOT}/shell"
-CONF_SRC="${ROOT}/env/hypr/hyprland.conf"
-RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp}/proteus-nested"
-CONF_OUT="${RUNTIME_DIR}/hyprland.conf"
 
-if ! command -v Hyprland >/dev/null 2>&1; then
-  echo "Hyprland not found" >&2
-  exit 1
-fi
-
-# Ensure owned shell binary exists (Wave 4 default).
+# Ensure owned shell + compositor binaries exist.
 if [[ ! -x "${ROOT}/target/debug/proteus-shell" && ! -x "${ROOT}/target/release/proteus-shell" ]] \
   && ! command -v proteus-shell >/dev/null 2>&1; then
   if command -v cargo >/dev/null 2>&1; then
@@ -25,36 +17,44 @@ if [[ ! -x "${ROOT}/target/debug/proteus-shell" && ! -x "${ROOT}/target/release/
     (cd "${ROOT}" && cargo build -p proteus-shell -q) || true
   fi
 fi
+if [[ ! -x "${ROOT}/target/debug/proteus-compositor-next" && ! -x "${ROOT}/target/release/proteus-compositor-next" ]] \
+  && ! command -v proteus-compositor-next >/dev/null 2>&1; then
+  if command -v cargo >/dev/null 2>&1; then
+    echo "Building compositor-next…"
+    (cd "${ROOT}" && cargo build -p compositor-next -q) || true
+  fi
+fi
+
 export PATH="${ROOT}/target/debug:${ROOT}/target/release:${ROOT}/shell/scripts:${PATH}"
 
-# Wallpaper runner still uses Quickshell; soft-warn if missing.
-if ! command -v quickshell >/dev/null 2>&1 && ! command -v qs >/dev/null 2>&1; then
-  echo "note: quickshell not found — proteus-bg wallpaper may no-op; chrome uses owned engine" >&2
-fi
-
-mkdir -p "${RUNTIME_DIR}"
-sed "s|SHELL_DIR_PLACEHOLDER|${SHELL_DIR}|g" "${CONF_SRC}" > "${CONF_OUT}"
-
-# Seed Hyprland fragments Settings owns
-mkdir -p "${HOME}/.config/hypr"
-if [[ ! -f "${HOME}/.config/hypr/proteus-keybinds.conf" ]]; then
-  install -m 644 "${ROOT}/env/hypr/proteus-keybinds.conf" "${HOME}/.config/hypr/proteus-keybinds.conf"
-fi
-if [[ ! -f "${HOME}/.config/hypr/proteus-general.conf" ]]; then
-  install -m 644 "${ROOT}/env/hypr/proteus-general.conf" "${HOME}/.config/hypr/proteus-general.conf"
-fi
-if [[ ! -f "${HOME}/.config/hypr/proteus-monitors.conf" ]]; then
-  install -m 644 "${ROOT}/env/hypr/proteus-monitors.conf" "${HOME}/.config/hypr/proteus-monitors.conf"
-fi
-mkdir -p "${HOME}/.config/hypr/profiles"
-for _p in desktop media host home; do
-  if [[ ! -f "${HOME}/.config/hypr/profiles/${_p}.conf" ]]; then
-    install -m 644 "${ROOT}/env/hypr/profiles/${_p}.conf" "${HOME}/.config/hypr/profiles/${_p}.conf"
+COMP=""
+for c in \
+  "${ROOT}/target/debug/proteus-compositor-next" \
+  "${ROOT}/target/release/proteus-compositor-next"
+do
+  if [[ -x "${c}" ]]; then
+    COMP="${c}"
+    break
   fi
 done
-if [[ ! -f "${HOME}/.config/hypr/proteus-profile.conf" ]]; then
-  install -m 644 "${ROOT}/env/hypr/proteus-profile.conf" "${HOME}/.config/hypr/proteus-profile.conf"
+if [[ -z "${COMP}" ]] && command -v proteus-compositor-next >/dev/null 2>&1; then
+  COMP="$(command -v proteus-compositor-next)"
 fi
+[[ -n "${COMP}" && -x "${COMP}" ]] || {
+  echo "proteus-compositor-next not found — cargo build -p compositor-next" >&2
+  exit 1
+}
+
+CHROME=""
+if command -v proteus-chrome >/dev/null 2>&1; then
+  CHROME="$(command -v proteus-chrome)"
+elif [[ -x "${ROOT}/shell/scripts/proteus-chrome" ]]; then
+  CHROME="${ROOT}/shell/scripts/proteus-chrome"
+fi
+[[ -n "${CHROME}" ]] || {
+  echo "proteus-chrome not found" >&2
+  exit 1
+}
 
 # Ghostty + fastfetch (DNA helix) for nested dogfood
 mkdir -p "${HOME}/.config/ghostty" "${HOME}/.config/fastfetch" "${HOME}/.config/proteus"
@@ -73,12 +73,14 @@ fi
 export PROTEUS_ROOT="${ROOT}"
 export PROTEUS_SURFACE="${PROTEUS_SURFACE:-desktop}"
 export PROTEUS_SHELL_ENGINE="${PROTEUS_SHELL_ENGINE:-owned}"
+export PROTEUS_COMPOSITOR_ENGINE=smithay
+export XDG_CURRENT_DESKTOP=wlroots
 
-echo "Starting nested Proteus Hyprland…"
-echo "  config: ${CONF_OUT}"
-echo "  shell:  ${SHELL_DIR}"
-echo "  engine: ${PROTEUS_SHELL_ENGINE} (proteus-chrome)"
-echo "  Exit nested session: Super+Shift+E (or close the window)"
+echo "Starting nested Proteus (compositor-next winit)…"
+echo "  compositor: ${COMP}"
+echo "  chrome:     ${CHROME}"
+echo "  engine:     ${PROTEUS_SHELL_ENGINE}"
+echo "  Exit: close the nested compositor window"
 
-# Nested: run Hyprland from an existing Wayland session with its own config.
-exec Hyprland -c "${CONF_OUT}"
+# Host display stays set so winit can nest; compositor clears nested seat for clients.
+exec "${COMP}" --backend winit -c "${CHROME}"

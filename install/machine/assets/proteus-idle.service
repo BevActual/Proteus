@@ -1,0 +1,15 @@
+[Unit]
+Description=Proteus session idle lock (owned; no hypridle)
+Documentation=file:///mnt/proteus/docs/proteus/OWNED-STACK.md
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/proteus-idle
+Restart=on-failure
+RestartSec=2
+Environment=PROTEUS_IDLE_TIMEOUT_SEC=300
+
+[Install]
+WantedBy=graphical-session.target

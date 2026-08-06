@@ -52,10 +52,13 @@ for s in proteus-screenshot proteus-clipboard proteus-colorpick proteus-terminal
          proteus-snapshot proteus-cli-surface \
          proteus-pin.py check-unlock.py \
          proteus-session proteus-posture proteus-host-seat proteus-guide \
-         proteus-bg set-hypr-profile.sh; do
+         proteus-bg proteus-idle proteus-settings-apply; do
   proteus_install_helper "${SCRIPTS}/${s}"
 done
 
+proteus_root bash "${MACHINE}/install-proteus-idle.sh" || {
+  echo "apps: note — install-proteus-idle skipped or failed" >&2
+}
 proteus_root bash "${MACHINE}/install-settings-app.sh"
 proteus_root bash "${MACHINE}/install-workloads-app.sh"
 # Idempotent: refresh NoDisplay stubs even if Settings install was a no-op

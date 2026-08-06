@@ -68,8 +68,8 @@ grep -q 'session_chrome_suppressed\|session_start_lock_pending' "${ROOT}/shell/s
   && ok "lock chrome suppress" || bad "lock suppress missing"
 grep -q 'try_unlock\|check-unlock' "${ROOT}/shell/src/platform.rs" \
   && ok "PAM unlock path" || bad "PAM unlock missing"
-grep -q 'spawn_socket2_listener' "${ROOT}/shell/src/hypr.rs" \
-  && ok "hypr socket2 listener" || bad "socket2 missing"
+grep -q 'spawn_socket2_listener' "${ROOT}/shell/src/wm_ipc.rs" \
+  && ok "compositor subscribe listener" || bad "subscribe listener missing"
 grep -q 'volumeUp\|volume_step\|brightnessUp' "${ROOT}/shell/src/ctl.rs" \
   && ok "HUD volume/brightness steps" || bad "HUD steps missing"
 grep -q 'customizeDesktop\|dockLaunch\|focusCycle' "${ROOT}/shell/src/ctl.rs" \
@@ -97,15 +97,15 @@ grep -q 'LockReveal\|LockPinDigit\|lock_ui' "${ROOT}/shell/src/main.rs" "${ROOT}
   && ok "lock shell wiring" || bad "lock shell wiring missing"
 grep -q 'WindowClose\|WindowMinimize\|WindowMaximize' "${ROOT}/shell/src/surfaces.rs" \
   && ok "bar traffic-lights msgs" || bad "bar traffic-lights missing"
-grep -q 'window_close\|window_minimize\|window_maximize' "${ROOT}/shell/src/hypr.rs" \
-  && ok "hypr window traffic-lights" || bad "hypr window helpers missing"
+grep -q 'window_close\|window_minimize\|window_maximize' "${ROOT}/shell/src/wm_ipc.rs" \
+  && ok "wm_ipc window traffic-lights" || bad "wm_ipc window helpers missing"
 grep -q 'PrivacyDots\|privacy_dots\|OpenPrivacy' "${ROOT}/shell/src/platform.rs" "${ROOT}/shell/src/surfaces.rs" \
   && ok "privacy dots" || bad "privacy dots missing"
 grep -q 'PowerProfile\|power_set_profile_index\|VolumeStep' "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/platform.rs" \
   && ok "CC power/volume" || bad "CC power/volume missing"
 grep -q 'NotifDismiss' "${ROOT}/shell/src/surfaces.rs" \
   && ok "CC notif dismiss" || bad "CC notif dismiss missing"
-grep -q 'dock_activate\|DockAction' "${ROOT}/shell/src/hypr.rs" \
+grep -q 'dock_activate\|DockAction' "${ROOT}/shell/src/wm_ipc.rs" \
   && ok "dock minimize/restore" || bad "dock activate missing"
 grep -q 'filter_beacon_hits\|Window ·\|File ·\|beacon-file-index' "${ROOT}/shell/src/beacon.rs" \
   && ok "Beacon Windows/files thin" || bad "Beacon Windows/files missing"
@@ -201,6 +201,8 @@ grep -q 'gamescope console-home not swapped' \
   && ok "gamescope Home not swapped honesty" || bad "gamescope honesty missing"
 grep -q 'resolve_compositor_engine\|compositor-engine' "${ROOT}/shell/src/engine.rs" \
   && ok "compositor-engine fallthrough" || bad "compositor-engine missing"
+grep -qE '"" \| "smithay"|Hyprland purged|smithay only' "${ROOT}/shell/src/engine.rs" \
+  && ok "smithay engine shipping default" || bad "smithay default missing"
 [[ -f "${ROOT}/docs/proteus/COMPOSITOR-SPIKE.md" ]] \
   && ok "COMPOSITOR-SPIKE.md" || bad "COMPOSITOR-SPIKE.md missing"
 grep -q 'BOOT_LAYERS\|boot_extra_layers' "${ROOT}/shell/src/main.rs" \

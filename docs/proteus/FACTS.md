@@ -22,13 +22,13 @@ before inventing a second store.
 | Path | Owner (write) | Readers |
 |------|---------------|---------|
 | `~/.config/proteus/settings.json` | `Config.qml` FileView | Background, Widgets, Theme, Audio prefs, … |
-| `~/.config/proteus/keybinds.json` | `Keybinds.qml` | Hyprland bind generator |
+| `~/.config/proteus/keybinds.json` | compositor-next / Settings | Session Super chords (overrides; defaults in `binds.rs`) |
 | `~/.config/proteus/permissions.json` | `proteus-permissions.py` / `Permissions.qml` (0600) | EnvGate grant gate, PrivacyAsk prompt, Privacy leaves, portal sync, capture enforce (Deny + Ask mute/destroy mic/camera/screen) — **not** in settings.json; see [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md) |
 | `~/.local/share/proteus/auth/pin` | `proteus-pin.py` / `check-unlock.py` via `proteus_auth.py` (0600) | LockSurface unlock PIN hash — **not** in settings.json; see [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md). Guest PATH: `apps.sh` installs the two CLIs; PAM service source `shell/pam/proteus-lock` (optional install → `login` fallback) |
 | `~/.cache/proteus/beacon-files.json` | `beacon-file-index.py` (rebuild/search) | Beacon Files home path cache — not in settings.json; fd preferred / walk fallback; stale after 5m |
 | `~/.config/proteus/hw-probe.json` | `proteus-hw-probe` / `Hardware.qml` cache | EnvGate, Settings About |
 | `~/.config/hypr/proteus-general.conf` | `Config` / `ConfigHypr` | Hyprland `source =` |
-| `~/.config/hypr/proteus-keybinds.conf` | `Keybinds.qml` | Hyprland |
+| `~/.config/hypr/proteus-keybinds.conf` | — | **Retired** (Hyprland purged) |
 | `~/.config/hypr/proteus-monitors.conf` | `Displays.qml` | Hyprland |
 | `~/.config/hypr/proteus-profile.conf` | `set-hypr-profile.sh` / `HyprProfile.qml` / `proteus-posture` / seed | Hyprland `source =` → `profiles/*.conf` |
 | `~/.config/proteus/posture` | `proteus-posture` | Hard-switch Fact (`desktop` \| `console` \| `host`); boot / `proteus-qs` when `PROTEUS_SURFACE` unset; mid-session flips also set env `PROTEUS_SKIP_SESSION_LOCK=1` |

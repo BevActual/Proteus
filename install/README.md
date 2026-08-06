@@ -1,7 +1,7 @@
 # install/ — Proteus dogfood overlay (Omarchy-shaped, light)
 
 Not a product ISO. After bare Arch (`guest-install.sh` or manual), this
-pipeline turns the guest into a Hyprland + Quickshell dogfood session.
+pipeline turns the guest into a smithay + owned iced chrome dogfood session.
 Full install path (all three layers): [docs/proteus/INSTALL.md](../docs/proteus/INSTALL.md).
 
 ```
@@ -19,12 +19,12 @@ sudo bash /mnt/proteus/install/bootstrap.sh
 |-------|------|
 | `preflight.sh` | 9p mount unit, paths |
 | `packaging.sh` | [`proteus-base.packages`](./proteus-base.packages) — session stack |
-| `config.sh` | seatd, QS symlink, hypr/ghostty/fastfetch seeds, hypridle |
+| `config.sh` | seatd, ghostty/fastfetch seeds (**no** hypr; `env/hypr` deleted) |
 | `hardware.sh` | Detect GPU → optional drivers (`hardware/*`) |
 | `login.sh` | greetd / `proteus-session` |
-| `apps.sh` | Settings (iced), keybinds, desktop conf, PAM, `hide-system-apps`, helper bins (symlinked to the live tree under `/mnt/proteus`) |
+| `apps.sh` | Settings (iced), PAM, `hide-system-apps`, helpers incl. `proteus-idle` + `proteus-settings-apply` (symlinked to the live tree) |
 | `desktop.sh` | [`proteus-desktop.packages`](./proteus-desktop.packages) (default on) |
-| `console.sh` | multilib + [`proteus-console.packages`](./proteus-console.packages) (Steam/RetroArch/cores/pads), `apply-console-kit` seed, posture↔profile drift fix |
+| `console.sh` | multilib + [`proteus-console.packages`](./proteus-console.packages) (Steam/RetroArch/cores/pads), `apply-console-kit` |
 | `host.sh` | [`proteus-host.packages`](./proteus-host.packages) (samba + smartmontools + nvme-cli + podman), usershares dir + `sambashare` group + smb enable, read-only `smartctl -jH` sudoers drop |
 | `post-install.sh` | status file + next steps; refresh `hide-system-apps` |
 
@@ -54,10 +54,15 @@ Host tree check (no guest):
 
 | File | Contents |
 |------|----------|
-| `proteus-base.packages` | Hyprland, QS, Ghostty, portals, PipeWire, NM, BT, capture tools, xdg-user-dirs, fastfetch, … |
+| `proteus-base.packages` | Ghostty, portals (`xdg-desktop-portal` + **wlr**), PipeWire, NM, BT, capture tools, xdg-user-dirs, fastfetch, … (**no** hyprland/hypridle) |
 | `proteus-desktop.packages` | **Chromium**, Nautilus (interim Files), gnome-calculator/calendar/weather/clocks, loupe, amberol, snapshot, gnome-disk-utility, imv, **celluloid** (desktop video; mpv + yt-dlp stay for console/CLI), **wtype** + **fd** (Beacon clipboard paste + Files search), evince, mousepad, wf-recorder, p7zip, noto-fonts-cjk, **localsend-bin** (AUR prebuilt via yay/paru), mission-center, … (pavucontrol/blueman/nm-editor hidden — Settings) |
 | `proteus-console.packages` | Gamescope, **Steam** (+ ttf-liberation, lib32-mesa), RetroArch + lean cores, game-devices-udev — needs multilib (console stage enables) |
 | `proteus-host.packages` | **samba** (usershares — Workloads app Shares tab) + **smartmontools** / **nvme-cli** (host dashboard drive health) + **podman** (Workloads containers / one-click apps) |
+
+Shipping session is **smithay only** (`proteus-compositor-next` via
+`proteus-session`). Hyprland is purged. Install writes
+`~/.config/proteus/compositor-engine=smithay` and prefers `xdg-desktop-portal-wlr`.
+See [COMPOSITOR-SPIKE.md](../docs/proteus/COMPOSITOR-SPIKE.md).
 
 ## Hardware (detect-and-install)
 

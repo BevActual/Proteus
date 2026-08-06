@@ -79,8 +79,53 @@ grep -q 'proteus_write_root_fact' "${INSTALL}/helpers.sh" \
   && ok "helpers.sh proteus_write_root_fact" || bad "helpers.sh missing proteus_write_root_fact"
 grep -q 'proteus_write_root_fact' "${INSTALL}/config.sh" \
   && ok "config stage writes the root Fact" || bad "config stage does not write ~/.config/proteus/root"
-grep -qE 'env = PROTEUS_ROOT,' "${INSTALL}/config.sh" \
-  && ok "config stage seeds hypr env = PROTEUS_ROOT" || bad "config stage missing hypr PROTEUS_ROOT env"
+grep -q 'compositor-engine' "${INSTALL}/config.sh" \
+  && ok "config writes compositor-engine Fact" || bad "config missing compositor-engine"
+grep -q 'install-proteus-compositor-next' "${INSTALL}/config.sh" \
+  && ok "config installs compositor-next" || bad "config missing compositor install"
+grep -q 'xdg-desktop-portal-wlr' "${INSTALL}/proteus-base.packages" \
+  && ok "base packages include portal-wlr" || bad "base missing portal-wlr"
+[[ -f "${ROOT}/env/portal/portals.conf" ]] \
+  && ok "env/portal/portals.conf" || bad "missing portals.conf"
+[[ -x "${INSTALL}/machine/install-proteus-compositor-next.sh" ]] \
+  && ok "install-proteus-compositor-next.sh" || bad "missing compositor install script"
+grep -q 'Hyprland purged\|env/hypr gone\|skipping hyprland.conf seed' "${INSTALL}/config.sh" \
+  && ok "config does not seed hyprland.conf" || bad "config still seeds Hyprland"
+if grep -qE '^hyprland$' "${INSTALL}/proteus-base.packages"; then
+  bad "base packages still require hyprland"
+else
+  ok "base packages drop hyprland"
+fi
+if grep -qE '^hypridle$' "${INSTALL}/proteus-base.packages"; then
+  bad "base packages still require hypridle"
+else
+  ok "base packages drop hypridle"
+fi
+# Owned idle replaces hypridle
+[[ -x "${ROOT}/shell/scripts/proteus-idle" ]] && ok "proteus-idle helper" || bad "proteus-idle missing"
+[[ -f "${ROOT}/install/machine/assets/proteus-idle.service" ]] \
+  && ok "proteus-idle unit asset" || bad "proteus-idle.service asset missing"
+[[ -x "${ROOT}/install/machine/install-proteus-idle.sh" ]] \
+  && ok "install-proteus-idle.sh" || bad "install-proteus-idle.sh missing"
+grep -q 'proteus-idle' "${INSTALL}/apps.sh" \
+  && ok "apps installs proteus-idle" || bad "apps missing proteus-idle"
+grep -q 'proteus-settings-apply' "${INSTALL}/apps.sh" \
+  && ok "apps installs proteus-settings-apply" || bad "apps missing proteus-settings-apply"
+[[ -x "${ROOT}/shell/scripts/proteus-settings-apply" ]] \
+  && ok "proteus-settings-apply helper" || bad "proteus-settings-apply missing"
+if [[ -d "${ROOT}/env/hypr" ]]; then
+  bad "env/hypr still present (must be deleted)"
+else
+  ok "env/hypr deleted"
+fi
+[[ -f "${ROOT}/env/settings/keybinds.defaults.json" ]] \
+  && ok "keybinds.defaults.json" || bad "env/settings/keybinds.defaults.json missing"
+[[ -x "${ROOT}/install/machine/install-keybinds.sh" ]] \
+  && ok "install-keybinds.sh" || bad "install-keybinds.sh missing"
+grep -q 'keybinds.json' "${ROOT}/install/machine/install-keybinds.sh" \
+  && ok "install-keybinds seeds Fact" || bad "install-keybinds still hypr-only"
+grep -q 'binds.rs\|reloadbinds' "${ROOT}/compositor-next/src/binds.rs" "${ROOT}/compositor-next/src/ctl.rs" \
+  && ok "compositor keybinds SoT" || bad "compositor binds missing"
 
 SESSION_BIN="${ROOT}/shell/scripts/proteus-session"
 if [[ -f "${SESSION_BIN}" ]]; then
@@ -90,6 +135,14 @@ if [[ -f "${SESSION_BIN}" ]]; then
   grep -q '_proteus_root_valid' "${SESSION_BIN}" \
     && ok "proteus-session validates each root candidate" \
     || bad "proteus-session missing root validation (a stale Fact would strand the session)"
+  grep -q 'Hyprland purged' "${SESSION_BIN}" \
+    && ok "proteus-session Hyprland purged" || bad "proteus-session missing purge refuse"
+  if grep -Eq '^[[:space:]]*exec[[:space:]]+(start-hyprland|Hyprland)\b' "${SESSION_BIN}" \
+    || grep -Eq '^[[:space:]]*(start-hyprland|Hyprland)\b' "${SESSION_BIN}"; then
+    bad "proteus-session still execs Hyprland"
+  else
+    ok "proteus-session never execs Hyprland"
+  fi
 else
   bad "missing shell/scripts/proteus-session"
 fi
@@ -259,9 +312,12 @@ done
 grep -Rq 'env/apps/catalog\|catalog.json' "${ROOT}/services/proteus-shell-core/src" \
   && ok "owned stack reads env/apps catalog" \
   || bad "owned stack no longer reads env/apps catalog"
-grep -q 'env/hypr/profiles' "${ROOT}/shell/scripts/set-hypr-profile.sh" \
-  && ok "posture flip installs profiles from env/hypr (runtime consumer)" \
-  || bad "set-hypr-profile.sh no longer sources env/hypr/profiles"
+# set-hypr-profile is a retired stub (env/hypr deleted) — must not require profiles.
+if grep -q 'env/hypr/profiles' "${ROOT}/shell/scripts/set-hypr-profile.sh" 2>/dev/null; then
+  bad "set-hypr-profile.sh still sources env/hypr/profiles (should be retired stub)"
+else
+  ok "set-hypr-profile.sh retired (no env/hypr/profiles)"
+fi
 
 # env/ ships data, never tooling. Keyed on the executable bit, not the file
 # extension: proteus-bashrc.sh is a .sh but is *sourced* into the user's shell,
@@ -350,13 +406,16 @@ grep -q 'proteus_install_helper' "${INSTALL}/apps.sh" \
 grep -q 'proteus_install_helper' "${ROOT}/install/machine/apply-console-kit.sh" \
   && ok "apply-console-kit uses shared helper" || bad "apply-console-kit must use proteus_install_helper"
 
-# Console stage contents: multilib + kit + posture/profile drift fix
+# Console stage contents: multilib + kit (hypr profile drift fix retired)
 grep -q 'multilib' "${INSTALL}/console.sh" \
   && ok "console.sh multilib" || bad "console.sh missing multilib enable"
 grep -q 'apply-console-kit.sh' "${INSTALL}/console.sh" \
   && ok "console.sh applies console kit" || bad "console.sh missing apply-console-kit"
-grep -q 'set-hypr-profile.sh' "${INSTALL}/console.sh" \
-  && ok "console.sh drift fix" || bad "console.sh missing posture/profile drift fix"
+if grep -q 'set-hypr-profile.sh' "${INSTALL}/console.sh"; then
+  bad "console.sh still re-syncs via set-hypr-profile (env/hypr deleted)"
+else
+  ok "console.sh no set-hypr-profile re-sync"
+fi
 
 # host stage — samba usershares + smartmontools + podman (HexOS-style dashboard backends)
 [[ -f "${INSTALL}/host.sh" ]] && ok install/host.sh || bad install/host.sh
@@ -386,10 +445,6 @@ grep -q 'guest-install.sh' "${ROOT}/docs/proteus/INSTALL.md" 2>/dev/null \
   && grep -q 'bootstrap.sh repair' "${ROOT}/docs/proteus/INSTALL.md" 2>/dev/null \
   && ok "INSTALL.md covers layers + repair" || bad "INSTALL.md must cover three layers + repair"
 
-[[ -f "${ROOT}/env/hypr/hyprland.conf" ]] && ok env/hypr/hyprland.conf || bad env/hypr/hyprland.conf
-[[ -f "${ROOT}/env/hypr/proteus-profile.conf" ]] && ok env/hypr/proteus-profile.conf || bad env/hypr/proteus-profile.conf
-[[ -f "${ROOT}/env/hypr/profiles/desktop.conf" ]] && ok env/hypr/profiles/desktop.conf || bad env/hypr/profiles/desktop.conf
-[[ -f "${ROOT}/env/hypr/profiles/console.conf" ]] && ok env/hypr/profiles/console.conf || bad env/hypr/profiles/console.conf
 [[ -x "${ROOT}/shell/scripts/proteus-posture" ]] && ok shell/scripts/proteus-posture || bad shell/scripts/proteus-posture
 [[ -x "${ROOT}/shell/scripts/proteus-host-seat" ]] && ok shell/scripts/proteus-host-seat || bad shell/scripts/proteus-host-seat
 [[ -x "${ROOT}/shell/scripts/proteus-guide" ]] && ok shell/scripts/proteus-guide || bad shell/scripts/proteus-guide
@@ -397,6 +452,14 @@ grep -q 'guest-install.sh' "${ROOT}/docs/proteus/INSTALL.md" 2>/dev/null \
 [[ -x "${ROOT}/install/machine/apply-console-kit.sh" ]] && ok install/machine/apply-console-kit.sh || bad install/machine/apply-console-kit.sh
 [[ -x "${ROOT}/shell/scripts/proteus-console-launch" ]] && ok shell/scripts/proteus-console-launch || bad shell/scripts/proteus-console-launch
 [[ -x "${ROOT}/shell/scripts/proteus-console-seat" ]] && ok shell/scripts/proteus-console-seat || bad shell/scripts/proteus-console-seat
+# console-seat: smithay ctl only (no hyprctl)
+if grep -qE 'hyprctl\b' "${ROOT}/shell/scripts/proteus-console-seat"; then
+  bad "proteus-console-seat still references hyprctl"
+else
+  ok "proteus-console-seat no hyprctl"
+fi
+grep -q 'proteus-compositorctl\|compositorctl' "${ROOT}/shell/scripts/proteus-console-seat" \
+  && ok "proteus-console-seat uses compositorctl" || bad "proteus-console-seat missing compositorctl"
 [[ -x "${ROOT}/shell/scripts/proteus-workspace" ]] && ok shell/scripts/proteus-workspace || bad shell/scripts/proteus-workspace
 [[ -x "${ROOT}/shell/scripts/proteus-console-capabilities" ]] && ok shell/scripts/proteus-console-capabilities || bad shell/scripts/proteus-console-capabilities
 [[ -x "${ROOT}/shell/scripts/proteus-console-session" ]] && ok shell/scripts/proteus-console-session || bad shell/scripts/proteus-console-session
@@ -506,8 +569,6 @@ if python3 -m py_compile "${ROOT}/shell/scripts/check-unlock.py" 2>/dev/null; th
 else
   bad "check-unlock.py (py_compile)"
 fi
-[[ -f "${ROOT}/env/hypr/profiles/host.conf" ]] && ok env/hypr/profiles/host.conf || bad env/hypr/profiles/host.conf
-[[ -f "${ROOT}/env/hypr/profiles/home.conf" ]] && ok env/hypr/profiles/home.conf || bad env/hypr/profiles/home.conf
 if [[ -f "${ROOT}/shell/scripts/proteus-chrome" ]]; then
   if bash -n "${ROOT}/shell/scripts/proteus-chrome" 2>/dev/null; then
     ok shell/scripts/proteus-chrome
@@ -531,12 +592,14 @@ else
 fi
 if [[ -f "${ROOT}/shell/scripts/set-hypr-profile.sh" ]]; then
   if bash -n "${ROOT}/shell/scripts/set-hypr-profile.sh" 2>/dev/null; then
-    ok shell/scripts/set-hypr-profile.sh
+    ok "shell/scripts/set-hypr-profile.sh (retired stub)"
   else
     bad "shell/scripts/set-hypr-profile.sh (bash -n)"
   fi
+  grep -qiE 'retired|env/hypr deleted' "${ROOT}/shell/scripts/set-hypr-profile.sh" \
+    && ok "set-hypr-profile marked retired" || bad "set-hypr-profile not marked retired"
 else
-  bad shell/scripts/set-hypr-profile.sh
+  ok "set-hypr-profile.sh absent (fully removed)"
 fi
 [[ -d "${ROOT}/install/machine" ]] && ok install/machine/ || bad install/machine/
 [[ -x "${ROOT}/dev/vm/bootstrap.sh" || -f "${ROOT}/dev/vm/bootstrap.sh" ]] && ok dev/vm/bootstrap.sh || bad dev/vm/bootstrap.sh
@@ -550,31 +613,16 @@ else
 fi
 grep -q '^Icon=proteus' "${ROOT}/install/machine/assets/proteus.desktop" && ok "session.desktop Icon" || bad "session.desktop Icon"
 
-# #1168 — seed hyprland.conf: chrome/bg/cliphist present; no terminal exec-once
-# Owned iced via proteus-chrome (Quickshell retired).
-HYPR_SEED="${ROOT}/env/hypr/hyprland.conf"
-if [[ -f "${HYPR_SEED}" ]]; then
-  grep -qE '^[[:space:]]*exec-once[[:space:]].*proteus-chrome' "${HYPR_SEED}" \
-    && ok "hypr seed proteus-chrome exec-once" || bad "hypr seed missing proteus-chrome exec-once"
-  grep -qE '^[[:space:]]*exec-once[[:space:]].*proteus-bg' "${HYPR_SEED}" \
-    && ok "hypr seed proteus-bg exec-once" || bad "hypr seed missing proteus-bg exec-once"
-  grep -q 'cliphist store' "${HYPR_SEED}" \
-    && ok "hypr seed cliphist exec-once" || bad "hypr seed missing cliphist"
-  grep -q 'hyprpolkitagent' "${HYPR_SEED}" \
-    && ok "hypr seed polkit agent exec-once" || bad "hypr seed missing hyprpolkitagent"
-  # Settings is a normal app window now — the old float+center popup rule
-  # must NOT come back (it made Settings a centered sheet).
-  grep -q 'Proteus Settings' "${HYPR_SEED}" \
-    && bad "hypr seed still has legacy Settings float rule" \
-    || ok "hypr seed has no Settings float rule (normal window)"
-  if grep -qiE '^[[:space:]]*exec-once[[:space:]]*=.*(ghostty|kitty|alacritty|foot|proteus-terminal|wezterm)' "${HYPR_SEED}"; then
-    bad "hypr seed must not exec-once a terminal"
-  else
-    ok "hypr seed no terminal exec-once"
-  fi
-  grep -qi 'do not exec-once' "${HYPR_SEED}" \
-    && ok "hypr seed terminal comment lock" || bad "hypr seed missing terminal comment lock"
-fi
+# Hyprland purged — env/hypr deleted; chrome starts polkit/cliphist; idle is owned.
+grep -q 'hyprpolkitagent' "${ROOT}/shell/scripts/proteus-chrome" \
+  && ok "proteus-chrome starts hyprpolkitagent" || bad "proteus-chrome missing polkit agent"
+grep -q 'cliphist store' "${ROOT}/shell/scripts/proteus-chrome" \
+  && ok "proteus-chrome starts cliphist" || bad "proteus-chrome missing cliphist"
+grep -Eiq '^[[:space:]]*exec[[:space:]].*Hyprland|command -v Hyprland' "${ROOT}/dev/run-nested.sh" \
+  && bad "run-nested still execs Hyprland" \
+  || ok "run-nested does not exec Hyprland"
+grep -q 'proteus-compositor-next' "${ROOT}/dev/run-nested.sh" \
+  && ok "run-nested uses compositor-next" || bad "run-nested missing compositor-next"
 
 HIDE="${ROOT}/install/machine/hide-system-apps.sh"
 if [[ -f "${HIDE}" ]]; then

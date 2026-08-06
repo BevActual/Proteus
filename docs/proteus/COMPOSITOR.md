@@ -150,31 +150,25 @@ to Gamescope. **Lock honesty:** Gamescope does not implement
 `WlSessionLock` — Lock inside the console session ends the session; login is
 the lock. Host hard switch `partial` (`proteus-posture host` defaults headless
 + seat attach; HostShell + lean `host.conf`). Keyboard + Desktop + Displays
-fragments `shipped` (Displays: drag layout + full-snapshot Revert):
+fragments `shipped` (Displays: iced layout canvas + Identify + 10s snapshot Revert
+via `displays.json` / smithay — Hypr `proteus-monitors.conf` retired):
 
 ```
-~/.config/hypr/
-  hyprland.conf                 # sources below
-  proteus-keybinds.conf         # Settings → Peripherals → Keyboard + fixed bindm mouse binds (⌘+drag move / ⌘+right-drag resize)  (shipped)
-  proteus-general.conf          # gaps, borders, rounding, animations, resize_on_border edge grab, accent focus ring (inactive transparent)  (shipped)
-  proteus-monitors.conf         # Displays live monitor= lines  (shipped)
-  proteus-profile.conf          # active posture pointer → profiles/*.conf  (shipped)
-  profiles/
-    desktop.conf                # shipped (tiling defaults)
-    console.conf                # shipped (fullscreen kiosk rules; soft or via proteus-posture)
-    host.conf                   # lean ops (Phase 1; hard via proteus-posture)
-    home.conf                   # stub — parked posture only
+# Legacy Hypr fragment tree — deleted with env/hypr/ (2026-08-06).
+# Displays Fact: ~/.config/proteus/displays.json
+# Keybinds Fact: ~/.config/proteus/keybinds.json
+# Gaps / chrome: proteus-settings-apply + compositorctl
 ```
 
-Soft helper: `shell/scripts/set-hypr-profile.sh desktop|console|media|host|home`
-(`media` ≡ `console`). Settings → About soft-selects the same pointer.
+Soft helper: `shell/scripts/set-hypr-profile.sh` is a **retired stub**.
+Settings → About soft-selects posture Facts.
 **Hard console/host flip:** `shell/scripts/proteus-posture` — Fact + profile
 pointer, then **session restart to the greeter** (managed sessions;
 `proteus-session` picks the engine at next login). Dev/nested fallback:
 in-place chrome flip. See [POSTURES.md](./POSTURES.md) § Hard switches.
 
-Nested template today: `env/hypr/hyprland.conf` sources `proteus-monitors.conf`,
-`proteus-general.conf`, `proteus-keybinds.conf`, and `proteus-profile.conf`.
+Nested session today: `./dev/run-nested.sh` → compositor-next winit +
+`proteus-chrome` (never Hyprland).
 
 ---
 
@@ -229,7 +223,7 @@ compositor chrome for that unit.
 | Settings → gaps/borders via hyprctl | `shipped` — incl. `resize_on_border` (floating edge/corner resize) + accent focus ring (active accent / inactive transparent) + ⌘+drag `bindm` window move |
 | Per-posture hypr profiles | `partial` — desktop + console + host lean + home stub + soft `set-hypr-profile.sh` + Settings About soft picker; hard Session posture picker also in About |
 | Console hard switch | `partial` — Gamescope-as-session `partial` (gs-session + Proteus Home QS xdg client + `proteus-console-focus` Guide flip; engine chosen at login; VFIO/bare-metal prove paths); interim Hypr + ConsoleShell + **owned console face** (`proteus-chrome` / `PROTEUS_SURFACE=console` · list IA); gamescope console-home not swapped; Smithay rung 2 [parked](./COMPOSITOR-SPIKE.md) |
-| Owned compositor (Smithay) | `parked` — spike checklist only ([COMPOSITOR-SPIKE.md](./COMPOSITOR-SPIKE.md)); `compositor-engine` fact always falls through to Hyprland |
+| Owned compositor (Smithay) | `shipped` (thin) — **only** session engine via `proteus-session` DRM + install Fact; Hyprland **purged**; nested = `dev/run-nested.sh` winit — [COMPOSITOR-SPIKE.md](./COMPOSITOR-SPIKE.md) |
 | Host hard switch | `partial` — proteus-posture host defaults headless; `proteus-host-seat` attach/detach; HostShell/HostHome + workloads; graphical-remote later |
 | QS respawn / crash policy | `shipped` — `proteus-qs` flock/backoff/`--restart` (restart waits for prior flock — avoids blank chrome-less sessions) + orphan reap (lock fd closed for the child); wallpaper runner `proteus-bg` = crash-respawn wrapper + in-shell 15s watchdog; optional `proteus-qs.service` user unit (hypr exec-once still default); version recorded in smoke (IgnorePkg/ISO pin Out) |
 | Capability resolver | `planned` |

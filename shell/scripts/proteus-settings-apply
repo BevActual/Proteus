@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+# proteus-settings-apply — bridge iced Settings → proteus-compositorctl (smithay).
+# Hyprland purged: no hyprctl.
+#
+# usage:
+#   proteus-settings-apply monitors
+#   proteus-settings-apply gaps <in> <out>
+#   proteus-settings-apply displays-save <json-file>   # persist Fact only
+#   proteus-settings-apply apply-displays [json-file]  # Fact → live output dispatch
+set -euo pipefail
+
+CTL="${PROTEUS_COMPOSITORCTL:-}"
+if [[ -z "${CTL}" ]]; then
+  if command -v proteus-compositorctl >/dev/null 2>&1; then
+    CTL="$(command -v proteus-compositorctl)"
+  else
+    for c in \
+      "$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)/target/debug/proteus-compositorctl" \
+      "$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)/target/release/proteus-compositorctl"
+    do
+      [[ -x "${c}" ]] && CTL="${c}" && break
+    done
+  fi
+fi
+
+need_ctl() {
+  [[ -n "${CTL}" && -x "${CTL}" ]] || {
+    echo "proteus-settings-apply: proteus-compositorctl missing" >&2
+    exit 1
+  }
+  [[ -n "${PROTEUS_COMPOSITOR_SOCK:-}" || -S "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/proteus-compositor-${WAYLAND_DISPLAY:-wayland-1}.sock" ]] \
+    || echo "proteus-settings-apply: note — PROTEUS_COMPOSITOR_SOCK may be unset" >&2
+}
+
+displays_fact_path() {
+  if [[ -n "${XDG_CONFIG_HOME:-}" ]]; then
+    echo "${XDG_CONFIG_HOME}/proteus/displays.json"
+  else
+    echo "${HOME}/.config/proteus/displays.json"
+  fi
+}
+
+apply_displays_file() {
+  local file="$1"
+  [[ -f "${file}" ]] || {
+    echo "proteus-settings-apply: missing ${file}" >&2
+    exit 1
+  }
+  need_ctl
+  # Dispatch scale / pos / mode per monitor entry (python for JSON).
+  PROTEUS_APPLY_CTL="${CTL}" PROTEUS_APPLY_FILE="${file}" python3 - <<'PY'
+import json, os, subprocess, sys
+
+ctl = os.environ["PROTEUS_APPLY_CTL"]
+path = os.environ["PROTEUS_APPLY_FILE"]
+with open(path, encoding="utf-8") as f:
+    data = json.load(f)
+if not isinstance(data, list):
+    print("apply-displays: expected JSON array", file=sys.stderr)
+    sys.exit(1)
+
+def run(args):
+    r = subprocess.run([ctl, "dispatch", *args], capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"apply-displays: {' '.join(args)} -> {r.stderr or r.stdout}", file=sys.stderr)
+
+for m in data:
+    name = (m.get("name") or "").strip()
+    if not name:
+        continue
+    scale = m.get("scale", 1.0)
+    run([f"output {name} scale {scale}"])
+    x = int(m.get("x", 0))
+    y = int(m.get("y", 0))
+    run([f"output {name} pos {x} {y}"])
+    w = int(m.get("width") or 0)
+    h = int(m.get("height") or 0)
+    if w > 0 and h > 0:
+        hz = m.get("refreshRate")
+        if hz is None:
+            mode = f"{w}x{h}"
+        else:
+            mode = f"{w}x{h}@{hz}"
+        run([f"output {name} mode {mode}"])
+print('{"ok":true}')
+PY
+}
+
+cmd="${1:-}"
+shift || true
+
+case "${cmd}" in
+  monitors)
+    need_ctl
+    exec "${CTL}" monitors
+    ;;
+  gaps)
+    need_ctl
+    gin="${1:-}"; gout="${2:-}"
+    [[ -n "${gin}" && -n "${gout}" ]] || {
+      echo "usage: proteus-settings-apply gaps <in> <out>" >&2
+      exit 2
+    }
+    "${CTL}" dispatch gapsin "${gin}" >/dev/null
+    "${CTL}" dispatch gapsout "${gout}" >/dev/null
+    echo '{"ok":true}'
+    ;;
+  displays-save)
+    file="${1:-}"
+    [[ -n "${file}" && -f "${file}" ]] || {
+      echo "usage: proteus-settings-apply displays-save <json-file>" >&2
+      exit 2
+    }
+    dest="$(displays_fact_path)"
+    mkdir -p "$(dirname "${dest}")"
+    cp -f "${file}" "${dest}"
+    echo '{"ok":true,"path":"'"${dest}"'"}'
+    ;;
+  apply-displays)
+    file="${1:-}"
+    if [[ -z "${file}" ]]; then
+      file="$(displays_fact_path)"
+    fi
+    apply_displays_file "${file}"
+    ;;
+  *)
+    echo "usage: proteus-settings-apply monitors|gaps <in> <out>|displays-save <file>|apply-displays [file]" >&2
+    exit 2
+    ;;
+esac

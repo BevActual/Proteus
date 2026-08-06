@@ -25,7 +25,7 @@ use iced_layershell::to_layer_message;
 use proteus_shell::anim::{self, AnimatedValue, Easing};
 use proteus_shell::ctl::{self, ChromeState, SharedChrome};
 use proteus_shell::engine;
-use proteus_shell::hypr::{self, HyprState};
+use proteus_shell::wm_ipc::{self, WmState};
 use proteus_shell::layers;
 use proteus_shell::lock_ui::LockUiState;
 use proteus_shell::platform::{self, ConsoleGame, MprisPlayer, Notification, PowerStatus, PrivacyDots, SharedNotifs, SharedTray};
@@ -191,8 +191,8 @@ struct App {
     tray: SharedTray,
     tray_items: Vec<platform::TrayItem>,
     chrome_snap: ChromeState,
-    hypr: HyprState,
-    hypr_shared: hypr::SharedHypr,
+    hypr: WmState,
+    wm_shared: wm_ipc::SharedWm,
     power: PowerStatus,
     privacy_dots: PrivacyDots,
     dnd: bool,
@@ -316,7 +316,7 @@ fn sync_snapshots(app: &mut App) {
     if let Ok(t) = app.tray.lock() {
         app.tray_items = t.items.clone();
     }
-    if let Ok(h) = app.hypr_shared.lock() {
+    if let Ok(h) = app.wm_shared.lock() {
         app.hypr = h.clone();
     }
     app.last_epoch = app.chrome_epoch.load(Ordering::Relaxed);
@@ -365,15 +365,15 @@ fn sync_snapshots(app: &mut App) {
 
 fn refresh_heavy(app: &mut App) {
     // Prefer socket2-shared state; fall back to poll.
-    if let Ok(h) = app.hypr_shared.lock() {
+    if let Ok(h) = app.wm_shared.lock() {
         if !h.workspaces.is_empty() {
             app.hypr = h.clone();
         } else {
             drop(h);
-            app.hypr = hypr::refresh_state();
+            app.hypr = wm_ipc::refresh_state();
         }
     } else {
-        app.hypr = hypr::refresh_state();
+        app.hypr = wm_ipc::refresh_state();
     }
     // Copy the worker-gathered snapshot. Never block: skip if the worker
     // holds the lock right now — next tick picks it up.
@@ -667,11 +667,11 @@ fn handle_surface(app: &mut App, m: SurfaceMsg) -> Task<Message> {
             }
         }
         SurfaceMsg::Workspace(id) => {
-            let _ = hypr::dispatch(&format!("workspace {id}"));
+            let _ = wm_ipc::dispatch(&format!("workspace {id}"));
         }
         SurfaceMsg::DockLaunch(id) => {
-            match hypr::dock_activate(&id, &app.hypr) {
-                hypr::DockAction::Launch => launch_open(&id),
+            match wm_ipc::dock_activate(&id, &app.hypr) {
+                wm_ipc::DockAction::Launch => launch_open(&id),
                 _ => {}
             }
         }
@@ -894,13 +894,13 @@ fn handle_surface(app: &mut App, m: SurfaceMsg) -> Task<Message> {
                 .spawn();
         }
         SurfaceMsg::WindowClose => {
-            let _ = hypr::window_close();
+            let _ = wm_ipc::window_close();
         }
         SurfaceMsg::WindowMinimize => {
-            let _ = hypr::window_minimize();
+            let _ = wm_ipc::window_minimize();
         }
         SurfaceMsg::WindowMaximize => {
-            let _ = hypr::window_maximize();
+            let _ = wm_ipc::window_maximize();
         }
         SurfaceMsg::PowerProfile(idx) => {
             let _ = platform::power_set_profile_index(idx);
@@ -1474,8 +1474,8 @@ fn main() -> Result<(), iced_layershell::Error> {
     let chrome_epoch: ChromeEpoch = Arc::new(AtomicU64::new(0));
     let notifs = platform::start_local_notifd();
     let tray = platform::start_tray_watcher();
-    let hypr_shared: hypr::SharedHypr = Arc::new(Mutex::new(hypr::refresh_state()));
-    hypr::spawn_socket2_listener(Arc::clone(&hypr_shared));
+    let wm_shared: wm_ipc::SharedWm = Arc::new(Mutex::new(wm_ipc::refresh_state()));
+    wm_ipc::spawn_socket2_listener(Arc::clone(&wm_shared));
     let sock = engine::control_socket_path();
     if let Err(e) = ctl::serve(&sock, Arc::clone(&chrome), Arc::clone(&chrome_epoch)) {
         eprintln!("proteus-shell: control socket: {e}");
@@ -1531,7 +1531,7 @@ fn main() -> Result<(), iced_layershell::Error> {
     let epoch_boot = Arc::clone(&chrome_epoch);
     let notifs_boot = Arc::clone(&notifs);
     let tray_boot = Arc::clone(&tray);
-    let hypr_boot = Arc::clone(&hypr_shared);
+    let hypr_boot = Arc::clone(&wm_shared);
     let face_boot = face.clone();
     let primary_boot = primary.clone();
     let ns_name = primary.clone();
@@ -1564,8 +1564,8 @@ fn main() -> Result<(), iced_layershell::Error> {
                     face: face_boot.clone(),
                     ..Default::default()
                 },
-                hypr: HyprState::default(),
-                hypr_shared: Arc::clone(&hypr_boot),
+                hypr: WmState::default(),
+                wm_shared: Arc::clone(&hypr_boot),
                 // Live values arrive from the heavy worker within a tick or
                 // two — boot must not block on subprocesses.
                 power: PowerStatus::default(),

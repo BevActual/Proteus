@@ -6,8 +6,9 @@
 #   proteus-console-seat --desktop <desktop-id> [--expect-class REGEX] ...
 #   proteus-console-seat stop
 #
-# Launches via proteus-console-launch, waits for a Hyprland client map, forces
-# fullscreen by window address, writes pid/address under XDG_RUNTIME_DIR.
+# Launches via proteus-console-launch, waits for a compositor client map
+# (proteus-compositorctl / PROTEUS_COMPOSITOR_SOCK), forces fullscreen by
+# window address, writes pid/address under XDG_RUNTIME_DIR.
 set -euo pipefail
 
 RUNTIME="${XDG_RUNTIME_DIR:-/tmp}"
@@ -20,6 +21,20 @@ HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 LAUNCH="${HERE}/proteus-console-launch"
 if [[ ! -x "${LAUNCH}" ]]; then
   LAUNCH="$(command -v proteus-console-launch || true)"
+fi
+
+# Compositor ctl (smithay); same resolve order as proteus-settings-apply.
+CTL="${PROTEUS_COMPOSITORCTL:-}"
+if [[ -z "${CTL}" ]]; then
+  if command -v proteus-compositorctl >/dev/null 2>&1; then
+    CTL="$(command -v proteus-compositorctl)"
+  else
+    ROOT="$(cd "${HERE}/../.." && pwd)"
+    for c in "${ROOT}/target/debug/proteus-compositorctl" \
+             "${ROOT}/target/release/proteus-compositorctl"; do
+      [[ -x "${c}" ]] && CTL="${c}" && break
+    done
+  fi
 fi
 
 EXPECT_CLASS=""
@@ -126,18 +141,22 @@ infer_expect() {
 }
 
 find_client_address() {
-  # Prints hypr address of first matching client, or empty
-  command -v hyprctl >/dev/null 2>&1 || return 1
+  # Prints compositor address of first matching client, or empty
+  [[ -n "${CTL}" && -x "${CTL}" ]] || return 1
   PROTEUS_SEAT_EXPECT_CLASS="${EXPECT_CLASS}" \
   PROTEUS_SEAT_EXPECT_TITLE="${EXPECT_TITLE}" \
+  PROTEUS_COMPOSITORCTL="${CTL}" \
   python3 - <<'PY' 2>/dev/null || true
 import json, os, re, subprocess, sys
 cls_re = os.environ.get("PROTEUS_SEAT_EXPECT_CLASS") or ""
 title_re = os.environ.get("PROTEUS_SEAT_EXPECT_TITLE") or ""
+ctl = os.environ.get("PROTEUS_COMPOSITORCTL") or "proteus-compositorctl"
 try:
-    raw = subprocess.check_output(["hyprctl", "clients", "-j"], text=True, timeout=3)
+    raw = subprocess.check_output([ctl, "clients"], text=True, timeout=3)
     clients = json.loads(raw)
 except Exception:
+    sys.exit(0)
+if not isinstance(clients, list):
     sys.exit(0)
 cre = re.compile(cls_re, re.I) if cls_re else None
 tre = re.compile(title_re, re.I) if title_re else None
@@ -160,55 +179,24 @@ PY
 client_still_mapped() {
   local addr="$1"
   [[ -n "${addr}" ]] || return 1
-  hyprctl clients -j 2>/dev/null | grep -Fq "\"address\": \"${addr}\"" \
-    || hyprctl clients -j 2>/dev/null | grep -Fq "\"address\":\"${addr}\""
+  [[ -n "${CTL}" && -x "${CTL}" ]] || return 1
+  "${CTL}" clients 2>/dev/null | grep -Fq "\"address\": \"${addr}\"" \
+    || "${CTL}" clients 2>/dev/null | grep -Fq "\"address\":\"${addr}\""
 }
 
 park_quickshell_chrome() {
-  # Free the tiled monitor for the seat client (see console.conf special:proteus-chrome).
-  hyprctl dispatch movetoworkspacesilent "special:proteus-chrome,class:org.quickshell" >/dev/null 2>&1 || true
-  # The JSON is fetched inside python, not piped in: `python3 - <<'PY'` makes the
-  # heredoc stdin, so a pipe here is silently swallowed and sys.stdin.read()
-  # returns "" — the loop below never ran (shellcheck SC2259).
-  python3 - <<'PY' 2>/dev/null || true
-import json, subprocess
-try:
-    clients = json.loads(
-        subprocess.check_output(["hyprctl", "clients", "-j"], text=True, timeout=3)
-    )
-except Exception:
-    raise SystemExit(0)
-for c in clients:
-    cls = str(c.get("class") or "")
-    if "quickshell" not in cls.lower():
-        continue
-    addr = c.get("address")
-    if not addr:
-        continue
-    subprocess.run(
-        ["hyprctl", "dispatch", "movetoworkspacesilent", f"special:proteus-chrome,address:{addr}"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
-PY
+  # Soft no-op: Quickshell chrome retired; owned proteus-shell needs no park.
+  :
 }
 
 fullscreen_address() {
   local addr="$1"
   [[ -n "${addr}" ]] || return 1
+  [[ -n "${CTL}" && -x "${CTL}" ]] || return 1
   park_quickshell_chrome
-  # Batch focus + fullscreen so the rule applies to the seat client, not QS.
-  hyprctl --batch "\
-dispatch focuswindow address:${addr};\
-dispatch fullscreenstate 2 2;\
-dispatch fullscreen 2" >/dev/null 2>&1 || true
-  # Fallbacks if batch rejected a keyword
-  hyprctl dispatch focuswindow "address:${addr}" >/dev/null 2>&1 || true
-  hyprctl dispatch fullscreenstate 2 2 >/dev/null 2>&1 || true
-  hyprctl dispatch fullscreen 2 >/dev/null 2>&1 || true
-  hyprctl dispatch fullscreen 1 >/dev/null 2>&1 || true
-  # Pin to workspace 1 and bring to top
-  hyprctl dispatch movetoworkspacesilent "1,address:${addr}" >/dev/null 2>&1 || true
-  hyprctl dispatch alterzorder "top,address:${addr}" >/dev/null 2>&1 || true
+  "${CTL}" dispatch focuswindow "address:${addr}" >/dev/null 2>&1 || true
+  "${CTL}" dispatch fullscreen 1 >/dev/null 2>&1 || true
+  "${CTL}" dispatch movetoworkspacesilent "1,address:${addr}" >/dev/null 2>&1 || true
 }
 
 # --- argv ---

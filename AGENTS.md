@@ -40,7 +40,7 @@ full PLAYBOOK or queue here. Override sibling paths with `MOBIUS_ROOT` /
 
 - **`install`** — overlay (VM + bare metal): `install/bootstrap.sh`; helpers `install/machine/`; runtime helpers `shell/scripts/`; SoT: [docs/proteus/INSTALL.md](docs/proteus/INSTALL.md).
 - **`vm`** — boot guest: `./dev/vm/run.sh`; provision: `./dev/vm/provision.sh`; artifacts in `PROTEUS_VM_CACHE`; overlay `install/`; helpers `install/machine/`; install path SoT: [docs/proteus/INSTALL.md](docs/proteus/INSTALL.md).
-- **`nested`** — host quick shell test: `./dev/run-nested.sh`.
+- **`nested`** — host quick shell test: `./dev/run-nested.sh` (compositor-next winit; Hyprland purged).
 - **`probe`** — Wave A hardware JSON: `./services/proteus-hw-probe/proteus-hw-probe` · smoke: `./dev/smoke/hw-probe-smoke.sh`
 - **`smoke`** — host suite: `./dev/smoke-all.sh` (shellcheck · doc-links · layout · ipc-contract · config-schema · chrome-tokens · shell-core · shell · shell-owned-dogfood · settings-next · install · session · …; guest `owned-guest` + `software-guest` + `console-guest` + `host-guest` if SSH `:2222` or `PROTEUS_GUEST=1`). QML leaf smokes are retired stubs.
 - **`settings`** — iced sibling `../ProteusSettings` (`proteus-settings-next`) via `proteus-settings` only; QML Settings deleted.

@@ -19,15 +19,14 @@ fi
 for need in \
   "${PROTEUS_INSTALL}/proteus-base.packages" \
   "${PROTEUS_INSTALL}/proteus-desktop.packages" \
-  "${PROTEUS_ROOT}/install/machine" \
-  "${PROTEUS_ROOT}/env/hypr/hyprland.conf"
+  "${PROTEUS_ROOT}/install/machine"
 do
   if [[ ! -e "${need}" ]]; then
     echo "preflight: missing ${need}" >&2
     exit 1
   fi
 done
-proteus_log "tree OK (packages, machine/, env/hypr)"
+proteus_log "tree OK (packages, machine/)"
 
 # Fail fast on the two things that make a long overlay run die halfway through.
 # In the VM both were effectively guaranteed; on bare metal neither is.
