@@ -24,31 +24,19 @@ fail=0
 die() { echo "settings-backing-smoke: FAIL $*" >&2; fail=1; }
 ok()  { echo "settings-backing-smoke: OK $*"; }
 
-ENVGATE="shell/shared/EnvGate.qml"
-[[ -f "${ENVGATE}" ]] || { echo "settings-backing-smoke: FAIL missing ${ENVGATE}" >&2; exit 1; }
+CATALOG="env/settings/catalog.json"
+[[ -f "${CATALOG}" ]] || { echo "settings-backing-smoke: FAIL missing ${CATALOG}" >&2; exit 1; }
 
 # External tools Proteus wraps but does not ship. Declared explicitly so that a
 # typo ("nmcl") fails instead of being waved through as "probably external".
 EXTERNAL="nmcli bluetoothctl tailscale pactl wpctl hyprctl powerprofilesctl
           timedatectl localectl pacman flatpak"
 
-python3 - "${ENVGATE}" <<'PY' > /tmp/proteus-backing.$$ || { echo "settings-backing-smoke: FAIL could not parse catalog" >&2; exit 1; }
-import re, sys
-src = open(sys.argv[1]).read()
-block = re.search(r'readonly property var settingsCatalog: \[(.*?)\n  \]', src, re.S)
-if not block:
-    sys.exit(1)
-body = block.group(1)
-# split into entries on the id: key
-entries = re.split(r'\n      id: "', body)[1:]
-for e in entries:
-    hub = e.split('"', 1)[0]
-    def arr(key):
-        m = re.search(key + r':\s*\[(.*?)\]', e, re.S)
-        if not m:
-            return None
-        return re.findall(r'"([^"]+)"', m.group(1))
-    f, c = arr('backsFacts'), arr('backsCli')
+python3 - "${CATALOG}" <<'PY' > /tmp/proteus-backing.$$ || { echo "settings-backing-smoke: FAIL could not parse catalog" >&2; exit 1; }
+import json, sys
+for e in json.load(open(sys.argv[1]))["hubs"]:
+    hub = e["id"]
+    f, c = e.get("backsFacts"), e.get("backsCli")
     if f is None or c is None:
         print(f"MISSING\t{hub}")
         continue

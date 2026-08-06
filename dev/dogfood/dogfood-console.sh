@@ -71,8 +71,8 @@ for c in proteus-console-seat "${ROOT}/shell/scripts/proteus-console-seat"; do
   if [[ -x "${c}" ]]; then SEAT_BIN="${c}"; break; fi
 done
 SHELL_DIR="${ROOT}/shell"
-QS_IPC=(qs -p "${SHELL_DIR}")
-command -v qs >/dev/null 2>&1 || QS_IPC=(quickshell -p "${SHELL_DIR}")
+CTL_BIN="$(command -v proteus-shellctl || true)"
+[[ -z "${CTL_BIN}" && -x /usr/local/bin/proteus-shellctl ]] && CTL_BIN=/usr/local/bin/proteus-shellctl
 
 repair_helpers() {
   [[ "${SKIP_REPAIR}" == "1" ]] && return 0
@@ -104,7 +104,11 @@ repair_helpers() {
 }
 
 chrome_state() {
-  "${QS_IPC[@]}" ipc call chrome state 2>/dev/null || true
+  if [[ -z "${CTL_BIN:-}" || ! -x "${CTL_BIN}" ]]; then
+    echo '{}'
+    return 0
+  fi
+  "${CTL_BIN}" chrome state 2>/dev/null || true
 }
 
 wait_surface() {
@@ -114,7 +118,8 @@ wait_surface() {
     surface="$(chrome_state | python3 -c 'import json,sys
 try:
   d=json.load(sys.stdin)
-  print(d.get("surface") or "")
+  r=d.get("result") if isinstance(d.get("result"), dict) else d
+  print((r or {}).get("face") or "")
 except Exception:
   print("")
 ' 2>/dev/null || true)"
@@ -143,9 +148,9 @@ verify_target() {
 
   local surface
   if ! surface="$(wait_surface "${want}")"; then
-    die "chrome surface=${surface:-?} want=${want} (is Hyprland+QS live?)"
+    die "chrome face=${surface:-?} want=${want} (is Hyprland+owned chrome live?)"
   fi
-  log "OK Fact=${got} profile=${want} chrome.surface=${surface}"
+  log "OK Fact=${got} profile=${want} chrome.face=${surface}"
 }
 
 print_caps_honesty() {

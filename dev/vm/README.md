@@ -178,15 +178,16 @@ PIN — numpad on the lock for desktop and console). `Super+L` locks again anyti
 Disable auto-lock on session start in **Settings → Appearance → Lock screen**,
 or set `"lockOnSessionStart": false` in `~/.config/proteus/settings.json`.
 
-### Quickshell chrome supervisor
+### Session chrome (Wave 4)
 
-Default: Hyprland `exec-once` → `proteus-qs` (flock / backoff / `--restart`;
-restart waits for the prior flock so posture flips cannot leave a blank
-chrome-less session). Optional:
-`bash /mnt/proteus/install/machine/install-proteus-qs-user-unit.sh` then
-`systemctl --user enable --now proteus-qs.service` (comment out the hypr
-`exec-once` line). After upgrading Quickshell: `PROTEUS_GUEST=1 ./dev/smoke-all.sh`
-(records version; do not IgnorePkg-pin on rolling Arch).
+Default: Hyprland `exec-once` → `proteus-chrome` (owned iced `proteus-shell`;
+falls back to Quickshell when `PROTEUS_SHELL_ENGINE=quickshell` or the owned
+binary is missing). Nested dogfood: `./dev/run-nested.sh` exports
+`PROTEUS_SHELL_ENGINE=owned` and builds `proteus-shell` if needed.
+`proteus-bg` still uses Quickshell for wallpaper video/image surfaces.
+Optional QS supervisor unit remains for the Quickshell fallback path:
+`bash /mnt/proteus/install/machine/install-proteus-qs-user-unit.sh`.
+After upgrading Quickshell (fallback dogfood): `PROTEUS_GUEST=1 ./dev/smoke-all.sh`.
 
 ### Console posture (dogfood)
 

@@ -18,6 +18,10 @@ run config-schema-smoke.sh
 run config-roundtrip-smoke.sh
 run app-manifest-smoke.sh
 run chrome-tokens-smoke.sh
+run shell-core-smoke.sh
+run shell-smoke.sh
+run shell-owned-dogfood-smoke.sh
+run settings-next-smoke.sh
 run software-reliability-smoke.sh
 run power-logind-smoke.sh
 run power-threshold-smoke.sh
@@ -44,10 +48,9 @@ run host-metrics-smoke.sh
 run peripherals-smoke.sh
 run network-vpn-smoke.sh
 run headscale-admin-smoke.sh
-run qs-version-smoke.sh
 
 # Guest: always attempt (skips if SSH down unless PROTEUS_GUEST=1)
-run qs-guest-smoke.sh
+run owned-guest-smoke.sh
 run software-guest-smoke.sh
 run console-guest-smoke.sh
 run host-guest-smoke.sh

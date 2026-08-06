@@ -10,6 +10,7 @@
 #
 # Artifacts (ISO, qcow2, OVMF vars, boot extract) live under
 #   PROTEUS_VM_CACHE (default: ~/.cache/proteus-vm) — see dev/vm/lib.sh
+#   PROTEUS_VM_APP_SHARES=0         disable sibling ProteusWorkloads/ProteusSettings 9p shares
 #
 # Automation (optional env):
 #   PROTEUS_VM_DISPLAY=none|gtk|gtk,gl=on|…   (default: gtk,gl=on,zoom-to-fit=on)
@@ -180,6 +181,20 @@ ARGS=(
   -device usb-tablet
   -virtfs local,path="${ROOT}",mount_tag=proteus,security_model=mapped-xattr,id=proteus
 )
+
+# Optional sibling app repo shares (Tauri Workloads/Settings dogfood): exported
+# when the checkout exists so install-*-app.sh can mount tag proteus-workloads
+# / proteus-settings on the guest. Disable with PROTEUS_VM_APP_SHARES=0.
+if [[ "${PROTEUS_VM_APP_SHARES:-1}" != "0" ]]; then
+  WL_ROOT="${PROTEUS_WORKLOADS_ROOT:-${ROOT}/../ProteusWorkloads}"
+  if [[ -d "${WL_ROOT}/app" ]]; then
+    ARGS+=(-virtfs "local,path=$(readlink -f "${WL_ROOT}"),mount_tag=proteus-workloads,security_model=mapped-xattr,id=proteus-workloads")
+  fi
+  ST_ROOT="${PROTEUS_SETTINGS_ROOT:-${ROOT}/../ProteusSettings}"
+  if [[ -d "${ST_ROOT}/app" ]]; then
+    ARGS+=(-virtfs "local,path=$(readlink -f "${ST_ROOT}"),mount_tag=proteus-settings,security_model=mapped-xattr,id=proteus-settings")
+  fi
+fi
 
 # Optional USB host passthrough (gamepads for console pad dogfood).
 resolve_usb_vid_pid() {
@@ -400,6 +415,12 @@ fi
 
 echo "  disk:  ${DISK}"
 echo "  share: ${ROOT} -> guest mount tag 'proteus' (/mnt/proteus)"
+if [[ "${PROTEUS_VM_APP_SHARES:-1}" != "0" ]]; then
+  [[ -d "${PROTEUS_WORKLOADS_ROOT:-${ROOT}/../ProteusWorkloads}/app" ]] \
+    && echo "  share: sibling ProteusWorkloads -> tag 'proteus-workloads' (/mnt/proteus-workloads)"
+  [[ -d "${PROTEUS_SETTINGS_ROOT:-${ROOT}/../ProteusSettings}/app" ]] \
+    && echo "  share: sibling ProteusSettings -> tag 'proteus-settings' (/mnt/proteus-settings)"
+fi
 echo "  ssh:   ssh -p ${SSH_PORT} <user>@127.0.0.1   (after openssh is enabled in guest)"
 echo
 

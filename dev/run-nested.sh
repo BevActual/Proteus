@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Launch Proteus inside a nested Hyprland window.
 # Leaves your Omarchy session alone — close the nested window / Super+Shift+E to exit.
+#
+# Wave 4: chrome defaults to owned iced (`proteus-chrome` → `proteus-shell`).
+# Override: PROTEUS_SHELL_ENGINE=quickshell ./dev/run-nested.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -14,9 +17,19 @@ if ! command -v Hyprland >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! command -v quickshell >/dev/null 2>&1; then
-  echo "quickshell not found. Install it before nesting: https://quickshell.org/" >&2
-  exit 1
+# Ensure owned shell binary exists (Wave 4 default).
+if [[ ! -x "${ROOT}/target/debug/proteus-shell" && ! -x "${ROOT}/target/release/proteus-shell" ]] \
+  && ! command -v proteus-shell >/dev/null 2>&1; then
+  if command -v cargo >/dev/null 2>&1; then
+    echo "Building proteus-shell (owned chrome)…"
+    (cd "${ROOT}" && cargo build -p proteus-shell -q) || true
+  fi
+fi
+export PATH="${ROOT}/target/debug:${ROOT}/target/release:${ROOT}/shell/scripts:${PATH}"
+
+# Wallpaper runner still uses Quickshell; soft-warn if missing.
+if ! command -v quickshell >/dev/null 2>&1 && ! command -v qs >/dev/null 2>&1; then
+  echo "note: quickshell not found — proteus-bg wallpaper may no-op; chrome uses owned engine" >&2
 fi
 
 mkdir -p "${RUNTIME_DIR}"
@@ -57,12 +70,14 @@ if [[ -f "${HOME}/.bashrc" ]] && ! grep -qF "# Proteus terminal fetch" "${HOME}/
   } >> "${HOME}/.bashrc"
 fi
 
+export PROTEUS_ROOT="${ROOT}"
 export PROTEUS_SURFACE="${PROTEUS_SURFACE:-desktop}"
-export PATH="${ROOT}/shell/scripts:${PATH}"
+export PROTEUS_SHELL_ENGINE="${PROTEUS_SHELL_ENGINE:-owned}"
 
 echo "Starting nested Proteus Hyprland…"
 echo "  config: ${CONF_OUT}"
 echo "  shell:  ${SHELL_DIR}"
+echo "  engine: ${PROTEUS_SHELL_ENGINE} (proteus-chrome)"
 echo "  Exit nested session: Super+Shift+E (or close the window)"
 
 # Nested: run Hyprland from an existing Wayland session with its own config.

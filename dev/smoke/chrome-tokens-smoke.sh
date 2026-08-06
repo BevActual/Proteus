@@ -47,16 +47,39 @@ print("validate ok")
 PY
 ok "json+css validate"
 
-# One control language: stock Controls Slider/Switch are banned outside the
-# shared Theme* wrappers (CHROME §9 — per-control inventing is a defect).
-stock="$(grep -rnE '^\s*(Slider|Switch) \{' "${ROOT}/shell" "${ROOT}/apps" \
-  --include='*.qml' \
-  | grep -v 'shared/ThemeSlider.qml\|shared/ThemeSwitch.qml' || true)"
-if [[ -n "${stock}" ]]; then
-  echo "${stock}" >&2
-  die "stock Slider/Switch found — use ThemeSlider / ThemeSwitch (shell/shared)"
+# Generated artifact gate — env/chrome is rendered by proteus-shell-core
+# (OWNED-STACK rung 0); hand edits drift from the crate's golden tests. Only
+# enforceable when a built binary exists (prebuilt honesty, same as services).
+CORE=""
+for cand in \
+  "${ROOT}/services/proteus-shell-core/bin/proteus-shell-core" \
+  "${ROOT}/services/proteus-shell-core/target/release/proteus-shell-core" \
+  "${ROOT}/services/proteus-shell-core/target/debug/proteus-shell-core"; do
+  [[ -x "${cand}" ]] && { CORE="${cand}"; break; }
+done
+if [[ -n "${CORE}" ]]; then
+  if diff <("${CORE}" tokens --json) "${CHROME}/chrome-tokens.json" >/dev/null \
+    && diff <("${CORE}" tokens --css) "${CHROME}/chrome-tokens.css" >/dev/null; then
+    ok "env/chrome matches proteus-shell-core generator"
+  else
+    die "env/chrome drifted from proteus-shell-core (regenerate: proteus-shell-core tokens --write env/chrome)"
+  fi
 else
-  ok "no stock Slider/Switch outside Theme wrappers"
+  ok "proteus-shell-core not built — generator drift check skipped"
+fi
+
+# Kit honesty: proteus-ui ships theme_slider / theme_switch (CHROME §9).
+grep -q 'theme_slider' "${ROOT}/services/proteus-ui/src/widgets.rs" \
+  && grep -q 'theme_switch' "${ROOT}/services/proteus-ui/src/widgets.rs" \
+  && ok "proteus-ui theme_slider/theme_switch" \
+  || die "proteus-ui missing theme_slider/theme_switch"
+
+# No leftover QML chrome trees
+if find "${ROOT}/shell" "${ROOT}/apps" -name '*.qml' 2>/dev/null | grep -q .; then
+  find "${ROOT}/shell" "${ROOT}/apps" -name '*.qml' >&2 || true
+  die "QML files remain under shell/ or apps/ — chrome/Settings QML retired"
+else
+  ok "no QML under shell/ or apps/"
 fi
 
 [[ $fail -eq 0 ]] || { echo "chrome-tokens-smoke: FAILED" >&2; exit 1; }

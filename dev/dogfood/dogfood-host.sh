@@ -60,11 +60,15 @@ done
 [[ -n "${SEAT_BIN}" ]] || die "proteus-host-seat not found"
 
 SHELL_DIR="${ROOT}/shell"
-QS_IPC=(qs -p "${SHELL_DIR}")
-command -v qs >/dev/null 2>&1 || QS_IPC=(quickshell -p "${SHELL_DIR}")
+CTL_BIN="$(command -v proteus-shellctl || true)"
+[[ -z "${CTL_BIN}" && -x /usr/local/bin/proteus-shellctl ]] && CTL_BIN=/usr/local/bin/proteus-shellctl
 
 chrome_state() {
-  "${QS_IPC[@]}" ipc call chrome state 2>/dev/null || true
+  if [[ -z "${CTL_BIN:-}" || ! -x "${CTL_BIN}" ]]; then
+    echo '{}'
+    return 0
+  fi
+  "${CTL_BIN}" chrome state 2>/dev/null || true
 }
 
 wait_surface() {
@@ -74,7 +78,8 @@ wait_surface() {
     surface="$(chrome_state | python3 -c 'import json,sys
 try:
   d=json.load(sys.stdin)
-  print(d.get("surface") or "")
+  r=d.get("result") if isinstance(d.get("result"), dict) else d
+  print((r or {}).get("face") or "")
 except Exception:
   print("")
 ' 2>/dev/null || true)"
@@ -118,7 +123,7 @@ if [[ "${RESTORE}" -eq 1 ]]; then
   got="$(fact_posture)"
   [[ "${got}" == "desktop" ]] || die "posture Fact=${got} want=desktop"
   if ! wait_surface desktop >/dev/null; then
-    die "chrome surface not desktop after restore"
+    die "chrome face not desktop after restore"
   fi
   log "done (desktop)"
   exit 0
@@ -130,9 +135,9 @@ if [[ "${ATTACH}" -eq 1 ]]; then
   [[ "$(fact_posture)" == "host" ]] || die "posture must stay host"
   [[ "$(fact_chrome)" == "full" ]] || die "host-chrome want=full got=$(fact_chrome)"
   if ! wait_surface host >/dev/null; then
-    die "chrome surface not host after attach"
+    die "chrome face not host after attach"
   fi
-  log "OK seat attached chrome.surface=host"
+  log "OK seat attached chrome.face=host"
   log "done (host chrome) — restore: $0 --restore"
   exit 0
 fi
@@ -144,15 +149,15 @@ log "entering host (default headless)"
 if ! wait_qs_absent; then
   die "Quickshell still running after host headless"
 fi
-log "OK Fact=host host-chrome=none QS absent"
+log "OK Fact=host host-chrome=none chrome absent"
 
 log "attaching ops seat"
 "${SEAT_BIN}" attach
 [[ "$(fact_chrome)" == "full" ]] || die "host-chrome want=full after attach"
 if ! wait_surface host >/dev/null; then
-  die "chrome surface not host after attach"
+  die "chrome face not host after attach"
 fi
-log "OK chrome.surface=host"
+log "OK chrome.face=host"
 
 log "detaching seat"
 "${SEAT_BIN}" detach

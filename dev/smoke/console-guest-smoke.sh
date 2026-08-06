@@ -85,20 +85,22 @@ bash "${DOG}" || { echo "FAIL dogfood console"; exit 1; }
 echo "OK dogfood console"
 FACT="$(tr -d '[:space:]' <"${HOME}/.config/proteus/posture")"
 [[ "${FACT}" == "console" ]] || { echo "FAIL posture after console=${FACT}"; exit 1; }
-STATE="$(qs -p "${PROTEUS_ROOT}/shell" ipc call chrome state 2>/dev/null || true)"
+STATE="$(proteus-shellctl chrome state 2>/dev/null || true)"
 echo "${STATE}" | python3 -c 'import json,sys
 d=json.load(sys.stdin)
-assert d.get("surface")=="console"
+r=d.get("result") if isinstance(d.get("result"), dict) else d
+assert (r or {}).get("face")=="console"
 ' || { echo "FAIL chrome surface after console: ${STATE}"; exit 1; }
 echo "OK chrome console"
 
 bash "${DOG}" --restore || { echo "FAIL dogfood restore"; exit 1; }
 FACT2="$(tr -d '[:space:]' <"${HOME}/.config/proteus/posture")"
 [[ "${FACT2}" == "desktop" ]] || { echo "FAIL posture after restore=${FACT2}"; exit 1; }
-STATE2="$(qs -p "${PROTEUS_ROOT}/shell" ipc call chrome state 2>/dev/null || true)"
+STATE2="$(proteus-shellctl chrome state 2>/dev/null || true)"
 echo "${STATE2}" | python3 -c 'import json,sys
 d=json.load(sys.stdin)
-assert d.get("surface")=="desktop"
+r=d.get("result") if isinstance(d.get("result"), dict) else d
+assert (r or {}).get("face")=="desktop"
 ' || { echo "FAIL chrome surface after restore: ${STATE2}"; exit 1; }
 echo "OK restore desktop"
 echo CONSOLE_GUEST_OK

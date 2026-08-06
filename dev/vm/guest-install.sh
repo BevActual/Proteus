@@ -3,7 +3,8 @@
 set -euo pipefail
 
 DISK="${DISK:-/dev/vda}"
-HOSTNAME="${HOSTNAME:-proteus}"
+# Do not use HOSTNAME — bash already exports it as the live ISO name (archiso).
+GUEST_HOSTNAME="${GUEST_HOSTNAME:-proteus}"
 USERNAME="${USERNAME:-andrew}"
 PASSWORD="${PASSWORD:-proteus}"
 TZ="${TZ:-UTC}"
@@ -66,11 +67,11 @@ hwclock --systohc
 sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
 locale-gen
 echo 'LANG=en_US.UTF-8' > /etc/locale.conf
-echo '${HOSTNAME}' > /etc/hostname
+echo '${GUEST_HOSTNAME}' > /etc/hostname
 cat > /etc/hosts <<HOSTS
 127.0.0.1 localhost
 ::1       localhost
-127.0.1.1 ${HOSTNAME}.localdomain ${HOSTNAME}
+127.0.1.1 ${GUEST_HOSTNAME}.localdomain ${GUEST_HOSTNAME}
 HOSTS
 
 echo 'root:${PASSWORD}' | chpasswd
