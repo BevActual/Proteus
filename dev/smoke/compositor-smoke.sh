@@ -96,6 +96,17 @@ grep -q 'SessionLockManagerState\|delegate_session_lock\|session_lock' \
   || die "ext-session-lock module missing"
 grep -q 'session-lock' "${CRATE}/src/ctl.rs" \
   || die "ctl session-lock probe missing"
+grep -q '"pending"\|session_lock_pending\|"active"' "${CRATE}/src/ctl.rs" \
+  || die "ctl session-lock must report pending/active"
+[[ -f "${ROOT}/dev/smoke/compositor-session-lock.sh" ]] \
+  || die "missing compositor-session-lock.sh (protocol dogfood)"
+grep -q 'PROTEUS_SESSION_LOCK_DOGFOOD\|proteus-session-lock' \
+  "${ROOT}/dev/smoke/compositor-session-lock.sh" \
+  || die "protocol lock dogfood helper incomplete"
+# Default Fact remains overlay (protocol is opt-in only).
+grep -q 'SessionLockMode::Overlay' "${ROOT}/shell/src/engine.rs" \
+  && grep -q 'PROTEUS_SESSION_LOCK' "${ROOT}/shell/src/engine.rs" \
+  || die "shell session-lock overlay default / env opt-in missing"
 grep -q 'beacon\|workspace_1\|FilterResult::Intercept' "${CRATE}/src/binds.rs" "${CRATE}/src/input.rs" \
   || die "beacon/workspace intercept missing"
 [[ -f "${ROOT}/env/settings/keybinds.defaults.json" ]] \
@@ -418,10 +429,31 @@ sys.exit(0 if a and int(a[0].get("transform",-1))==2 else 1)' \
     && ok "clients at/size schema in wm" \
     || die "clients missing at/size in wm"
 
+  # Nested WAYLAND_DISPLAY from compositor log (shared by grim / portal / protocol lock).
+  nested_wd="$(sed -n 's/.*nested \(spike \)\?on WAYLAND_DISPLAY=//p' "${log}" | head -1)"
+
+  # Protocol session-lock dogfood (opt-in helper; Fact default remains overlay).
+  slock_helper="${ROOT}/dev/smoke/compositor-session-lock.sh"
+  if [[ -z "${nested_wd}" ]]; then
+    ok "protocol session-lock dogfood skipped — nested WAYLAND_DISPLAY unknown"
+  else
+    set +e
+    WAYLAND_DISPLAY="${nested_wd}" PROTEUS_COMPOSITOR_SOCK="${sock}" \
+      PROTEUS_COMPOSITORCTL="${CTL}" PROTEUS_SESSION_LOCK_DOGFOOD=1 \
+      bash "${slock_helper}" >"${tmp_dir}/slock.out" 2>"${tmp_dir}/slock.err"
+    slock_rc=$?
+    set -e
+    if [[ "${slock_rc}" -eq 0 ]]; then
+      ok "protocol session-lock dogfood"
+    elif [[ "${slock_rc}" -eq 2 ]]; then
+      ok "protocol session-lock dogfood skipped — $(tr '\n' ' ' <"${tmp_dir}/slock.err" | head -c 160)"
+    else
+      die "protocol session-lock dogfood failed (rc=${slock_rc}): $(tr '\n' ' ' <"${tmp_dir}/slock.err" | head -c 300)"
+    fi
+  fi
+
   # Optional grim region capture via zwlr_screencopy (dock preview path).
   if command -v grim >/dev/null 2>&1; then
-    # Nested WAYLAND_DISPLAY is the spike socket name from the log.
-    nested_wd="$(sed -n 's/.*nested spike on WAYLAND_DISPLAY=//p' "${log}" | head -1)"
     if [[ -n "${nested_wd}" ]]; then
       grim_png="$(mktemp --suffix=.png)"
       if env WAYLAND_DISPLAY="${nested_wd}" grim -g '0,0 32x32' "${grim_png}" 2>/dev/null \
@@ -440,7 +472,7 @@ sys.exit(0 if a and int(a[0].get("transform",-1))==2 else 1)' \
 
   # Optional portal Screenshot via xdg-desktop-portal-wlr (isolated dbus session).
   # Does not touch the host Hyprland portal units. SKIP if xdp-wlr missing.
-  nested_wd="$(sed -n 's/.*nested spike on WAYLAND_DISPLAY=//p' "${log}" | head -1)"
+  nested_wd="$(sed -n 's/.*nested \(spike \)\?on WAYLAND_DISPLAY=//p' "${log}" | head -1)"
   portal_helper="${ROOT}/dev/smoke/compositor-portal-screenshot.sh"
   [[ -f "${portal_helper}" ]] || die "missing compositor-portal-screenshot.sh"
   xdp_wlr=""

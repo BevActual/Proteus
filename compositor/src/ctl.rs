@@ -167,7 +167,14 @@ impl CompositorNext {
                 Err(e) => serde_json::json!({"ok": false, "error": e}).to_string(),
             }
         } else if line == "session-lock" {
-            serde_json::json!({"ok": true, "supported": true}).to_string()
+            serde_json::json!({
+                "ok": true,
+                "supported": true,
+                "pending": self.session_lock_pending,
+                "locked": self.session_locked,
+                "active": self.session_lock_active(),
+            })
+            .to_string()
         } else if line == "clients" {
             // Prefer live Space / Window geometry for hypr-shaped at/size.
             self.clients_json_live().to_string()
