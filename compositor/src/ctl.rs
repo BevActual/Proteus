@@ -212,6 +212,7 @@ impl CompositorNext {
                     })
                     .unwrap_or((geo.size.w.max(0) as u64, geo.size.h.max(0) as u64, 60.0));
                 let scale = output.current_scale().fractional_scale();
+                let transform = crate::displays::transform_to_wl(output.current_transform());
                 let name = output.name();
                 let aw = self.wm.active_for_output(&name);
                 json!({
@@ -222,7 +223,7 @@ impl CompositorNext {
                     "x": geo.loc.x,
                     "y": geo.loc.y,
                     "scale": scale,
-                    "transform": 0,
+                    "transform": transform,
                     "focused": focused_name.as_deref() == Some(name.as_str()),
                     "activeWorkspace": {
                         "id": aw,
@@ -316,6 +317,9 @@ impl CompositorNext {
                     refresh_hz,
                 } => {
                     self.set_output_mode(&name, width, height, refresh_hz);
+                }
+                WmOp::OutputTransform { name, transform } => {
+                    self.set_output_transform(&name, transform);
                 }
             }
         }
@@ -570,7 +574,19 @@ impl CompositorNext {
             if f.width > 0 && f.height > 0 {
                 self.set_output_mode(&f.name, f.width, f.height, Some(f.refresh_rate));
             }
+            self.set_output_transform(&f.name, f.transform);
         }
+    }
+
+    pub fn set_output_transform(&mut self, name: &str, transform: u8) {
+        let Some(output) = self.space.outputs().find(|o| o.name() == name).cloned() else {
+            eprintln!("proteus-compositor: output transform: unknown {name}");
+            return;
+        };
+        let t = crate::displays::transform_from_wl(transform);
+        output.change_current_state(None, Some(t), None, None);
+        layer_map_for_output(&output).arrange();
+        self.relayout_active();
     }
 
     pub fn set_output_scale(&mut self, name: &str, scale: f64) {

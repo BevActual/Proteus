@@ -98,7 +98,7 @@ apply_displays_file() {
     exit 1
   }
   need_ctl
-  # Dispatch scale / pos / mode per monitor entry (python for JSON).
+  # Dispatch scale / pos / mode / transform per monitor entry (python for JSON).
   PROTEUS_APPLY_CTL="${CTL}" PROTEUS_APPLY_FILE="${file}" python3 - <<'PY'
 import json, os, subprocess, sys
 
@@ -133,6 +133,8 @@ for m in data:
         else:
             mode = f"{w}x{h}@{hz}"
         run([f"output {name} mode {mode}"])
+    transform = m.get("transform", 0)
+    run([f"output {name} transform {transform}"])
 print('{"ok":true}')
 PY
 }

@@ -66,6 +66,8 @@ pub enum WmOp {
         height: u32,
         refresh_hz: Option<f64>,
     },
+    /// Set `wl_output` transform (0–7 / named token).
+    OutputTransform { name: String, transform: u8 },
 }
 
 /// Tiling algorithm for non-floating windows on each output.
@@ -731,7 +733,7 @@ impl Wm {
             return Ok(vec![]);
         }
 
-        // output <name> scale <f> | pos|position <x> <y> | mode <WxH[@Hz]>
+        // output <name> scale <f> | pos|position <x> <y> | mode <WxH[@Hz]> | transform <…>
         if let Some(rest) = verb.strip_prefix("output ") {
             let rest = rest.trim();
             let mut parts = rest.split_whitespace();
@@ -741,7 +743,7 @@ impl Wm {
                 .to_string();
             let action = parts
                 .next()
-                .ok_or_else(|| "output requires scale|pos|mode".to_string())?;
+                .ok_or_else(|| "output requires scale|pos|mode|transform".to_string())?;
             match action {
                 "scale" => {
                     let s = parts
@@ -776,9 +778,16 @@ impl Wm {
                         refresh_hz,
                     }]);
                 }
+                "transform" | "orientation" => {
+                    let tok = parts
+                        .next()
+                        .ok_or_else(|| "output transform requires a value".to_string())?;
+                    let transform = crate::displays::parse_transform_token(tok)?;
+                    return Ok(vec![WmOp::OutputTransform { name, transform }]);
+                }
                 other => {
                     return Err(format!(
-                        "unsupported output action (want scale|pos|mode): {other}"
+                        "unsupported output action (want scale|pos|mode|transform): {other}"
                     ));
                 }
             }
@@ -950,6 +959,14 @@ mod tests {
                 width: 1920,
                 height: 1080,
                 refresh_hz: Some(60.0),
+            }]
+        );
+        let ops = wm.dispatch("output DP-1 transform 180").unwrap();
+        assert_eq!(
+            ops,
+            vec![WmOp::OutputTransform {
+                name: "DP-1".into(),
+                transform: 2,
             }]
         );
         assert!(wm.dispatch("output DP-1 rotate 90").is_err());

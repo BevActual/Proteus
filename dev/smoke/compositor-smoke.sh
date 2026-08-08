@@ -67,6 +67,11 @@ grep -q 'output .* scale\|OutputScale\|strip_prefix("output ' "${CRATE}/src/wm.r
   || die "dispatch output scale missing"
 grep -q 'OutputPos\|OutputMode\|output .* mode' "${CRATE}/src/wm.rs" \
   || die "dispatch output pos/mode missing"
+grep -q 'OutputTransform\|output .* transform\|parse_transform_token' \
+  "${CRATE}/src/wm.rs" "${CRATE}/src/displays.rs" "${CRATE}/src/ctl.rs" \
+  || die "dispatch output transform missing"
+grep -q 'transform' "${ROOT}/shell/scripts/proteus-settings-apply" \
+  || die "proteus-settings-apply apply-displays transform missing"
 grep -q 'apply-displays' "${ROOT}/shell/scripts/proteus-settings-apply" \
   || die "proteus-settings-apply apply-displays missing"
 grep -qE '^\s*input\)|input-reload' "${ROOT}/shell/scripts/proteus-settings-apply" \
@@ -374,8 +379,19 @@ except Exception:
       || die "output scale failed: ${scale_disp}"
     # Restore 1.0 so later captures stay sane.
     "${CTL}" dispatch "output ${mon_name} scale 1" >/dev/null 2>&1 || true
+    xf_disp="$("${CTL}" dispatch "output ${mon_name} transform 180" 2>/dev/null || true)"
+    echo "${xf_disp}" | grep -q '"ok": *true' \
+      && ok "dispatch output ${mon_name} transform 180" \
+      || die "output transform failed: ${xf_disp}"
+    mon_xf="$("${CTL}" monitors 2>/dev/null || true)"
+    echo "${mon_xf}" | python3 -c 'import json,sys
+a=json.load(sys.stdin)
+sys.exit(0 if a and int(a[0].get("transform",-1))==2 else 1)' \
+      && ok "monitors JSON transform=2 after dispatch" \
+      || die "monitors transform not live: ${mon_xf}"
+    "${CTL}" dispatch "output ${mon_name} transform normal" >/dev/null 2>&1 || true
   else
-    ok "monitors empty — output scale prove skipped"
+    ok "monitors empty — output scale/transform prove skipped"
   fi
 
   rb="$("${CTL}" dispatch reloadbinds 2>/dev/null || true)"

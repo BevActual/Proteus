@@ -5,6 +5,7 @@
 use std::path::PathBuf;
 
 use serde_json::Value;
+use smithay::utils::Transform;
 
 /// One monitor entry from the Displays Fact.
 #[derive(Debug, Clone)]
@@ -16,6 +17,8 @@ pub struct DisplayFact {
     pub x: i32,
     pub y: i32,
     pub scale: f64,
+    /// `wl_output` transform index 0–7 (Normal … Flipped270).
+    pub transform: u8,
 }
 
 /// Resolve Fact path: `$XDG_CONFIG_HOME/proteus/displays.json` or `~/.config/...`.
@@ -64,6 +67,16 @@ pub fn parse_displays_fact(raw: &str) -> Vec<DisplayFact> {
                 x: m.get("x").and_then(|x| x.as_i64()).unwrap_or(0) as i32,
                 y: m.get("y").and_then(|x| x.as_i64()).unwrap_or(0) as i32,
                 scale: m.get("scale").and_then(|x| x.as_f64()).unwrap_or(1.0),
+                transform: m
+                    .get("transform")
+                    .and_then(|x| {
+                        if let Some(n) = x.as_u64() {
+                            return Some(n.min(7) as u8);
+                        }
+                        x.as_str()
+                            .and_then(|s| parse_transform_token(s).ok())
+                    })
+                    .unwrap_or(0),
             })
         })
         .collect()
@@ -75,6 +88,54 @@ pub fn clamp_scale(s: f64) -> f64 {
         return 1.0;
     }
     s.clamp(0.5, 4.0)
+}
+
+/// Parse transform token: `0`–`7`, `normal`, `90`, `180`, `270`, `flipped`, …
+pub fn parse_transform_token(raw: &str) -> Result<u8, String> {
+    let t = raw.trim().to_ascii_lowercase();
+    let idx = match t.as_str() {
+        "0" | "normal" | "none" => 0,
+        "1" | "90" => 1,
+        "2" | "180" => 2,
+        "3" | "270" => 3,
+        "4" | "flipped" | "flip" => 4,
+        "5" | "flipped90" | "flip90" => 5,
+        "6" | "flipped180" | "flip180" => 6,
+        "7" | "flipped270" | "flip270" => 7,
+        other => {
+            return Err(format!(
+                "bad transform (want 0-7|normal|90|180|270|flipped…): {other}"
+            ));
+        }
+    };
+    Ok(idx)
+}
+
+pub fn transform_from_wl(idx: u8) -> Transform {
+    match idx {
+        0 => Transform::Normal,
+        1 => Transform::_90,
+        2 => Transform::_180,
+        3 => Transform::_270,
+        4 => Transform::Flipped,
+        5 => Transform::Flipped90,
+        6 => Transform::Flipped180,
+        7 => Transform::Flipped270,
+        _ => Transform::Normal,
+    }
+}
+
+pub fn transform_to_wl(t: Transform) -> u8 {
+    match t {
+        Transform::Normal => 0,
+        Transform::_90 => 1,
+        Transform::_180 => 2,
+        Transform::_270 => 3,
+        Transform::Flipped => 4,
+        Transform::Flipped90 => 5,
+        Transform::Flipped180 => 6,
+        Transform::Flipped270 => 7,
+    }
 }
 
 /// Parse `1920x1080` or `1920x1080@60` / `1920x1080@59.94`.
@@ -155,6 +216,16 @@ mod tests {
         assert_eq!(v[0].name, "DP-1");
         assert_eq!(v[0].x, 100);
         assert!((v[0].scale - 1.25).abs() < 1e-9);
+        assert_eq!(v[0].transform, 0);
+        let raw90 = r#"[{"name":"eDP-1","transform":"90"}]"#;
+        assert_eq!(parse_displays_fact(raw90)[0].transform, 1);
+    }
+
+    #[test]
+    fn parse_transform_token_ok() {
+        assert_eq!(parse_transform_token("180").unwrap(), 2);
+        assert_eq!(parse_transform_token("flipped").unwrap(), 4);
+        assert!(parse_transform_token("spiral").is_err());
     }
 
     #[test]
@@ -167,6 +238,7 @@ mod tests {
             x: 0,
             y: 0,
             scale: 1.0,
+            transform: 0,
         }];
         assert!(!facts_cover_all_outputs(&facts, &["a".into(), "b".into()]));
         assert!(facts_cover_all_outputs(&facts, &["a".into()]));
