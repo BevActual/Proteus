@@ -280,6 +280,8 @@ grep -rq --include='*.rs' 'ToggleFocus\|focus_profiles\|Focus Mode' "${SURFACES}
 grep -q 'apply_focus_schedule\|schedule_window_active\|focus_schedule_last' \
   "${PLATFORM}/focus.rs" "${APP}/runtime.rs" "${APP}/state.rs" \
   && ok "Focus schedule auto-apply thin" || bad "Focus schedule auto-apply missing"
+grep -q 'parse_weekly_rrule\|rrule' "${PLATFORM}/focus.rs" \
+  && ok "Focus schedule RRULE thin" || bad "Focus schedule RRULE missing"
 grep -q 'focus_launch_allowed\|gate_launch_for_focus' \
   "${PLATFORM}/focus.rs" "${APP}/handlers/overlays.rs" "${APP}/handlers/dock.rs" \
   && ok "Focus launch enforce thin" || bad "Focus launch enforce missing"

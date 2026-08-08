@@ -196,6 +196,9 @@ grep -q 'FocusAdd\|FocusRename\|FocusDelete\|focus_profile_add\|focus_profile_de
 grep -q 'FocusAllowedAppsCommit\|FocusScheduleCommit\|focus_profile_set_allowed_apps\|focus_profile_set_schedule' \
   "${ST_ROOT}/src/panes/desktop.rs" "${ST_ROOT}/src/backend.rs" "${ST_ROOT}/src/main.rs" \
   && ok "desktop Focus schedule/allowlist thin" || bad "Focus schedule/allowlist missing"
+grep -q 'FocusScheduleRruleDraft\|focus_rrule_byday\|rrule' \
+  "${ST_ROOT}/src/panes/desktop.rs" "${ST_ROOT}/src/backend.rs" "${ST_ROOT}/src/main.rs" \
+  && ok "desktop Focus schedule RRULE thin" || bad "Focus schedule RRULE missing"
 grep -q 'FocusBreakCritical\|focus_profile_set_break_critical\|breakCritical' \
   "${ST_ROOT}/src/panes/desktop.rs" "${ST_ROOT}/src/backend.rs" "${ST_ROOT}/src/main.rs" \
   && ok "desktop Focus critical-break thin" || bad "Focus critical-break missing"

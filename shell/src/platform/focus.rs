@@ -100,14 +100,15 @@ pub fn focus_schedule_should_be_on() -> Option<bool> {
     schedule_window_active(profile.get("schedule"))
 }
 
-/// Evaluate `{ enabled, days[1–7], start, end }` against local now.
+/// Evaluate `{ enabled, days[1–7], start, end, rrule? }` against local now.
+/// When `rrule` is a valid thin WEEKLY (BYDAY ± UNTIL), BYDAY overrides `days`.
 pub fn schedule_window_active(schedule: Option<&Value>) -> Option<bool> {
     let schedule = schedule?;
     let enabled = schedule.get("enabled").and_then(|v| v.as_bool())?;
     if !enabled {
         return None;
     }
-    let days: Vec<u32> = schedule
+    let mut days: Vec<u32> = schedule
         .get("days")
         .and_then(|v| v.as_array())
         .map(|a| {
@@ -118,12 +119,28 @@ pub fn schedule_window_active(schedule: Option<&Value>) -> Option<bool> {
                 .collect()
         })
         .unwrap_or_default();
+    let now = Local::now();
+    if let Some(rrule) = schedule.get("rrule").and_then(|v| v.as_str()) {
+        let rrule = rrule.trim();
+        if !rrule.is_empty() {
+            if let Some((byday, until)) = parse_weekly_rrule(rrule) {
+                if let Some(until) = until {
+                    if now.date_naive() > until {
+                        // Recurrence ended — schedule inactive (no edge apply).
+                        return None;
+                    }
+                }
+                if !byday.is_empty() {
+                    days = byday;
+                }
+            }
+        }
+    }
     if days.is_empty() {
         return None;
     }
     let start = parse_hhmm(schedule.get("start").and_then(|v| v.as_str())?)?;
     let end = parse_hhmm(schedule.get("end").and_then(|v| v.as_str())?)?;
-    let now = Local::now();
     // chrono: Mon=1 … Sun=7 (matches Settings Focus days).
     let dow = now.weekday().number_from_monday();
     if !days.contains(&dow) {
@@ -137,6 +154,70 @@ pub fn schedule_window_active(schedule: Option<&Value>) -> Option<bool> {
         mins >= start && mins < end
     };
     Some(in_window)
+}
+
+/// Thin RRULE: `FREQ=WEEKLY` + `BYDAY=MO,TU,…` (+ optional `UNTIL=YYYYMMDD`).
+/// `INTERVAL` must be absent or `1`. Returns `(days 1–7, until date)`.
+pub fn parse_weekly_rrule(rrule: &str) -> Option<(Vec<u32>, Option<chrono::NaiveDate>)> {
+    let mut freq_weekly = false;
+    let mut byday: Vec<u32> = Vec::new();
+    let mut until: Option<chrono::NaiveDate> = None;
+    for part in rrule.split(';') {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        let (key, val) = match part.split_once('=') {
+            Some((k, v)) => (k.trim(), v.trim()),
+            None => continue,
+        };
+        match key.to_ascii_uppercase().as_str() {
+            "FREQ" => {
+                if !val.eq_ignore_ascii_case("WEEKLY") {
+                    return None;
+                }
+                freq_weekly = true;
+            }
+            "INTERVAL" => {
+                if val != "1" {
+                    return None;
+                }
+            }
+            "BYDAY" => {
+                for tok in val.split(',') {
+                    let d = match tok.trim().to_ascii_uppercase().as_str() {
+                        "MO" => 1,
+                        "TU" => 2,
+                        "WE" => 3,
+                        "TH" => 4,
+                        "FR" => 5,
+                        "SA" => 6,
+                        "SU" => 7,
+                        _ => continue,
+                    };
+                    if !byday.contains(&d) {
+                        byday.push(d);
+                    }
+                }
+            }
+            "UNTIL" => {
+                // YYYYMMDD or YYYYMMDDTHHMMSSZ — date prefix only.
+                let digits: String = val.chars().take(8).filter(|c| c.is_ascii_digit()).collect();
+                if digits.len() == 8 {
+                    until = chrono::NaiveDate::parse_from_str(&digits, "%Y%m%d").ok();
+                }
+            }
+            "COUNT" => {
+                // Thin: ignore COUNT (day/time window still applies).
+            }
+            _ => {}
+        }
+    }
+    if !freq_weekly || byday.is_empty() {
+        return None;
+    }
+    byday.sort_unstable();
+    Some((byday, until))
 }
 
 fn parse_hhmm(s: &str) -> Option<u32> {
@@ -345,6 +426,40 @@ mod tests {
     fn parse_hhmm_ok() {
         assert_eq!(parse_hhmm("09:30"), Some(9 * 60 + 30));
         assert!(parse_hhmm("25:00").is_none());
+    }
+
+    #[test]
+    fn parse_weekly_rrule_byday_and_until() {
+        let (days, until) =
+            parse_weekly_rrule("FREQ=WEEKLY;BYDAY=MO,WE,FR;UNTIL=20261231").unwrap();
+        assert_eq!(days, vec![1, 3, 5]);
+        assert_eq!(
+            until,
+            Some(chrono::NaiveDate::from_ymd_opt(2026, 12, 31).unwrap())
+        );
+        assert!(parse_weekly_rrule("FREQ=DAILY;BYDAY=MO").is_none());
+        assert!(parse_weekly_rrule("FREQ=WEEKLY;INTERVAL=2;BYDAY=MO").is_none());
+        assert!(parse_weekly_rrule("FREQ=WEEKLY").is_none());
+    }
+
+    #[test]
+    fn schedule_rrule_overrides_days_all_week() {
+        let sched = json!({
+            "enabled": true,
+            "days": [1],
+            "start": "00:00",
+            "end": "23:59",
+            "rrule": "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA,SU"
+        });
+        assert_eq!(schedule_window_active(Some(&sched)), Some(true));
+        let expired = json!({
+            "enabled": true,
+            "days": [1, 2, 3, 4, 5, 6, 7],
+            "start": "00:00",
+            "end": "23:59",
+            "rrule": "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA,SU;UNTIL=20200101"
+        });
+        assert_eq!(schedule_window_active(Some(&expired)), None);
     }
 
     #[test]
