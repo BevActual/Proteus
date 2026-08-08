@@ -24,7 +24,7 @@
 | wp_viewporter + wp_fractional_scale | `works` — iced_layershell clients hard-require viewporter |
 | `zwlr_screencopy_manager_v1` (SHM + linux-dmabuf) | `works` — grim + `copy_with_damage`; nested + DRM GLES upload into client dmabufs; offscreen readback for CPU `last_frame`; **Y-flip auto** skips CPU flip on virtio-gpu (`PROTEUS_SCREENCOPY_FLIP_Y=0\|1` override) so grim matches the seat |
 | Portal Screenshot (`xdg-desktop-portal-wlr`) | `partial` — sets `XDG_CURRENT_DESKTOP=wlroots`; smoke runs isolated dbus Screenshot when portal-wlr is installed (SKIP otherwise). **Shipping prefers portal-wlr** (Hyprland portal retired with Hyprland). |
-| Owned game-present + focus-stack | `partial` — ctl `game-present` / `focus-stack`; Fact `~/.config/proteus/game-present`; smoke `compositor-game-present.sh` (no gamescope binary). Steam helper `proteus-gamescope` defaults to owned path. |
+| Owned game-present + focus-stack | `partial` — ctl + Fact; **scale apply thin** (`present_dst_rect` / `apply_game_present_layout`); compositor Rescale blit Out; smoke `compositor-game-present.sh`. Steam helper defaults to owned path. |
 | Gamescope nesting (interim) | `partial` — optional smoke still nests `gamescope` as a client; product nest only with `PROTEUS_FORCE_GAMESCOPE=1` / `engine=gamescope`. Console-home **not** swapped. |
 | PipeWire Screencast | `partial` — compositor `copy_with_damage` ready for xdp-wlr/wf-recorder; smoke via `wf-recorder` when installed (SKIP otherwise). PipeWire stays never-own. |
 | Input routing (pointer/keyboard, layers above windows) | `thin` |
@@ -121,8 +121,12 @@ proteus-compositor: layer mapped: proteus-bar
 - Ctl: `proteus-compositorctl game-present` · `dispatch game-present …` ·
   `focus-stack …` — see [`game_present.rs`](../../compositor/src/game_present.rs) +
   [`wm.rs`](../../compositor/src/wm.rs).
+- **Scale apply (thin):** `present_dst_rect` + `apply_game_present_layout` maps and
+  configures the client into integer letterbox or stretch/fill output rect
+  (restore_* keeps source size across mode flips). Compositor-side buffer
+  Rescale/NN blit still **Out**.
 - Smoke: [`dev/smoke/compositor-game-present.sh`](../../dev/smoke/compositor-game-present.sh)
-  (no gamescope binary required).
+  (no gamescope binary required) + `cargo test` present_dst_* .
 - Desktop launch: [`shell/scripts/proteus-gamescope`](../../shell/scripts/proteus-gamescope)
   — **owned** bare + map into game-present; nest only
   `PROTEUS_FORCE_GAMESCOPE=1` / Fact `engine=gamescope`.

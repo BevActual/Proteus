@@ -37,6 +37,8 @@ echo "${fs}" | grep -q 'layer' \
 # Policy knobs (no mapped client required)
 for verb in \
   "game-present scale integer" \
+  "game-present scale stretch" \
+  "game-present scale fill" \
   "game-present fps 0" \
   "game-present filter nearest" \
   "game-present reload" \
@@ -46,5 +48,6 @@ for verb in \
     || { echo "compositor-game-present: dispatch failed: ${verb} → ${out}" >&2; exit 1; }
 done
 
+# Unit math for present_dst_rect lives in game_present.rs cargo tests.
 echo "compositor-game-present: OK"
 exit 0

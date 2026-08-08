@@ -6,6 +6,59 @@
 use serde_json::Value;
 use std::path::PathBuf;
 
+/// Destination rectangle (logical px) for a game-present buffer in an output.
+///
+/// - **integer** — largest integer scale that fits; centered letterbox
+/// - **stretch** — fill output (may non-uniform scale)
+/// - **fill** — cover output preserving aspect (may crop); v1 = same as stretch
+///   until crop path lands
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PresentDst {
+    pub x: i32,
+    pub y: i32,
+    pub w: i32,
+    pub h: i32,
+    /// Uniform scale applied to source for integer mode; stretch/fill use
+    /// independent axes (`sx`/`sy` via w/src_w).
+    pub scale: f64,
+}
+
+pub fn present_dst_rect(
+    src_w: i32,
+    src_h: i32,
+    out_w: i32,
+    out_h: i32,
+    mode: ScaleMode,
+) -> PresentDst {
+    let src_w = src_w.max(1);
+    let src_h = src_h.max(1);
+    let out_w = out_w.max(1);
+    let out_h = out_h.max(1);
+    match mode {
+        ScaleMode::Integer => {
+            let sx = (out_w / src_w).max(1);
+            let sy = (out_h / src_h).max(1);
+            let s = sx.min(sy).max(1);
+            let w = src_w * s;
+            let h = src_h * s;
+            PresentDst {
+                x: (out_w - w) / 2,
+                y: (out_h - h) / 2,
+                w,
+                h,
+                scale: f64::from(s),
+            }
+        }
+        ScaleMode::Stretch | ScaleMode::Fill => PresentDst {
+            x: 0,
+            y: 0,
+            w: out_w,
+            h: out_h,
+            scale: f64::from(out_w) / f64::from(src_w),
+        },
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ScaleMode {
     #[default]
@@ -123,5 +176,21 @@ mod tests {
         assert_eq!(p.scale_mode, ScaleMode::Stretch);
         assert_eq!(p.fps_limit, 60);
         assert_eq!(p.filter, PresentFilter::Linear);
+    }
+
+    #[test]
+    fn present_dst_integer_letterbox() {
+        let d = present_dst_rect(320, 200, 1280, 720, ScaleMode::Integer);
+        assert_eq!(d.scale, 3.0); // 320*3=960 < 1280, 200*3=600 < 720; 4 would overflow height
+        assert_eq!(d.w, 960);
+        assert_eq!(d.h, 600);
+        assert_eq!(d.x, (1280 - 960) / 2);
+        assert_eq!(d.y, (720 - 600) / 2);
+    }
+
+    #[test]
+    fn present_dst_stretch_fills() {
+        let d = present_dst_rect(320, 200, 1280, 720, ScaleMode::Stretch);
+        assert_eq!((d.x, d.y, d.w, d.h), (0, 0, 1280, 720));
     }
 }

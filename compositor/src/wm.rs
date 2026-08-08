@@ -95,6 +95,8 @@ pub enum WmOp {
     },
     /// Set `wl_output` transform (0–7 / named token).
     OutputTransform { name: String, transform: u8 },
+    /// Place/configure game-present window per scale_mode (letterbox / stretch).
+    ApplyGamePresentLayout { address: String },
 }
 
 /// Console / Guide focus layer (owned focus-stack; replaces Gamescope baselayer).
@@ -981,6 +983,9 @@ impl Wm {
                 let mode = ScaleMode::parse(tok)
                     .ok_or_else(|| format!("bad game-present scale: {tok}"))?;
                 self.game_present.scale_mode = mode;
+                if let Some(addr) = self.game_present_address.clone() {
+                    return Ok(vec![WmOp::ApplyGamePresentLayout { address: addr }]);
+                }
                 Ok(vec![])
             }
             "fps" => {
@@ -1032,6 +1037,8 @@ impl Wm {
             if let Some(t) = self.find_mut(&addr) {
                 t.fullscreen = false;
                 t.floating = false;
+                t.restore_w = 0;
+                t.restore_h = 0;
             }
             return Ok(vec![
                 WmOp::ConfigureFullscreen {
@@ -1074,8 +1081,8 @@ impl Wm {
             address: addr.clone(),
             enabled: true,
         });
-        ops.push(WmOp::Focus(addr));
-        ops.push(WmOp::Relayout);
+        ops.push(WmOp::Focus(addr.clone()));
+        ops.push(WmOp::ApplyGamePresentLayout { address: addr });
         Ok(ops)
     }
 
@@ -1388,6 +1395,10 @@ mod tests {
                 address,
                 enabled: true
             } if address == "0x1"
+        )));
+        assert!(ops.iter().any(|o| matches!(
+            o,
+            WmOp::ApplyGamePresentLayout { address } if address == "0x1"
         )));
         wm.dispatch("focus-stack set-title 0x1").unwrap();
         wm.dispatch("focus-stack home").unwrap();

@@ -298,7 +298,9 @@ Guide focus-flip via `proteus-console-focus` → compositor **focus-stack**.
 - Lock = session exit / overlay lock on smithay — greeter remains login.
 
 **Present knobs** — Fact `~/.config/proteus/game-present` (`scale_mode` /
-`fps_limit` / `filter` / `engine`). Desktop Steam: `proteus-gamescope %command%`.
+`fps_limit` / `filter` / `engine`). Scale apply thin: integer letterbox /
+stretch/fill via client configure + map (`apply_game_present_layout`);
+compositor buffer Rescale blit Out. Desktop Steam: `proteus-gamescope %command%`.
 
 **Pad input** is **single-fire** — `proteus-guide` single-instance lock,
 BTN_DPAD/HAT dual-report dedupe, hold-repeat delay. Kit: `apply-console-kit.sh`.

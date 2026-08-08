@@ -392,8 +392,122 @@ impl CompositorNext {
                 WmOp::OutputTransform { name, transform } => {
                     self.set_output_transform(&name, transform);
                 }
+                WmOp::ApplyGamePresentLayout { address } => {
+                    self.apply_game_present_layout(&address);
+                }
             }
         }
+    }
+
+    /// Map + configure the game-present window into `present_dst_rect` on its output.
+    ///
+    /// Thin v1: client is sized to the destination (integer letterbox or stretch
+    /// fill). Compositor-side buffer Rescale blit remains Out.
+    pub fn apply_game_present_layout(&mut self, addr: &str) {
+        use crate::game_present::present_dst_rect;
+        use smithay::utils::{Logical, Point, Rectangle, Size};
+
+        let Some(window) = self.windows.get(addr).cloned() else {
+            return;
+        };
+        let primary = self.primary_output_name();
+        let out_name = self
+            .wm
+            .find(addr)
+            .map(|t| {
+                if t.output.is_empty() {
+                    primary.clone()
+                } else {
+                    t.output.clone()
+                }
+            })
+            .unwrap_or(primary);
+        let Some(output) = self.space.outputs().find(|o| o.name() == out_name).cloned() else {
+            eprintln!("proteus-compositor: game-present layout: unknown output {out_name}");
+            return;
+        };
+        let Some(output_geo) = self.space.output_geometry(&output) else {
+            return;
+        };
+
+        // Prefer last known content size; fall back to current geometry / 320x200.
+        let (src_w, src_h) = self
+            .wm
+            .find(addr)
+            .map(|t| {
+                let w = if t.size_w > 0 {
+                    t.size_w
+                } else {
+                    window.geometry().size.w
+                };
+                let h = if t.size_h > 0 {
+                    t.size_h
+                } else {
+                    window.geometry().size.h
+                };
+                (w.max(1), h.max(1))
+            })
+            .unwrap_or((320, 200));
+
+        // For stretch/fill, source aspect still used for Fill later; stretch uses full out.
+        // Integer uses src as the unit to scale. When re-applying after a prior stretch
+        // configure, prefer restore_* if set.
+        let (src_w, src_h) = self
+            .wm
+            .find(addr)
+            .and_then(|t| {
+                if t.restore_w > 0 && t.restore_h > 0 {
+                    Some((t.restore_w, t.restore_h))
+                } else {
+                    None
+                }
+            })
+            .unwrap_or((src_w, src_h));
+
+        if let Some(t) = self.wm.find_mut(addr) {
+            if t.restore_w <= 0 || t.restore_h <= 0 {
+                t.restore_w = src_w;
+                t.restore_h = src_h;
+            }
+        }
+
+        let mode = self.wm.game_present.scale_mode;
+        let dst = present_dst_rect(
+            src_w,
+            src_h,
+            output_geo.size.w,
+            output_geo.size.h,
+            mode,
+        );
+        let loc = Point::<i32, Logical>::from((output_geo.loc.x + dst.x, output_geo.loc.y + dst.y));
+        let size = Size::<i32, Logical>::from((dst.w, dst.h));
+        let tile = Rectangle::new(loc, size);
+
+        self.space.map_element(window.clone(), loc, false);
+        self.wm
+            .set_geometry(addr, (loc.x, loc.y), (size.w, size.h));
+
+        if let Some(toplevel) = window.toplevel() {
+            toplevel.with_pending_state(|state| {
+                state.size = Some(size);
+                state.states.set(xdg_toplevel::State::Fullscreen);
+            });
+            toplevel.send_configure();
+        } else if let Some(x11) = window.x11_surface() {
+            let _ = x11.configure(Some(tile));
+        }
+        eprintln!(
+            "proteus-compositor: game-present layout {} mode={} {}x{} @{},{} (src {}x{} scale={:.2})",
+            addr,
+            mode.as_str(),
+            dst.w,
+            dst.h,
+            dst.x,
+            dst.y,
+            src_w,
+            src_h,
+            dst.scale
+        );
     }
 
     pub fn broadcast_event(&self, line: &str) {
