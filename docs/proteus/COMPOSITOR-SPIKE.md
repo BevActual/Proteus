@@ -229,6 +229,7 @@ backdrop shaders, pop-launcher. Proteus chrome stays in `proteus-shell`.
 ## Out
 
 Flipped transform UI, deeper multi-GPU policy,
-console-home gamescope swap, Settings keybind rebind editor,
+console-home gamescope swap, full macOS-style keybind editor
+(thin Super rebind In via Settings Keyboard),
 blur/anim polish, flip shell lock default to protocol,
 ext-idle-notify, visibility-strict idle-inhibit.

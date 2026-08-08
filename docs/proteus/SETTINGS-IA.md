@@ -191,7 +191,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Displays** (`displays`) | Layout canvas + per-monitor scale/orientation; Identify; 10s Revert; Refresh/topology honesty; Fact `displays.json` (incl. transform) | compositorctl + `displays.json` | `shipped` (thin; orientation UI In · flipped Out) |
 | **Sound** (`sound`) | Category → Output / Input / Applications / Mixer / Latency | pactl + `proteus-audio-mix` / `audio-peak.py` + `pw-metadata` + `pw-link` | `shipped` |
 | **Network** (`network`) | Category → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN / Headscale — password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG/OpenVPN import · Headscale admin thin (nodes · users · policy text) | hostnamectl / nmcli / bluetoothctl / localsend / tailscale / `proteus-headscale.py` | `shipped` |
-| **Peripherals** (`peripherals`) | Category → Keyboard, Mouse, Touchpad, Tablet, Gamepads (Guide Facts) | keybinds + `proteus-settings-apply input` (`mouse*` · `touchpad*`); tablet/gamepad Facts; `inputDeviceOverrides` Out | `shipped` (thin) |
+| **Peripherals** (`peripherals`) | Category → Keyboard, Mouse, Touchpad, Tablet, Gamepads (Guide Facts) | keybinds thin rebind + `proteus-settings-apply input` (`mouse*` · `touchpad*`); tablet/gamepad Facts; `inputDeviceOverrides` Out | `shipped` (thin) |
 | **Power** (`power`) | Power mode segmented (PPD); battery (UPower); **Charge limits** (sysfs `charge_control_*` when present); idle / lid via `proteus-logind` drop-in + conf escape | `powerprofilesctl` / UPower / `proteus-logind` / `proteus-battery-threshold` | `shipped` |
 | **Users** (`users`) | Session Lock/Logout + confirm Reboot/Shutdown; lock screen PIN set/change/clear; current user (GECOS/home) + other local users read-only; Online accounts jump; greetd status + autologin write + conf escape | session Facts · `proteus-pin.py` · id/getent · `proteus-greetd` (pkexec `[initial_session]`) | `shipped` |
 | **Online accounts** (`accounts`) | Hub → per-provider leaves (Google / Microsoft / Exchange / Nextcloud / IMAP / CalDAV / CardDAV / Apple); PKCE + app-password seats (`proteus-accounts` vault); calendar + mail + contacts glances; **calendar event create/edit/delete**; **recurrence thin**; **mail compose thin**; **contacts create/edit/delete thin** | `proteus-accounts` + iced Accounts panes + calendar/mail/contacts helpers (HTML/drafts/multi-file · photos/groups/apps Out) | `partial` |
@@ -260,7 +260,7 @@ Reference hybrid leaf under **Peripherals → Keyboard**:
 1. Defaults baked in compositor [`binds.rs`](../../compositor/src/binds.rs)
 2. Optional overrides in `~/.config/proteus/keybinds.json`
 3. `proteus-compositorctl dispatch reloadbinds` after Fact edit
-4. UI: honesty stub in iced Settings (full rebind editor Out)
+4. UI: iced Settings thin rebind (list Super chords · Set `super+key` / Reset override; Spaces/XF86 + full macOS-style editor Out)
 5. Guest wiring: `install/machine/install-keybinds.sh` (seeds Fact; no hypr conf)
 
 **Peripherals** category (same drill-in as Appearance): Keyboard · Mouse ·
@@ -289,7 +289,7 @@ pages via lazy leaf loaders (`DesktopGapsLeaf`, `DesktopChromeLeaf`,
 | Dock & menu bar | Show; layout Center/Span/Left/Right; icon size; rounding; autohide; menu bar height/rounding/autohide → `settings.json` (shell mtime). Monitor Facts Out |
 | Spaces | Displays share Spaces (`workspaceMode` synced \| perDisplay); **Named Spaces** (`workspaceNames` + compositor `renameworkspace`); Super+**1–10** synced · **Super+Ctrl+1–10** local (`workspace N,local`); Super+Shift move still Out; strip drag `workspaceOrder` + wheel; **Scratchpad** Super+S / Super+Alt+S + strip ◇ pill (`special:scratch` ≠ dock minimize) Out/thin; **custom specials** (`specialWorkspaces` CRUD · strip pills ≤8 · Super+Alt+1–8 / Super+Alt+Shift+1–8 index + optional per-slug toggle + move chords); bands via `proteus-workspace`; multi-head `status`/`ensure` + disconnect `migrate-disconnect`; spaces-smoke |
 | Default apps | Browser / Files / Images / Music / Video / PDF / Text / Archives / Mail / Calendar via `proteus-defaults.py` + `xdg-mime`; mimeapps.list escape |
-| Focus | Soft quiet profiles (seed Work/Sleep/Personal + **add/rename/delete**); allowlist · keywords · schedule · critical; combo picker when >3; CC menu + Desktop → Focus leaf |
+| Focus | Soft quiet profiles (seed Work/Personal + **add/rename/delete** In thin); keywordAllow/Deny CSV In; app allowlist · schedule · critical Out; active chips + enable; CC menu + Desktop → Focus leaf |
 | Control Center | Plates + tile visibility/size/span/order + **columns 2\|3** + reset (`ControlCenterLayout`); Settings → Desktop → Control Center |
 | Beacon | Universal Apps (+ Windows · Privacy · **focus-cycle** Action); Files index (`beacon-file-index`); Clipboard `wtype`; tags / clear recents |
 
@@ -456,9 +456,9 @@ ensure/`apply-names`/`migrate-disconnect` · `workspaceOrder` · SpacesNames ·
 Super+1–10 logical SoT + Scratchpad (keys + strip ◇ pill) + custom special CRUD
 + strip pills / Super+Alt+1–4 (`specialWorkspaces`) shipped; Spaces row stays
 `partial` until live 2-head is routine.)*
-*(Focus profile CRUD: Focus add/rename/delete · Desktop Focus leaf UI · combo
-at >3 · focus-smoke · CONFIG-SCHEMA profile object shipped — duplicate/reorder /
-CC inline CRUD Out.)*
+*(Focus profile CRUD thin In: Desktop → Focus add/rename/delete · keyword
+Allow/Deny · enable + active picker · settings.json `focusProfiles` — schedules ·
+app allowlist · critical UI · duplicate/reorder · CC inline CRUD Out.)*
 *(CC columns UI: ControlCenterLayout.setColumns · Settings Layout segmented 2|3 ·
 control-center-smoke · roundtrip columns shipped — panel width scaling · CC
 inline Customize · per-monitor columns Out.)*

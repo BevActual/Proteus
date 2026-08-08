@@ -177,6 +177,9 @@ grep -q 'desktop-beacon' "${ST_ROOT}/src/nav.rs" \
 grep -q 'defaults_list\|SetDefault\|ClearBeaconRecents\|SetFocusActive' \
   "${ST_ROOT}/src/panes/desktop.rs" "${ST_ROOT}/src/backend.rs" "${ST_ROOT}/src/main.rs" \
   && ok "desktop defaults/focus/beacon wire" || bad "desktop thin leaves missing"
+grep -q 'FocusAdd\|FocusRename\|FocusDelete\|focus_profile_add\|focus_profile_delete' \
+  "${ST_ROOT}/src/panes/desktop.rs" "${ST_ROOT}/src/backend.rs" "${ST_ROOT}/src/main.rs" \
+  && ok "desktop Focus profile CRUD" || bad "Focus profile CRUD missing"
 grep -q 'ConnectOAuth\|accounts_connect_oauth' "${ST_ROOT}/src/panes/accounts.rs" "${ST_ROOT}/src/backend.rs" \
   && ok "Accounts OAuth PKCE wire" || bad "Accounts OAuth missing"
 [[ -f "${ST_ROOT}/src/panes/displays.rs" ]] \
@@ -202,8 +205,14 @@ grep -q 'privacy-flatpak\|FlatpakSet\|privacy-diagnostics' "${ST_ROOT}/src/panes
   && ok "privacy-flatpak leaf" || bad "privacy-flatpak missing"
 grep -q 'fn privacy_flatpak_list\|fn privacy_flatpak_set\|fn privacy_diagnostics' "${ST_ROOT}/src/backend.rs" \
   && ok "privacy flatpak/diagnostics backends" || bad "privacy Phase D backends missing"
-grep -q 'peripherals-keyboard\|keybinds.json\|compositor' "${ST_ROOT}/src/panes/peripherals.rs" \
-  && ok "keyboard leaf (compositor binds honesty)" || bad "keyboard leaf missing"
+grep -q 'peripherals-keyboard\|KeybindEdit\|KeybindApply\|keybinds.json' \
+  "${ST_ROOT}/src/panes/peripherals.rs" \
+  && ok "keyboard leaf thin rebind UI" || bad "keyboard leaf rebind missing"
+grep -q 'fn keybinds_list\|fn keybinds_set_chord\|fn keybinds_clear_override\|reloadbinds' \
+  "${ST_ROOT}/src/backend.rs" \
+  && ok "keybinds backend + reloadbinds" || bad "keybinds backend missing"
+grep -q 'KeybindsLoaded\|KeybindApply\|keybinds_set_chord' "${ST_ROOT}/src/main.rs" \
+  && ok "keyboard rebind main wire" || bad "keyboard rebind main wire missing"
 
 # Phase 2 megas — canvas / grid / glances / headscale policy
 grep -q 'Layout canvas\|SetPosition\|NudgeX\|canvas::Program\|Canvas::new' "${ST_ROOT}/src/panes/displays.rs" \
