@@ -101,6 +101,7 @@ pub(crate) fn view_real(app: &App, id: window::Id) -> Element<'_, Message> {
                     } else {
                         0.0
                     },
+                    app.dock_context.as_deref(),
                 )
             }
         }

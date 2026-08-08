@@ -257,6 +257,8 @@ pub(crate) struct App {
     pub(crate) dock_dwell: Option<(String, Instant)>,
     /// Long-press edit mode — reorder pinned cells only.
     pub(crate) dock_edit: bool,
+    /// Right-click Keep/Remove menu target pin id.
+    pub(crate) dock_context: Option<String>,
     /// `(pin, press start)` while waiting for hold threshold.
     pub(crate) dock_hold_at: Option<(String, Instant)>,
     /// Pin id being dragged in edit mode.

@@ -16,6 +16,7 @@ pub(crate) fn enter_dock_edit(app: &mut App) {
     app.dock_drag = None;
     app.dock_drag_target = None;
     app.dock_drag_off = false;
+    app.dock_context = None;
     app.dock_preview = None;
     app.dock_dwell = None;
     cancel_dock_leave(app);
@@ -32,6 +33,7 @@ pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
             if app.dock_edit {
                 return Task::none();
             }
+            app.dock_context = None;
             if surfaces::is_beacon_pin(&id) {
                 return handle_surface(app, SurfaceMsg::ToggleLauncher);
             }
@@ -58,6 +60,7 @@ pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
                 app.dock_drag_target = app.pins.iter().position(|p| p == &pin);
                 return Task::none();
             }
+            app.dock_context = None;
             app.dock_hold_at = Some((pin, Instant::now()));
         }
         SurfaceMsg::DockRelease(pin) => {
@@ -108,6 +111,35 @@ pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
                 app.dock_drag_off = false;
                 warm_icons(app);
             }
+        }
+        SurfaceMsg::DockContextOpen(id) => {
+            if app.dock_edit || surfaces::is_beacon_pin(&id) {
+                return Task::none();
+            }
+            app.dock_hold_at = None;
+            app.dock_context = Some(id);
+            app.dock_preview = None;
+            app.dock_dwell = None;
+            cancel_dock_leave(app);
+        }
+        SurfaceMsg::DockContextDismiss => {
+            app.dock_context = None;
+        }
+        SurfaceMsg::DockKeep(id) => {
+            if surfaces::add_dock_pin(&mut app.pins, &id) {
+                let _ = surfaces::persist_dock_pins(&app.pins);
+                app.settings_mtime = None;
+                warm_icons(app);
+            }
+            app.dock_context = None;
+        }
+        SurfaceMsg::DockRemove(id) => {
+            if surfaces::remove_dock_pin(&mut app.pins, &id) {
+                let _ = surfaces::persist_dock_pins(&app.pins);
+                app.settings_mtime = None;
+                warm_icons(app);
+            }
+            app.dock_context = None;
         }
         SurfaceMsg::DockDragHover(idx) => {
             if app.dock_edit && app.dock_drag.is_some() && idx > 0 {

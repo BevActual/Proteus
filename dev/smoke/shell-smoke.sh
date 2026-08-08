@@ -163,6 +163,9 @@ grep -rq --include='*.rs' 'load_dock_pins\|dockPins' "${APP}" "${MAIN}" \
   && ok "dock pins from facts" || bad "dock pins missing"
 grep -rq --include='*.rs' 'DockEditDone\|persist_dock_pins\|DockUnpin\|remove_dock_pin' "${APP}" "${SURFACES}" \
   && ok "dock edit + dockPins persist" || bad "dock edit reorder missing"
+grep -q 'DockContextOpen\|DockKeep\|DockRemove\|add_dock_pin\|on_right_press' \
+  "${SURFACES}/dock.rs" "${SURFACES}/mod.rs" "${APP}/handlers/dock.rs" \
+  && ok "dock right-click Keep/Remove" || bad "dock Keep/Remove context missing"
 grep -rq --include='*.rs' 'DockDragOffDrop\|DockDragOffHover\|Drop here to remove\|dock_drag_off' \
   "${APP}" "${SURFACES}" \
   && ok "dock drag-off unpin" || bad "dock drag-off unpin missing"

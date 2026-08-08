@@ -17,9 +17,9 @@ pub use bar::{bar_exclusive, bar_view, BAR_EXCLUSIVE, BAR_ICON};
 pub use beacon::beacon_view;
 pub use control_center::control_center_view;
 pub use dock::{
-    dock_active_dot_index, dock_dot_count, dock_icon_hover_size, dock_pins_from_settings,
-    dock_plate_h, dock_running_windows, dock_strip_h, dock_transients, dock_view, persist_dock_pins,
-    remove_dock_pin, reorder_dock_pins, DockLayout,
+    add_dock_pin, dock_active_dot_index, dock_dot_count, dock_icon_hover_size,
+    dock_pins_from_settings, dock_plate_h, dock_running_windows, dock_strip_h, dock_transients,
+    dock_view, persist_dock_pins, remove_dock_pin, reorder_dock_pins, DockLayout,
     DOCK_BOUNCE_SCALE, DOCK_BOUNCE_TIMEOUT_MS, DOCK_CELL_SPACING, DOCK_HOVER_SCALE, DOCK_ICON_REST,
     DOCK_LAYER_H, DOCK_LEAVE_DELAY_MS, DOCK_PEEK_SLIDE, DOCK_PREVIEW_DWELL_MS, DOCK_STRIP_H,
 };
@@ -172,6 +172,13 @@ pub enum Message {
     DockDragOffHover(bool),
     /// Release over the drag-off strip — unpin the dragged pin.
     DockDragOffDrop,
+    /// Right-click glass menu on a dock cell (Keep / Remove).
+    DockContextOpen(String),
+    DockContextDismiss,
+    /// Pin a transient (or reaffirm) from the context menu — persists immediately.
+    DockKeep(String),
+    /// Unpin from the context menu — persists immediately.
+    DockRemove(String),
 }
 
 /// One window row in the dock hover preview card.

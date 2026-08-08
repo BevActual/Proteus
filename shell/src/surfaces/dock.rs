@@ -216,6 +216,22 @@ pub fn remove_dock_pin(pins: &mut Vec<String>, id: &str) -> bool {
     pins.len() != before
 }
 
+/// Pin an app id (after Beacon). No-op for Beacon / already pinned.
+pub fn add_dock_pin(pins: &mut Vec<String>, id: &str) -> bool {
+    let id = id.trim();
+    if id.is_empty() || is_beacon_pin(id) {
+        return false;
+    }
+    if pins.iter().any(|p| p == id) {
+        return false;
+    }
+    if pins.is_empty() || !pins.iter().any(|p| is_beacon_pin(p)) {
+        pins.insert(0, "proteus-launcher".into());
+    }
+    pins.push(id.to_string());
+    true
+}
+
 /// Persist pinned ids to settings.json `dockPins` (comma-joined).
 pub fn persist_dock_pins(pins: &[String]) -> Result<(), String> {
     let raw = pins.join(",");
@@ -321,6 +337,7 @@ fn dock_cell<'a>(
     dragging: bool,
     drop_target: bool,
     wiggle: f32,
+    context_enabled: bool,
 ) -> Element<'a, Message> {
     let id = pin.to_string();
     let max_lift = size * 0.12;
@@ -410,12 +427,118 @@ fn dock_cell<'a>(
         .into();
     }
 
-    // Normal mode — short tap launch, long-press arms edit (handled in update tick).
-    iced::widget::mouse_area(cell)
-        .on_press(Message::DockPress(id))
+    // Normal mode — short tap launch, long-press arms edit; right-click Keep/Remove.
+    let mut area = iced::widget::mouse_area(cell)
+        .on_press(Message::DockPress(id.clone()))
         .on_release(Message::DockRelease(hover_pin_msg.clone()))
-        .on_enter(Message::DockHover(hover_pin_msg))
-        .into()
+        .on_enter(Message::DockHover(hover_pin_msg));
+    if context_enabled && !is_beacon_pin(&id) {
+        area = area.on_right_press(Message::DockContextOpen(id));
+    }
+    area.into()
+}
+
+/// Glass Keep / Remove menu for a dock cell (right-click).
+fn dock_context_menu<'a>(
+    theme: &'a Theme,
+    pin: &'a str,
+    pins: &'a [String],
+) -> Element<'a, Message> {
+    let pinned = pins.iter().any(|p| p == pin);
+    let label = pin_label(pin);
+    let mute = theme.text_mute;
+    let accent = theme.accent;
+    let danger = theme.danger;
+    let pin_keep = pin.to_string();
+    let pin_rm = pin.to_string();
+
+    let mut actions = row![].spacing(6).align_y(Alignment::Center);
+    if !pinned {
+        actions = actions.push(
+            button(text("Keep").size(12).font(semibold()).color(accent))
+                .padding(Padding::new(4.0).left(12.0).right(12.0))
+                .style(move |_t, s| button::Style {
+                    background: Some(Background::Color(match s {
+                        button::Status::Hovered | button::Status::Pressed => {
+                            accent.scale_alpha(0.28)
+                        }
+                        _ => accent.scale_alpha(0.16),
+                    })),
+                    text_color: accent,
+                    border: Border {
+                        radius: 8.0.into(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+                .on_press(Message::DockKeep(pin_keep)),
+        );
+    } else {
+        actions = actions.push(
+            button(text("Remove").size(12).font(semibold()).color(danger))
+                .padding(Padding::new(4.0).left(12.0).right(12.0))
+                .style(move |_t, s| button::Style {
+                    background: Some(Background::Color(match s {
+                        button::Status::Hovered | button::Status::Pressed => {
+                            danger.scale_alpha(0.28)
+                        }
+                        _ => danger.scale_alpha(0.14),
+                    })),
+                    text_color: danger,
+                    border: Border {
+                        radius: 8.0.into(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+                .on_press(Message::DockRemove(pin_rm)),
+        );
+    }
+    actions = actions.push(
+        button(text("✕").size(11).color(mute))
+            .padding(Padding::from([4, 8]))
+            .style(move |_t, s| button::Style {
+                background: match s {
+                    button::Status::Hovered | button::Status::Pressed => {
+                        Some(Background::Color(mute.scale_alpha(0.18)))
+                    }
+                    _ => None,
+                },
+                text_color: mute,
+                border: Border {
+                    radius: 8.0.into(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .on_press(Message::DockContextDismiss),
+    );
+
+    let body = column![
+        text(label).size(12).font(semibold()).color(theme.text),
+        actions,
+    ]
+    .spacing(8)
+    .align_x(Alignment::Center);
+
+    iced::widget::mouse_area(
+        container(body)
+            .padding(Padding::new(10.0).left(14.0).right(14.0))
+            .style(move |_t| container::Style {
+                background: Some(Background::Color(proteus_ui::theme::fade(
+                    theme.bg_panel,
+                    0.94,
+                ))),
+                border: Border {
+                    radius: 12.0.into(),
+                    width: 1.0,
+                    color: theme.hairline,
+                },
+                ..Default::default()
+            }),
+    )
+    .on_enter(Message::DockPreviewEnter)
+    .into()
 }
 
 /// Hairline divider between pins and running transients.
@@ -458,6 +581,7 @@ pub fn dock_view<'a>(
     dock_drag: Option<&str>,
     dock_drag_target: Option<usize>,
     wiggle_phase: f32,
+    context_pin: Option<&'a str>,
 ) -> Element<'a, Message> {
     let transients = dock_transients(pins, wm);
     let has_divider = !pins.is_empty() && !transients.is_empty();
@@ -498,6 +622,7 @@ pub fn dock_view<'a>(
             dragging,
             drop_target,
             wiggle_phase,
+            !edit_mode,
         ));
     }
     if has_divider && !edit_mode {
@@ -519,6 +644,7 @@ pub fn dock_view<'a>(
                 false,
                 false,
                 0.0,
+                true,
             ));
         }
     }
@@ -550,6 +676,7 @@ pub fn dock_view<'a>(
     .on_exit(Message::DockLeave);
 
     // Hover tip + interactive preview (bottom docks only; vertical Out this pass).
+    // Right-click Keep/Remove glass menu takes precedence over dwell tip.
     let preview_card: Element<'a, Message> = if edit_mode {
         let bar = container(
             row![
@@ -576,6 +703,8 @@ pub fn dock_view<'a>(
             ..Default::default()
         });
         bar.into()
+    } else if let Some(pin) = context_pin.filter(|p| !is_beacon_pin(p)) {
+        dock_context_menu(theme, pin, pins)
     } else if let Some(pin) = hover_pin.filter(|_| !vertical && hover_t > 0.05)
     {
         let title = pin_label(pin);
@@ -930,6 +1059,15 @@ mod dock_tests {
         assert!(remove_dock_pin(&mut pins, "a"));
         assert_eq!(pins, vec!["proteus-launcher", "b"]);
         assert!(!remove_dock_pin(&mut pins, "missing"));
+    }
+
+    #[test]
+    fn add_dock_pin_after_beacon() {
+        let mut pins = vec!["proteus-launcher".into(), "a".into()];
+        assert!(add_dock_pin(&mut pins, "firefox"));
+        assert_eq!(pins, vec!["proteus-launcher", "a", "firefox"]);
+        assert!(!add_dock_pin(&mut pins, "firefox"));
+        assert!(!add_dock_pin(&mut pins, "proteus-launcher"));
     }
 
     #[test]

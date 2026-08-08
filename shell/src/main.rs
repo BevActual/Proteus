@@ -284,6 +284,7 @@ fn main() -> Result<(), iced_layershell::Error> {
                 dock_leave_at: None,
                 dock_dwell: None,
                 dock_edit: false,
+                dock_context: None,
                 dock_hold_at: None,
                 dock_drag: None,
                 dock_drag_target: None,
