@@ -290,7 +290,12 @@ pub fn window_close_address(address: &str) -> Result<(), String> {
 /// Move a toplevel to workspace `ws` without following focus (Spaces overview drag).
 pub fn move_window_to_workspace(address: &str, ws: i64) -> Result<(), String> {
     focus_window_address(address)?;
-    dispatch(&format!("movetoworkspacesilent {ws}"))
+    let target = if ws == SCRATCH_WORKSPACE {
+        "special:scratch".to_string()
+    } else {
+        ws.to_string()
+    };
+    dispatch(&format!("movetoworkspacesilent {target}"))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

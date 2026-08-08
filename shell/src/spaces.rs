@@ -11,7 +11,7 @@ use std::collections::{BTreeSet, HashMap};
 use proteus_ui::theme::Theme;
 
 use crate::surfaces::{semibold, Message};
-use crate::wm_ipc::{Toplevel, WmState};
+use crate::wm_ipc::{Toplevel, WmState, SCRATCH_WORKSPACE};
 
 pub const SPACE_MIN: i64 = 1;
 pub const SPACE_MAX: i64 = 10;
@@ -224,6 +224,11 @@ fn preview_stage<'a>(
     };
 
     if wins.is_empty() {
+        let press = if space_id == SCRATCH_WORKSPACE {
+            Message::ScratchToggle
+        } else {
+            Message::SpacesSelect(space_id, output.map(str::to_string))
+        };
         return button(
             container(
                 text("Empty")
@@ -243,7 +248,7 @@ fn preview_stage<'a>(
             border: Border::default(),
             ..Default::default()
         })
-        .on_press(Message::SpacesSelect(space_id, output.map(str::to_string)))
+        .on_press(press)
         .into();
     }
 
@@ -432,6 +437,16 @@ fn card_strip<'a>(
         );
     }
 
+    // Scratchpad ◇ card — global park (`special:scratch` · -98); drop target + toggle.
+    cards = cards.push(scratchpad_card(
+        theme,
+        wm,
+        thumbs,
+        drag_addr,
+        drag_target,
+        output,
+    ));
+
     let can_add = visible.last().copied().unwrap_or(SPACE_MIN) < SPACE_MAX;
     if can_add {
         let plus = button(
@@ -462,6 +477,127 @@ fn card_strip<'a>(
     }
 
     scrollable_if_needed(cards)
+}
+
+fn scratchpad_card<'a>(
+    theme: &'a Theme,
+    wm: &'a WmState,
+    thumbs: &'a HashMap<String, SpaceWinThumb>,
+    drag_addr: Option<&'a str>,
+    drag_target: Option<i64>,
+    output: Option<&'a str>,
+) -> Element<'a, Message> {
+    let accent = theme.accent;
+    let accent_soft = theme.accent_soft;
+    let mute = theme.text_mute;
+    let hair = theme.hairline;
+    let elevated = theme.bg_elevated;
+    let wins = windows_on_space(wm, SCRATCH_WORKSPACE);
+    let occupied = !wins.is_empty();
+    let is_drop = drag_addr.is_some() && drag_target == Some(SCRATCH_WORKSPACE);
+    let border_c = if is_drop || occupied { accent } else { hair };
+    let border_w = if is_drop { 1.5 } else { 1.0 };
+    let bg = if occupied {
+        accent_soft.scale_alpha(0.85)
+    } else {
+        elevated.scale_alpha(0.94)
+    };
+
+    let header = row![
+        text("◇")
+            .size(14)
+            .font(semibold())
+            .color(if occupied { accent } else { mute }),
+        text("Scratchpad")
+            .size(14)
+            .font(semibold())
+            .color(theme.text),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center);
+
+    let stage: Element<'a, Message> = if wins.is_empty() {
+        button(
+            container(
+                text("Park here")
+                    .size(13)
+                    .color(mute),
+            )
+            .width(Length::Fill)
+            .height(Length::Fixed(STAGE_H))
+            .center_x(Length::Fill)
+            .center_y(Length::Fixed(STAGE_H))
+            .style(move |_t| container::Style {
+                background: Some(Background::Color(mute.scale_alpha(0.06))),
+                border: Border {
+                    radius: 12.0.into(),
+                    width: 1.0,
+                    color: hair,
+                },
+                ..Default::default()
+            }),
+        )
+        .padding(0)
+        .style(|_t, _s| button::Style {
+            background: None,
+            text_color: Color::TRANSPARENT,
+            border: Border::default(),
+            ..Default::default()
+        })
+        .on_press(Message::ScratchToggle)
+        .into()
+    } else {
+        preview_stage(
+            theme,
+            &wins,
+            thumbs,
+            drag_addr,
+            SCRATCH_WORKSPACE,
+            output,
+        )
+    };
+
+    // Empty stage already toggles; when occupied, header click toggles park/restore.
+    let header_btn = button(header)
+        .padding(Padding::from([2, 4]))
+        .style(move |_t, s| button::Style {
+            background: match s {
+                button::Status::Hovered | button::Status::Pressed => {
+                    Some(Background::Color(mute.scale_alpha(0.12)))
+                }
+                _ => None,
+            },
+            text_color: theme.text,
+            border: Border {
+                radius: 6.0.into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .on_press(Message::ScratchToggle);
+
+    let card_body = column![header_btn, stage]
+        .spacing(10)
+        .width(Length::Fixed(CARD_W - 24.0));
+    let card = container(card_body)
+        .width(Length::Fixed(CARD_W))
+        .height(Length::Fixed(CARD_H))
+        .padding(12)
+        .style(move |_t| container::Style {
+            background: Some(Background::Color(bg)),
+            border: Border {
+                radius: 16.0.into(),
+                width: border_w,
+                color: border_c,
+            },
+            ..Default::default()
+        });
+
+    let out_hover = output.map(str::to_string);
+    iced::widget::mouse_area(card)
+        .on_enter(Message::SpacesDragHover(SCRATCH_WORKSPACE, out_hover.clone()))
+        .on_release(Message::SpacesDrop(SCRATCH_WORKSPACE, out_hover))
+        .into()
 }
 
 /// Spaces overview. `open_t` is 0→1 open fade (OutCubic).

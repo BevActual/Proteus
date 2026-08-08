@@ -485,6 +485,21 @@ pub(crate) fn capture_spaces_thumbs(app: &mut App) -> Task<Message> {
             }
         }
     }
+    // Scratchpad card thumbs (`special:scratch` · -98) — global park, not in 1..=10.
+    if jobs.len() < 24 {
+        for t in &app.wm.toplevels {
+            if t.workspace != proteus_shell::wm_ipc::SCRATCH_WORKSPACE {
+                continue;
+            }
+            if jobs.iter().any(|(a, _, _)| a == &t.address) {
+                continue;
+            }
+            jobs.push((t.address.clone(), t.title.clone(), t.workspace));
+            if jobs.len() >= 24 {
+                break;
+            }
+        }
+    }
     if jobs.is_empty() {
         app.spaces_thumbs.clear();
         return Task::none();

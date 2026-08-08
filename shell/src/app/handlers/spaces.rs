@@ -91,6 +91,10 @@ pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
             if app.spaces_drag.is_some() {
                 return Task::none();
             }
+            if id == wm_ipc::SCRATCH_WORKSPACE {
+                let _ = wm_ipc::scratch_toggle(&app.wm);
+                return Task::none();
+            }
             let cmd = workspace_dispatch(app, id, output.as_deref());
             let _ = wm_ipc::dispatch(&cmd);
             if let Ok(mut c) = app.chrome.lock() {
@@ -168,13 +172,22 @@ pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
             app.spaces_drag_target_output = None;
         }
         SurfaceMsg::SpacesDragHover(id, output) => {
-            if app.spaces_drag.is_some() && drag_same_column(app, output.as_deref()) {
+            let allow = app.spaces_drag.is_some()
+                && (id == wm_ipc::SCRATCH_WORKSPACE
+                    || drag_same_column(app, output.as_deref()));
+            if allow {
                 app.spaces_drag_target = Some(id);
-                app.spaces_drag_target_output = output;
+                app.spaces_drag_target_output = if id == wm_ipc::SCRATCH_WORKSPACE {
+                    None
+                } else {
+                    output
+                };
             }
         }
         SurfaceMsg::SpacesDrop(id, output) => {
-            if !drag_same_column(app, output.as_deref()) {
+            let allow = id == wm_ipc::SCRATCH_WORKSPACE
+                || drag_same_column(app, output.as_deref());
+            if !allow {
                 app.spaces_drag = None;
                 app.spaces_drag_output = None;
                 app.spaces_drag_target = None;

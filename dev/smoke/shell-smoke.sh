@@ -70,6 +70,9 @@ grep -q 'SCRATCH_WORKSPACE\|special:scratch' "${ROOT}/compositor/src/wm.rs" \
 grep -q 'scratch_toggle\|scratch-toggle' "${ROOT}/compositor/src/binds.rs" \
   && grep -q 'scratch_move\|scratch-move' "${ROOT}/compositor/src/binds.rs" \
   && ok "Scratchpad Super+S chord binds" || bad "Scratchpad Super+S binds missing"
+grep -q 'scratchpad_card\|Scratchpad' "${ROOT}/shell/src/spaces.rs" \
+  && grep -q 'SCRATCH_WORKSPACE' "${ROOT}/shell/src/spaces.rs" "${ROOT}/shell/src/app/handlers/spaces.rs" \
+  && ok "Spaces overview Scratchpad card" || bad "overview Scratchpad card missing"
 for t in lock chrome widgets hud; do
   grep -q "\"${t}\"" "${ROOT}/shell/src/lib.rs" \
     && ok "ipc target ${t}" || bad "ipc target ${t}"
