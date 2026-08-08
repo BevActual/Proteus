@@ -493,6 +493,13 @@ pub fn default_binds() -> Vec<BindEntry> {
             key: d.into(),
             action: BindAction::Dispatch(format!("workspace {n},local")),
         });
+        // Super+Shift+N — move focused window to Space N and follow.
+        v.push(BindEntry {
+            id: format!("workspace_move_{n}"),
+            mods: BindMods::logo_shift(),
+            key: d.into(),
+            action: BindAction::Dispatch(format!("movetoworkspace {n}")),
+        });
     }
     v
 }
@@ -701,6 +708,12 @@ mod tests {
                 && e.action == BindAction::Dispatch("workspace 1,local".into())
         }));
         assert!(d.iter().any(|e| e.id == "workspace_local_10"));
+        assert!(d.iter().any(|e| {
+            e.id == "workspace_move_1"
+                && e.mods == BindMods::logo_shift()
+                && e.action == BindAction::Dispatch("movetoworkspace 1".into())
+        }));
+        assert!(d.iter().any(|e| e.id == "workspace_move_10"));
     }
 
     #[test]

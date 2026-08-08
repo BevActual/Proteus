@@ -728,6 +728,23 @@ impl Wm {
             return Ok(vec![WmOp::RefreshVisibility]);
         }
 
+        // Move focused (or address:) window and follow focus onto that Space.
+        // Forms match silent; numeric targets also run `workspace N` (synced).
+        if let Some(rest) = verb.strip_prefix("movetoworkspace ") {
+            let target = rest.trim();
+            let mut ops = self.dispatch(&format!("movetoworkspacesilent {target}"))?;
+            let ws_tok = target
+                .split_once(",address:")
+                .map(|(ws, _)| ws.trim())
+                .unwrap_or(target);
+            if !ws_tok.starts_with("special:") {
+                if let Ok(id) = ws_tok.parse::<i64>() {
+                    ops.extend(self.dispatch(&format!("workspace {id}"))?);
+                }
+            }
+            return Ok(ops);
+        }
+
         if verb == "fullscreen 1" || verb.starts_with("fullscreen ") {
             let Some(addr) = self.focused.clone() else {
                 return Ok(vec![]);
@@ -1222,6 +1239,17 @@ mod tests {
             "special:scratch"
         );
         assert_ne!(SCRATCH_WORKSPACE, MINIMIZED_WORKSPACE);
+    }
+
+    #[test]
+    fn movetoworkspace_moves_and_follows() {
+        let mut wm = Wm::new();
+        let addr = wm.alloc_address();
+        wm.add_toplevel(addr.clone(), "foot".into(), "term".into(), (0, 0));
+        assert_eq!(wm.active_workspace, 1);
+        wm.dispatch("movetoworkspace 3").unwrap();
+        assert_eq!(wm.find(&addr).unwrap().workspace, 3);
+        assert_eq!(wm.active_workspace, 3);
     }
 
     #[test]
