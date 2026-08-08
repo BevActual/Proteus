@@ -294,7 +294,7 @@ pages via lazy leaf loaders (`DesktopGapsLeaf`, `DesktopChromeLeaf`,
 | Default apps | Browser / Files / Images / Music / Video / PDF / Text / Archives / Mail / Calendar via `proteus-defaults.py` + `xdg-mime`; mimeapps.list escape |
 | Focus | Soft quiet profiles (seed Work/Personal + **add/rename/delete** In thin); keywordAllow/Deny CSV In; app allowlist · schedule · critical Out; active chips + enable; CC menu + Desktop → Focus leaf |
 | Control Center | Plates + tile visibility/size/span/order + **columns 2\|3** + reset (`ControlCenterLayout`); Settings → Desktop → Control Center |
-| Beacon | Universal Apps (+ Windows · Privacy · **focus-cycle** Action); Files index (`beacon-file-index`); Clipboard `wtype`; tags / clear recents |
+| Beacon | Universal search: Apps · Settings · Windows · Files index (`beacon-file-index`) · **Clipboard** (`cliphist` + `wl-copy`, optional `wtype`) · **Calc** thin arithmetic; tags/mode chrome / unit convert Out; clear recents In |
 
 | Pane | Live apply | On-disk fragment | Guest seed |
 |------|------------|------------------|----------|

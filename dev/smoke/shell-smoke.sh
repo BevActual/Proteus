@@ -242,6 +242,8 @@ grep -q 'skip_reconcile\|WmShared\|flush_pending_sliders' \
   || bad "shell responsiveness pass2 missing"
 grep -q 'filter_beacon_hits\|Window ·\|File ·\|Place ·\|Recent ·\|launcherFileRecents\|beacon-file-index\|warm_file_index' "${ROOT}/shell/src/beacon.rs" \
   && ok "Beacon Windows/files thin" || bad "Beacon Windows/files missing"
+grep -q 'clipboard_hits\|Clipboard ·\|cliphist\|calc_hit\|eval_calc\|wl-copy\|wtype' "${ROOT}/shell/src/beacon.rs" \
+  && ok "Beacon clipboard/calc thin" || bad "Beacon clipboard/calc missing"
 grep -rq --include='*.rs' 'ToggleDnd\|wifi_list_thin\|bt_list_thin' "${SURFACES}" "${PLATFORM}" \
   && ok "CC DND/WiFi/BT" || bad "CC tiles missing"
 grep -rq --include='*.rs' 'ToggleFocus\|focus_profiles\|Focus Mode' "${SURFACES}" "${PLATFORM}" \

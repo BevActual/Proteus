@@ -129,10 +129,22 @@ pub fn filter_desktop_hits(q: &str, limit: usize) -> Vec<String> {
     filter_beacon_hits(q, limit, &[])
 }
 
-/// Beacon hits: builtins · Settings · Windows · files · desktop apps.
+/// Beacon hits: calc · clipboard · builtins · Settings · Windows · files · apps.
 pub fn filter_beacon_hits(q: &str, limit: usize, windows: &[crate::wm_ipc::Toplevel]) -> Vec<String> {
-    let q = q.trim().to_lowercase();
+    let raw_q = q.trim();
+    let q = raw_q.to_lowercase();
     let mut hits: Vec<String> = Vec::new();
+    if let Some(label) = calc_hit(raw_q) {
+        hits.push(label);
+    }
+    for label in clipboard_hits(&q, 8) {
+        if hits.len() >= limit {
+            break;
+        }
+        if !hits.iter().any(|h| h == &label) {
+            hits.push(label);
+        }
+    }
     for builtin in [
         "Settings",
         "Workloads",
@@ -141,6 +153,9 @@ pub fn filter_beacon_hits(q: &str, limit: usize, windows: &[crate::wm_ipc::Tople
         "Settings · Packages",
         "Lock screen",
     ] {
+        if hits.len() >= limit {
+            break;
+        }
         if q.is_empty() || builtin.to_lowercase().contains(&q) {
             hits.push(builtin.into());
         }
@@ -199,6 +214,250 @@ pub fn filter_beacon_hits(q: &str, limit: usize, windows: &[crate::wm_ipc::Tople
     }
     hits.truncate(limit);
     hits
+}
+
+/// `cliphist list` → `Clipboard · <list-line>` (Enter: decode | wl-copy).
+fn clipboard_hits(q: &str, limit: usize) -> Vec<String> {
+    if !command_exists("cliphist") {
+        return Vec::new();
+    }
+    let out = Command::new("cliphist").arg("list").output();
+    let Ok(out) = out else {
+        return Vec::new();
+    };
+    if !out.status.success() {
+        return Vec::new();
+    }
+    let text = String::from_utf8_lossy(&out.stdout);
+    let mut hits = Vec::new();
+    for line in text.lines() {
+        if hits.len() >= limit {
+            break;
+        }
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        // Prefer text-ish rows; skip obvious binary previews when filtering.
+        let preview = line.split('\t').nth(1).unwrap_or(line);
+        if !q.is_empty()
+            && !preview.to_lowercase().contains(q)
+            && !line.to_lowercase().contains(q)
+            && q != "clip"
+            && q != "clipboard"
+            && !q.starts_with("clip ")
+        {
+            continue;
+        }
+        if q.is_empty()
+            || q == "clip"
+            || q == "clipboard"
+            || q.starts_with("clip ")
+            || preview.to_lowercase().contains(q)
+            || line.to_lowercase().contains(q)
+        {
+            let label = format!("Clipboard · {line}");
+            if !hits.iter().any(|h| h == &label) {
+                hits.push(label);
+            }
+        }
+    }
+    hits
+}
+
+fn command_exists(name: &str) -> bool {
+    Command::new("which")
+        .arg(name)
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+/// Safe arithmetic expression → `Calc · expr = result` (Enter copies result).
+fn calc_hit(raw: &str) -> Option<String> {
+    let expr = raw.trim();
+    if expr.is_empty() || !looks_like_calc(expr) {
+        return None;
+    }
+    let value = eval_calc(expr)?;
+    let shown = format_calc_result(value);
+    Some(format!("Calc · {expr} = {shown}"))
+}
+
+fn looks_like_calc(expr: &str) -> bool {
+    let mut has_digit = false;
+    let mut has_op = false;
+    for c in expr.chars() {
+        match c {
+            '0'..='9' | '.' => has_digit = true,
+            '+' | '-' | '*' | '/' | '%' | '^' | '(' | ')' => has_op = true,
+            ' ' | '\t' => {}
+            _ => return false,
+        }
+    }
+    has_digit && (has_op || expr.contains('.'))
+}
+
+fn format_calc_result(v: f64) -> String {
+    if !v.is_finite() {
+        return v.to_string();
+    }
+    if (v - v.round()).abs() < 1e-9 && v.abs() < 1e15 {
+        format!("{}", v.round() as i64)
+    } else {
+        let s = format!("{v:.10}");
+        s.trim_end_matches('0').trim_end_matches('.').to_string()
+    }
+}
+
+/// Tiny recursive-descent calculator: + - * / % ^ and parentheses.
+fn eval_calc(expr: &str) -> Option<f64> {
+    let chars: Vec<char> = expr.chars().filter(|c| !c.is_whitespace()).collect();
+    if chars.is_empty() || chars.len() > 64 {
+        return None;
+    }
+    let mut i = 0usize;
+    let v = parse_expr(&chars, &mut i)?;
+    if i != chars.len() {
+        return None;
+    }
+    Some(v)
+}
+
+fn parse_expr(chars: &[char], i: &mut usize) -> Option<f64> {
+    let mut v = parse_term(chars, i)?;
+    while *i < chars.len() {
+        match chars[*i] {
+            '+' => {
+                *i += 1;
+                v += parse_term(chars, i)?;
+            }
+            '-' => {
+                *i += 1;
+                v -= parse_term(chars, i)?;
+            }
+            _ => break,
+        }
+    }
+    Some(v)
+}
+
+fn parse_term(chars: &[char], i: &mut usize) -> Option<f64> {
+    let mut v = parse_power(chars, i)?;
+    while *i < chars.len() {
+        match chars[*i] {
+            '*' => {
+                *i += 1;
+                v *= parse_power(chars, i)?;
+            }
+            '/' => {
+                *i += 1;
+                let r = parse_power(chars, i)?;
+                if r == 0.0 {
+                    return None;
+                }
+                v /= r;
+            }
+            '%' => {
+                *i += 1;
+                let r = parse_power(chars, i)?;
+                if r == 0.0 {
+                    return None;
+                }
+                v %= r;
+            }
+            _ => break,
+        }
+    }
+    Some(v)
+}
+
+fn parse_power(chars: &[char], i: &mut usize) -> Option<f64> {
+    let base = parse_unary(chars, i)?;
+    if *i < chars.len() && chars[*i] == '^' {
+        *i += 1;
+        let exp = parse_unary(chars, i)?;
+        Some(base.powf(exp))
+    } else {
+        Some(base)
+    }
+}
+
+fn parse_unary(chars: &[char], i: &mut usize) -> Option<f64> {
+    if *i < chars.len() && chars[*i] == '+' {
+        *i += 1;
+        return parse_unary(chars, i);
+    }
+    if *i < chars.len() && chars[*i] == '-' {
+        *i += 1;
+        return Some(-parse_unary(chars, i)?);
+    }
+    parse_primary(chars, i)
+}
+
+fn parse_primary(chars: &[char], i: &mut usize) -> Option<f64> {
+    if *i < chars.len() && chars[*i] == '(' {
+        *i += 1;
+        let v = parse_expr(chars, i)?;
+        if *i >= chars.len() || chars[*i] != ')' {
+            return None;
+        }
+        *i += 1;
+        return Some(v);
+    }
+    parse_number(chars, i)
+}
+
+fn parse_number(chars: &[char], i: &mut usize) -> Option<f64> {
+    let start = *i;
+    while *i < chars.len() && (chars[*i].is_ascii_digit() || chars[*i] == '.') {
+        *i += 1;
+    }
+    if start == *i {
+        return None;
+    }
+    let s: String = chars[start..*i].iter().collect();
+    s.parse().ok()
+}
+
+fn clipboard_list_line(hit: &str) -> Option<&str> {
+    hit.strip_prefix("Clipboard · ")
+        .or_else(|| {
+            let lower = hit.to_lowercase();
+            if lower.starts_with("clipboard · ") {
+                Some(hit["clipboard · ".len()..].trim())
+            } else {
+                None
+            }
+        })
+}
+
+fn calc_result_from_hit(hit: &str) -> Option<String> {
+    let rest = hit.strip_prefix("Calc · ")?;
+    let (_, result) = rest.rsplit_once(" = ")?;
+    Some(result.trim().to_string())
+}
+
+fn wl_copy_text(text: &str) -> bool {
+    let mut child = match Command::new("wl-copy").stdin(std::process::Stdio::piped()).spawn() {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    if let Some(mut stdin) = child.stdin.take() {
+        use std::io::Write;
+        let _ = stdin.write_all(text.as_bytes());
+    }
+    child.wait().map(|s| s.success()).unwrap_or(false)
+}
+
+fn paste_clipboard_via_wtype() {
+    if !command_exists("wtype") {
+        return;
+    }
+    // Best-effort inject after Beacon closes; ignore failures.
+    let _ = Command::new("wtype")
+        .args(["-M", "ctrl", "-P", "v", "-m", "ctrl"])
+        .spawn();
 }
 
 fn file_hits(q: &str, limit: usize) -> Vec<String> {
@@ -431,7 +690,42 @@ fn settings_catalog_hits(q: &str) -> Vec<String> {
 /// Launch a Beacon hit: proteus-open for Settings/Workloads, gtk-launch / desktop Exec otherwise.
 pub fn launch_hit(hit: &str) {
     let lower = hit.to_lowercase();
-    if lower.starts_with("window ·") || lower.starts_with("window ·") {
+    if let Some(line) = clipboard_list_line(hit) {
+        if command_exists("cliphist") && command_exists("wl-copy") {
+            let decode = Command::new("cliphist")
+                .arg("decode")
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::piped())
+                .spawn();
+            if let Ok(mut child) = decode {
+                if let Some(mut stdin) = child.stdin.take() {
+                    use std::io::Write;
+                    let _ = writeln!(stdin, "{line}");
+                }
+                if let Ok(out) = child.wait_with_output() {
+                    if out.status.success() {
+                        let mut copy = Command::new("wl-copy")
+                            .stdin(std::process::Stdio::piped())
+                            .spawn();
+                        if let Ok(ref mut c) = copy {
+                            if let Some(mut stdin) = c.stdin.take() {
+                                use std::io::Write;
+                                let _ = stdin.write_all(&out.stdout);
+                            }
+                            let _ = c.wait();
+                        }
+                        paste_clipboard_via_wtype();
+                    }
+                }
+            }
+        }
+        return;
+    }
+    if let Some(result) = calc_result_from_hit(hit) {
+        let _ = wl_copy_text(&result);
+        return;
+    }
+    if lower.starts_with("window ·") {
         if let Some(addr) = hit.rsplit(" · ").next() {
             let _ = crate::wm_ipc::focus_window_address(addr.trim());
         }
@@ -570,5 +864,27 @@ mod tests {
             Some("/home/u/Downloads/a.pdf")
         );
         assert_eq!(file_hit_path("Settings · Sound"), None);
+    }
+
+    #[test]
+    fn calc_eval_basic() {
+        assert_eq!(eval_calc("2+2"), Some(4.0));
+        assert_eq!(eval_calc("10/4"), Some(2.5));
+        assert_eq!(eval_calc("(1+2)*3"), Some(9.0));
+        assert_eq!(eval_calc("2^3"), Some(8.0));
+        assert_eq!(eval_calc("10%3"), Some(1.0));
+        assert!(eval_calc("2+").is_none());
+        assert!(eval_calc("os.system").is_none());
+        assert!(calc_hit("2+2").unwrap().contains("= 4"));
+        assert!(calc_hit("hello").is_none());
+    }
+
+    #[test]
+    fn clipboard_and_calc_hit_parse() {
+        assert_eq!(
+            clipboard_list_line("Clipboard · 12\thello"),
+            Some("12\thello")
+        );
+        assert_eq!(calc_result_from_hit("Calc · 2+2 = 4"), Some("4".into()));
     }
 }

@@ -88,7 +88,7 @@ pub fn beacon_view<'a>(
     let value_c = theme.text;
     let mute_c = theme.text_mute;
     let selection_c = theme.accent_soft;
-    let query_input = text_input("Search apps, settings, files…", &chrome.beacon_query)
+    let query_input = text_input("Search apps, settings, files, clipboard…", &chrome.beacon_query)
         .id("beacon-input")
         .on_input(Message::BeaconInput)
         .on_submit(Message::BeaconSubmit)
