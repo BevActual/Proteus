@@ -187,6 +187,10 @@ grep -rq --include='*.rs' 'PrivacyAllow\|session-allow\|privacy_ask_app\|enforce
     "${ROOT}/shell/scripts/proteus-permissions.py" \
   && ok "Privacy Ask Allow/Deny + session/enforce thin" \
   || bad "Privacy Ask wire missing"
+grep -q 'gate_launch_for_privacy\|first_launch_ask_category\|privacy_ask_pending' \
+  "${APP}/handlers/overlays.rs" "${ROOT}/shell/src/privacy_gate.rs" "${ROOT}/shell/src/ctl.rs" \
+  && ok "Privacy launch→Ask producer thin" \
+  || bad "Privacy launch→Ask producer missing"
 grep -rq --include='*.rs' 'PowerProfile\|power_set_profile_index\|VolumeStep' "${SURFACES}" "${PLATFORM}" \
   && ok "CC power/volume" || bad "CC power/volume missing"
 grep -rqE --include='*.rs' 'ToggleFloating|VolumeMute' "${SURFACES}" "${APP}" "${MAIN}" \

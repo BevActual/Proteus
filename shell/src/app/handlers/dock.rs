@@ -8,6 +8,7 @@ use proteus_shell::wm_ipc;
 
 use super::super::*;
 use super::handle_surface;
+use super::overlays::gate_launch_for_privacy;
 
 pub(crate) fn enter_dock_edit(app: &mut App) {
     app.dock_edit = true;
@@ -35,6 +36,9 @@ pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
             }
             match wm_ipc::dock_activate(&id, &app.wm) {
                 wm_ipc::DockAction::Launch => {
+                    if gate_launch_for_privacy(app, &id) {
+                        return Task::none();
+                    }
                     app.dock_bounce.insert(id.clone(), Instant::now());
                     launch_open(&id);
                 }

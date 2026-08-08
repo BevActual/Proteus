@@ -12,6 +12,7 @@ pub mod wm_ipc;
 pub mod icons;
 pub mod lock_ui;
 pub mod platform;
+pub mod privacy_gate;
 pub mod spaces;
 pub mod surfaces;
 

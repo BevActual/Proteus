@@ -5,10 +5,31 @@ use iced::Task;
 
 use proteus_shell::ctl;
 use proteus_shell::platform;
+use proteus_shell::privacy_gate;
 use proteus_shell::surfaces::Message as SurfaceMsg;
 
 use super::super::*;
 use super::handle_surface;
+
+/// Returns true when launch was deferred behind Privacy Ask.
+pub(crate) fn gate_launch_for_privacy(app: &mut App, target: &str) -> bool {
+    let Some(aid) = privacy_gate::desktop_id_for_launch(target) else {
+        return false;
+    };
+    let Some(cat) = privacy_gate::first_launch_ask_category(&aid) else {
+        return false;
+    };
+    if let Ok(mut s) = app.chrome.lock() {
+        s.privacy_ask = Some(cat.clone());
+        s.privacy_ask_app = Some(aid.clone());
+        s.privacy_ask_pending = Some(target.to_string());
+        s.launcher_open = false;
+    }
+    app.privacy_ask = Some(cat);
+    app.privacy_ask_app = Some(aid);
+    app.chrome_epoch.fetch_add(1, Ordering::Relaxed);
+    true
+}
 
 pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
     match m {
@@ -120,6 +141,9 @@ pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
             warm_icons(app);
         }
         SurfaceMsg::BeaconLaunch(id) => {
+            if gate_launch_for_privacy(app, &id) {
+                return Task::none();
+            }
             proteus_shell::beacon::launch_hit(&id);
             if let Ok(mut s) = app.chrome.lock() {
                 s.launcher_open = false;
@@ -170,17 +194,27 @@ pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
             }
         }
         SurfaceMsg::PrivacyAllow => {
-            let (cat, app_id) = {
+            let (cat, app_id, pending) = {
                 let s = app.chrome.lock().ok();
-                s.map(|g| (g.privacy_ask.clone(), g.privacy_ask_app.clone()))
-                    .unwrap_or((None, None))
+                s.map(|g| {
+                    (
+                        g.privacy_ask.clone(),
+                        g.privacy_ask_app.clone(),
+                        g.privacy_ask_pending.clone(),
+                    )
+                })
+                .unwrap_or((None, None, None))
             };
             if let (Some(cat), Some(aid)) = (cat.as_deref(), app_id.as_deref()) {
+                // Wait for session file so resume launch sees Allow-once.
                 let _ = std::process::Command::new("proteus-permissions.py")
                     .args(["session-allow", aid, cat])
-                    .spawn();
+                    .output();
             }
             clear_privacy_ask(app);
+            if let Some(pending) = pending {
+                proteus_shell::beacon::launch_hit(&pending);
+            }
         }
         SurfaceMsg::PrivacyDeny => {
             let (cat, app_id) = {
@@ -223,6 +257,7 @@ fn clear_privacy_ask(app: &mut App) {
     if let Ok(mut s) = app.chrome.lock() {
         s.privacy_ask = None;
         s.privacy_ask_app = None;
+        s.privacy_ask_pending = None;
     }
     app.privacy_ask = None;
     app.privacy_ask_app = None;

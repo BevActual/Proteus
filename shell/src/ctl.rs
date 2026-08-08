@@ -63,6 +63,8 @@ pub struct ChromeState {
     pub privacy_ask: Option<String>,
     /// Optional app id for the open Privacy Ask (session / store target).
     pub privacy_ask_app: Option<String>,
+    /// Deferred Beacon hit / dock pin to launch after Allow-once.
+    pub privacy_ask_pending: Option<String>,
     pub widgets_customize: bool,
     /// Customize Lock Screen edit chrome on the lock layer.
     pub lock_customize: bool,
@@ -100,6 +102,7 @@ impl ChromeState {
             "widgetsSnap": self.widgets_snap,
             "privacyAsk": self.privacy_ask,
             "privacyAskApp": self.privacy_ask_app,
+            "privacyAskPending": self.privacy_ask_pending,
             "engine": "owned",
             "layers": crate::layers::all(),
             "targets": ipc_targets::all(),
@@ -402,6 +405,7 @@ pub fn handle_request(state: &SharedChrome, epoch: &ChromeEpoch, req: &Request) 
             if cat.is_empty() || cat.eq_ignore_ascii_case("clear") {
                 s.privacy_ask = None;
                 s.privacy_ask_app = None;
+                s.privacy_ask_pending = None;
             } else {
                 let lower = cat.to_lowercase();
                 let norm = match lower.as_str() {
@@ -416,6 +420,11 @@ pub fn handle_request(state: &SharedChrome, epoch: &ChromeEpoch, req: &Request) 
                     .get(1)
                     .map(|a| a.trim().to_string())
                     .filter(|a| !a.is_empty());
+                s.privacy_ask_pending = req
+                    .args
+                    .get(2)
+                    .map(|a| a.trim().to_string())
+                    .filter(|a| !a.is_empty());
             }
             bump(epoch);
             Response {
@@ -424,6 +433,7 @@ pub fn handle_request(state: &SharedChrome, epoch: &ChromeEpoch, req: &Request) 
                 result: json!({
                     "privacyAsk": s.privacy_ask,
                     "privacyAskApp": s.privacy_ask_app,
+                    "privacyAskPending": s.privacy_ask_pending,
                 }),
             }
         }

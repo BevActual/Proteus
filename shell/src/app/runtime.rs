@@ -69,6 +69,7 @@ pub(crate) fn sync_snapshots(app: &mut App) {
             toast_queue: c.toast_queue.clone(),
             privacy_ask: c.privacy_ask.clone(),
             privacy_ask_app: c.privacy_ask_app.clone(),
+            privacy_ask_pending: c.privacy_ask_pending.clone(),
             widgets_customize: c.widgets_customize,
             lock_customize: c.lock_customize,
             widgets: c.widgets.clone(),
