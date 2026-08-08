@@ -50,6 +50,15 @@ impl BindMods {
         }
     }
 
+    pub const fn logo_ctrl() -> Self {
+        Self {
+            logo: true,
+            shift: false,
+            ctrl: true,
+            alt: false,
+        }
+    }
+
     pub fn matches(&self, m: &ModifiersState) -> bool {
         m.logo == self.logo
             && m.shift == self.shift
@@ -339,6 +348,13 @@ pub fn default_binds() -> Vec<BindEntry> {
             key: d.into(),
             action: BindAction::Dispatch(format!("workspace {n}")),
         });
+        // Super+Ctrl+N — local board on focused output (perDisplay Spaces).
+        v.push(BindEntry {
+            id: format!("workspace_local_{n}"),
+            mods: BindMods::logo_ctrl(),
+            key: d.into(),
+            action: BindAction::Dispatch(format!("workspace {n},local")),
+        });
     }
     v
 }
@@ -533,6 +549,12 @@ mod tests {
         assert!(d.iter().any(|e| e.id == "brightness_down"));
         assert!(d.iter().any(|e| e.id == "workspace_1"));
         assert!(d.iter().any(|e| e.id == "workspace_10"));
+        assert!(d.iter().any(|e| {
+            e.id == "workspace_local_1"
+                && e.mods == BindMods::logo_ctrl()
+                && e.action == BindAction::Dispatch("workspace 1,local".into())
+        }));
+        assert!(d.iter().any(|e| e.id == "workspace_local_10"));
     }
 
     #[test]

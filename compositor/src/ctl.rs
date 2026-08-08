@@ -118,6 +118,7 @@ impl CompositorNext {
             let rest = rest.trim();
             if rest == "reloadbinds" || rest == "reload keybinds" {
                 self.binds.reload();
+                self.reload_workspace_names_fact();
                 return serde_json::json!({"ok": true}).to_string();
             }
             if rest == "input-reload" || rest == "reload input" {
@@ -145,9 +146,15 @@ impl CompositorNext {
                     }
                 }
             }
+            let is_rename = rest.starts_with("renameworkspace ");
             match self.wm.dispatch(rest) {
                 Ok(ops) => {
                     self.apply_wm_ops(ops);
+                    if is_rename {
+                        if let Err(e) = self.persist_workspace_names_fact() {
+                            eprintln!("proteus-compositor: persist workspaceNames: {e}");
+                        }
+                    }
                     self.broadcast_event(&format!("dispatch>>{rest}"));
                     if rest.starts_with("workspace ") {
                         let out = self
@@ -234,12 +241,48 @@ impl CompositorNext {
                     "focused": focused_name.as_deref() == Some(name.as_str()),
                     "activeWorkspace": {
                         "id": aw,
-                        "name": aw.to_string(),
+                        "name": self.wm.workspace_label(aw),
                     },
                 })
             })
             .collect();
         Value::Array(arr)
+    }
+
+    pub fn reload_workspace_names_fact(&mut self) {
+        let path = crate::input_config::InputConfig::settings_fact_path();
+        let Ok(raw) = std::fs::read_to_string(&path) else {
+            return;
+        };
+        self.wm.load_workspace_names_from_settings(&raw);
+    }
+
+    fn persist_workspace_names_fact(&self) -> Result<(), String> {
+        let path = crate::input_config::InputConfig::settings_fact_path();
+        let mut root: serde_json::Value = if path.is_file() {
+            let raw = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+            serde_json::from_str(&raw).unwrap_or_else(|_| serde_json::json!({}))
+        } else {
+            serde_json::json!({})
+        };
+        if !root.is_object() {
+            root = serde_json::json!({});
+        }
+        let names: Vec<serde_json::Value> = self
+            .wm
+            .workspace_names
+            .iter()
+            .map(|s| serde_json::Value::String(s.clone()))
+            .collect();
+        root.as_object_mut()
+            .unwrap()
+            .insert("workspaceNames".into(), serde_json::Value::Array(names));
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        let pretty = serde_json::to_string_pretty(&root).map_err(|e| e.to_string())?;
+        std::fs::write(&path, pretty).map_err(|e| e.to_string())?;
+        Ok(())
     }
 
     /// Hypr-shaped clients list with `at` / `size` from mapped geometry.

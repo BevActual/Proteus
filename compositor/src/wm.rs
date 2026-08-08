@@ -119,6 +119,8 @@ pub struct Wm {
     pub master_factor: f64,
     pub toplevels: Vec<ToplevelRecord>,
     pub focused: Option<String>,
+    /// Display labels for Spaces 1..=10 (`workspaceNames` Fact; empty = number).
+    pub workspace_names: [String; 10],
     next_id: u64,
     cascade: i32,
 }
@@ -143,9 +145,44 @@ impl Wm {
             master_factor: 0.5,
             toplevels: Vec::new(),
             focused: None,
+            workspace_names: std::array::from_fn(|_| String::new()),
             next_id: 1,
             cascade: 0,
         }
+    }
+
+    /// Label for Space `id` (1..=10); falls back to numeric string.
+    pub fn workspace_label(&self, id: i64) -> String {
+        if (1..=10).contains(&id) {
+            let label = &self.workspace_names[(id as usize) - 1];
+            if !label.is_empty() {
+                return label.clone();
+            }
+        }
+        id.to_string()
+    }
+
+    /// Apply `workspaceNames` array from settings.json (len ≤10; extras ignored).
+    pub fn load_workspace_names_from_settings(&mut self, raw: &str) {
+        let Ok(v) = serde_json::from_str::<Value>(raw) else {
+            return;
+        };
+        let Some(arr) = v.get("workspaceNames").and_then(|x| x.as_array()) else {
+            return;
+        };
+        for (i, slot) in self.workspace_names.iter_mut().enumerate() {
+            *slot = arr
+                .get(i)
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string();
+        }
+    }
+
+    pub fn set_workspace_name(&mut self, id: i64, name: String) -> Result<(), String> {
+        let id = Self::clamp_workspace(id)?;
+        self.workspace_names[(id as usize) - 1] = name;
+        Ok(())
     }
 
     /// Register an output so local/synced boards stay coherent.
@@ -376,10 +413,9 @@ impl Wm {
     pub fn workspaces_json(&self) -> Value {
         let mut out = Vec::new();
         for id in 1..=10 {
-            let name = id.to_string();
             out.push(json!({
                 "id": id,
-                "name": name,
+                "name": self.workspace_label(id),
             }));
         }
         // Include minimized pseudo-workspace if any parked clients.
@@ -395,7 +431,7 @@ impl Wm {
     pub fn activeworkspace_json(&self) -> Value {
         json!({
             "id": self.active_workspace,
-            "name": self.active_workspace.to_string(),
+            "name": self.workspace_label(self.active_workspace),
         })
     }
 
@@ -470,22 +506,38 @@ impl Wm {
 
         if let Some(rest) = verb.strip_prefix("workspace ") {
             let rest = rest.trim();
-            // Forms: `N` (synced all heads) | `N,output:NAME` (local board)
-            let (id_tok, out_opt) = if let Some((id, out)) = rest.split_once(",output:") {
-                (id.trim(), Some(out.trim()))
-            } else {
-                (rest, None)
-            };
+            // Forms: `N` (synced) | `N,output:NAME` | `N,local` (focused output)
+            let (id_tok, out_opt, force_local) =
+                if let Some((id, out)) = rest.split_once(",output:") {
+                    (id.trim(), Some(out.trim().to_string()), true)
+                } else if let Some((id, flag)) = rest.split_once(',') {
+                    let flag = flag.trim();
+                    if flag.eq_ignore_ascii_case("local") {
+                        (id.trim(), None, true)
+                    } else {
+                        return Err(format!(
+                            "bad workspace qualifier (want output:NAME|local): {flag}"
+                        ));
+                    }
+                } else {
+                    (rest, None, false)
+                };
             let id: i64 = id_tok
                 .parse()
                 .map_err(|_| format!("bad workspace id: {id_tok}"))?;
             let id = Self::clamp_workspace(id)?;
-            let (focus_out, local) = if let Some(name) = out_opt {
+            let (focus_out, local) = if force_local {
+                let name = match out_opt {
+                    Some(n) if !n.is_empty() => n,
+                    _ => self.focused_output.clone().ok_or_else(|| {
+                        "workspace local: no focused output (focusoutput first)".to_string()
+                    })?,
+                };
                 if name.is_empty() {
                     return Err("workspace output: requires a name".into());
                 }
-                self.set_workspace_local(id, name);
-                (Some(name.to_string()), true)
+                self.set_workspace_local(id, &name);
+                (Some(name), true)
             } else {
                 self.set_workspace_synced(id);
                 (self.focused_output.clone(), false)
@@ -503,6 +555,21 @@ impl Wm {
                 ops.push(WmOp::Focus(addr));
             }
             return Ok(ops);
+        }
+
+        // renameworkspace <id> <name…>  (empty name clears → numeric label)
+        if let Some(rest) = verb.strip_prefix("renameworkspace ") {
+            let rest = rest.trim();
+            let mut parts = rest.splitn(2, char::is_whitespace);
+            let id_tok = parts
+                .next()
+                .ok_or_else(|| "renameworkspace requires id".to_string())?;
+            let id: i64 = id_tok
+                .parse()
+                .map_err(|_| format!("bad workspace id: {id_tok}"))?;
+            let name = parts.next().unwrap_or("").trim().to_string();
+            self.set_workspace_name(id, name)?;
+            return Ok(vec![]);
         }
 
         if let Some(rest) = verb.strip_prefix("focuswindow ") {
@@ -832,6 +899,12 @@ mod tests {
 
         wm.dispatch("focusoutput eDP-1").unwrap();
         assert_eq!(wm.active_workspace, 2);
+        wm.dispatch("workspace 3,local").unwrap();
+        assert_eq!(wm.active_for_output("eDP-1"), 3);
+        assert_eq!(wm.active_for_output("HDMI-A-1"), 5);
+        assert_eq!(wm.active_workspace, 3);
+        wm.dispatch("workspace 2,local").unwrap();
+        assert_eq!(wm.active_for_output("eDP-1"), 2);
 
         let a = wm.alloc_address();
         wm.add_toplevel_on(a.clone(), "a".into(), "A".into(), (0, 0), "eDP-1".into());
@@ -915,6 +988,24 @@ mod tests {
         let ops = wm.dispatch("focusoutput HDMI-A-1").unwrap();
         assert!(ops.contains(&WmOp::FocusOutput("HDMI-A-1".into())));
         assert!(ops.contains(&WmOp::Focus(a)));
+    }
+
+    #[test]
+    fn renameworkspace_and_labels() {
+        let mut wm = Wm::new();
+        wm.dispatch("renameworkspace 2 Code").unwrap();
+        assert_eq!(wm.workspace_label(2), "Code");
+        assert_eq!(wm.workspaces_json()[1]["name"], "Code");
+        wm.dispatch("workspace 2").unwrap();
+        assert_eq!(wm.activeworkspace_json()["name"], "Code");
+        wm.dispatch("renameworkspace 2 ").unwrap();
+        assert_eq!(wm.workspace_label(2), "2");
+        wm.load_workspace_names_from_settings(
+            r#"{"workspaceNames":["Home","Code","","","","","","","",""]}"#,
+        );
+        assert_eq!(wm.workspace_label(1), "Home");
+        assert_eq!(wm.workspace_label(2), "Code");
+        assert_eq!(wm.workspace_label(3), "3");
     }
 
     #[test]

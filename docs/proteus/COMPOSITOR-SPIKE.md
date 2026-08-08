@@ -37,12 +37,13 @@
 | Soft cursor | `works` (thin) — default arrow MemoryRenderBuffer; `cursor_image` tracked; client surface → default |
 | VirGL / virtio transform | `thin` — prefers **card** node; `PROTEUS_DRM_TRANSFORM` (`normal`/`180`/`flipped`/…) for host-GL orientation quirks (no auto flip — VirGL hosts differ) |
 | Displays Fact + modeset | `works` (thin) — load `displays.json`; `dispatch output` scale/pos/mode/**transform**; monitors JSON live transform; **Identify** flash; Settings **10s Revert**; Settings orientation UI still Out |
-| Session keybinds | `works` (thin) — Super chords in compositor (`binds.rs`); Fact `keybinds.json`; `reloadbinds` |
+| Session keybinds | `works` (thin) — Super chords in compositor (`binds.rs`); Super+Ctrl+1–0 local Spaces; Fact `keybinds.json`; `reloadbinds` (+ reload `workspaceNames`) |
 | `ext-session-lock-v1` | `partial` (thin) — `session_lock.rs` tracked; global advertised; blank xdg windows while locked; LockSurfaces drawn; ctl `session-lock` (`supported`/`pending`/`locked`/`active`); **Overlay remains default** shell Fact; protocol opt-in dogfood via `compositor-session-lock.sh` + `proteus-session-lock` |
 
 ### Supported ctl dispatches
 
-`workspace N` (synced all heads) · `workspace N,output:NAME` (local) ·
+`workspace N` (synced all heads) · `workspace N,output:NAME` · `workspace N,local` ·
+`renameworkspace N <name>` ·
 `focuswindow address:…` · `killactive` · `cyclenext` ·
 `movetoworkspacesilent N|special:minimized` · `fullscreen 1` · `togglefloating` ·
 `layout equal|dwindle|master` · `gapsout N` · `gapsin N` · `smartgaps on|off|toggle` · `masterfactor F` ·
@@ -54,7 +55,7 @@
 Queries (hypr-shaped JSON fields): `workspaces` · `activeworkspace` ·
 `clients` (incl. `at`/`size`/`output`) · `activewindow` · `monitors`
 (incl. `focused` · `activeWorkspace` · `transform`) · `session-lock`
-(`supported`/`pending`/`locked`/`active`).
+(`supported`/`pending`/`locked`/`active`). Workspace `name` honors `workspaceNames`.
 Helper: `proteus-compositorctl`.
 
 ## Prove (2026-08-06)

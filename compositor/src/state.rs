@@ -166,7 +166,14 @@ impl CompositorNext {
             data_device_state,
             popups,
             seat,
-            wm: Wm::new(),
+            wm: {
+                let mut wm = Wm::new();
+                let path = crate::input_config::InputConfig::settings_fact_path();
+                if let Ok(raw) = std::fs::read_to_string(&path) {
+                    wm.load_workspace_names_from_settings(&raw);
+                }
+                wm
+            },
             windows: HashMap::new(),
             ctl_path: None,
             ctl_subscribers: Arc::new(Mutex::new(Vec::new())),

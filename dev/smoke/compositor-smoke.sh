@@ -124,6 +124,13 @@ grep -q 'keybinds.json' "${ROOT}/install/machine/install-keybinds.sh" \
   || die "install-keybinds must seed keybinds.json"
 grep -q 'fn dispatch' "${CRATE}/src/wm.rs" \
   || die "wm must implement dispatch"
+grep -q 'workspace_local_\|,local\|logo_ctrl' "${CRATE}/src/binds.rs" "${CRATE}/src/wm.rs" \
+  || die "Super+Ctrl local workspace binds / workspace N,local missing"
+grep -q 'renameworkspace\|workspace_names\|workspaceNames' "${CRATE}/src/wm.rs" "${CRATE}/src/ctl.rs" \
+  || die "renameworkspace / workspaceNames missing"
+grep -qE 'Super\+Ctrl|workspace N,local|renameworkspace' \
+  "${ROOT}/docs/proteus/CURRENT.md" "${ROOT}/docs/proteus/COMPOSITOR-SPIKE.md" \
+  || die "docs missing Spaces local/rename honesty"
 grep -qF -- '--backend' "${CRATE}/src/main.rs" \
   || die "CLI --backend missing"
 grep -q 'fn init_drm\|pub fn init_drm' "${CRATE}/src/drm.rs" \
@@ -397,6 +404,22 @@ else
   echo "${active2}" | grep -qE '"id": *2' \
     && ok "activeworkspace=2 after dispatch" \
     || die "activeworkspace not 2: ${active2}"
+
+  rn="$("${CTL}" dispatch "renameworkspace 2 Code" 2>/dev/null || true)"
+  echo "${rn}" | grep -q '"ok": *true' \
+    && ok "dispatch renameworkspace 2 Code" \
+    || die "renameworkspace failed: ${rn}"
+  active_named="$("${CTL}" activeworkspace 2>/dev/null || true)"
+  echo "${active_named}" | grep -q '"name": *"Code"' \
+    && ok "activeworkspace name=Code after rename" \
+    || die "activeworkspace name not Code: ${active_named}"
+  "${CTL}" dispatch "renameworkspace 2" >/dev/null 2>&1 || true
+
+  loc="$("${CTL}" dispatch "workspace 3,local" 2>/dev/null || true)"
+  echo "${loc}" | grep -q '"ok": *true' \
+    && ok "dispatch workspace 3,local" \
+    || die "workspace local failed: ${loc}"
+  "${CTL}" dispatch "workspace 1" >/dev/null 2>&1 || true
 
   # Thin Displays modeset — scale on primary output (Fact path grepped above).
   mon_json="$("${CTL}" monitors 2>/dev/null || true)"
