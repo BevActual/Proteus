@@ -131,6 +131,14 @@ grep -q 'renameworkspace\|workspace_names\|workspaceNames' "${CRATE}/src/wm.rs" 
 grep -qE 'Super\+Ctrl|workspace N,local|renameworkspace' \
   "${ROOT}/docs/proteus/CURRENT.md" "${ROOT}/docs/proteus/COMPOSITOR-SPIKE.md" \
   || die "docs missing Spaces local/rename honesty"
+grep -q 'BindmAction\|lookup_bindm\|default_bindm\|try_start_bindm' \
+  "${CRATE}/src/binds.rs" "${CRATE}/src/input.rs" \
+  || die "mouse bindm missing"
+grep -q '"bindm"' "${ROOT}/env/settings/keybinds.defaults.json" \
+  || die "keybinds.defaults.json missing bindm"
+grep -qE 'bindm|Super\+LMB|Super\+RMB' \
+  "${ROOT}/docs/proteus/CURRENT.md" "${ROOT}/docs/proteus/COMPOSITOR-SPIKE.md" \
+  || die "docs missing bindm honesty"
 grep -qF -- '--backend' "${CRATE}/src/main.rs" \
   || die "CLI --backend missing"
 grep -q 'fn init_drm\|pub fn init_drm' "${CRATE}/src/drm.rs" \

@@ -82,24 +82,44 @@ pub struct BindEntry {
     pub action: BindAction,
 }
 
+/// Mouse bindm action (Hypr-shaped: Super+LMB move · Super+RMB resize).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BindmAction {
+    Move,
+    Resize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BindmEntry {
+    pub id: BindId,
+    pub mods: BindMods,
+    /// Logical button: `left` | `right` | `middle` (or `btn_left` …).
+    pub button: String,
+    pub action: BindmAction,
+}
+
 /// Loaded bind table (defaults merged with Fact overrides).
 #[derive(Debug, Clone, Default)]
 pub struct BindsState {
     pub entries: Vec<BindEntry>,
+    pub bindm: Vec<BindmEntry>,
 }
 
 impl BindsState {
     pub fn load() -> Self {
         let mut entries = default_binds();
         merge_fact_overrides(&mut entries);
-        Self { entries }
+        let mut bindm = default_bindm();
+        merge_fact_bindm(&mut bindm);
+        Self { entries, bindm }
     }
 
     pub fn reload(&mut self) {
         *self = Self::load();
         eprintln!(
-            "proteus-compositor: reloaded keybinds ({} entries)",
-            self.entries.len()
+            "proteus-compositor: reloaded keybinds ({} entries, {} bindm)",
+            self.entries.len(),
+            self.bindm.len()
         );
     }
 
@@ -110,6 +130,103 @@ impl BindsState {
             .iter()
             .find(|e| e.mods.matches(mods) && normalize_key_name(&e.key) == key)
             .map(|e| &e.action)
+    }
+
+    /// Find bindm action for pointer button + modifiers.
+    pub fn lookup_bindm(&self, mods: &ModifiersState, button_code: u32) -> Option<BindmAction> {
+        let Some(name) = button_code_name(button_code) else {
+            return None;
+        };
+        self.bindm
+            .iter()
+            .find(|e| e.mods.matches(mods) && normalize_button_name(&e.button) == name)
+            .map(|e| e.action)
+    }
+}
+
+/// Linux `BTN_*` codes → catalog name.
+pub fn button_code_name(code: u32) -> Option<&'static str> {
+    match code {
+        0x110 => Some("left"),   // BTN_LEFT
+        0x111 => Some("right"),  // BTN_RIGHT
+        0x112 => Some("middle"), // BTN_MIDDLE
+        _ => None,
+    }
+}
+
+fn normalize_button_name(raw: &str) -> String {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "btn_left" | "button_left" | "lmb" | "1" => "left".into(),
+        "btn_right" | "button_right" | "rmb" | "3" => "right".into(),
+        "btn_middle" | "button_middle" | "mmb" | "2" => "middle".into(),
+        other => other.to_string(),
+    }
+}
+
+pub fn default_bindm() -> Vec<BindmEntry> {
+    vec![
+        BindmEntry {
+            id: "move".into(),
+            mods: BindMods::logo_only(),
+            button: "left".into(),
+            action: BindmAction::Move,
+        },
+        BindmEntry {
+            id: "resize".into(),
+            mods: BindMods::logo_only(),
+            button: "right".into(),
+            action: BindmAction::Resize,
+        },
+    ]
+}
+
+fn merge_fact_bindm(entries: &mut Vec<BindmEntry>) {
+    let path = keybinds_fact_path();
+    let Ok(raw) = std::fs::read_to_string(&path) else {
+        return;
+    };
+    let Ok(v) = serde_json::from_str::<Value>(&raw) else {
+        return;
+    };
+    let Some(arr) = v.get("bindm").and_then(|x| x.as_array()) else {
+        return;
+    };
+    // Fact replaces defaults when present (empty array disables bindm).
+    let mut out = Vec::new();
+    for item in arr {
+        let id = item
+            .get("id")
+            .and_then(|x| x.as_str())
+            .unwrap_or("bindm")
+            .to_string();
+        let Some(button) = item.get("button").and_then(|x| x.as_str()) else {
+            continue;
+        };
+        let mods = parse_mods(item.get("mods"));
+        let Some(action) = parse_bindm_action(item.get("action")) else {
+            eprintln!("proteus-compositor: bindm {id}: bad action");
+            continue;
+        };
+        out.push(BindmEntry {
+            id,
+            mods,
+            button: normalize_button_name(button),
+            action,
+        });
+    }
+    *entries = out;
+}
+
+fn parse_bindm_action(v: Option<&Value>) -> Option<BindmAction> {
+    let s = match v {
+        Some(Value::String(s)) => s.as_str(),
+        Some(obj) => obj.get("bindm").and_then(|x| x.as_str())?,
+        None => return None,
+    };
+    match s.trim().to_ascii_lowercase().as_str() {
+        "move" | "movewindow" => Some(BindmAction::Move),
+        "resize" | "resizewindow" => Some(BindmAction::Resize),
+        _ => None,
     }
 }
 
@@ -558,6 +675,21 @@ mod tests {
     }
 
     #[test]
+    fn default_bindm_super_lmb_rmb() {
+        let st = BindsState {
+            entries: vec![],
+            bindm: default_bindm(),
+        };
+        let mut mods = ModifiersState::default();
+        mods.logo = true;
+        assert_eq!(st.lookup_bindm(&mods, 0x110), Some(BindmAction::Move));
+        assert_eq!(st.lookup_bindm(&mods, 0x111), Some(BindmAction::Resize));
+        mods.logo = false;
+        assert_eq!(st.lookup_bindm(&mods, 0x110), None);
+        assert_eq!(parse_bindm_action(Some(&serde_json::json!("resize"))), Some(BindmAction::Resize));
+    }
+
+    #[test]
     fn parse_mods_super_shift() {
         let v = serde_json::json!(["super", "shift"]);
         let m = parse_mods(Some(&v));
@@ -590,6 +722,7 @@ mod tests {
     fn lookup_logo_space() {
         let state = BindsState {
             entries: default_binds(),
+            bindm: default_bindm(),
         };
         let mods = ModifiersState {
             logo: true,

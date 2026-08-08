@@ -17,9 +17,12 @@ use smithay::{
     utils::SERIAL_COUNTER,
 };
 
-use crate::binds::{self, BindAction};
+use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel;
+use smithay::utils::{Logical, Point, Rectangle};
+
+use crate::binds::{self, BindAction, BindmAction};
 use crate::decoration::SsdHit;
-use crate::grabs::MoveSurfaceGrab;
+use crate::grabs::{MoveSurfaceGrab, ResizeSurfaceGrab};
 use crate::state::CompositorNext;
 
 impl CompositorNext {
@@ -198,6 +201,24 @@ impl CompositorNext {
                         return;
                     }
 
+                    // Super+LMB/RMB bindm (move/resize) before normal click focus.
+                    let mods = keyboard.modifier_state();
+                    if let Some(action) = self.binds.lookup_bindm(&mods, button) {
+                        if self.try_start_bindm(action, button, location, serial) {
+                            pointer.button(
+                                self,
+                                &ButtonEvent {
+                                    button,
+                                    state: button_state,
+                                    serial,
+                                    time: event.time_msec(),
+                                },
+                            );
+                            pointer.frame(self);
+                            return;
+                        }
+                    }
+
                     // Focus the surface under the pointer (layer or window).
                     if let Some((surface, _)) = self.surface_under(location) {
                         if let Some((window, _)) = self
@@ -328,5 +349,79 @@ impl CompositorNext {
             serial,
             Focus::Clear,
         );
+    }
+
+    /// Super+mouse bindm — returns true if a grab started.
+    fn try_start_bindm(
+        &mut self,
+        action: BindmAction,
+        button: u32,
+        location: Point<f64, Logical>,
+        serial: smithay::utils::Serial,
+    ) -> bool {
+        let Some((window, _)) = self
+            .space
+            .element_under(location)
+            .map(|(w, l)| (w.clone(), l))
+        else {
+            return false;
+        };
+        let Some(initial_window_location) = self.space.element_location(&window) else {
+            return false;
+        };
+        let address = self.windows.iter().find_map(|(a, w)| {
+            (w == &window).then(|| a.clone())
+        });
+        if let Some(addr) = &address {
+            self.focus_address(addr);
+            self.wm.set_floating(addr, true);
+        }
+        let Some(pointer) = self.seat.get_pointer() else {
+            return false;
+        };
+        let start_data = GrabStartData {
+            focus: None,
+            button,
+            location,
+        };
+        match action {
+            BindmAction::Move => {
+                pointer.set_grab(
+                    self,
+                    MoveSurfaceGrab {
+                        start_data,
+                        window,
+                        initial_window_location,
+                        address,
+                    },
+                    serial,
+                    Focus::Clear,
+                );
+                true
+            }
+            BindmAction::Resize => {
+                let geometry = window.geometry();
+                let initial_rect = Rectangle::new(initial_window_location, geometry.size);
+                if let Some(t) = window.toplevel() {
+                    t.with_pending_state(|state| {
+                        state.states.set(xdg_toplevel::State::Resizing);
+                    });
+                    t.send_pending_configure();
+                }
+                pointer.set_grab(
+                    self,
+                    ResizeSurfaceGrab {
+                        start_data,
+                        window,
+                        edges: xdg_toplevel::ResizeEdge::BottomRight,
+                        initial_rect,
+                        address,
+                    },
+                    serial,
+                    Focus::Clear,
+                );
+                true
+            }
+        }
     }
 }

@@ -14,7 +14,7 @@
 |-------|--------|
 | winit backend (nested window as output) | `works` |
 | xdg-shell toplevels (map, popups) | `works` |
-| Interactive move / resize pointer grabs | `works` — marks window `floating`; loc synced into wm roster |
+| Interactive move / resize pointer grabs | `works` — marks window `floating`; loc synced into wm roster; **bindm** Super+LMB move · Super+RMB resize (`keybinds.json` `bindm` Fact) |
 | Equal / dwindle / master tiling | `partial` — default **dwindle**; `dispatch layout equal\|dwindle\|master`; gaps out/in (default **10/6**); **smart-gaps** (default on; zero gaps when one tiled window); `masterfactor`; per-output + exclusive zone; `togglefloating` |
 | Focus ring (CSD) | `works` (thin) — 2px accent MemoryRenderBuffer around focused **CSD** window; Cosmic `IndicatorShader` is pattern-only (never forked) |
 | xdg-decoration (`zxdg_decoration_manager_v1`) | `works` (thin) — **CSD-first** (GTK ServerSide asks ignored); SSD titlebar (28px) only when `t.ssd`; cosmic-text + close/move hits |
@@ -226,5 +226,5 @@ backdrop shaders, pop-launcher. Proteus chrome stays in `proteus-shell`.
 ## Out
 
 Settings orientation/transform UI, deeper multi-GPU policy,
-console-home gamescope swap, Settings keybind rebind editor, mouse bindm,
+console-home gamescope swap, Settings keybind rebind editor,
 blur/anim polish, flip shell lock default to protocol.
