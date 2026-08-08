@@ -214,6 +214,12 @@ grep -q 'privacy-flatpak\|FlatpakSet\|privacy-diagnostics' "${ST_ROOT}/src/panes
   && ok "privacy-flatpak leaf" || bad "privacy-flatpak missing"
 grep -q 'fn privacy_flatpak_list\|fn privacy_flatpak_set\|fn privacy_diagnostics' "${ST_ROOT}/src/backend.rs" \
   && ok "privacy flatpak/diagnostics backends" || bad "privacy Phase D backends missing"
+grep -q 'SetAppGrant\|AddApp\|Per-app grants' "${ST_ROOT}/src/panes/privacy.rs" \
+  && ok "privacy per-app grants UI" || bad "privacy per-app grants UI missing"
+grep -q 'fn privacy_apps_for_category\|fn privacy_set_app_grant\|store-set-app' "${ST_ROOT}/src/backend.rs" \
+  && ok "privacy per-app grants backends" || bad "privacy per-app grants backends missing"
+grep -q 'PrivacyCategoryLoaded\|privacy_set_app_grant\|privacy_apps_for_category' "${ST_ROOT}/src/main.rs" \
+  && ok "privacy per-app grants main wire" || bad "privacy per-app grants main wire missing"
 grep -q 'peripherals-keyboard\|KeybindEdit\|KeybindApply\|keybinds.json' \
   "${ST_ROOT}/src/panes/peripherals.rs" \
   && ok "keyboard leaf thin rebind UI" || bad "keyboard leaf rebind missing"

@@ -197,7 +197,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Online accounts** (`accounts`) | Hub → per-provider leaves (Google / Microsoft / Exchange / Nextcloud / IMAP / CalDAV / CardDAV / Apple); PKCE + app-password seats (`proteus-accounts` vault); calendar + mail + contacts glances; **calendar event create/edit/delete**; **recurrence thin**; **mail compose thin**; **contacts create/edit/delete thin** | `proteus-accounts` + iced Accounts panes + calendar/mail/contacts helpers (HTML/drafts/multi-file · photos/groups/apps Out) | `partial` |
 | **Date, time & weather** (`datetime`) | Live clock, searchable timezone + locale pickers, NTP, **Location** (place + units + 5-day forecast + Match TZ) | `timedatectl` / `localectl set-locale` / Open-Meteo | `shipped` |
 | **Notifications** (`notifications`) | Prefs: hard DND · jump to Focus · live list stays Control Center | `notificationsDnd` · Focus | `shipped` |
-| **Privacy & security** (`privacy`) | Hub → What leaves + weather mute + session; **In use now**; category leaves (Allow/Deny + per-app Allow/Ask/Deny); Flatpak overrides; portal PermissionStore sync; capture enforce (Deny + Ask mute/destroy mic/camera/**screen**); **portal Session.Close** best-effort; **Ask launch + mid-session mic/camera/screen** | `permissions.json` · `proteus-permissions.py` · PrivacyAsk · PrivacyIndicators · shell-core gate · portal Session.Close + pactl/PW enforce | `partial` |
+| **Privacy & security** (`privacy`) | Hub → What leaves + weather mute + session; **In use now**; category leaves (Allow/Ask/Deny + **per-app grants thin** Allow/Ask/Deny via `store-set-app`); Flatpak overrides; portal PermissionStore sync; capture enforce (Deny + Ask mute/destroy mic/camera/**screen**); **portal Session.Close** best-effort; **Ask launch + mid-session mic/camera/screen**. Out: AppArmor | `permissions.json` · `proteus-permissions.py` · PrivacyAsk · PrivacyIndicators · shell-core gate · portal Session.Close + pactl/PW enforce | `partial` |
 | **Software** (`packages`) | Hub → Updates; Repos / AUR / Flathub (Install\|Installed mode-safe, per-mode search, op narrative); AppImages; **Web apps** (URL → `proteus-web-*.desktop` via `proteus-webapp`, no polkit); Orphans — helper honesty when yay/paru/flatpak missing | `pacman` + `proteus-pkg` · yay/paru · flatpak + Flathub · local AppImages · `proteus-webapp` | `shipped` |
 | **Virtualization** (`virtualization`) | Thin host ops hub — Workloads › jump · engines status · **seat chrome** (`proteus-host-seat` attach/detach · `host-chrome`) | `Workloads` · `proteus-host-seat` · `proteus-posture` · `host-chrome` (mutations / auto-resolver / Portainer / graphical-remote Out) | `shipped` |
 | **About** (`system`) | OS/kernel/hostname · load/mem/storage · battery when present · Mission Center · Check for updates → Software; hardware caps; **hard Session posture** (`proteus-posture`, confirm); Copy + Copied; Virtualization › jump | shell-core facts · probe · Mission Center escape | `shipped` (thin iced) |
@@ -442,12 +442,13 @@ PAM · PIN in settings.json Out.)*
 *(About OS/kernel/hostname · load strip · Mission Center escape · Copy+Copied ·
 hard Session posture picker shipped — Beacon/CC still flip hard too; no
 in-Settings live dashboard. Soft compositor profile retired.)*
-*(Privacy & security hub · In use now · category grants · Flatpak overrides ·
+*(Privacy & security hub · In use now · category grants · **per-app grants thin**
+(`apps` ∪ desktop · `store-set-app`) · Flatpak overrides ·
 portal PermissionStore sync · capture enforce (mic/camera/screen) · Beacon/dock
 grant parity · Diagnostics deny → Network Diagnostics · smoke/install privacy
 harness shipped — ~~Ask launch prompt~~ · ~~fail-closed until Permissions.ready~~
 · ~~kill screencast streams (best-effort)~~ · ~~portal Session.Close (best-effort)~~
-shipped; full OS sandbox / v4l2 ACL / perfect screencast attribution still Out.)*
+shipped; AppArmor · full OS sandbox / v4l2 ACL / perfect screencast attribution still Out.)*
 *(Desktop catch-up: desktop-smoke · defaults/beacon-index install · Focus/CC/Spaces
 roundtrip · guest Desktop nav · Beacon Settings blurb · SETTINGS-IA §6 Focus/CC
 rows shipped.)*

@@ -182,7 +182,7 @@ QML Settings is **retired** (no escape). Legacy Tauri `app/` is frozen.
 compact Shrink CTAs / `button_cluster`, trailing form rows, `large_title`,
 sidebar `accent_soft` selection (true blur Out).
 Ported thin: Appearance · Software · Sound (Mixer grid thin) · Notifications ·
-Users · Privacy (activity + categories + Flatpak/Diagnostics thin) · Network
+Users · Privacy (activity + categories + per-app grants + Flatpak/Diagnostics thin) · Network
 (machine/wifi/BT/Devices/Diagnostics/LocalSend · VPN · Tailscale thin usable ·
 Headscale HuJSON) · Desktop (gaps live-apply · defaults/focus CRUD thin/beacon) ·
 Power · Date/Time · About · Virtualization · Peripherals (mouse/touchpad/tablet →
@@ -205,7 +205,7 @@ allowlist.
 | Date, time & weather (clock, timezone search, NTP, locale, **Location**) | `shipped` — timezone/NTP/`localectl set-locale` polkit-gated; searchable locale picker + locale.conf escape; Location explicit place search (never IP); Open-Meteo current + **5-day forecast** + Conditions H/L/sunrise; Match time zone to place when TZ differs; desktop/lock weather widget; manual time / RTC writers Out |
 | Users (session actions + read-only local users · greetd autologin) | `shipped` — Session Lock/Logout; Reboot/Shutdown confirm strip; **lock screen PIN** set/change/clear (`proteus-pin.py`, PAM password gate; hash not in settings.json); current user GECOS/home/UID/groups; other users read-only; Online accounts jump; greetd status + **autologin toggle** via `proteus-greetd` (pkexec `[initial_session]`; no greetd restart); conf escape; no add/remove |
 | Online accounts (provider seats) | `partial` — iced hub + password providers with glance create/edit (Nextcloud/IMAP/CalDAV/CardDAV/Apple via `proteus-accounts`); OAuth PKCE Connect wired; multi-seat glance megas / CalendarPanel write polish stay QML. Detail: [§3a](#3a-online-accounts-detail) |
-| Privacy & security (transparency · mute · session · grants) | `partial` — iced hub: **In use now**; category Allow/Ask/Deny; **Flatpak** mic/camera overrides (`proteus-permissions.py`); **Diagnostics** readiness (permissions.json · portal-sync · activity). Shell Ask prompt + capture enforce remain. Out: full per-app grant matrix polish · AppArmor |
+| Privacy & security (transparency · mute · session · grants) | `partial` — iced hub: **In use now**; category Allow/Ask/Deny; **per-app grants thin** (permissions.json `apps` ∪ desktop apps · `store-set-app`); **Flatpak** mic/camera overrides (`proteus-permissions.py`); **Diagnostics** readiness (permissions.json · portal-sync · activity). Shell Ask prompt + capture enforce remain. Out: AppArmor |
 | About (hardware class / capabilities) | `shipped` (thin iced) — OS/kernel/hostname; tip hash; hw-probe class/caps; load strip; battery when present; Mission Center escape; Check for updates → Software; **hard Session posture** (`proteus-posture`, confirm); session power under Users only |
 | Host / VM·container setup | **thin Settings hub** (`virtualization`) — Workloads jump · engines status · headless chrome Fact; mutations stay in `proteus-workloads` app; auto-resolver / Portainer Out |
 | Cold-start (open feel) | `shipped` — iced `proteus-settings-next` (sibling); pane load deferred where needed; hw-probe cache-first in Settings |
