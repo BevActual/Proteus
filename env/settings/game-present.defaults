@@ -1,0 +1,6 @@
+{
+  "scale_mode": "integer",
+  "fps_limit": 0,
+  "filter": "nearest",
+  "engine": "owned"
+}

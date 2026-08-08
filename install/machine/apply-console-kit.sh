@@ -45,7 +45,10 @@ echo "==> apply-console-kit (user=${USER_NAME} root=${ROOT})"
 if [[ "${PROTEUS_SKIP_CONSOLE_PACKAGES:-0}" == "1" ]]; then
   echo "  packages: skipped (console stage owns them)"
 elif command -v pacman >/dev/null 2>&1; then
-  as_root pacman -S --needed --noconfirm gamescope python-evdev 2>&1 | tail -30
+  # gamescope is optional interim (FORCE nest/session); owned path does not need it.
+  as_root pacman -S --needed --noconfirm python-evdev 2>&1 | tail -30
+  as_root pacman -S --needed --noconfirm gamescope 2>&1 | tail -15 || \
+    echo "apply-console-kit: gamescope optional — skipped/missing (owned game-present OK)" >&2
   # Steam / RetroArch — best-effort each (multilib / mirrors may omit steam)
   for pkg in steam retroarch; do
     if as_root pacman -S --needed --noconfirm "$pkg" 2>&1 | tail -8; then

@@ -81,9 +81,10 @@ PY
   pad=1
 fi
 
-# Session Fact: seat (interim Hypr kiosk + supervised seats) | session
-# (Gamescope owns the console session). Legacy value `gamescope` (Phase 2
-# nested preference) maps to `session`.
+# Session Fact (legacy): seat | session|gamescope. Shipping effective mode is
+# always `seat` (owned smithay). Gamescope session only via PROTEUS_FORCE_GAMESCOPE=1.
+# `gameScope` / gamescopeUsable = hardware Vulkan available for present quality,
+# not "start gamescope as session compositor".
 MODE="seat"
 FACT="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/console-session-mode"
 if [[ -f "${FACT}" ]]; then
@@ -95,11 +96,13 @@ case "${MODE}" in
   *) MODE=seat ;;
 esac
 EFFECTIVE="seat"
-if [[ "${MODE}" == "session" && "${gamescope_usable}" -eq 1 ]]; then
+# Emergency: FORCE + usable gamescope may still report session for dogfood probes.
+if [[ "${PROTEUS_FORCE_GAMESCOPE:-}" == "1" && "${MODE}" == "session" && "${gamescope_usable}" -eq 1 ]]; then
   EFFECTIVE="session"
 fi
 REPLACES=0
-[[ "${EFFECTIVE}" == "session" ]] && REPLACES=1
+# Owned compositor replaced Hyprland; gamescope no longer replaces the session.
+REPLACES=0
 
 python3 - <<PY
 import json

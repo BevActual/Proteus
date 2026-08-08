@@ -82,7 +82,7 @@ Desktop (owned iced — `shell/src/app/` session + `platform/` helpers + shared 
 | Hardware probe at session start | `shipped` — Wave A (`proteus-hw-probe` + shell/shell-core cache) |
 | Env gate (Beacon / Settings / dock) | `shipped` — shell-core gate (+ `env/apps` manifests); **postures** + **device_classes** hard allow-lists · **prefers** soft hint/boost · **adapts** soft profile (input/nav/panes via Focus) + **`PROTEUS_ADAPT_*` launch env** on Dock/Beacon/`openSettings`; **Focus minimal hard-hides** non-allowlisted Settings panes; **`adapts.input` remote** via probe CEC/IR/lirc / Bluetooth HID + `PROTEUS_REMOTE_PROBE` stub; Settings About may surface adapt env + remote status + Focus density; app icon resolve + Proteus brand marks |
 | Chrome design lock (`CHROME.md`) | `shipped` — principles + token tables + Settings patterns; sibling export `env/chrome/` `shipped` |
-| Owned-stack ladder ([OWNED-STACK.md](./OWNED-STACK.md)) | `partial` — iced chrome + smithay compositor **shipped** (thin); Settings iced sibling; polish holdouts remain; **desktop gamescope nest** via `proteus-gamescope` (Steam `%command%`); **gamescope console-home not swapped** |
+| Owned-stack ladder ([OWNED-STACK.md](./OWNED-STACK.md)) | `partial` — iced chrome + smithay compositor **shipped** (thin); Settings iced sibling; **owned game-present** + focus-stack; Steam `proteus-gamescope %command%` (owned path; nest FORCE-only); **gamescope console-home not swapped** |
 | Theme tokens | `shipped` — space/radius scale + accent/font from Config; company lock [CHROME.md](./CHROME.md) |
 | Themed controls (`theme_slider` / `theme_switch`) | `shipped` — `proteus-ui` kit; QML ThemeSlider/ThemeSwitch retired |
 | Shared package layout | `shipped` — `shell/{src,scripts,pam,assets}` + `app/` (session + `handlers/{overlays,spaces,dock,…}`) + `platform/{power,network,notifs,…}` + `faces/{desktop,console,host}/` + `surfaces/{bar,dock,…}`; `main.rs` boot + App seed, session logic in `app/`; QML `shared/` deleted |
@@ -256,7 +256,7 @@ Locked product set: [POSTURES.md](./POSTURES.md).
 | Posture | Status |
 |---------|--------|
 | desktop | `partial` — primary focus spine |
-| console | `partial` — list IA + owned console face stub: Games/Media/Apps + **Console Settings face thin** (Wi‑Fi/Sound/Privacy jumps). **gamescope console-home not swapped** (desktop nest is separate — `proteus-gamescope`). Detail: [§4a](#4a-console-detail) |
+| console | `partial` — list IA + owned console face stub: Games/Media/Apps + **Console Settings face thin** (Wi‑Fi/Sound/Privacy jumps). Session always smithay; focus-stack owned; **gamescope console-home not swapped**. Detail: [§4a](#4a-console-detail) |
 | host | `partial` — seat-driven headless default; owned host face Glance **HexOS cards** (`proteus-host-metrics.py`); Workloads mutation surface; graphical-remote attach Out |
 | home · wearable · xr · vehicle | `parked` — thesis only; not in proof order |
 
@@ -272,7 +272,7 @@ picker (soft hypr profile retired with `env/hypr/`).
 Console dogfood (guest): `bash /mnt/proteus/dev/dogfood/dogfood-console.sh`
 (`--launch browser|retroarch`; `--restore`). Host dogfood:
 `bash /mnt/proteus/dev/dogfood/dogfood-host.sh` (default headless → seat attach/detach;
-`--restore` → desktop). Titles via `proteus-console-seat` (Gamescope when usable).
+`--restore` → desktop). Titles via `proteus-console-seat` (owned game-present fullscreen).
 Primary chrome is Games/Media/Search/Settings list IA; stores-as-backend locked in POSTURES.
 
 ### 4a. Console detail
@@ -289,18 +289,16 @@ footer status strip and pad legend.
 
 Stores are backends, not the shell — locked in [POSTURES.md](./POSTURES.md).
 
-**Gamescope-as-session** (`partial`) — `proteus-session` switches engine at login
-when `game_scope` is available (gamescope + hardware Vulkan) and hands off to
-`proteus-console-gs-session`:
+**Owned console session** (`partial`) — `proteus-session` always starts
+`proteus-compositor` DRM + iced console face. Titles use **game-present**;
+Guide focus-flip via `proteus-console-focus` → compositor **focus-stack**.
 
-- Gamescope owns the session; **Proteus Home** is an xdg client under that seat.
-- Guide focus-flip via `proteus-console-focus` baselayer atoms.
-- Lock = session exit — the login screen *is* the lock.
-- Prove paths: bare metal, or **VFIO passthrough** (`PROTEUS_VM_VFIO`).
+- Gamescope-as-session is **retired** from the shipping path (`PROTEUS_FORCE_GAMESCOPE=1` emergency only via `proteus-console-gs-session`).
+- **gamescope console-home not swapped** — iced Home still Out; seat + thin face is honest.
+- Lock = session exit / overlay lock on smithay — greeter remains login.
 
-**Interim** (VirGL / no hardware Vulkan) — smithay seat + supervised seat +
-per-title/nested Gamescope. Shelf Home is retired from the primary path; Guide
-long-hold exits to desktop.
+**Present knobs** — Fact `~/.config/proteus/game-present` (`scale_mode` /
+`fps_limit` / `filter` / `engine`). Desktop Steam: `proteus-gamescope %command%`.
 
 **Pad input** is **single-fire** — `proteus-guide` single-instance lock,
 BTN_DPAD/HAT dual-report dedupe, hold-repeat delay. Kit: `apply-console-kit.sh`.
@@ -315,7 +313,8 @@ BTN_DPAD/HAT dual-report dedupe, hold-repeat delay. Kit: `apply-console-kit.sh`.
 | `~/.config/proteus/settings.json` | Theme/desktop prefs (shell-core / iced Settings); wallpaper keys; widgets; DND — [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md) |
 | `~/.config/proteus/keybinds.json` | Shortcut overrides for compositor (defaults baked in `binds.rs`) |
 | `~/.config/proteus/displays.json` | Output scale/pos/mode/transform for compositor |
-| `~/.config/proteus/gamescope-flags` | Desktop nest argv for `proteus-gamescope` (Steam: `proteus-gamescope %command%`) |
+| `~/.config/proteus/game-present` | Owned present knobs JSON (`scale_mode` / `fps_limit` / `filter` / `engine`) — Steam: `proteus-gamescope %command%` |
+| `~/.config/proteus/gamescope-flags` | Legacy nest argv (only when FORCE / `engine=gamescope`) |
 | `~/.config/proteus/permissions.json` | App permission categories + per-app Allow/Ask/Deny (0600; `proteus-permissions.py`) — not in settings.json |
 | `~/.local/share/proteus/auth/pin` | Lock-screen unlock PIN hash (0600; `proteus-pin.py` / `check-unlock.py` / `proteus_auth.py`) — not in settings.json; apps install helpers + optional `proteus-lock` PAM (`login` fallback); [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md) · [INSTALL.md](./INSTALL.md) |
 | `~/.config/proteus/hw-probe.json` | Cached Wave A hardware probe |
@@ -394,7 +393,7 @@ Install path SoT (three layers, knobs, repair, failures): [INSTALL.md](./INSTALL
 | Lock | Doc | Code status |
 |------|-----|-------------|
 | Stack split (iced / Tauri / Rust) | [STACK.md](./STACK.md) | Shell+Settings iced; no first-party Tauri apps yet |
-| Owned compositor + chrome | [COMPOSITOR.md](./COMPOSITOR.md) | Desktop smithay+iced `shipped` (thin); console Gamescope session `partial`; host seat-driven `partial`; home parked |
+| Owned compositor + chrome | [COMPOSITOR.md](./COMPOSITOR.md) | Desktop smithay+iced `shipped` (thin); console owned session + game-present `partial`; host seat-driven `partial`; home parked |
 | Posture separation rules | [POSTURES.md](./POSTURES.md) §2a | Shared rules `partial` (gating panes, keybind filter, hard posture, host seat scaffold) |
 | Adaptive apps / environment contract | [APPLICATIONS.md](./APPLICATIONS.md) | `partial` — `env/apps` manifests + shell-core gating + Focus / Beacon adapt hints; **remote** via probe + soft stub |
 | Hardware module catalog | [HARDWARE.md](./HARDWARE.md) | Wave A probe + shell-core / Settings consumers |
@@ -407,7 +406,7 @@ Install path SoT (three layers, knobs, repair, failures): [INSTALL.md](./INSTALL
 ## 8. Not yet
 
 - Host virt auto-resolver · Portainer-style Settings UI · graphical-remote seat attach (thin Virtualization + Workloads + host-chrome / proteus-host-seat shipped)
-- Gamescope-as-session console + Guide focus-flip (interim nested session Fact shipped; launcher-first / stores-as-backend locked)
+- Console owned session + Guide focus-stack (gamescope session retired from shipping; launcher-first / stores-as-backend locked)
 - Soft hypr profile reload (retired with Hyprland — use `proteus-posture`)
 - Parked postures (home / wearable / xr / vehicle) before focus three are proven  
 - Snap / dependency graphs in Software  

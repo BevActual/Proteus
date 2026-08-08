@@ -158,13 +158,12 @@ usershares dir, `sambashare` group, smb service and a read-only
 
 The `console` stage (and the earlier `apps` stage) put the seat kit on PATH —
 `proteus-console-seat`, `proteus-console-capabilities`, `proteus-console-launch`,
-`proteus-console-session`, `proteus-console-gs-session`, `proteus-console-focus`
-(symlinked to the live tree when `PROTEUS_ROOT=/mnt/proteus`) — and seeds
-`console.conf`. With hardware Vulkan (bare metal / VFIO passthrough — see
-[dev/vm/README.md](../../dev/vm/README.md) §VFIO) and
-`proteus-console-session set-mode session`, the next console login boots the
-**Gamescope session** (Proteus Home + Guide focus-flip) instead of the
-smithay seat interim.
+`proteus-console-session`, `proteus-console-gs-session` (FORCE-only),
+`proteus-console-focus` (symlinked to the live tree when
+`PROTEUS_ROOT=/mnt/proteus`) — and seeds `console.conf` + `game-present`.
+Console login always uses **owned smithay** + iced console face; titles use
+**game-present** / focus-stack. Gamescope session is emergency-only
+(`PROTEUS_FORCE_GAMESCOPE=1`).
 
 ### Flip to console and launch a title
 
@@ -185,11 +184,9 @@ proteus-console-seat --expect-class steam -- steam -gamepadui
 pkgs). Full Steam/RetroArch/cores/udev = overlay `console` stage or
 `sudo bash /mnt/proteus/install/machine/install-console-software.sh`.
 
-Phase 1 = supervised seats + capabilities probe (Gamescope only when
-`gamescopeUsable`; QEMU/VirGL typically bare smithay seat). **Phase 2** = session
-Fact via `proteus-console-session` (`seat`\|`gamescope`) + launch adaptive flags
-— Gamescope-as-session when Vulkan allows; otherwise smithay + seats. Pad
-passthrough (`PROTEUS_VM_PAD=auto`),
+Supervised seats + capabilities probe (`gamescopeUsable` = Vulkan honesty for
+present quality, not session ownership). Shipping path is always smithay +
+seats; gamescope package is optional. Pad passthrough (`PROTEUS_VM_PAD=auto`),
 Steam/RetroArch specifics, and VM audio/GL caveats live in
 [dev/vm/README.md](../../dev/vm/README.md). Guest console gate (deferred from
 desktop `smoke-all`): `./dev/smoke/console-guest-smoke.sh` (SKIP unless SSH /

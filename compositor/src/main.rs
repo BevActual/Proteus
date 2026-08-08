@@ -9,6 +9,7 @@ mod ctl;
 mod cursor;
 mod decoration;
 mod displays;
+mod game_present;
 mod dmabuf_init;
 mod drm;
 mod grabs;

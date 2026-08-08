@@ -1,19 +1,18 @@
 #!/usr/bin/env bash
-# proteus-console-focus — Gamescope session focus router (SteamOS pattern).
-# Raises Proteus Home ↔ the running title by writing the
-# GAMESCOPECTRL_BASELAYER_APPID atom on the Gamescope Xwayland root.
-# Clients are identified by a STEAM_GAME appid atom on their X window
-# (Home = HOME_APPID; the seat supervisor tags titles via `tag-pid`).
+# proteus-console-focus — owned focus-stack router (Guide Home ↔ title).
+#
+# Default path: proteus-compositorctl focus-stack / game-present.
+# Interim Gamescope baselayer path only when PROTEUS_CONSOLE_SESSION=gamescope
+# (emergency FORCE dogfood; shipping session is always smithay).
 #
 # Usage:
-#   proteus-console-focus home              # raise Proteus Home (+ show nav)
-#   proteus-console-focus title             # raise the registered title
-#   proteus-console-focus toggle            # flip Home ↔ title
-#   proteus-console-focus tag-pid PID APPID [LABEL]   # tag a title window
-#   proteus-console-focus clear             # forget the title (seat exited)
-#   proteus-console-focus status            # JSON
-#
-# Requires: xprop, xdotool, a Gamescope session (DISPLAY on its Xwayland).
+#   proteus-console-focus home
+#   proteus-console-focus title
+#   proteus-console-focus toggle
+#   proteus-console-focus tag-pid PID [APPID] [LABEL]   # register title (owned: map addr)
+#   proteus-console-focus set-address ADDRESS [LABEL]
+#   proteus-console-focus clear
+#   proteus-console-focus status
 set -uo pipefail
 
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
@@ -25,22 +24,157 @@ else
   ROOT="${PROTEUS_ROOT:-/mnt/proteus}"
 fi
 
-HOME_APPID="${PROTEUS_HOME_APPID:-769}"          # SteamOS shell-UI convention
+HOME_APPID="${PROTEUS_HOME_APPID:-769}"
 DEFAULT_TITLE_APPID="${PROTEUS_TITLE_APPID:-7692000}"
 RUNDIR="${XDG_RUNTIME_DIR:-/tmp}"
-REG="${RUNDIR}/proteus-console-focus.title"      # JSON {appid,label,pid}
-HOME_PROFILE="${ROOT}/shell/console-home"
+REG="${RUNDIR}/proteus-console-focus.title"
+ADDRFILE="${RUNDIR}/proteus-console-seat.address"
 
 log() {
   printf '%s console-focus: %s\n' "$(date -Iseconds 2>/dev/null || date)" "$*" \
     >>"${RUNDIR}/proteus-console-focus.log" 2>/dev/null || true
 }
 
-need() { command -v "$1" >/dev/null 2>&1 || { echo "console-focus: missing $1" >&2; exit 127; }; }
+resolve_ctl() {
+  if [[ -n "${PROTEUS_COMPOSITORCTL:-}" && -x "${PROTEUS_COMPOSITORCTL}" ]]; then
+    printf '%s' "${PROTEUS_COMPOSITORCTL}"
+    return 0
+  fi
+  if command -v proteus-compositorctl >/dev/null 2>&1; then
+    command -v proteus-compositorctl
+    return 0
+  fi
+  for c in "${ROOT}/target/debug/proteus-compositorctl" \
+           "${ROOT}/target/release/proteus-compositorctl"; do
+    [[ -x "${c}" ]] && { printf '%s' "${c}"; return 0; }
+  done
+  return 1
+}
 
-json_get() { python3 -c "import json,sys
+json_get() {
+  python3 -c "import json,sys
 try: print(json.load(open('${REG}')).get('$1',''))
-except Exception: pass" 2>/dev/null; }
+except Exception: pass" 2>/dev/null
+}
+
+write_reg() {
+  local address="${1:-}" appid="${2:-}" label="${3:-}" pid="${4:-0}"
+  python3 - "$address" "$appid" "$label" "$pid" <<'PY' >"${REG}.tmp" && mv "${REG}.tmp" "${REG}"
+import json, sys
+addr, appid, label, pid = sys.argv[1:5]
+out = {"address": addr, "label": label}
+if appid:
+  try: out["appid"] = int(appid)
+  except Exception: out["appid"] = appid
+try: out["pid"] = int(pid)
+except Exception: out["pid"] = 0
+print(json.dumps(out))
+PY
+}
+
+owned_usable() {
+  local ctl
+  ctl="$(resolve_ctl)" || return 1
+  "${ctl}" focus-stack >/dev/null 2>&1 || return 1
+  return 0
+}
+
+cmd_home_owned() {
+  local ctl
+  ctl="$(resolve_ctl)" || return 1
+  "${ctl}" dispatch focus-stack home >/dev/null 2>&1 || true
+  log "raised Home (owned focus-stack)"
+}
+
+cmd_title_owned() {
+  local ctl addr
+  ctl="$(resolve_ctl)" || return 1
+  addr="$(json_get address)"
+  if [[ -z "${addr}" && -f "${ADDRFILE}" ]]; then
+    addr="$(tr -d '[:space:]' <"${ADDRFILE}" || true)"
+  fi
+  if [[ -n "${addr}" ]]; then
+    "${ctl}" dispatch "focus-stack set-title ${addr}" >/dev/null 2>&1 || true
+  fi
+  "${ctl}" dispatch focus-stack title >/dev/null 2>&1 || {
+    echo "console-focus: no title registered" >&2
+    exit 1
+  }
+  log "raised title (owned focus-stack addr=${addr:-?})"
+}
+
+cmd_toggle_owned() {
+  local ctl
+  ctl="$(resolve_ctl)" || return 1
+  "${ctl}" dispatch focus-stack toggle >/dev/null 2>&1 || true
+  log "toggled focus-stack"
+}
+
+cmd_set_address() {
+  local addr="${1:-}" label="${2:-Title}"
+  [[ -n "${addr}" ]] || { echo "usage: $0 set-address ADDRESS [LABEL]" >&2; exit 2; }
+  local ctl
+  ctl="$(resolve_ctl)" || { echo "console-focus: no compositorctl" >&2; exit 1; }
+  write_reg "${addr}" "${DEFAULT_TITLE_APPID}" "${label}" "0"
+  "${ctl}" dispatch "focus-stack set-title ${addr}" >/dev/null 2>&1 || true
+  "${ctl}" dispatch "game-present address ${addr}" >/dev/null 2>&1 || true
+  log "set-address ${addr} (${label})"
+}
+
+cmd_tag_pid_owned() {
+  local pid="$1" appid="${2:-${DEFAULT_TITLE_APPID}}" label="${3:-Title}"
+  local ctl addr=""
+  ctl="$(resolve_ctl)" || { echo "console-focus: no compositorctl" >&2; exit 1; }
+  # Prefer seat address file; else wait for client growth / focused.
+  for _try in $(seq 1 40); do
+    if [[ -f "${ADDRFILE}" ]]; then
+      addr="$(tr -d '[:space:]' <"${ADDRFILE}" || true)"
+      [[ -n "${addr}" ]] && break
+    fi
+    addr="$("${ctl}" activewindow 2>/dev/null | python3 -c "import json,sys
+try:
+  d=json.load(sys.stdin); print(d.get('address') or '')
+except Exception: pass" 2>/dev/null || true)"
+    [[ -n "${addr}" ]] && break
+    sleep 0.25
+  done
+  write_reg "${addr}" "${appid}" "${label}" "${pid}"
+  if [[ -n "${addr}" ]]; then
+    "${ctl}" dispatch "focus-stack set-title ${addr}" >/dev/null 2>&1 || true
+    log "tagged pid ${pid} → address ${addr} (${label})"
+  else
+    log "warn: no address for pid ${pid} — registered label only"
+  fi
+}
+
+cmd_status_owned() {
+  local ctl layer title address appid label pid
+  ctl="$(resolve_ctl)" || { echo '{"ok":false,"error":"no ctl"}'; exit 1; }
+  layer="$("${ctl}" focus-stack 2>/dev/null | python3 -c "import json,sys
+try: print(json.load(sys.stdin).get('layer','home'))
+except Exception: print('home')" 2>/dev/null || echo home)"
+  address="$(json_get address)"
+  appid="$(json_get appid)"
+  label="$(json_get label)"
+  pid="$(json_get pid)"
+  python3 - "${layer}" "${address:-}" "${appid:-}" "${label:-}" "${pid:-}" <<'PY'
+import json, sys
+layer, address, appid, label, pid = sys.argv[1:6]
+title = None
+if address or appid:
+  title = {"address": address or None, "appid": int(appid) if appid.isdigit() else (appid or None),
+           "label": label or None, "pid": int(pid) if str(pid).isdigit() else None}
+print(json.dumps({
+    "ok": True,
+    "engine": "owned",
+    "focus": layer,
+    "title": title,
+}))
+PY
+}
+
+# --- Interim Gamescope baselayer (FORCE session only) ------------------------
+need() { command -v "$1" >/dev/null 2>&1 || { echo "console-focus: missing $1" >&2; exit 127; }; }
 
 current_baselayer() {
   xprop -root GAMESCOPECTRL_BASELAYER_APPID 2>/dev/null \
@@ -52,7 +186,6 @@ set_baselayer() {
     -set GAMESCOPECTRL_BASELAYER_APPID "$1" 2>/dev/null
 }
 
-# Tag an X window (by id) with a STEAM_GAME appid so gamescope can focus it.
 tag_window() {
   local wid="$1" appid="$2"
   xprop -id "${wid}" -f STEAM_GAME 32c -set STEAM_GAME "${appid}" 2>/dev/null
@@ -62,7 +195,6 @@ windows_for_pid() {
   xdotool search --pid "$1" 2>/dev/null || true
 }
 
-# Home runs as an Xwayland client — find + tag it lazily (idempotent).
 ensure_home_tag() {
   local wid
   wid="$(xdotool search --name '^Proteus Home$' 2>/dev/null | head -1)"
@@ -71,54 +203,43 @@ ensure_home_tag() {
   return 0
 }
 
-qs_home_call() {
-  local qs_bin
-  qs_bin="$(command -v qs || command -v quickshell || true)"
-  [[ -n "${qs_bin}" ]] || return 0
-  "${qs_bin}" -p "${HOME_PROFILE}" ipc call "$@" >/dev/null 2>&1 || true
-}
-
-cmd_home() {
+cmd_home_gs() {
   need xprop
   ensure_home_tag || log "warn: Proteus Home window not found for tagging"
   set_baselayer "${HOME_APPID}"
-  qs_home_call chrome consoleShow
-  log "raised Home (appid ${HOME_APPID})"
+  log "raised Home (gamescope baselayer ${HOME_APPID})"
 }
 
-cmd_title() {
+cmd_title_gs() {
   need xprop
   local appid
   appid="$(json_get appid)"
   [[ -n "${appid}" ]] || { echo "console-focus: no title registered" >&2; exit 1; }
   set_baselayer "${appid}"
-  qs_home_call chrome consoleHide
-  log "raised title (appid ${appid})"
+  log "raised title (gamescope baselayer ${appid})"
 }
 
-cmd_toggle() {
+cmd_toggle_gs() {
   need xprop
   local cur appid
   cur="$(current_baselayer)"
   appid="$(json_get appid)"
   if [[ -z "${appid}" ]]; then
-    # No title running — Guide always lands on Home.
-    cmd_home
+    cmd_home_gs
     return
   fi
   if [[ "${cur}" == "${HOME_APPID}" || -z "${cur}" ]]; then
-    cmd_title
+    cmd_title_gs
   else
-    cmd_home
+    cmd_home_gs
   fi
 }
 
-cmd_tag_pid() {
+cmd_tag_pid_gs() {
   need xprop
   need xdotool
   local pid="$1" appid="${2:-${DEFAULT_TITLE_APPID}}" label="${3:-Title}"
   local wids wid found=0
-  # The mapped window may belong to a child of the seat PID; try the tree.
   for _try in 1 2 3 4 5 6 7 8 9 10; do
     wids="$(windows_for_pid "${pid}")"
     if [[ -z "${wids}" ]] && command -v pgrep >/dev/null 2>&1; then
@@ -136,23 +257,11 @@ cmd_tag_pid() {
     fi
     sleep 0.5
   done
-  python3 - "$appid" "$label" "$pid" <<'PY' >"${REG}.tmp" && mv "${REG}.tmp" "${REG}"
-import json, sys
-print(json.dumps({"appid": int(sys.argv[1]), "label": sys.argv[2], "pid": int(sys.argv[3])}))
-PY
-  if [[ "${found}" -eq 1 ]]; then
-    log "tagged pid ${pid} → appid ${appid} (${label})"
-  else
-    log "warn: no X window found for pid ${pid} — registered appid ${appid} anyway"
-  fi
+  write_reg "" "${appid}" "${label}" "${pid}"
+  log "tagged pid ${pid} → appid ${appid} (gamescope)"
 }
 
-cmd_clear() {
-  rm -f "${REG}"
-  log "title registry cleared"
-}
-
-cmd_status() {
+cmd_status_gs() {
   local cur appid label pid
   cur="$(current_baselayer || true)"
   appid="$(json_get appid)"
@@ -163,6 +272,7 @@ import json, sys
 cur, home, appid, label, pid = sys.argv[1:6]
 print(json.dumps({
     "ok": True,
+    "engine": "gamescope",
     "baselayer": int(cur) if cur else None,
     "homeAppid": int(home),
     "focus": "home" if (not cur or cur == home) else "title",
@@ -171,19 +281,44 @@ print(json.dumps({
 PY
 }
 
+use_gamescope_router() {
+  [[ "${PROTEUS_CONSOLE_SESSION:-}" == "gamescope" ]]
+}
+
+cmd_clear() {
+  local ctl
+  rm -f "${REG}"
+  if ctl="$(resolve_ctl 2>/dev/null)"; then
+    "${ctl}" dispatch focus-stack clear >/dev/null 2>&1 || true
+  fi
+  log "title registry cleared"
+}
+
 case "${1:-}" in
-  home) cmd_home ;;
-  title) cmd_title ;;
-  toggle) cmd_toggle ;;
+  home)
+    if use_gamescope_router; then cmd_home_gs; else cmd_home_owned; fi
+    ;;
+  title)
+    if use_gamescope_router; then cmd_title_gs; else cmd_title_owned; fi
+    ;;
+  toggle)
+    if use_gamescope_router; then cmd_toggle_gs; else cmd_toggle_owned; fi
+    ;;
   tag-pid)
     shift
     [[ $# -ge 1 ]] || { echo "usage: $0 tag-pid PID [APPID] [LABEL]" >&2; exit 2; }
-    cmd_tag_pid "$@"
+    if use_gamescope_router; then cmd_tag_pid_gs "$@"; else cmd_tag_pid_owned "$@"; fi
+    ;;
+  set-address)
+    shift
+    cmd_set_address "$@"
     ;;
   clear) cmd_clear ;;
-  status) cmd_status ;;
+  status)
+    if use_gamescope_router; then cmd_status_gs; else cmd_status_owned; fi
+    ;;
   *)
-    echo "usage: $0 home|title|toggle|tag-pid|clear|status" >&2
+    echo "usage: $0 home|title|toggle|tag-pid|set-address|clear|status" >&2
     exit 2
     ;;
 esac

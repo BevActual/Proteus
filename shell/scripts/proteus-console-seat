@@ -195,7 +195,9 @@ fullscreen_address() {
   [[ -n "${CTL}" && -x "${CTL}" ]] || return 1
   park_quickshell_chrome
   "${CTL}" dispatch focuswindow "address:${addr}" >/dev/null 2>&1 || true
-  "${CTL}" dispatch fullscreen 1 >/dev/null 2>&1 || true
+  "${CTL}" dispatch "game-present address ${addr}" >/dev/null 2>&1 || \
+    "${CTL}" dispatch fullscreen 1 >/dev/null 2>&1 || true
+  "${CTL}" dispatch "focus-stack set-title ${addr}" >/dev/null 2>&1 || true
   "${CTL}" dispatch movetoworkspacesilent "1,address:${addr}" >/dev/null 2>&1 || true
 }
 

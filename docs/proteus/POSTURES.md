@@ -86,7 +86,7 @@ Compositor engines: [COMPOSITOR.md](./COMPOSITOR.md).
 | Posture | Job | Chrome / engines | Status |
 |---------|-----|------------------|--------|
 | **desktop** | Create / windowed work (desk + laptop) | Full iced shell (bar, dock, Beacon); `proteus-compositor` tiling | `partial` — primary spine |
-| **console** | Lean-back **launcher** (media-center list IA) — Games · Media (streaming) · Apps · Search · Settings; stores (Steam, …) are **backends** | End state: **Gamescope owns the session** — one focused app at a time; Guide **focus-flips** (game ↔ web ↔ Home). Interim (no hardware Vulkan): smithay seat + console face + supervised seat + per-title/nested Gamescope | `partial` — list IA/seat/session Fact shipped; **Gamescope-as-session + focus-flip `partial`** (gs-session + Home + `proteus-console-focus`; prove paths: bare metal / VFIO passthrough) |
+| **console** | Lean-back **launcher** (media-center list IA) — Games · Media (streaming) · Apps · Search · Settings; stores (Steam, …) are **backends** | End state: **owned `proteus-compositor`** — one focused app at a time via **game-present** + Guide **focus-stack** (game ↔ Home). Gamescope session/nest = emergency interim only (`PROTEUS_FORCE_GAMESCOPE=1`) | `partial` — list IA + smithay seat + owned focus-stack/`proteus-console-focus`; iced console-home **not** swapped; gs-session retired from shipping path |
 | **host** | Operate the box (VMs, containers, services, updates, shares) | **Seat-driven:** default headless (no chrome); attach lean host face when a local/remote seat asks — not a creative DE. Attached seat = **Command-Deck dashboard** (HexOS-style read-only cards) deep-linking into the **Workloads app** (single mutation surface) | `partial` — host face + dashboard (`proteus-host-metrics`) + Workloads + `proteus-posture host` + `host-chrome` / `proteus-host-seat`; graphical-remote attach `planned` |
 
 **Naming:** **Console** is the locked product name for lean-back. Legacy docs /
@@ -120,12 +120,10 @@ login screen.** Devices live in a posture for sustained time; a flip is a
 re-purposing event, not an alt-tab. `proteus-posture` writes the Fact, stops
 seats, then terminates the graphical session (`loginctl terminate-session`);
 the greeter shows; the next login runs `proteus-session`, which is the **only
-place a compositor is chosen** (console Fact + usable `game_scope` → Gamescope
-session; otherwise `proteus-compositor` DRM + iced chrome). Apps do **not**
-survive a flip — “different process trees” is literal, and logging in again is
-accepted UX. If the Gamescope engine fails fast at login, `proteus-session`
-degrades the session Fact to `seat` and falls back to smithay in the same login
-— a bad console Fact can never lock the user out.
+place a compositor is chosen** — shipping path is always `proteus-compositor`
+DRM + iced chrome (all postures). Gamescope console session is **FORCE-only**
+emergency dogfood, not the product flip. Apps do **not** survive a flip —
+“different process trees” is literal, and logging in again is accepted UX.
 
 **Hard switch:** `shell/scripts/proteus-posture console|desktop|host` — Fact +
 session restart; Settings → About **Session posture** (confirm before flip);
@@ -159,7 +157,7 @@ Settings schema; do **not** fake all three jobs with one chrome skin.
 | Mode | Template |
 |------|----------|
 | **desktop** | `proteus-compositor` + full iced shell — multi-window tiling |
-| **console** | Living-room **launcher** → title cards → Gamescope focus when capable; stores install/update only |
+| **console** | Living-room **launcher** → title cards → owned game-present focus; stores install/update only |
 | **host** | Daemons always; `host-chrome=none` until `proteus-host-seat attach` (or `--chrome`) |
 
 ### Console launcher (product)
@@ -185,7 +183,7 @@ Settings schema; do **not** fake all three jobs with one chrome skin.
 - Steam / Heroic / store UIs are backends — not the default shell.
 - Shelf Home / Featured hero are secondary / retired from the primary path.
 - One focus screen at a time; Guide flips among running apps + Home (end state).
-- Compositor end state: [COMPOSITOR.md](./COMPOSITOR.md) (Gamescope session).
+- Compositor end state: [COMPOSITOR.md](./COMPOSITOR.md) (owned smithay + game-present).
 
 ### Host ops Settings (product)
 
@@ -376,7 +374,7 @@ Capabilities are **normalized flags** from hardware + session. They describe
 | `battery` | Portable power profile |
 | `smithay` / `pipewire` | Session compositor / audio engines available |
 | `display_hotplug_fragile` | Plan chrome respawn / degrade rearrange |
-| `game_scope` *(partial)* | Console game-scoped compositor path available (gamescope + hardware Vulkan — bare metal / VFIO passthrough; VirGL false) |
+| `game_scope` *(partial)* | Hardware Vulkan available for owned game-present quality (bare metal / VFIO; VirGL false). Does **not** start Gamescope as session |
 
 Compositor notes: [COMPOSITOR.md](./COMPOSITOR.md) § Capabilities.
 
@@ -407,7 +405,7 @@ posture only, no capability profile. Soft hypr profile helper is **retired**.
 | Focus posture | `PROTEUS_SURFACE` today | Session engine | Notes |
 |---------------|-------------------------|----------------|--------|
 | desktop | `desktop` | `proteus-compositor` DRM + iced desktop face | Default |
-| console | `console` (`couch` alias) | Gamescope when `game_scope`; else smithay + console face | Hard flip: `proteus-posture` (session restart → greeter); Games · Media · Apps · Search · Settings list IA + lean sheets |
+| console | `console` (`couch` alias) | Always smithay + console face; game-present + focus-stack | Hard flip: `proteus-posture` (session restart → greeter); Games · Media · Apps · Search · Settings list IA + lean sheets |
 | host | `host` | smithay when seat attached; else headless | Hard flip: `proteus-posture host` defaults **headless** (`host-chrome=none`); `--chrome` or `proteus-host-seat attach` for ops UI; host face + Workloads; Settings → Virtualization; graphical-remote Out |
 
 | Parked / other | `PROTEUS_SURFACE` | Notes |

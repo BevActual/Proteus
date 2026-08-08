@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# proteus-console-gs-session — Gamescope-owned console session (Phase 3).
-# Launched by proteus-session (login) when posture=console and the session
-# Fact + capabilities resolve to `session`. Gamescope is the session
-# compositor; Proteus Home (Quickshell xdg client) is the primary client and
-# keeps the session alive — Home exit ends the session (back to greeter).
+# proteus-console-gs-session — interim Gamescope-owned console session.
+# Shipping path is always smithay. This helper is emergency-only:
+# proteus-session launches it only when PROTEUS_FORCE_GAMESCOPE=1 and
+# gamescopeUsable. Proteus Home (Quickshell) keeps the session alive —
+# Home exit ends the session (back to greeter).
 #
 # Usage:
 #   proteus-console-gs-session            # exec gamescope -- $0 --client

@@ -43,7 +43,7 @@ carried as patched copies.
 | Tier | Layers | Notes |
 |------|--------|-------|
 | **Owned endgame** | Facts/state core (`proteus-shell-core`) · shell chrome (iced layer-shell widgets) · compositor (Smithay-based, posture-native) · XR face (own clients on Monado/Stardust model) · app chrome toolkit (post-Tauri) | Each replaces its borrowed layer only after passing the same gates |
-| **Borrowed interim** (behind contracts) | Tauri/WebKit (app runtime) · gamescope (console session · desktop nest via `proteus-gamescope`) | Hyprland + Quickshell **retired**; owned `proteus-compositor` + `proteus-shell` ship |
+| **Borrowed interim** (behind contracts) | Tauri/WebKit (app runtime) · gamescope (**FORCE-only** nest/session until removed; default launch is owned game-present via `proteus-gamescope`) | Hyprland + Quickshell **retired**; owned `proteus-compositor` + `proteus-shell` ship |
 | **Never own** | Kernel · Mesa · PipeWire · Wayland protocol · Monado (OpenXR runtime) · greetd/polkit | Extend and configure only |
 
 ## 2. Sequencing
@@ -55,7 +55,7 @@ useful even if the ladder stops there:
 |------|------|-----------|
 | **0. `proteus-shell-core`** | Facts, gating, posture, theme derivation as a tested Rust crate + subscribe stream (§4) | Prerequisite for every renderer (iced, XR); typed + `cargo test` |
 | **1. Owned chrome** | iced layer-shell shell (`shell/`) over the core — **shipped** (QML retired) | Compositor-agnostic chrome; faces under `shell/src/faces/` |
-| **2. Compositor** | Smithay `compositor/` — **Hyprland purged**; DRM session + Displays Fact (incl. live transform) + keybinds + nested winit; shell IPC `wm_ipc.rs`; `proteus-settings-apply`; owned idle + `zwp_idle_inhibit` bridge; protocol lock opt-in dogfood | Deeper multi-GPU / flipped transform UI / blur / idle-notify still out — [COMPOSITOR-SPIKE.md](./COMPOSITOR-SPIKE.md) |
+| **2. Compositor** | Smithay `compositor/` — **Hyprland purged**; DRM session + Displays Fact + keybinds + nested winit; **game-present** + **focus-stack** ctl (Gamescope retire path); shell IPC `wm_ipc.rs`; owned idle + protocol lock opt-in | Deeper multi-GPU / FSR-class upscale / blur / idle-notify still out — [COMPOSITOR-SPIKE.md](./COMPOSITOR-SPIKE.md) |
 | **3. Faces on the owned stack** | Console + XR faces land natively (input, surfaces, state — one vocabulary) | Where the integration payoff compounds |
 | **4. App chrome toolkit** | First-party apps move from Tauri/WebKit to the owned iced toolkit | WebKit is the largest remaining black box; Settings/Workloads already iced siblings |
 
@@ -101,7 +101,7 @@ per-surface view state, input handling — views over the core's stream.
 |------|--------|
 | 0 shell-core | `partial` — crate shipped; see slice ledger below (Config write + Permissions now landed) |
 | 1 iced chrome | `shipped` (tree) — **QML chrome retired 2026-08-06**: `shell-next` → `shell/` sole chrome tree; `proteus-chrome` owned-only; Quickshell/`proteus-qs` deleted; face modules under `shell/src/faces/` (desktop shipping; console/host thin stubs). Prior: Wave 4 dogfood, UI/UX parity, boot reliability, wallpaper/previews/Lock Customize |
-| 2 compositor | `shipped` (thin) — Displays Fact + `dispatch output`; session Super keybinds (`binds.rs` + `keybinds.json`); owned idle; maximize; multi-GPU enumerate; nested winit; `wm_ipc.rs` — see [COMPOSITOR-SPIKE.md](./COMPOSITOR-SPIKE.md) |
+| 2 compositor | `shipped` (thin) — Displays Fact + `dispatch output`; **game-present** / **focus-stack**; session Super keybinds; owned idle; maximize; nested winit; `wm_ipc.rs` — see [COMPOSITOR-SPIKE.md](./COMPOSITOR-SPIKE.md) |
 | 3 owned faces | `partial` — scaffold in `shell/src/faces/{desktop,console,host}/`; console/host thin (rebuild later); gamescope console-home not swapped |
 | 4 app toolkit | `partial` — Settings **iced only** (QML Settings deleted 2026-08-06); OAuth Connect · Displays list+apply · Mixer list thin; canvas/grid polish + Headscale deep still holdout |
 
@@ -129,5 +129,7 @@ per-surface view state, input handling — views over the core's stream.
 | Overlays + lock | `shipped` — Beacon/CC/HUD/toast/lock Customize thin |
 | Boot reliability | `shipped` — protocol gates + respawn watchdog |
 | Widgets + faces | `partial` — `shell/src/faces/`; console/host thin; **gamescope console-home not swapped** |
+| Game-present (rung 2 depth) | `partial` — ctl + Fact `game-present`; integer/stretch/fill + fps/filter policy; Steam via `proteus-gamescope` owned path; nest FORCE-only |
+| Console session ownership | `partial` — `proteus-session` always smithay; focus-stack via `proteus-console-focus`; gs-session FORCE-only |
 | Engine switch | `shipped` — **owned-only** (`proteus-chrome`); Quickshell path deleted 2026-08-06; `shell-engine` fact may still read `owned` |
 | Swap gate | `shipped` — QML chrome + Settings QML deleted; iced sole path |

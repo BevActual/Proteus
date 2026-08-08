@@ -24,7 +24,8 @@
 | wp_viewporter + wp_fractional_scale | `works` — iced_layershell clients hard-require viewporter |
 | `zwlr_screencopy_manager_v1` (SHM + linux-dmabuf) | `works` — grim + `copy_with_damage`; nested + DRM GLES upload into client dmabufs; offscreen readback for CPU `last_frame`; **Y-flip auto** skips CPU flip on virtio-gpu (`PROTEUS_SCREENCOPY_FLIP_Y=0\|1` override) so grim matches the seat |
 | Portal Screenshot (`xdg-desktop-portal-wlr`) | `partial` — sets `XDG_CURRENT_DESKTOP=wlroots`; smoke runs isolated dbus Screenshot when portal-wlr is installed (SKIP otherwise). **Shipping prefers portal-wlr** (Hyprland portal retired with Hyprland). |
-| Gamescope nesting (client under compositor) | `partial` — smoke nests `gamescope` under compositor `WAYLAND_DISPLAY`, asserts ctl `clients` growth; SKIP if binary missing or backends exit (no Vulkan / VirGL). **Desktop nest helper** `proteus-gamescope` (Steam `%command%` / CLI; flags Fact `gamescope-flags`). Console-home **not** swapped. |
+| Owned game-present + focus-stack | `partial` — ctl `game-present` / `focus-stack`; Fact `~/.config/proteus/game-present`; smoke `compositor-game-present.sh` (no gamescope binary). Steam helper `proteus-gamescope` defaults to owned path. |
+| Gamescope nesting (interim) | `partial` — optional smoke still nests `gamescope` as a client; product nest only with `PROTEUS_FORCE_GAMESCOPE=1` / `engine=gamescope`. Console-home **not** swapped. |
 | PipeWire Screencast | `partial` — compositor `copy_with_damage` ready for xdp-wlr/wf-recorder; smoke via `wf-recorder` when installed (SKIP otherwise). PipeWire stays never-own. |
 | Input routing (pointer/keyboard, layers above windows) | `thin` |
 | Workspace roster `1..=10` + `special:minimized` (`-99`) + `special:scratch` (`-98`) parking | `works` — **per-output boards** (synced `workspace N` · local `workspace N,output:NAME`); monitors JSON `activeWorkspace` + focused |
@@ -113,18 +114,21 @@ proteus-compositor: layer mapped: proteus-bar
   (`Preferred=wlr;gtk`). Hyprland portal retired with Hyprland.
 - PipeWire Screencast still **out**.
 
-### Gamescope nesting (2026-08-06)
+### Owned game-present (2026-08-08)
 
-- Helper: [`dev/smoke/compositor-gamescope.sh`](../../dev/smoke/compositor-gamescope.sh)
-  — nest `gamescope -W 1280 -H 720 -- sleep …` under compositor display; retry
-  `--backend sdl` on early exit; poll ctl `clients` for growth / `gamescope`.
+- Fact: [`env/settings/game-present.defaults`](../../env/settings/game-present.defaults)
+  → `~/.config/proteus/game-present` (`scale_mode` / `fps_limit` / `filter` / `engine`).
+- Ctl: `proteus-compositorctl game-present` · `dispatch game-present …` ·
+  `focus-stack …` — see [`game_present.rs`](../../compositor/src/game_present.rs) +
+  [`wm.rs`](../../compositor/src/wm.rs).
+- Smoke: [`dev/smoke/compositor-game-present.sh`](../../dev/smoke/compositor-game-present.sh)
+  (no gamescope binary required).
 - Desktop launch: [`shell/scripts/proteus-gamescope`](../../shell/scripts/proteus-gamescope)
-  — nest under ambient Wayland; Fact `~/.config/proteus/gamescope-flags`; Steam
-  launch options `proteus-gamescope %command%`; bare-run when Vulkan/VM unusable;
-  no double-nest inside gamescope session.
-- Smoke: SKIP (rc 2) if gamescope missing or both backends die; FAIL if up but
-  absent from clients.
-- Console-home gamescope session still **not** swapped (owned face honesty).
+  — **owned** bare + map into game-present; nest only
+  `PROTEUS_FORCE_GAMESCOPE=1` / Fact `engine=gamescope`.
+- Interim nest smoke: [`dev/smoke/compositor-gamescope.sh`](../../dev/smoke/compositor-gamescope.sh).
+- Console-home gamescope session still **not** swapped (owned face honesty);
+  shipping console session is always smithay.
 
 ### Tiling (2026-08-06)
 

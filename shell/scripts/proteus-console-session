@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# proteus-console-session — Console session engine preference (Phase 3).
+# proteus-console-session — Legacy console session Fact helper.
 # Fact: ~/.config/proteus/console-session-mode  →  seat | session
-#   seat    — interim: Hyprland kiosk + supervised seats (per-title/nested GS)
-#   session — Gamescope owns the console session (bare metal / GPU passthrough);
-#             engine picked at login by proteus-session, applied on next flip.
-# Legacy Fact value `gamescope` (Phase 2 nested preference) reads as `session`.
+#
+# Shipping: proteus-session always uses owned smithay. `session` / `gamescope`
+# Fact values are legacy; sessionEffective is seat unless PROTEUS_FORCE_GAMESCOPE=1.
+# resolve-flags still emits gamescope argv for the FORCE gs-session path.
+#
 # Usage:
 #   proteus-console-session status
 #   proteus-console-session set-mode seat|session
@@ -46,37 +47,36 @@ caps_json() {
 }
 
 monitor_size() {
-  # Best-effort focused monitor WxH from hyprctl; empty if unavailable
-  # (e.g. already inside the Gamescope session — caller falls back).
+  # Best-effort focused monitor WxH from compositorctl; empty if unavailable.
   python3 - <<'PY' 2>/dev/null || true
-import json, subprocess, sys
+import json, os, subprocess, sys
+ctl = os.environ.get("PROTEUS_COMPOSITORCTL") or "proteus-compositorctl"
 try:
-    mons = json.loads(subprocess.check_output(["hyprctl", "monitors", "-j"], text=True, timeout=2))
+    mons = json.loads(subprocess.check_output([ctl, "monitors"], text=True, timeout=2))
 except Exception:
     sys.exit(0)
 if not isinstance(mons, list) or not mons:
     sys.exit(0)
-focused = next((m for m in mons if m.get("focused")), mons[0])
-w = int(focused.get("width") or 0)
-h = int(focused.get("height") or 0)
+m = mons[0]
+w = int(m.get("width") or (m.get("size") or [0, 0])[0] or 0)
+h = int(m.get("height") or (m.get("size") or [0, 0])[1] or 0)
 if w > 0 and h > 0:
     print(f"{w}x{h}")
 PY
 }
 
 cmd_status() {
-  local mode usable effective replaces
+  local mode usable effective
   mode="$(read_mode)"
   usable=false
   if echo "$(caps_json)" | grep -q '"gamescopeUsable": true'; then
     usable=true
   fi
+  # Match proteus-console-capabilities: seat unless FORCE + session + usable.
   effective="seat"
-  if [[ "${mode}" == "session" && "${usable}" == "true" ]]; then
+  if [[ "${PROTEUS_FORCE_GAMESCOPE:-}" == "1" && "${mode}" == "session" && "${usable}" == "true" ]]; then
     effective="session"
   fi
-  replaces=False
-  [[ "${effective}" == "session" ]] && replaces=True
   python3 - <<PY
 import json
 print(json.dumps({
@@ -85,8 +85,8 @@ print(json.dumps({
     "effective": "${effective}",
     "gamescopeUsable": "${usable}" == "true",
     "fact": "${FACT}",
-    "replacesHyprland": ${replaces},
-    "hint": "session mode: Gamescope owns the console session (applied at next posture flip/login); seat mode: Hyprland kiosk + supervised seats",
+    "replacesHyprland": False,
+    "hint": "shipping: owned smithay always; session Fact is legacy; Gamescope session only with PROTEUS_FORCE_GAMESCOPE=1",
 }))
 PY
 }
@@ -110,20 +110,18 @@ PY
 }
 
 cmd_resolve_flags() {
-  # stdout: space-separated gamescope flags (no binary name) for the console
-  # session compositor. Empty when effective mode is seat — callers must not
-  # wrap the session in that case.
+  # stdout: space-separated gamescope flags for FORCE gs-session only.
   local mode effective size
   mode="$(read_mode)"
   effective="seat"
-  if [[ "${mode}" == "session" ]] && echo "$(caps_json)" | grep -q '"gamescopeUsable": true'; then
+  if [[ "${PROTEUS_FORCE_GAMESCOPE:-}" == "1" && "${mode}" == "session" ]] \
+    && echo "$(caps_json)" | grep -q '"gamescopeUsable": true'; then
     effective="session"
   fi
   if [[ "${effective}" != "session" ]]; then
     exit 0
   fi
   size="$(monitor_size)"
-  # Conservative flags — fullscreen; fixed size only when we could probe one.
   if [[ -n "${size}" ]]; then
     local w="${size%x*}"
     local h="${size#*x}"
@@ -138,10 +136,8 @@ case "$1" in
   status) cmd_status ;;
   set-mode)
     shift
-    [[ $# -ge 1 ]] || usage
-    cmd_set_mode "$1"
+    cmd_set_mode "${1:-}"
     ;;
   resolve-flags) cmd_resolve_flags ;;
-  -h|--help|help) usage ;;
   *) usage ;;
 esac

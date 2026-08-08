@@ -3,7 +3,9 @@
 //! Line protocol on `$XDG_RUNTIME_DIR/proteus-compositor-$WAYLAND_DISPLAY.sock`
 //! (also exported as `PROTEUS_COMPOSITOR_SOCK`):
 //! - `workspaces` | `activeworkspace` | `clients` | `activewindow` | `monitors` → one JSON line
+//! - `game-present` | `focus-stack` → policy / focus-stack JSON
 //! - `dispatch <verb>` → `{"ok":true}` or `{"ok":false,"error":"..."}`
+//!   (incl. `game-present …`, `focus-stack …`)
 //! - `subscribe` → keep connection; NDJSON events (`workspace>>…`, etc.)
 
 use std::{
@@ -350,6 +352,12 @@ impl CompositorNext {
                     "floating": t.floating,
                     "maximized": t.maximized,
                     "ssd": t.ssd,
+                    "fullscreen": t.fullscreen,
+                    "gamePresent": self
+                        .wm
+                        .game_present_address
+                        .as_deref()
+                        == Some(t.address.as_str()),
                 })
             })
             .collect();

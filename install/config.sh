@@ -70,7 +70,10 @@ seed_file "${PROTEUS_ROOT}/env/ghostty/config" "${USER_HOME}/.config/ghostty/con
 seed_file "${PROTEUS_ROOT}/env/fastfetch/config.jsonc" "${USER_HOME}/.config/fastfetch/config.jsonc"
 seed_file "${PROTEUS_ROOT}/env/fastfetch/proteus-helix.txt" "${USER_HOME}/.config/fastfetch/proteus-helix.txt"
 seed_file "${PROTEUS_ROOT}/env/bash/proteus-bashrc.sh" "${USER_HOME}/.config/proteus/proteus-bashrc.sh"
-# Desktop gamescope nest flags (Steam: proteus-gamescope %command%)
+# Owned game-present Fact (Steam: proteus-gamescope %command% → owned path)
+seed_file "${PROTEUS_ROOT}/env/settings/game-present.defaults" \
+  "${USER_HOME}/.config/proteus/game-present"
+# Legacy nest flags (only when PROTEUS_FORCE_GAMESCOPE=1 / engine=gamescope)
 seed_file "${PROTEUS_ROOT}/env/settings/gamescope-flags.defaults" \
   "${USER_HOME}/.config/proteus/gamescope-flags"
 

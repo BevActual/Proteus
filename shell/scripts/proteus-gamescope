@@ -1,27 +1,34 @@
 #!/usr/bin/env bash
-# proteus-gamescope — nest gamescope around a command on the desktop seat.
+# proteus-gamescope — launch a title under owned game-present (default).
 #
-# Session compositor stays smithay; gamescope is a Wayland client. Use for
+# Session compositor stays smithay. Preferred path: run the command bare on
+# the ambient Wayland seat and ask proteus-compositor for game-present mode
+# after the client maps. Gamescope nest is interim-only
+# (PROTEUS_FORCE_GAMESCOPE=1 or Fact engine=gamescope).
+#
 # Steam launch options:  proteus-gamescope %command%
 #
 # Usage:
 #   proteus-gamescope [--] <command...>
 #   proteus-gamescope -h|--help
 #
-# Flags Fact (optional): ~/.config/proteus/gamescope-flags
-#   Space-separated gamescope argv before `--` (default: -f).
+# Facts:
+#   ~/.config/proteus/game-present     — owned knobs (scale_mode/fps/filter/engine)
+#   ~/.config/proteus/gamescope-flags  — legacy nest argv (default -f)
 # Env:
-#   PROTEUS_FORCE_GAMESCOPE=1  — allow nest in VMs without Vulkan probe
-#   PROTEUS_GAMESCOPE_FLAGS    — override Fact / default flags (shell-words)
+#   PROTEUS_FORCE_GAMESCOPE=1  — force gamescope nest when usable
+#   PROTEUS_GAMESCOPE_FLAGS    — override nest flags
+#   PROTEUS_GAME_PRESENT_ENGINE=owned|gamescope — override Fact engine
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+ROOT="$(cd "${HERE}/../.." && pwd)"
 
 usage() {
   echo "usage: proteus-gamescope [--] <command...>" >&2
-  echo "  Nest gamescope under the current WAYLAND_DISPLAY (desktop seat)." >&2
+  echo "  Default: bare exec + compositor game-present (owned)." >&2
   echo "  Steam: set launch options to: proteus-gamescope %command%" >&2
-  echo "  Flags: ~/.config/proteus/gamescope-flags or PROTEUS_GAMESCOPE_FLAGS" >&2
+  echo "  Nest gamescope only with PROTEUS_FORCE_GAMESCOPE=1 or engine=gamescope." >&2
 }
 
 while [[ $# -gt 0 ]]; do
@@ -58,20 +65,74 @@ is_vm() {
 }
 
 already_inside_gamescope() {
-  # Gamescope-as-session (console) or nested child display.
   if [[ "${PROTEUS_CONSOLE_SESSION:-}" == "gamescope" ]]; then
     return 0
   fi
   case "${WAYLAND_DISPLAY:-}" in
     gamescope-*|gamescope) return 0 ;;
   esac
-  # Parent process name heuristic (Steam may wrap oddly — best-effort).
   if [[ -r /proc/$PPID/comm ]]; then
     local parent
     parent="$(tr -d '\0' </proc/$PPID/comm 2>/dev/null || true)"
     [[ "${parent}" == "gamescope" ]] && return 0
   fi
   return 1
+}
+
+resolve_ctl() {
+  if [[ -n "${PROTEUS_COMPOSITORCTL:-}" && -x "${PROTEUS_COMPOSITORCTL}" ]]; then
+    printf '%s' "${PROTEUS_COMPOSITORCTL}"
+    return 0
+  fi
+  if command -v proteus-compositorctl >/dev/null 2>&1; then
+    command -v proteus-compositorctl
+    return 0
+  fi
+  for c in "${ROOT}/target/debug/proteus-compositorctl" \
+           "${ROOT}/target/release/proteus-compositorctl"; do
+    if [[ -x "${c}" ]]; then
+      printf '%s' "${c}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+owned_present_usable() {
+  [[ -n "${WAYLAND_DISPLAY:-}" ]] || return 1
+  local ctl
+  ctl="$(resolve_ctl)" || return 1
+  # Probe: compositor answers game-present query.
+  "${ctl}" game-present >/dev/null 2>&1 || return 1
+  return 0
+}
+
+present_engine() {
+  if [[ -n "${PROTEUS_GAME_PRESENT_ENGINE:-}" ]]; then
+    printf '%s' "$(printf '%s' "${PROTEUS_GAME_PRESENT_ENGINE}" | tr '[:upper:]' '[:lower:]')"
+    return
+  fi
+  if [[ "${PROTEUS_FORCE_GAMESCOPE:-}" == "1" ]]; then
+    printf 'gamescope'
+    return
+  fi
+  local fact=""
+  if [[ -n "${XDG_CONFIG_HOME:-}" ]]; then
+    fact="${XDG_CONFIG_HOME}/proteus/game-present"
+  else
+    fact="${HOME:-/tmp}/.config/proteus/game-present"
+  fi
+  if [[ -f "${fact}" ]]; then
+    local eng
+    eng="$(python3 -c "import json,sys
+try:
+  print(json.load(open(sys.argv[1])).get('engine','owned'))
+except Exception:
+  print('owned')" "${fact}" 2>/dev/null || echo owned)"
+    printf '%s' "$(printf '%s' "${eng}" | tr '[:upper:]' '[:lower:]')"
+    return
+  fi
+  printf 'owned'
 }
 
 gamescope_usable() {
@@ -98,7 +159,6 @@ gamescope_usable() {
 }
 
 resolve_flags() {
-  # Prefer env override, then Fact file, then -f (fullscreen nest).
   if [[ -n "${PROTEUS_GAMESCOPE_FLAGS:-}" ]]; then
     # shellcheck disable=SC2206
     GS_FLAGS=(${PROTEUS_GAMESCOPE_FLAGS})
@@ -122,6 +182,40 @@ resolve_flags() {
   GS_FLAGS=(-f)
 }
 
+apply_game_present_async() {
+  local ctl="$1"
+  (
+    local baseline after addr
+    baseline="$("${ctl}" clients 2>/dev/null || echo '[]')"
+    for _ in $(seq 1 80); do
+      sleep 0.15
+      after="$("${ctl}" clients 2>/dev/null || echo '[]')"
+      addr="$(python3 -c "
+import json,sys
+base=json.loads(sys.argv[1]); after=json.loads(sys.argv[2])
+base_a={c.get('address') for c in base if isinstance(c,dict)}
+for c in after:
+  if not isinstance(c,dict):
+    continue
+  a=c.get('address') or ''
+  if a and a not in base_a:
+    cls=(c.get('class') or '').lower()
+    title=(c.get('title') or '')
+    if 'quickshell' in cls or title.startswith('Proteus Settings'):
+      continue
+    print(a); break
+" "${baseline}" "${after}" 2>/dev/null || true)"
+      if [[ -n "${addr}" ]]; then
+        "${ctl}" dispatch focuswindow "address:${addr}" >/dev/null 2>&1 || true
+        "${ctl}" dispatch "game-present address ${addr}" >/dev/null 2>&1 || \
+          "${ctl}" dispatch game-present on >/dev/null 2>&1 || true
+        "${ctl}" dispatch "focus-stack set-title ${addr}" >/dev/null 2>&1 || true
+        exit 0
+      fi
+    done
+  ) >/dev/null 2>&1 &
+}
+
 run_bare() {
   exec "$@"
 }
@@ -131,16 +225,32 @@ if already_inside_gamescope; then
   run_bare "$@"
 fi
 
-if ! gamescope_usable; then
-  echo "proteus-gamescope: gamescope unavailable (no Vulkan / VM) — running bare" >&2
-  echo "proteus-gamescope: tip: install gamescope + Vulkan ICD, or PROTEUS_FORCE_GAMESCOPE=1" >&2
+ENGINE="$(present_engine)"
+CTL=""
+if CTL="$(resolve_ctl 2>/dev/null)"; then
+  :
+else
+  CTL=""
+fi
+
+# Owned path (default): bare + map into game-present when compositor answers.
+if [[ "${ENGINE}" != "gamescope" ]] && owned_present_usable; then
+  echo "proteus-gamescope: owned game-present (no nest)" >&2
+  apply_game_present_async "${CTL}"
   run_bare "$@"
 fi
 
-if [[ -z "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]]; then
-  echo "proteus-gamescope: no WAYLAND_DISPLAY/DISPLAY — running bare" >&2
+# Interim nest — only when forced / Fact engine=gamescope and usable.
+if [[ "${ENGINE}" == "gamescope" ]] || [[ "${PROTEUS_FORCE_GAMESCOPE:-}" == "1" ]]; then
+  if gamescope_usable && [[ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]]; then
+    echo "proteus-gamescope: interim gamescope nest (FORCE/engine=gamescope)" >&2
+    resolve_flags
+    exec gamescope "${GS_FLAGS[@]}" -- "$@"
+  fi
+  echo "proteus-gamescope: nest wanted but unusable — running bare" >&2
   run_bare "$@"
 fi
 
-resolve_flags
-exec gamescope "${GS_FLAGS[@]}" -- "$@"
+# Fallback: bare without present (no ctl / nested missing).
+echo "proteus-gamescope: compositor game-present unavailable — running bare" >&2
+run_bare "$@"

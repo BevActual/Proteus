@@ -452,8 +452,12 @@ grep -q 'guest-install.sh' "${ROOT}/docs/proteus/INSTALL.md" 2>/dev/null \
 [[ -x "${ROOT}/install/machine/apply-console-kit.sh" ]] && ok install/machine/apply-console-kit.sh || bad install/machine/apply-console-kit.sh
 [[ -x "${ROOT}/shell/scripts/proteus-console-launch" ]] && ok shell/scripts/proteus-console-launch || bad shell/scripts/proteus-console-launch
 [[ -x "${ROOT}/shell/scripts/proteus-gamescope" ]] && ok shell/scripts/proteus-gamescope || bad shell/scripts/proteus-gamescope
-[[ -f "${ROOT}/env/settings/gamescope-flags.defaults" ]] && ok "gamescope-flags defaults" || bad "gamescope-flags.defaults missing"
+[[ -f "${ROOT}/env/settings/game-present.defaults" ]] && ok "game-present defaults" || bad "game-present.defaults missing"
+[[ -f "${ROOT}/env/settings/gamescope-flags.defaults" ]] && ok "gamescope-flags defaults (legacy nest)" || bad "gamescope-flags.defaults missing"
+grep -q 'game-present' "${ROOT}/install/config.sh" && ok "config seeds game-present" || bad "config missing game-present seed"
 grep -q 'gamescope-flags' "${ROOT}/install/config.sh" && ok "config seeds gamescope-flags" || bad "config missing gamescope-flags seed"
+grep -q 'PROTEUS_FORCE_GAMESCOPE' "${ROOT}/shell/scripts/proteus-session" \
+  && ok "session Gamescope path FORCE-only" || bad "proteus-session must gate gs-session on FORCE"
 [[ -x "${ROOT}/shell/scripts/proteus-console-seat" ]] && ok shell/scripts/proteus-console-seat || bad shell/scripts/proteus-console-seat
 # console-seat: smithay ctl only (no hyprctl)
 if grep -qE 'hyprctl\b' "${ROOT}/shell/scripts/proteus-console-seat"; then

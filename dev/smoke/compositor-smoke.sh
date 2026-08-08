@@ -256,19 +256,27 @@ grep -q 'impl XwmHandler for CompositorNext' "${CRATE}/src/xwayland.rs" \
   || die "XwmHandler on CompositorNext missing"
 grep -q 'XDG_CURRENT_DESKTOP.*wlroots\|"wlroots"' "${CRATE}/src/main.rs" \
   || die "compositor must set XDG_CURRENT_DESKTOP=wlroots for xdp-wlr"
+[[ -f "${ROOT}/dev/smoke/compositor-game-present.sh" ]] \
+  || die "missing compositor-game-present.sh"
 [[ -f "${ROOT}/dev/smoke/compositor-gamescope.sh" ]] \
-  || die "missing compositor-gamescope.sh"
+  || die "missing compositor-gamescope.sh (interim nest helper)"
 [[ -x "${ROOT}/shell/scripts/proteus-gamescope" ]] \
-  || die "missing proteus-gamescope (desktop nest wrapper)"
-grep -q 'gamescope-flags\|PROTEUS_GAMESCOPE_FLAGS\|already_inside_gamescope' \
+  || die "missing proteus-gamescope (owned game-present launch wrapper)"
+grep -q 'game-present\|owned game-present\|already_inside_gamescope' \
   "${ROOT}/shell/scripts/proteus-gamescope" \
-  || die "proteus-gamescope missing flags Fact / no-double-nest"
+  || die "proteus-gamescope missing owned game-present path"
 bash -n "${ROOT}/shell/scripts/proteus-gamescope" \
   || die "proteus-gamescope bash -n failed"
-# Docs: desktop nest In; console-home swap still Out.
-grep -qE 'proteus-gamescope|desktop.*gamescope nest|Steam.*%command%' \
+grep -q 'game.present\|game_present\|GamePresent' \
+  "${CRATE}/src/wm.rs" "${CRATE}/src/game_present.rs" \
+  || die "compositor missing game-present module/dispatch"
+grep -q 'focus.stack\|FocusStackLayer\|focus_stack' \
+  "${CRATE}/src/wm.rs" \
+  || die "compositor missing focus-stack dispatch"
+# Docs: owned game-present In; console-home swap still Out; nest interim.
+grep -qE 'game-present|proteus-gamescope|Steam.*%command%' \
   "${ROOT}/docs/proteus/CURRENT.md" \
-  || die "CURRENT missing desktop gamescope nest / Steam launch-options note"
+  || die "CURRENT missing owned game-present / Steam launch-options note"
 grep -q 'console-home.*not swapped\|gamescope console-home not swapped' \
   "${ROOT}/docs/proteus/CURRENT.md" "${ROOT}/docs/proteus/COMPOSITOR-SPIKE.md" \
   || die "docs must keep console-home swap Out"
@@ -595,7 +603,25 @@ sys.exit(0 if a and int(a[0].get("transform",-1))==2 else 1)' \
     rm -f "${portal_png}"
   fi
 
-  # Optional gamescope nesting under the compositor (OWNED-STACK hard gate prove).
+  # Owned game-present ctl (no gamescope binary required).
+  gp_helper="${ROOT}/dev/smoke/compositor-game-present.sh"
+  if [[ -z "${nested_wd}" ]]; then
+    ok "game-present skipped — nested WAYLAND_DISPLAY unknown"
+  else
+    set +e
+    WAYLAND_DISPLAY="${nested_wd}" PROTEUS_COMPOSITOR_SOCK="${sock}" \
+      PROTEUS_COMPOSITORCTL="${CTL}" \
+      bash "${gp_helper}" >"${tmp_dir}/gp.out" 2>"${tmp_dir}/gp.err"
+    gp_rc=$?
+    set -e
+    if [[ "${gp_rc}" -eq 0 ]]; then
+      ok "owned game-present + focus-stack ctl"
+    else
+      die "game-present smoke failed (rc=${gp_rc}): $(tr '\n' ' ' <"${tmp_dir}/gp.err" | head -c 300)"
+    fi
+  fi
+
+  # Optional interim gamescope nesting (FORCE / engine=gamescope only in product).
   gs_helper="${ROOT}/dev/smoke/compositor-gamescope.sh"
   if [[ -z "${nested_wd}" ]]; then
     ok "gamescope nesting skipped — nested WAYLAND_DISPLAY unknown"
@@ -607,7 +633,7 @@ sys.exit(0 if a and int(a[0].get("transform",-1))==2 else 1)' \
     gs_rc=$?
     set -e
     if [[ "${gs_rc}" -eq 0 ]]; then
-      ok "gamescope nested into clients"
+      ok "gamescope nest still maps as client (interim)"
     elif [[ "${gs_rc}" -eq 2 ]]; then
       ok "gamescope nesting skipped (missing binary or no usable backend)"
     else

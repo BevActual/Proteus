@@ -11,6 +11,10 @@ use std::collections::HashMap;
 
 use serde_json::{json, Value};
 
+use crate::game_present::{
+    load_game_present_fact, GamePresentPolicy, PresentFilter, ScaleMode,
+};
+
 /// Parking workspace id for `special:minimized` (dock / SSD minimize).
 pub const MINIMIZED_WORKSPACE: i64 = -99;
 /// Scratchpad workspace id for `special:scratch` (◇ / scratch-toggle) — distinct from minimize.
@@ -93,6 +97,23 @@ pub enum WmOp {
     OutputTransform { name: String, transform: u8 },
 }
 
+/// Console / Guide focus layer (owned focus-stack; replaces Gamescope baselayer).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FocusStackLayer {
+    #[default]
+    Home,
+    Title,
+}
+
+impl FocusStackLayer {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Home => "home",
+            Self::Title => "title",
+        }
+    }
+}
+
 /// Tiling algorithm for non-floating windows on each output.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LayoutKind {
@@ -144,6 +165,13 @@ pub struct Wm {
     pub focused: Option<String>,
     /// Display labels for Spaces 1..=10 (`workspaceNames` Fact; empty = number).
     pub workspace_names: [String; 10],
+    /// Owned game-present policy (Fact `game-present`).
+    pub game_present: GamePresentPolicy,
+    /// Address currently in game-present mode (exclusive fullscreen + policy).
+    pub game_present_address: Option<String>,
+    /// Registered title for focus-stack (console Guide flip).
+    pub focus_stack_title: Option<String>,
+    pub focus_stack_layer: FocusStackLayer,
     next_id: u64,
     cascade: i32,
 }
@@ -169,9 +197,33 @@ impl Wm {
             toplevels: Vec::new(),
             focused: None,
             workspace_names: std::array::from_fn(|_| String::new()),
+            game_present: load_game_present_fact(),
+            game_present_address: None,
+            focus_stack_title: None,
+            focus_stack_layer: FocusStackLayer::Home,
             next_id: 1,
             cascade: 0,
         }
+    }
+
+    pub fn game_present_status_json(&self) -> Value {
+        json!({
+            "ok": true,
+            "active": self.game_present_address.is_some(),
+            "address": self.game_present_address.clone().unwrap_or_default(),
+            "scale_mode": self.game_present.scale_mode.as_str(),
+            "fps_limit": self.game_present.fps_limit,
+            "filter": self.game_present.filter.as_str(),
+        })
+    }
+
+    pub fn focus_stack_status_json(&self) -> Value {
+        json!({
+            "ok": true,
+            "layer": self.focus_stack_layer.as_str(),
+            "title": self.focus_stack_title.clone().unwrap_or_default(),
+            "game_present": self.game_present_address.clone().unwrap_or_default(),
+        })
     }
 
     /// Label for Space `id` (1..=10); falls back to numeric string.
@@ -521,6 +573,8 @@ impl Wm {
             "activeworkspace" => Ok(self.activeworkspace_json()),
             "clients" => Ok(self.clients_json()),
             "activewindow" => Ok(self.activewindow_json()),
+            "game-present" | "game_present" => Ok(self.game_present_status_json()),
+            "focus-stack" | "focus_stack" => Ok(self.focus_stack_status_json()),
             other => Err(format!("unknown query: {other}")),
         }
     }
@@ -888,7 +942,193 @@ impl Wm {
             }
         }
 
+        // game-present on|off|toggle|reload|scale MODE|fps N|filter NAME
+        if verb == "game-present" || verb.starts_with("game-present ") {
+            return self.dispatch_game_present(verb.strip_prefix("game-present").unwrap_or("").trim());
+        }
+        if verb == "game_present" || verb.starts_with("game_present ") {
+            return self.dispatch_game_present(verb.strip_prefix("game_present").unwrap_or("").trim());
+        }
+
+        // focus-stack home|title|toggle|set-title ADDR|clear
+        if verb == "focus-stack" || verb.starts_with("focus-stack ") {
+            return self.dispatch_focus_stack(verb.strip_prefix("focus-stack").unwrap_or("").trim());
+        }
+        if verb == "focus_stack" || verb.starts_with("focus_stack ") {
+            return self.dispatch_focus_stack(verb.strip_prefix("focus_stack").unwrap_or("").trim());
+        }
+
         Err(format!("unsupported dispatch: {verb}"))
+    }
+
+    fn dispatch_game_present(&mut self, rest: &str) -> Result<Vec<WmOp>, String> {
+        let rest = rest.trim();
+        if rest.is_empty() || rest == "status" {
+            // Status via query `game-present`; bare dispatch is a no-op.
+            return Ok(vec![]);
+        }
+        let mut parts = rest.split_whitespace();
+        let cmd = parts.next().unwrap_or("");
+        match cmd {
+            "reload" => {
+                self.game_present = load_game_present_fact();
+                Ok(vec![])
+            }
+            "scale" => {
+                let tok = parts
+                    .next()
+                    .ok_or_else(|| "game-present scale requires integer|stretch|fill".to_string())?;
+                let mode = ScaleMode::parse(tok)
+                    .ok_or_else(|| format!("bad game-present scale: {tok}"))?;
+                self.game_present.scale_mode = mode;
+                Ok(vec![])
+            }
+            "fps" => {
+                let tok = parts
+                    .next()
+                    .ok_or_else(|| "game-present fps requires N (0=uncapped)".to_string())?;
+                let n: u32 = tok
+                    .parse()
+                    .map_err(|_| format!("bad game-present fps: {tok}"))?;
+                self.game_present.fps_limit = n;
+                Ok(vec![])
+            }
+            "filter" => {
+                let tok = parts
+                    .next()
+                    .ok_or_else(|| "game-present filter requires nearest|linear".to_string())?;
+                let f = PresentFilter::parse(tok)
+                    .ok_or_else(|| format!("bad game-present filter: {tok}"))?;
+                self.game_present.filter = f;
+                Ok(vec![])
+            }
+            "on" | "1" | "enable" => self.game_present_set(true, None),
+            "off" | "0" | "disable" => self.game_present_set(false, None),
+            "toggle" => {
+                let on = self.game_present_address.is_none();
+                self.game_present_set(on, None)
+            }
+            "address" => {
+                let addr = parts
+                    .next()
+                    .ok_or_else(|| "game-present address requires 0x…".to_string())?;
+                self.game_present_set(true, Some(addr.to_string()))
+            }
+            other => Err(format!(
+                "unsupported game-present (want on|off|toggle|reload|scale|fps|filter|address): {other}"
+            )),
+        }
+    }
+
+    fn game_present_set(
+        &mut self,
+        enable: bool,
+        addr_override: Option<String>,
+    ) -> Result<Vec<WmOp>, String> {
+        if !enable {
+            let Some(addr) = self.game_present_address.take() else {
+                return Ok(vec![]);
+            };
+            if let Some(t) = self.find_mut(&addr) {
+                t.fullscreen = false;
+                t.floating = false;
+            }
+            return Ok(vec![
+                WmOp::ConfigureFullscreen {
+                    address: addr,
+                    enabled: false,
+                },
+                WmOp::Relayout,
+            ]);
+        }
+        let addr = match addr_override.or_else(|| self.focused.clone()) {
+            Some(a) => a,
+            None => return Ok(vec![]),
+        };
+        if self.find(&addr).is_none() {
+            return Err(format!("game-present: unknown address {addr}"));
+        }
+        // Leave previous game-present target if switching.
+        let mut ops = Vec::new();
+        if let Some(prev) = self.game_present_address.clone() {
+            if prev != addr {
+                if let Some(t) = self.find_mut(&prev) {
+                    t.fullscreen = false;
+                    t.floating = false;
+                }
+                ops.push(WmOp::ConfigureFullscreen {
+                    address: prev,
+                    enabled: false,
+                });
+            }
+        }
+        if let Some(t) = self.find_mut(&addr) {
+            t.fullscreen = true;
+            t.floating = true;
+            t.ssd = false;
+            t.maximized = false;
+        }
+        self.game_present_address = Some(addr.clone());
+        self.focused = Some(addr.clone());
+        ops.push(WmOp::ConfigureFullscreen {
+            address: addr.clone(),
+            enabled: true,
+        });
+        ops.push(WmOp::Focus(addr));
+        ops.push(WmOp::Relayout);
+        Ok(ops)
+    }
+
+    fn dispatch_focus_stack(&mut self, rest: &str) -> Result<Vec<WmOp>, String> {
+        let rest = rest.trim();
+        if rest.is_empty() || rest == "status" {
+            return Ok(vec![]);
+        }
+        let mut parts = rest.split_whitespace();
+        let cmd = parts.next().unwrap_or("");
+        match cmd {
+            "clear" => {
+                self.focus_stack_title = None;
+                self.focus_stack_layer = FocusStackLayer::Home;
+                let mut ops = self.game_present_set(false, None)?;
+                ops.push(WmOp::Relayout);
+                Ok(ops)
+            }
+            "set-title" | "set_title" => {
+                let addr = parts
+                    .next()
+                    .ok_or_else(|| "focus-stack set-title requires address".to_string())?;
+                if self.find(addr).is_none() {
+                    return Err(format!("focus-stack: unknown address {addr}"));
+                }
+                self.focus_stack_title = Some(addr.to_string());
+                Ok(vec![])
+            }
+            "home" => {
+                self.focus_stack_layer = FocusStackLayer::Home;
+                self.game_present_set(false, None)
+            }
+            "title" => {
+                let Some(addr) = self.focus_stack_title.clone() else {
+                    return Err("focus-stack: no title registered".into());
+                };
+                self.focus_stack_layer = FocusStackLayer::Title;
+                self.game_present_set(true, Some(addr))
+            }
+            "toggle" => {
+                if self.focus_stack_title.is_none() {
+                    self.focus_stack_layer = FocusStackLayer::Home;
+                    return self.game_present_set(false, None);
+                }
+                match self.focus_stack_layer {
+                    FocusStackLayer::Home => self.dispatch_focus_stack("title"),
+                    FocusStackLayer::Title => self.dispatch_focus_stack("home"),
+                }
+            }
+            other => Err(format!(
+                "unsupported focus-stack (want home|title|toggle|set-title|clear): {other}"
+            )),
+        }
     }
 }
 
@@ -1128,5 +1368,37 @@ mod tests {
         assert!(!wm.smart_gaps);
         wm.dispatch("smartgaps on").unwrap();
         assert!(wm.smart_gaps);
+    }
+
+    #[test]
+    fn game_present_and_focus_stack() {
+        let mut wm = Wm::new();
+        wm.add_toplevel("0x1".into(), "game".into(), "Title".into(), (0, 0));
+        wm.dispatch("game-present scale stretch").unwrap();
+        wm.dispatch("game-present fps 60").unwrap();
+        wm.dispatch("game-present filter linear").unwrap();
+        assert_eq!(wm.game_present.scale_mode, ScaleMode::Stretch);
+        assert_eq!(wm.game_present.fps_limit, 60);
+        assert_eq!(wm.game_present.filter, PresentFilter::Linear);
+        let ops = wm.dispatch("game-present on").unwrap();
+        assert!(wm.game_present_address.as_deref() == Some("0x1"));
+        assert!(ops.iter().any(|o| matches!(
+            o,
+            WmOp::ConfigureFullscreen {
+                address,
+                enabled: true
+            } if address == "0x1"
+        )));
+        wm.dispatch("focus-stack set-title 0x1").unwrap();
+        wm.dispatch("focus-stack home").unwrap();
+        assert_eq!(wm.focus_stack_layer, FocusStackLayer::Home);
+        assert!(wm.game_present_address.is_none());
+        wm.dispatch("focus-stack title").unwrap();
+        assert_eq!(wm.focus_stack_layer, FocusStackLayer::Title);
+        assert!(wm.game_present_address.as_deref() == Some("0x1"));
+        let st = wm.query("game-present").unwrap();
+        assert_eq!(st["active"], true);
+        let fs = wm.query("focus-stack").unwrap();
+        assert_eq!(fs["layer"], "title");
     }
 }

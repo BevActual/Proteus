@@ -178,7 +178,7 @@ Optional later: more Rust CLIs (`proteus-net`, etc.). Future first-party apps un
 8. **Focus postures are hard switches** — prove **desktop · console · host**
    until each is undeniable; park the rest ([POSTURES.md](./POSTURES.md)).
 9. **Smithay is the only shipping session compositor** — Hyprland purged; never
-   fork borrowed engines; SoT on disk; console may use Gamescope as session
+   fork borrowed engines; SoT on disk; console uses owned smithay (Gamescope FORCE-only)
    compositor when capable ([COMPOSITOR.md](./COMPOSITOR.md) ·
    [OWNED-STACK.md](./OWNED-STACK.md)).
 10. **Stack split** — chrome in iced (`shell/` + `proteus-ui`); Settings/Workloads

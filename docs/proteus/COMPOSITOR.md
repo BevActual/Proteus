@@ -49,7 +49,7 @@ Proteus **owns** the shipping Wayland session: Smithay compositor
 | **`proteus-compositor`** | Wayland session — tiling, outputs, keybinds, layer-shell, IPC |
 | **`proteus-shell`** | Presence chrome (bar, dock, Beacon, lock, overlays) |
 | **`proteus-settings-next`** | System control center (sibling iced app) |
-| **Gamescope** *(console session partial · desktop nest thin)* | Console: optional session compositor when `game_scope` is usable. Desktop: nest client via `proteus-gamescope` (Steam `%command%`) — smithay stays session |
+| **Gamescope** *(interim FORCE-only)* | Shipping: owned **game-present** + **focus-stack** on smithay. Nest/session only via `PROTEUS_FORCE_GAMESCOPE=1` / Fact `engine=gamescope`. Steam: `proteus-gamescope %command%` → owned path by default |
 
 ```
 capabilities + role  →  hard-switch posture  →  proteus-session engine + chrome + Settings
@@ -58,7 +58,7 @@ capabilities + role  →  hard-switch posture  →  proteus-session engine + chr
 | Focus posture | Typical engines |
 |---------------|-----------------|
 | **desktop** | `proteus-compositor` DRM + full iced desktop face |
-| **console** | **End state (`partial`):** Gamescope session (`proteus-console-gs-session`) when Vulkan/`game_scope` allows; else same smithay seat + thin console face. Guide focus-flip via `proteus-console-focus` |
+| **console** | **End state (`partial`):** always smithay + thin console face; titles via game-present; Guide focus-stack via `proteus-console-focus`. gs-session FORCE-only |
 | **host** | No DE by default; lean seat + host face when attached |
 
 ---
@@ -132,7 +132,7 @@ flip. See [POSTURES.md](./POSTURES.md) § Hard switches.
 | `tiling` / `multi_monitor` | Layout + Displays pane |
 | `touch` / `pointer` / `remote` / `gamepad` | Chrome targets, keybind set |
 | `mic` / `speaker` | Voice surfaces; meeting mode |
-| `game_scope` | Console Gamescope session path (*partial*) |
+| `game_scope` | Hardware Vulkan for owned present quality (*partial*; does not start Gamescope) |
 | `battery` | Power panes |
 
 Rule: **missing `display` does not invent a new posture** — it disables
@@ -159,7 +159,8 @@ compositor chrome for that unit.
 | Guest smithay + iced shell | `shipped` |
 | Settings → keybinds / gaps / displays | `shipped` (thin) — Facts + `proteus-settings-apply` / compositorctl |
 | Hyprland session / QS chrome | `retired` |
-| Console hard switch | `partial` — Gamescope session path + owned console face stub |
+| Console hard switch | `partial` — owned smithay + console face stub; game-present/focus-stack; gs-session FORCE-only |
+| Game-present | `partial` — Fact `game-present` + ctl `dispatch game-present` / `focus-stack`; integer/stretch/fill + fps/filter policy (no FSR yet) |
 | Host hard switch | `partial` — headless default + seat attach |
 | Owned compositor depth | `shipped` (thin) — per-output Spaces boards + see [COMPOSITOR-SPIKE.md](./COMPOSITOR-SPIKE.md) |
 | Capability resolver | `planned` |

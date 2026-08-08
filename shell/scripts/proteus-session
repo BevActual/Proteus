@@ -5,10 +5,10 @@
 #   - Best-effort mount /mnt/proteus when that is the product root
 #   - Export PROTEUS_SURFACE, PROTEUS_ROOT, PROTEUS_ICON_THEME, PATH for chrome/scripts
 #   - ENGINE SWITCH — the only place a session compositor is chosen:
-#       posture console + session Fact `session` + usable Gamescope
-#         → proteus-console-gs-session (Gamescope owns the session)
-#       compositor-engine empty|smithay|compositor(|-next) (only shipping engine)
-#         + bare seat → proteus-compositor --backend drm -c proteus-chrome
+#       shipping: always proteus-compositor --backend drm -c proteus-chrome
+#         (desktop + console + host; owned game-present / focus-stack)
+#       emergency only: PROTEUS_FORCE_GAMESCOPE=1 + console + usable Gamescope
+#         → proteus-console-gs-session (interim; not the product end state)
 #       Fact=hyprland / nested display / missing binary / DRM fail → exit 1
 #         (greeter returns; use ./dev/run-nested.sh for nested)
 #   - Never exec-once a terminal from this wrapper (Dock / Super+Return only)
@@ -100,14 +100,15 @@ for _session_env in \
 done
 unset _session_env
 
-# --- Phase 3 engine switch: Gamescope-owned console session -----------------
-console_session_wanted() {
+# --- Emergency Gamescope console session (FORCE only; owned end state is smithay)
+console_gamescope_force_wanted() {
   [[ "${PROTEUS_SURFACE}" == "console" ]] || return 1
-  local caps_bin gs_session
+  [[ "${PROTEUS_FORCE_GAMESCOPE:-}" == "1" ]] || return 1
+  local caps_bin
   for caps_bin in proteus-console-capabilities \
     "${PROTEUS_ROOT}/shell/scripts/proteus-console-capabilities"; do
     command -v "${caps_bin}" >/dev/null 2>&1 || [[ -x "${caps_bin}" ]] || continue
-    if "${caps_bin}" 2>/dev/null | grep -q '"sessionEffective": "session"'; then
+    if "${caps_bin}" 2>/dev/null | grep -q '"gamescopeUsable": true'; then
       return 0
     fi
     return 1
@@ -115,14 +116,7 @@ console_session_wanted() {
   return 1
 }
 
-degrade_session_fact() {
-  local fact="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/console-session-mode"
-  mkdir -p "$(dirname "${fact}")"
-  printf 'seat\n' >"${fact}"
-  echo "proteus-session: gamescope session failed fast — session Fact degraded to seat" >&2
-}
-
-if console_session_wanted; then
+if console_gamescope_force_wanted; then
   GS_SESSION=""
   for c in proteus-console-gs-session \
     "${PROTEUS_ROOT}/shell/scripts/proteus-console-gs-session"; do
@@ -135,19 +129,17 @@ if console_session_wanted; then
     fi
   done
   if [[ -n "${GS_SESSION}" ]]; then
+    echo "proteus-session: PROTEUS_FORCE_GAMESCOPE=1 — interim gs-session (not shipping default)" >&2
     _gs_start="$(date +%s)"
     "${GS_SESSION}"
     _gs_rc=$?
     _gs_ran=$(( $(date +%s) - _gs_start ))
-    # Normal end (Home exit / posture flip) → end the session (greeter).
     if [[ "${_gs_rc}" -eq 0 || "${_gs_ran}" -ge 10 ]]; then
       exit "${_gs_rc}"
     fi
-    # Fast nonzero exit = engine failed to come up. Degrade Fact and continue
-    # into smithay DRM (Hyprland purged — no Hyprland fallthrough).
-    degrade_session_fact
+    echo "proteus-session: forced gamescope session failed fast — continuing to smithay DRM" >&2
   else
-    echo "proteus-session: gamescope session wanted but proteus-console-gs-session missing — continuing to smithay DRM" >&2
+    echo "proteus-session: FORCE gamescope but proteus-console-gs-session missing — smithay DRM" >&2
   fi
 fi
 # -----------------------------------------------------------------------------
