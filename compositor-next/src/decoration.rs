@@ -23,11 +23,15 @@ use crate::CompositorNext;
 
 /// Fixed SSD titlebar height (logical px).
 pub const TITLEBAR_H: i32 = 28;
+/// Focus ring thickness (logical px) — Cosmic IndicatorShader pattern, owned path.
+pub const FOCUS_RING_W: i32 = 2;
+const COLOR_FOCUS_RING: [u8; 4] = [88, 166, 255, 220];
 
 const COLOR_BAR: [u8; 4] = [31, 33, 41, 255]; // ~0.12,0.13,0.16
 const COLOR_BAR_FOCUSED: [u8; 4] = [46, 51, 61, 255]; // ~0.18,0.20,0.24
 const COLOR_CLOSE: [u8; 4] = [191, 71, 71, 255]; // ~0.75,0.28,0.28
 const COLOR_MAXIMIZE: [u8; 4] = [90, 120, 160, 255]; // soft blue square
+const COLOR_MINIMIZE: [u8; 4] = [120, 124, 136, 255]; // mute gray —
 const COLOR_TITLE: CosmicColor = CosmicColor::rgb(0xE8, 0xE8, 0xEC);
 const TITLE_PAD_X: i32 = 8;
 const FONT_SIZE: f32 = 13.0;
@@ -39,6 +43,19 @@ pub struct SsdChrome {
     swash_cache: SwashCache,
     /// address → cached titlebar buffer
     buffers: HashMap<String, CachedTitlebar>,
+    /// address → cached CSD focus ring
+    focus_rings: HashMap<String, CachedFocusRing>,
+}
+
+struct CachedFocusRing {
+    key: FocusRingKey,
+    buffer: MemoryRenderBuffer,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+struct FocusRingKey {
+    w: i32,
+    h: i32,
 }
 
 struct CachedTitlebar {
@@ -61,8 +78,58 @@ impl Default for SsdChrome {
             font_system: FontSystem::new(),
             swash_cache: SwashCache::new(),
             buffers: HashMap::new(),
+            focus_rings: HashMap::new(),
         }
     }
+}
+
+fn rasterize_focus_ring(w: i32, h: i32) -> MemoryRenderBuffer {
+    let w = w.max(1);
+    let h = h.max(1);
+    let stride = w * 4;
+    let mut pixels = vec![0u8; (stride * h) as usize];
+    let t = FOCUS_RING_W.min(w / 2).min(h / 2).max(1);
+    // Four edges (hollow rect).
+    fill_rgba(
+        &mut pixels,
+        stride,
+        w,
+        h,
+        Rectangle::new((0, 0).into(), (w, t).into()),
+        COLOR_FOCUS_RING,
+    );
+    fill_rgba(
+        &mut pixels,
+        stride,
+        w,
+        h,
+        Rectangle::new((0, h - t).into(), (w, t).into()),
+        COLOR_FOCUS_RING,
+    );
+    fill_rgba(
+        &mut pixels,
+        stride,
+        w,
+        h,
+        Rectangle::new((0, 0).into(), (t, h).into()),
+        COLOR_FOCUS_RING,
+    );
+    fill_rgba(
+        &mut pixels,
+        stride,
+        w,
+        h,
+        Rectangle::new((w - t, 0).into(), (t, h).into()),
+        COLOR_FOCUS_RING,
+    );
+    MemoryRenderBuffer::from_slice(
+        &pixels,
+        Fourcc::Abgr8888,
+        (w, h),
+        1,
+        Transform::Normal,
+        None,
+    )
 }
 
 /// Split an outer tile into content origin + size when SSD is active.
@@ -95,33 +162,52 @@ pub fn titlebar_rect_from_content(
     ))
 }
 
-/// Close button hit rect (right edge of titlebar).
+fn btn_side(titlebar: Rectangle<i32, Logical>) -> i32 {
+    TITLEBAR_H.min(titlebar.size.w).max(1)
+}
+
+/// Close button hit rect (right edge of titlebar — Windows order).
 pub fn close_hit_rect(titlebar: Rectangle<i32, Logical>) -> Rectangle<i32, Logical> {
-    let side = TITLEBAR_H.min(titlebar.size.w).max(1);
+    let side = btn_side(titlebar);
     Rectangle::new(
         (titlebar.loc.x + titlebar.size.w - side, titlebar.loc.y).into(),
         (side, TITLEBAR_H).into(),
     )
 }
 
-/// Maximize button hit rect (immediately left of close).
+/// Maximize / restore hit rect (immediately left of close).
 pub fn maximize_hit_rect(titlebar: Rectangle<i32, Logical>) -> Rectangle<i32, Logical> {
-    let side = TITLEBAR_H.min(titlebar.size.w).max(1);
+    let side = btn_side(titlebar);
     let close = close_hit_rect(titlebar);
     let x = (close.loc.x - side).max(titlebar.loc.x);
     Rectangle::new((x, titlebar.loc.y).into(), (side, TITLEBAR_H).into())
 }
 
+/// Minimize hit rect — left of maximize when shown, else left of close.
+pub fn minimize_hit_rect(
+    titlebar: Rectangle<i32, Logical>,
+    show_maximize: bool,
+) -> Rectangle<i32, Logical> {
+    let side = btn_side(titlebar);
+    let right = if show_maximize {
+        maximize_hit_rect(titlebar)
+    } else {
+        close_hit_rect(titlebar)
+    };
+    let x = (right.loc.x - side).max(titlebar.loc.x);
+    Rectangle::new((x, titlebar.loc.y).into(), (side, TITLEBAR_H).into())
+}
+
 /// Max logical width available for title text (titlebar minus chrome + pads).
-/// `show_maximize`: reserve maximize square left of close when true.
+/// Always reserves minimize + close; `show_maximize` adds the middle control.
 pub fn title_text_max_width(titlebar_w: i32) -> i32 {
     title_text_max_width_ex(titlebar_w, true)
 }
 
 pub fn title_text_max_width_ex(titlebar_w: i32, show_maximize: bool) -> i32 {
     let btn = TITLEBAR_H.min(titlebar_w).max(1);
-    let chrome = if show_maximize { btn * 2 } else { btn };
-    (titlebar_w - chrome - 2 * TITLE_PAD_X).max(0)
+    let n = if show_maximize { 3 } else { 2 };
+    (titlebar_w - btn * n - 2 * TITLE_PAD_X).max(0)
 }
 
 /// Which SSD chrome region contains `pos`, if any.
@@ -129,6 +215,7 @@ pub fn title_text_max_width_ex(titlebar_w: i32, show_maximize: bool) -> i32 {
 pub enum SsdHit {
     Close { address: String },
     Maximize { address: String },
+    Minimize { address: String },
     Titlebar { address: String },
 }
 
@@ -263,6 +350,7 @@ fn rasterize_titlebar(
     let inset = (2.0 * (h as f32) / (TITLEBAR_H as f32)).round() as i32;
     let inner_w = (btn_w - 2 * inset).max(1);
     let inner_h = (h - 2 * inset).max(1);
+    // Windows order from the right: close · maximize · minimize.
     fill_rgba(
         &mut pixels,
         stride,
@@ -271,6 +359,7 @@ fn rasterize_titlebar(
         Rectangle::new((w - btn_w + inset, inset).into(), (inner_w, inner_h).into()),
         COLOR_CLOSE,
     );
+    let mut next = 2;
     if show_maximize && w >= btn_w * 2 {
         fill_rgba(
             &mut pixels,
@@ -282,6 +371,23 @@ fn rasterize_titlebar(
                 (inner_w, inner_h).into(),
             ),
             COLOR_MAXIMIZE,
+        );
+        next = 3;
+    }
+    if w >= btn_w * next {
+        // Minimize: thin bar in the lower third of the button cell.
+        let bar_h = (inner_h / 5).max(1);
+        let bar_y = inset + inner_h - bar_h - (inset / 2).max(1);
+        fill_rgba(
+            &mut pixels,
+            stride,
+            w,
+            h,
+            Rectangle::new(
+                (w - next * btn_w + inset, bar_y).into(),
+                (inner_w, bar_h).into(),
+            ),
+            COLOR_MINIMIZE,
         );
     }
 
@@ -366,20 +472,26 @@ impl CompositorNext {
             if !bar.contains((px, py)) {
                 continue;
             }
+            let show_maximize = !t.fullscreen;
             let close = close_hit_rect(bar);
             if close.contains((px, py)) {
                 return Some(SsdHit::Close {
                     address: t.address.clone(),
                 });
             }
-            // Hide maximize chrome while already fullscreen.
-            if !t.fullscreen {
+            if show_maximize {
                 let max = maximize_hit_rect(bar);
                 if max.contains((px, py)) {
                     return Some(SsdHit::Maximize {
                         address: t.address.clone(),
                     });
                 }
+            }
+            let min = minimize_hit_rect(bar, show_maximize);
+            if min.contains((px, py)) {
+                return Some(SsdHit::Minimize {
+                    address: t.address.clone(),
+                });
             }
             return Some(SsdHit::Titlebar {
                 address: t.address.clone(),
@@ -500,6 +612,92 @@ impl CompositorNext {
             .retain(|addr, _| keep.iter().any(|k| k == addr));
         out
     }
+
+    /// Accent focus ring around the focused CSD window (tiled or floating).
+    /// Pattern peer: Cosmic `IndicatorShader` — we keep an owned MemoryRenderBuffer.
+    pub fn focus_ring_render_elements<R>(
+        &mut self,
+        renderer: &mut R,
+        output: &Output,
+    ) -> Vec<MemoryRenderBufferRenderElement<R>>
+    where
+        R: Renderer + ImportMem,
+        R::TextureId: Clone + Send + 'static,
+    {
+        let Some(output_geo) = self.space.output_geometry(output) else {
+            return Vec::new();
+        };
+        let scale = output.current_scale().fractional_scale();
+        let Some(focused) = self.wm.focused.clone() else {
+            self.ssd_chrome.focus_rings.clear();
+            return Vec::new();
+        };
+        let active = self.wm.active_workspace;
+        let Some(t) = self.wm.toplevels.iter().find(|t| t.address == focused) else {
+            return Vec::new();
+        };
+        // SSD already paints a focused titlebar — ring is for CSD-first path.
+        if t.ssd || t.workspace != active || t.workspace <= 0 || t.fullscreen {
+            self.ssd_chrome.focus_rings.clear();
+            return Vec::new();
+        }
+        let Some(window) = self.windows.get(&t.address) else {
+            return Vec::new();
+        };
+        let Some(loc) = self.space.element_location(window) else {
+            return Vec::new();
+        };
+        let geo = window.geometry();
+        let w = geo.size.w.max(t.size_w).max(1);
+        let h = geo.size.h.max(t.size_h).max(1);
+        let ring = Rectangle::new(loc, (w, h).into());
+        if !ring.overlaps(output_geo) {
+            return Vec::new();
+        }
+        let ring_local = Rectangle::new(
+            (
+                ring.loc.x - output_geo.loc.x,
+                ring.loc.y - output_geo.loc.y,
+            )
+                .into(),
+            ring.size,
+        );
+        let ring_phys: Rectangle<i32, Physical> =
+            ring_local.to_physical_precise_round(scale);
+        let pw = ring_phys.size.w.max(1);
+        let ph = ring_phys.size.h.max(1);
+        let key = FocusRingKey { w: pw, h: ph };
+        let need_new = match self.ssd_chrome.focus_rings.get(&focused) {
+            Some(c) if c.key == key => false,
+            _ => true,
+        };
+        if need_new {
+            let buffer = rasterize_focus_ring(pw, ph);
+            self.ssd_chrome.focus_rings.insert(
+                focused.clone(),
+                CachedFocusRing { key, buffer },
+            );
+        }
+        self.ssd_chrome
+            .focus_rings
+            .retain(|addr, _| addr == &focused);
+        let Some(cached) = self.ssd_chrome.focus_rings.get(&focused) else {
+            return Vec::new();
+        };
+        let loc = (ring_phys.loc.x as f64, ring_phys.loc.y as f64);
+        match MemoryRenderBufferRenderElement::from_buffer(
+            renderer,
+            loc,
+            &cached.buffer,
+            None,
+            None,
+            None,
+            Kind::Unspecified,
+        ) {
+            Ok(elem) => vec![elem],
+            Err(_) => Vec::new(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -541,10 +739,25 @@ mod tests {
     }
 
     #[test]
-    fn title_text_max_width_leaves_close_and_pads() {
-        let max = title_text_max_width(200);
-        assert_eq!(max, 200 - 2 * TITLEBAR_H - 2 * TITLE_PAD_X);
-        assert_eq!(title_text_max_width_ex(200, false), 200 - TITLEBAR_H - 2 * TITLE_PAD_X);
+    fn minimize_hit_left_of_maximize() {
+        let bar = titlebar_rect_from_content((0, 40).into(), 200, true).unwrap();
+        let max = maximize_hit_rect(bar);
+        let min = minimize_hit_rect(bar, true);
+        assert_eq!(min.size.w, TITLEBAR_H);
+        assert_eq!(min.loc.x + min.size.w, max.loc.x);
+        let min_fs = minimize_hit_rect(bar, false);
+        assert_eq!(min_fs.loc.x + min_fs.size.w, close_hit_rect(bar).loc.x);
+    }
+
+    #[test]
+    fn title_text_max_width_leaves_buttons_and_pads() {
+        // min + max + close
+        assert_eq!(title_text_max_width(200), 200 - 3 * TITLEBAR_H - 2 * TITLE_PAD_X);
+        // min + close (fullscreen / no maximize chrome)
+        assert_eq!(
+            title_text_max_width_ex(200, false),
+            200 - 2 * TITLEBAR_H - 2 * TITLE_PAD_X
+        );
         assert_eq!(title_text_max_width(TITLEBAR_H), 0);
     }
 

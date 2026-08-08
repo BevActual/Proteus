@@ -56,6 +56,21 @@ hide quickshell "Quickshell" quickshell
 # (Beacon expression calc remains as a quick path). Drop prior NoDisplay stubs.
 rm -f "${DEST}/org.gnome.Calculator.desktop" "${DEST}/gnome-calculator.desktop"
 
+# Ghostty → proteus-terminal (VirGL VMs often expose OpenGL 4.2; Ghostty needs 4.3).
+# Visible override so gtk-launch / Beacon / dock share the VM-safe path.
+cat > "${DEST}/com.mitchellh.ghostty.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Ghostty
+GenericName=Terminal
+Comment=Terminal emulator (Proteus launcher)
+Exec=proteus-terminal
+Icon=com.mitchellh.ghostty
+Terminal=false
+Categories=System;TerminalEmulator;
+StartupWMClass=com.mitchellh.ghostty
+EOF
+
 # Disable blueman tray autostart if present
 AS_DEST="/etc/xdg/autostart"
 if [[ "${EUID}" -ne 0 ]]; then

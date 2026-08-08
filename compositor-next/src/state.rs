@@ -93,6 +93,8 @@ pub struct CompositorNext {
     pub(crate) drm_runtime: Option<std::rc::Rc<std::cell::RefCell<crate::drm::DrmRuntime>>>,
     /// Session keybind table (defaults + keybinds.json).
     pub binds: crate::binds::BindsState,
+    /// Pointer / touchpad Facts (`settings.json`); live via `input-reload`.
+    pub input_config: crate::input_config::InputConfig,
 }
 
 impl CompositorNext {
@@ -120,7 +122,9 @@ impl CompositorNext {
         let xwayland_shell_state = XWaylandShellState::new::<Self>(&dh);
 
         let mut seat: Seat<Self> = seat_state.new_wl_seat(&dh, seat_name);
-        seat.add_keyboard(Default::default(), 200, 25).unwrap();
+        // Repeat delay/rate — slightly conservative so iced text fields and
+        // lock wake don't feel hair-trigger under nested/VM input.
+        seat.add_keyboard(Default::default(), 400, 25).unwrap();
         seat.add_pointer();
 
         let space = Space::default();
@@ -163,6 +167,7 @@ impl CompositorNext {
             identify_chrome: crate::identify::IdentifyChrome::default(),
             drm_runtime: None,
             binds: crate::binds::BindsState::load(),
+            input_config: crate::input_config::InputConfig::load(),
         }
     }
 

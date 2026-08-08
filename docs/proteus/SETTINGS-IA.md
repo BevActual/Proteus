@@ -192,7 +192,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Displays** (`displays`) | Layout canvas + per-monitor scale; Identify; 10s Revert; Refresh/topology honesty; Fact `displays.json` | compositorctl + `displays.json` | `shipped` (thin; transform Out) |
 | **Sound** (`sound`) | Category → Output / Input / Applications / Mixer / Latency — leaf files + FormRow kit | pactl + `proteus-audio-mix` / `audio-peak.py` + `pw-metadata` + `pw-link` | `shipped` |
 | **Network** (`network`) | Category → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN / Headscale — password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG/OpenVPN import · Headscale admin thin (nodes · users · policy text) | hostnamectl / nmcli / bluetoothctl / localsend / tailscale / `proteus-headscale.py` / `NetworkDiagnostics` | `shipped` |
-| **Peripherals** (`peripherals`) | Category → Keyboard, Mouse, Touchpad, Tablet, Gamepads (Guide Facts) | keybinds + input hyprctl (`mouse*` · `touchpad*` · `tablet*` · active-area/pressure/eraser · `inputDeviceOverrides` → `device {}`) + `gamepadsGuide*` | `shipped` |
+| **Peripherals** (`peripherals`) | Category → Keyboard, Mouse, Touchpad, Tablet, Gamepads (Guide Facts) | keybinds + `proteus-settings-apply input` (`mouse*` · `touchpad*`); tablet/gamepad Facts; `inputDeviceOverrides` Out | `shipped` (thin) |
 | **Power** (`power`) | Power mode segmented (PPD); battery (UPower); **Charge limits** (sysfs `charge_control_*` when present); idle / lid FormRows via `proteus-logind` drop-in + conf escape | `powerprofilesctl` / UPower / `proteus-logind` / `proteus-battery-threshold` | `shipped` |
 | **Users** (`users`) | Session Lock/Logout + confirm Reboot/Shutdown; lock screen PIN set/change/clear; current user (GECOS/home) + other local users read-only; Online accounts jump; greetd status + autologin write + conf escape | `Config.session` · `proteus-pin.py` · id/getent · `proteus-greetd` (pkexec `[initial_session]`) | `shipped` |
 | **Online accounts** (`accounts`) | Hub → per-provider leaves (Google / Microsoft / Exchange / Nextcloud / IMAP / CalDAV / CardDAV / Apple); PKCE + app-password seats (`proteus-accounts` vault); calendar + mail + contacts glances; **calendar event create/edit/delete** (CalDAV + Google/MS/Exchange · CalendarPanel); **recurrence thin create+edit** (daily/weekly/monthly · COUNT end Forever/2×/5×/10×); **mail compose thin** (Google/MS/Exchange + IMAP/Apple SMTP · To/Cc/Bcc/Subject/Body · one-file attach); **contacts create/edit/delete thin** (CardDAV + Apple + Google/MS/Exchange · name + email) | `proteus-accounts` + `Accounts.qml` + `AccountsPane` / `AccountsProviderLeaf` + `CalendarEvents` / mutate · `MailGlance` / send · `ContactsGlance` / mutate (HTML/drafts/multi-file · photos/groups/apps Out) | `partial` |
@@ -268,8 +268,9 @@ Reference hybrid leaf under **Peripherals → Keyboard**:
 
 **Peripherals** category (same drill-in as Appearance): Keyboard · Mouse ·
 Touchpad · Tablet · Gamepads. Headphones/speakers stay under **Sound**, not
-Peripherals. Touchpad/tablet Facts live in `settings.json` (libinput apply
-deferred). Per-device / tablet polish holdouts stay Out.
+Peripherals. Mouse/touchpad Facts live in `settings.json` and live-apply via
+`proteus-settings-apply input` → `dispatch input-reload` (sensitivity · natural
+scroll · scroll factor). Tablet Facts stay Fact-only; per-device overrides Out.
 
 Defaults include Beacon (`Super+Space` / `Super+D`), Settings (`Super+,`),
 terminal (`Super+Return`), lock (`Super+L`), workspaces (`Super+1…0`).
@@ -288,7 +289,7 @@ pages via `kit/StickyPaneLoader` (`DesktopGapsLeaf`, `DesktopChromeLeaf`,
 | Gaps | Inner/outer `SettingsFormRow` sliders; live hypr |
 | Borders & rounding | Border size + window rounding FormRows; live hypr |
 | Motion | Window animations switch |
-| Dock & menu bar | Show/hide/monitor/size FormRows; Advanced → `proteus-general.conf` |
+| Dock & menu bar | Show; layout Center/Span/Left/Right; icon size; rounding; autohide; menu bar height/rounding/autohide → `settings.json` (shell mtime). Monitor Facts Out |
 | Spaces | Displays share Spaces (`workspaceMode` synced \| perDisplay); **Named Spaces** (`workspaceNames`); Super+**1–10** logical (+ Super+Ctrl local · Super+Shift move); strip drag `workspaceOrder` + wheel; **Scratchpad** Super+S / Super+Alt+S + strip ◇ pill (`special:scratch` ≠ dock minimize); **custom specials** (`specialWorkspaces` CRUD · strip pills ≤8 · Super+Alt+1–8 / Super+Alt+Shift+1–8 index + optional per-slug toggle + move chords); bands via `proteus-workspace`; multi-head `status`/`ensure` + disconnect `migrate-disconnect`; spaces-smoke |
 | Default apps | Browser / Files / Images / Music / Video / PDF / Text / Archives / Mail / Calendar via `proteus-defaults.py` + `xdg-mime`; mimeapps.list escape |
 | Focus | Soft quiet profiles (seed Work/Sleep/Personal + **add/rename/delete**); allowlist · keywords · schedule · critical; combo picker when >3; CC menu + Desktop → Focus leaf |

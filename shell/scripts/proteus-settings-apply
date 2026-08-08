@@ -7,6 +7,7 @@
 #   proteus-settings-apply gaps <in> <out>
 #   proteus-settings-apply displays-save <json-file>   # persist Fact only
 #   proteus-settings-apply apply-displays [json-file]  # Fact → live output dispatch
+#   proteus-settings-apply input                      # settings.json pointer/touchpad → input-reload
 set -euo pipefail
 
 CTL="${PROTEUS_COMPOSITORCTL:-}"
@@ -38,6 +39,56 @@ displays_fact_path() {
   else
     echo "${HOME}/.config/proteus/displays.json"
   fi
+}
+
+settings_fact_path() {
+  if [[ -n "${XDG_CONFIG_HOME:-}" ]]; then
+    echo "${XDG_CONFIG_HOME}/proteus/settings.json"
+  else
+    echo "${HOME}/.config/proteus/settings.json"
+  fi
+}
+
+# Read pointer/touchpad keys from settings.json (best-effort) then dispatch reload.
+apply_input() {
+  need_ctl
+  local file
+  file="$(settings_fact_path)"
+  PROTEUS_APPLY_CTL="${CTL}" PROTEUS_APPLY_FILE="${file}" python3 - <<'PY'
+import json, os, subprocess, sys
+
+ctl = os.environ["PROTEUS_APPLY_CTL"]
+path = os.environ["PROTEUS_APPLY_FILE"]
+keys = {
+    "mouseSensitivity": 0,
+    "mouseAccelFlat": False,
+    "touchpadNaturalScroll": False,
+    "touchpadTapToClick": True,
+    "touchpadDisableWhileTyping": True,
+    "touchpadScrollFactor": 1.0,
+}
+data = {}
+if os.path.isfile(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            raw = json.load(f)
+        if isinstance(raw, dict):
+            data = raw
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"input: settings.json read failed: {e}", file=sys.stderr)
+
+out = {}
+for k, default in keys.items():
+    out[k] = data.get(k, default)
+if "mouseAccelProfile" in data:
+    out["mouseAccelProfile"] = data["mouseAccelProfile"]
+
+r = subprocess.run([ctl, "dispatch", "input-reload"], capture_output=True, text=True)
+if r.returncode != 0:
+    print(f"input: input-reload -> {r.stderr or r.stdout}", file=sys.stderr)
+    sys.exit(1)
+print(json.dumps({"ok": True, "input": out}))
+PY
 }
 
 apply_displays_file() {
@@ -123,8 +174,11 @@ case "${cmd}" in
     fi
     apply_displays_file "${file}"
     ;;
+  input)
+    apply_input
+    ;;
   *)
-    echo "usage: proteus-settings-apply monitors|gaps <in> <out>|displays-save <file>|apply-displays [file]" >&2
+    echo "usage: proteus-settings-apply monitors|gaps <in> <out>|displays-save <file>|apply-displays [file]|input" >&2
     exit 2
     ;;
 esac

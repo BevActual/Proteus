@@ -42,7 +42,7 @@ use smithay::{
 };
 
 use crate::dmabuf_init::init_dmabuf_global;
-use crate::screencopy::{flip_y_xrgb, CapturedFrame};
+use crate::screencopy::{prepare_screencopy_pixels, CapturedFrame};
 use crate::winit::abgr_to_xrgb;
 use crate::{CalloopData, CompositorNext};
 
@@ -701,9 +701,11 @@ fn render_drm_crtc(
             ..
         } = &mut *rt;
         let ssd = data.state.ssd_render_elements(renderer, &output);
+        let focus = data.state.focus_ring_render_elements(renderer, &output);
         let identify = data.state.identify_render_elements(renderer, &output);
         let cursor = data.state.cursor_render_elements(renderer, &output);
         let mut custom = ssd;
+        custom.extend(focus);
         custom.extend(identify);
         custom.extend(cursor);
         let surf = surfaces.get_mut(&crtc).unwrap();
@@ -756,6 +758,7 @@ fn render_drm_crtc(
         {
             if let Ok(mut fb) = renderer.bind(&mut tex) {
                 let mut custom = data.state.ssd_render_elements(renderer, &output);
+                custom.extend(data.state.focus_ring_render_elements(renderer, &output));
                 custom.extend(data.state.identify_render_elements(renderer, &output));
                 custom.extend(data.state.cursor_render_elements(renderer, &output));
                 let _ = smithay::desktop::space::render_output::<
@@ -777,11 +780,11 @@ fn render_drm_crtc(
                 let rect = Rectangle::from_size(buf_size);
                 if let Ok(mapping) = renderer.copy_framebuffer(&fb, rect, Fourcc::Abgr8888) {
                     if let Ok(pixels) = renderer.map_texture(&mapping) {
-                        let flipped = flip_y_xrgb(pixels, size.w, size.h);
+                        let prepared = prepare_screencopy_pixels(pixels, size.w, size.h);
                         data.state.last_frame = Some(CapturedFrame {
                             width: size.w,
                             height: size.h,
-                            data: abgr_to_xrgb(&flipped),
+                            data: abgr_to_xrgb(&prepared),
                         });
                     }
                 }

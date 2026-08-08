@@ -48,6 +48,10 @@ pub struct ChromeState {
     pub control_center_open: bool,
     pub calendar_open: bool,
     pub weather_open: bool,
+    /// Notification Center (center menu-bar hub; not Control Center).
+    pub notifications_open: bool,
+    /// Mission Control Spaces overview.
+    pub spaces_open: bool,
     pub locked: bool,
     pub session_start_lock_pending: bool,
     /// True when ext-session-lock helper owns the lock surface (overlay lock hidden).
@@ -76,6 +80,8 @@ impl ChromeState {
             "controlCenter": self.control_center_open,
             "calendar": self.calendar_open,
             "weather": self.weather_open,
+            "notifications": self.notifications_open,
+            "spaces": self.spaces_open,
             "locked": self.locked,
             "sessionStartLockPending": self.session_start_lock_pending,
             "protocolLock": self.protocol_lock,
@@ -149,6 +155,7 @@ pub fn handle_request(state: &SharedChrome, epoch: &ChromeEpoch, req: &Request) 
             s.control_center_open = false;
             s.calendar_open = false;
             s.weather_open = false;
+            s.spaces_open = false;
             bump(epoch);
             Response {
                 ok: true,
@@ -188,6 +195,7 @@ pub fn handle_request(state: &SharedChrome, epoch: &ChromeEpoch, req: &Request) 
             s.launcher_open = !s.launcher_open;
             if s.launcher_open {
                 s.control_center_open = false;
+                s.spaces_open = false;
             }
             bump(epoch);
             Response {
@@ -208,6 +216,10 @@ pub fn handle_request(state: &SharedChrome, epoch: &ChromeEpoch, req: &Request) 
             s.control_center_open = !s.control_center_open;
             if s.control_center_open {
                 s.launcher_open = false;
+                s.spaces_open = false;
+                s.calendar_open = false;
+                s.weather_open = false;
+                s.notifications_open = false;
             }
             bump(epoch);
             Response {
@@ -216,11 +228,33 @@ pub fn handle_request(state: &SharedChrome, epoch: &ChromeEpoch, req: &Request) 
                 result: json!({"controlCenter": s.control_center_open}),
             }
         }
+        (ipc_targets::CHROME, "spaces") => {
+            if overlays_blocked(&s) {
+                return overlay_denied();
+            }
+            s.spaces_open = !s.spaces_open;
+            if s.spaces_open {
+                s.launcher_open = false;
+                s.control_center_open = false;
+            }
+            bump(epoch);
+            Response {
+                ok: true,
+                error: String::new(),
+                result: json!({"spaces": s.spaces_open}),
+            }
+        }
         (ipc_targets::CHROME, "calendar") => {
             if overlays_blocked(&s) {
                 return overlay_denied();
             }
             s.calendar_open = !s.calendar_open;
+            if s.calendar_open {
+                s.notifications_open = false;
+                s.weather_open = false;
+                s.control_center_open = false;
+                s.launcher_open = false;
+            }
             bump(epoch);
             Response {
                 ok: true,
@@ -228,11 +262,34 @@ pub fn handle_request(state: &SharedChrome, epoch: &ChromeEpoch, req: &Request) 
                 result: json!({"calendar": s.calendar_open}),
             }
         }
+        (ipc_targets::CHROME, "notifications") => {
+            if overlays_blocked(&s) {
+                return overlay_denied();
+            }
+            s.notifications_open = !s.notifications_open;
+            if s.notifications_open {
+                s.calendar_open = false;
+                s.weather_open = false;
+                s.control_center_open = false;
+                s.launcher_open = false;
+            }
+            bump(epoch);
+            Response {
+                ok: true,
+                error: String::new(),
+                result: json!({"notifications": s.notifications_open}),
+            }
+        }
         (ipc_targets::CHROME, "weather") => {
             if overlays_blocked(&s) {
                 return overlay_denied();
             }
             s.weather_open = !s.weather_open;
+            if s.weather_open {
+                s.calendar_open = false;
+                s.notifications_open = false;
+                s.control_center_open = false;
+            }
             bump(epoch);
             Response {
                 ok: true,

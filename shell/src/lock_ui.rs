@@ -289,7 +289,9 @@ impl LockUiState {
         self.shake.as_ref().is_some_and(|k| !k.done())
     }
 
-    /// Re-read lockWidgets[] and refresh live strip values (heavy-tick cadence).
+    /// Refresh live strip values from cached widgets (heavy-tick cadence).
+    /// Does **not** re-read settings.json — call [`Self::reload_widgets`] after
+    /// Customize / settings changes.
     pub fn refresh_applets(
         &mut self,
         mpris: &[platform::MprisPlayer],
@@ -297,12 +299,24 @@ impl LockUiState {
     ) {
         self.last_mpris = mpris.to_vec();
         self.last_power = power.clone();
-        self.refresh_applets_cached();
+        if self.widgets.is_empty() {
+            self.widgets = read_lock_widgets();
+        }
+        self.rebuild_strip();
     }
 
-    /// Rebuild the strip from the last cached snapshot (no subprocesses).
-    fn refresh_applets_cached(&mut self) {
+    /// Re-read `lockWidgets[]` from disk, then rebuild the strip.
+    pub fn reload_widgets(&mut self) {
         self.widgets = read_lock_widgets();
+        self.rebuild_strip();
+    }
+
+    /// Rebuild the strip from the in-memory widget list (no disk I/O).
+    fn refresh_applets_cached(&mut self) {
+        self.rebuild_strip();
+    }
+
+    fn rebuild_strip(&mut self) {
         let mut strip: Vec<&LockWidget> = self
             .widgets
             .iter()
@@ -605,6 +619,7 @@ pub fn lock_screen_view<'a>(theme: &'a Theme, st: &'a LockUiState) -> Element<'a
     } else {
         // Password — pill field H46 r22, accent unlock.
         let field = text_input("Password", pin)
+            .id("lock-password-input")
             .on_input(LockMsg::PinEntry)
             .on_submit(LockMsg::Unlock)
             .secure(true)
@@ -660,12 +675,14 @@ pub fn lock_screen_view<'a>(theme: &'a Theme, st: &'a LockUiState) -> Element<'a
         col.into()
     };
 
-    // Full dim is always dark — the lock is a dark surface over the wallpaper.
+    // Dark wash over the opaque lock floor (wallpaper/solid stacked under this
+    // view). Keep alpha < 1 so the floor shows through — never rely on this
+    // wash alone to hide windows (layer clear is transparent).
     let dim = Color {
         r: 0.02,
         g: 0.02,
         b: 0.04,
-        a: 0.72,
+        a: 0.55,
     };
 
     // Failure shake — x-offset keyframes applied as asymmetric padding.

@@ -171,7 +171,10 @@ pub const SETTINGS_SCHEMA: &[(&str, Kind, &str)] = &[
     ("dockIconSize", Kind::Int, "48"),
     ("dockAutoHide", Kind::Bool, "false"),
     ("dockMonitor", Kind::Str, "\"all\""),
-    ("barHeight", Kind::Int, "34"),
+    ("dockLayout", Kind::Str, "\"center\""),
+    ("dockRounding", Kind::Int, "16"),
+    ("barHeight", Kind::Int, "38"),
+    ("barRounding", Kind::Int, "0"),
     ("barAutoHide", Kind::Bool, "false"),
     ("barMonitor", Kind::Str, "\"all\""),
     ("workspaceMode", Kind::Str, "\"synced\""),
@@ -441,7 +444,7 @@ mod tests {
 
     #[test]
     fn schema_has_all_config_keys_count() {
-        assert_eq!(SETTINGS_SCHEMA.len(), 123, "Config.qml JsonAdapter key count");
+        assert_eq!(SETTINGS_SCHEMA.len(), 126, "settings.json Fact key count");
         // No duplicates.
         let keys = schema_keys();
         let mut dedup = keys.clone();

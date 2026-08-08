@@ -2,7 +2,7 @@
 doc: current
 role: status
 audience: contributors, coding agents
-last_updated: "2026-08-05"
+last_updated: "2026-08-07"
 doc_status: active
 scope: Honest inventory of what exists in the repo / guest today
 related:
@@ -68,16 +68,16 @@ Desktop (owned iced — `shell/src/surfaces.rs` + `shell/src/faces/desktop.rs`):
 
 | Feature | Status |
 |---------|--------|
-| Top bar (workspaces, title, clock+weather center, CC icon) | `shipped` — wallpaper-first glass menu bar. **Left:** traffic-light window controls · app name · Spaces strip. **Center:** date · time · weather → calendar / weather popovers. **Right:** tray · privacy dots · system services · tiling toggle · status cluster · Control Center. Detail: [§2a](#2a-top-bar-detail) |
-| Spaces (multi-display) | `partial` — Settings configures `workspaceMode` synced \| perDisplay (`proteus-workspace` bands); Super+**1–10** (Super+0 = Space 10) logical SoT / Super+Ctrl local / Super+Shift move / strip / wheel; **Named Spaces** (`workspaceNames`); **strip drag reorder** (`workspaceOrder` visual perm); **Scratchpad** Super+S / Super+Alt+S (`special:scratch` ≠ dock `special:minimized`); **custom specials** (`specialWorkspaces` CRUD · strip pills up to 8 · Super+Alt+1–8 / Super+Alt+Shift+1–8 index fallback · **optional per-special toggle chords** via `specialWorkspaceChords` → `special-toggle <slug>` · **optional per-special move chords** via `specialWorkspaceMoveChords` → `special-move <slug>`); **multi-head:** `status` / `ensure` + SpacesDisplays; **disconnect:** `migrate-disconnect` orphan bands → primary; spaces-smoke; **strip Scratchpad ◇ pill** |
-| Control Center (notifications + quick settings) | `shipped` — notifications (grouped by app) + Focus Mode (profiles · allowlist · critical · schedules) · Privacy In-use strip · Sound (Listen/Sources/**Output**) · Display · layout-driven tiles (`ControlCenterLayout` / `controlCenterLayout` — order/visibility/span/size/**columns 2|3**) · Appearance Dark/Light · Wi‑Fi SSID list · BT devices · Power/Awake/LocalSend/posture · Screenshot Region/Screen · Edit tiles › Settings · multi-monitor host via `controlCenterMonitor`; soft Focus ≠ posture |
-| Status HUD (volume · brightness) | `shipped` — top-right elevated glass chip (`Hud` / `StatusHud`, toast plate language); XF86 + IPC; suppressed while Control Center open; brightness honest-skip without `/sys/class/backlight` |
-| **Beacon** — system search (`Super+Space` / `Super+D`; `Beacon.qml`, internal ids stay `launcher*`) | `shipped` — **universal Apps surface**: apps + Settings + Actions + calc + running **Windows** (focus) + Privacy **In use** / per-app grant search; empty Apps = Recents + Pinned + Windows; Files via **beacon-file-index** (fd/walk cache); file rows show default app; Clipboard paste via **wtype**; Actions: calendar/weather/screenshot; privacy-blocked Enter → Privacy leaf; `chrome beacon` / `beaconState` IPC |
-| Dock (pins, magnify, running dots) | `shipped` — continuous frosted glass shelf (`glassAlpha` frost floor + curve-following edge glow **looping the full plate** — plate lifts 1px so the bottom band isn't clipped at the surface edge; no straight specular); smooth magnify; running disc vs active accent pill; hairline divider pins ‖ transients; launch bounce until first window; **window management**: click minimizes the focused app (parks on `special:minimized`; click restores — multi-window focused apps cycle instead), **hover-dwell preview popup** (glass plate, live `ScreencopyView` thumbnail per window · click focuses/restores · ✕ closes · "Hidden" badge on parked; popup band is a **fixed surface reserve + input mask** — resizing the layer on hover made Hyprland clip the dock bottom, and the mask keeps the transparent band click-through); **Settings pin** title-matches `Proteus Settings` (not shared `quickshell` class) — click toggles minimize/restore, never spawns a second instance; Beacon + desktop entry also route through `openSettings` single-instance; long-press edit (−/+ · Done); press-drag reorder / drag-off remove (`beginDrag` uses `cellLefts` so the separator doesn't skew the ghost); glass Keep/Remove/Quit (`ChromeMenuPlate`) |
+| Top bar (workspaces, title, clock+weather center, CC icon) | `shipped` — wallpaper-first glass menu bar (Apple-quiet right cluster). **Left:** Spaces. **Center:** date · time · weather · notif badge → hub / glance. **Right:** tray · privacy · DND · battery · Control Center (wifi/BT/volume live in CC). IPC: `chrome calendar` · `chrome weather` · `chrome notifications`. Detail: [§2a](#2a-top-bar-detail) |
+| Spaces (multi-display) | `partial` — **iced Mission Control** (`proteus-spaces`): bar icon · equal landscape cards · 2×2 grim mosaic · soft active plate · pencil-glyph rename → `workspaceNames` · auto grow/shrink (occupied ∪ active + trailing empty, 1–10) · drag window → `movetoworkspacesilent` · stronger scrim open fade · `chrome spaces` IPC. Super+**1–10** = global `workspace N`. Settings Synced/Per-display Fact only — **no per-monitor boards yet**. **Out:** strip pills / reorder / Scratchpad ◇ / hypr `proteus-workspace` live path / Exposé parallax |
+| Control Center (quick settings) | `shipped` (thin) — **2-column module grid** (Wi‑Fi / BT / DND / Focus) + paired brightness/volume · media · Appearance/mute · power · screenshot · network lists · Settings deep links. **No inbox** (center hub). Alpha frost (true blur Out). **Out:** layout editor, LocalSend, multi-monitor CC polish |
+| Status HUD (volume · brightness) | `shipped` — top-right elevated glass chip; XF86 media keys + `proteus-shellctl hud` + CC sliders; suppressed while Control Center open; brightness honest-skip without `/sys/class/backlight` |
+| **Beacon** — system search (`Super+Space` / `Super+D`) | `partial` — iced Apps + Settings + running Windows + thin Actions; Ghostty → `proteus-terminal`. **Out / rebuild:** full Files index, clipboard/calc depth, Privacy grant search, QML-era Recents/Pinned richness |
+| Dock (pins, layouts, running dots) | `shipped` — iced dock on **Top** with `exclusive_zone` from rest strip (`dock_strip_h`); Facts `dockLayout` (`center`\|`span`\|`left`\|`right`), `dockRounding`, `dockIconSize`, `dockEnabled`, `dockAutoHide` (slide + edge peek); **no magnify** — per-icon hover scale + stronger launch bounce; menu bar `barHeight` / `barRounding` / `barAutoHide`; running mute disc / focused pill / **1–3 multi-window dots**; divider pins ‖ transients; bottom-dock dwell preview (~350ms grim thumbs; vertical preview Out). Settings → Desktop → Dock & menu bar. **Out:** long-press edit / drag reorder; `dockMonitor` / `barMonitor`; Win11 centered-on-span icons; vertical dwell previews |
 | Session start (`proteus-session`) | `shipped` — **smithay only** (`proteus-compositor-next --backend drm -c proteus-chrome`); Hyprland **purged** (Fact=hyprland / nested display / missing bin / DRM fail → exit 1); SSD title + smart-gaps; portal-wlr |
-| Desktop widgets (free place; Customize) | `shipped` — long-press or `Super+Shift+W`; free-place + optional Snap to Grid, alignment guides, arrow-key nudge; widgets stay click-interactive outside Customize; Add Widget gallery renders live previews. Catalog: clock · media · battery · weather · calendar · system glance · note · world clock. Separate from lock; **not** in Settings; widget store Out. Detail: [§2b](#2b-desktop-widgets-detail) |
-| Lock screen (`Super+L`, PAM + `WlSessionLock`) | `shipped` — Customize mode, zone layout, applets; cold boot auto-lock **with no desktop peek** (bar/dock/widgets **and** Beacon/CC/calendar/toasts/HUD gate on `sessionStartLockPending`; overlay toggles blocked while pending; held until first unlock — only the wallpaper maps beneath the lock); wake-up keystroke is kept for password mode (PIN digits already were); attempt cooldown after 3 misses; optional **unlock PIN** (numpad + keyboard digits, auto-submit; password still works) — PIN pad vertically centered above applets, strip widgets hide while PIN is up, layout reserve keeps tiles out of the auth band; via `check-unlock.py` + hashed `~/.local/share/proteus/auth/pin`; **console** reuses the same `LockSurface` / PAM+PIN path (`ConsoleShell` hosts `WlSessionLock`) |
-| Global shortcuts (Beacon, settings, lock) | `shipped` (thin) — compositor-next Super chords (`binds.rs`); overrides `~/.config/proteus/keybinds.json`; `dispatch reloadbinds`; Settings Keyboard leaf honesty (full rebind UI Out) |
+| Desktop widgets (free place; Customize) | `shipped` (thin) — **hold empty wallpaper** (~450ms) or `Super+Shift+W` / `chrome customizeDesktop`; free-place drag + Snap to Grid + alignment guides; persist `desktopWidgets[]`; widgets clickable outside Customize (clock→calendar, weather→glance, …). Gallery Add Widget. **Out / thinner than QML era:** arrow-key nudge polish, live scaled previews, note edit-in-place depth. Lock stays **zone/strip** Customize (not free-place). Detail: [§2b](#2b-desktop-widgets-detail) |
+| Lock screen (`Super+L`, PAM + `WlSessionLock`) | `shipped` — Customize mode, zone layout, applets; cold boot auto-lock **with no desktop peek** (bar/dock/widgets **and** Beacon/CC/calendar/toasts/HUD gate on `sessionStartLockPending`; overlay toggles blocked while pending; held until first unlock; **opaque wallpaper/solid floor** painted into the Overlay lock so app windows cannot show through the dim wash; `ext-session-lock` protocol path stays Overlay on compositor-next until the compositor advertises it); wake-up keystroke is kept for password mode (PIN digits via keyboard too); password field auto-focused; lock tick is light (1s, no sensor spam) and key-repeat is ignored on the wake/PIN path so lag cannot insert ghost characters; attempt cooldown after 3 misses; optional **unlock PIN** (numpad + keyboard digits, auto-submit; password still works) — PIN pad vertically centered above applets, strip widgets hide while PIN is up, layout reserve keeps tiles out of the auth band; via `check-unlock.py` + hashed `~/.local/share/proteus/auth/pin`; **console** reuses the same `LockSurface` / PAM+PIN path (`ConsoleShell` hosts `WlSessionLock`) |
+| Global shortcuts (Beacon, settings, lock) | `shipped` (thin) — compositor-next Super chords (`binds.rs`): Beacon · Settings · lock · terminal · Spaces customize · screenshot · **Super+E** files (`xdg-open $HOME`) · XF86 volume/brightness → HUD; overrides `~/.config/proteus/keybinds.json`; `dispatch reloadbinds`; Settings Keyboard leaf honesty (full rebind UI Out) |
 | Hardware probe at session start (`Hardware.qml`) | `shipped` — Wave A |
 | Env gate (Beacon / Settings / dock) | `shipped` — `EnvGate.qml` (+ `env/apps` manifests); **postures** + **device_classes** hard allow-lists · **prefers** soft hint/boost · **adapts** soft profile (input/nav/panes via FocusMode) + **`PROTEUS_ADAPT_*` launch env** on Dock/Beacon/`openSettings`; **Focus minimal hard-hides** non-allowlisted Settings panes; **`adapts.input` remote** via probe CEC/IR/lirc / Bluetooth HID + `PROTEUS_REMOTE_PROBE` stub; **Settings About** reads via `AdaptEnv.qml` + remote status + Focus density; app icon resolve + Proteus brand marks |
 | Chrome design lock (`CHROME.md`) | `shipped` — principles + token tables + Settings patterns; sibling export `env/chrome/` `shipped` |
@@ -94,39 +94,30 @@ Glass menu bar, wallpaper-first (`menuBarAlpha` clearer than the dock; soft text
 outline when thin, including DND/Awake chips).
 
 **Left**
-- **Traffic-light window controls** for the focused toplevel — Hyprland draws no
-  decorations, so the bar owns ✕ close · − minimize to `special:minimized` ·
-  + maximize (`fullscreen 1`). Symbols on hover; hidden with no focused window.
-- App name via desktop-entry lookup (`ActiveWindow.barText`).
-- **Dynamic workspace strip** — logical Spaces 1–10 via `proteus-workspace`;
-  per-monitor ID bands; default **synced** multi-display switch (Settings →
-  Desktop → Spaces for per-display); `Super+Ctrl+N` always targets this display;
-  pills min 4 / cap 10; occupied dots = has toplevels on the logical slot; wheel
-  cycles; "+" jumps to next.
+- **Spaces icon** — opens full-screen Mission Control overview (`proteus-spaces`);
+  wheel over the icon cycles the shell visible set (occupied ∪ active + one
+  trailing empty, cap 10). Rename and window drag live in the overview, not on
+  the bar. `workspaceMode` synced/perDisplay is Settings Fact–only until
+  compositor-next multi-head Spaces.
+- **No menu-bar window chrome** — apps draw their own titlebars (CSD).
+  Compositor forces ClientSide (GTK’s ServerSide asks are ignored) so SSD
+  never steals a 28px gap above tiled windows.
 
-**Center** — date · time · weather cluster
-- Date dim + time demi; weather glyph/temp; accent soft while the calendar is open.
-- Date drops, then the cluster fades, when left/right chrome crowds the mid band.
-- `…` / `—` while loading or on error when a location is set.
-- Date/time opens the **calendar popover**; the weather chip opens the **weather
-  glance** (`WeatherPanel` · Open-Meteo conditions/forecast; **Open Weather** →
-  `gnome-weather`). CalendarPanel's weather row jumps to the glance.
-- IPC: `chrome calendar` · `chrome weather`.
+**Center** — date · time · weather · notif badge
+- Date dim + time demi; weather glyph/temp; unread badge.
+- Date/time opens the **center hub** on the Calendar tab (real month grid + today).
+- Badge (or empty-dot) opens the hub on **Notifications** (inbox moved out of CC).
+- Weather chip opens the **weather glance** (Open-Meteo when location set; honest
+  mute / “Set location” deep links otherwise).
+- IPC: `chrome calendar` · `chrome weather` · `chrome notifications`.
 
 **Right**
 - **App tray** (StatusNotifier — 1Password etc.).
 - **Privacy dots** — mic orange · camera green · screen purple; click → Privacy.
-- **System services** — network · Bluetooth · volume scroll · battery.
-- **Tiling toggle** (COSMIC-adjacent) — grid glyph = tiled, accent overlapping
-  panes = floating; click `togglefloating` on the focused window. Floating windows
-  resize by grabbing any edge/corner (hypr `resize_on_border` + 12px grab area)
-  and move with **⌘+drag anywhere on the window** (`bindm` mouse binds emitted
-  with the generated keybinds; ⌘+right-drag resizes). The **accent focus ring**
-  follows hover/keyboard focus: `col.active_border` accent, inactive fully
-  transparent.
-- Status cluster — unread badge · DND · Awake · battery.
-- **Control Center glyph** — three mini sliders with staggered knobs (ThemeSlider
-  language); knobs slide + accent while open.
+- **System services** — wifi · Bluetooth (open CC) · volume (scroll step / click mute) · battery.
+- **Tiling toggle** — grid glyph; click `togglefloating` on the focused window
+  (compositor-next). Floating move/resize via compositor pointer path.
+- DND · battery · **Control Center glyph** (wifi / BT / volume detail open in CC).
 
 **Notes**
 - Beacon button is off the bar — the dock pin and `Super+Space` own it.
@@ -135,7 +126,8 @@ outline when thin, including DND/Awake chips).
 
 ### 2b. Desktop widgets detail
 
-Enter Customize by long-press (empty desktop or a widget) or `Super+Shift+W`
+Enter Customize by **hold-click empty wallpaper** (~450ms; not on widget bodies —
+avoids phantom Customize from ordinary clicks) or `Super+Shift+W`
 (probe: `chrome customizeDesktop` IPC).
 
 **Placement**
@@ -180,38 +172,38 @@ Separate from the lock screen; **not** surfaced in Settings; a widget store is O
 ## 3. Settings
 
 App: iced sibling `../ProteusSettings` (`proteus-settings-next`) via
-`/usr/local/bin/proteus-settings` · QML fallback `proteus-settings-qml` ·
-`apps/proteus-settings/` · `Super+,`
+`/usr/local/bin/proteus-settings` · `Super+,` / Beacon / `proteus-open settings`.
+QML Settings is **retired** (no escape). Legacy Tauri `app/` is frozen.
 
-**Wave 4 iced default `shipped`** — `proteus-settings` launches iced when the
-binary is installed; escape to `proteus-settings-qml` for polish holdouts (Mixer
-peaks/drag-reorder · Headscale structured ACL · multi-seat glance megas). Legacy
-Tauri `app/` is frozen. `--page`/`--query` deep links preserved. Ported:
-Appearance (accent + background/lock/icons/font thin) · Software (updates confirm ·
-search · orphans · flatpak/webapps · AppImages · AUR thin) · Sound
-(output/input/latency/apps · Mixer Wave Link grid thin) · Notifications · Users ·
-Privacy core · Network (machine/wifi/BT · VPN · Headscale users + policy HuJSON) ·
-Desktop hypr leaves · Power · Date/Time · About · Virtualization · Peripherals
-(mouse/touchpad thin) · Tailscale thin · Accounts hub + password glance create/edit
-+ OAuth Connect · Displays list+apply + layout canvas. Holdouts: Mixer
+**Wave 4 iced default `shipped`** — deep links `--page`/`--query` + single-instance.
+**Look `shipped` (thin):** System Settings posture via `proteus-ui` —
+`settings_group` inset lists + hairlines, `hub_row` list nav (not CTA slabs),
+compact Shrink CTAs / `button_cluster`, trailing form rows, `large_title`,
+sidebar `accent_soft` selection (true blur Out).
+Ported thin: Appearance · Software · Sound (Mixer grid thin) · Notifications ·
+Users · Privacy (activity + categories + Flatpak/Diagnostics thin) · Network
+(machine/wifi/BT/Devices/Diagnostics/LocalSend · VPN · Tailscale · Headscale
+HuJSON) · Desktop (gaps live-apply · defaults/focus/beacon thin) · Power ·
+Date/Time · About · Virtualization · Peripherals (mouse/touchpad →
+`proteus-settings-apply input`) · Accounts · Displays. Holdouts: Mixer
 peaks/drag-reorder polish, Headscale structured ACL editor, Accounts multi-seat
-glance megas, peripherals tablet/gamepads, Diagnostics depth.
+glance megas, peripherals tablet/gamepads, full Focus CRUD.
 ([STACK.md](./STACK.md) §6).
 
 | Pane | Status |
 |------|--------|
 | Appearance → Accent / Background / Lock / Icons / Font (`style`) | `shipped` — hub + five `Style*Leaf` StickyPaneLoaders; Kind/color chrome via `kit/` (`SettingsKindPicker`, `SettingsColorPresetGroup`, `ColorGraphPicker` debounced); Dark/Light; empty-album honesty; preview above Kind; lock wallpaper/dim in Settings (widgets via lock Customize); daily/slideshow/`proteus-bg`; **bg runtime hardened** (installed wrapper is a crash-respawn loop — clean exit/TERM/KILL stop it; shell watchdog re-spawns a dead runner ~15s, only after seeing it alive; `applyBackground` detection matches legacy `exec -a` cmdline **and excludes its own pgrep self-match** — both bugs stacked/blocked wallpaper instances until reboot); Font picker + userFonts Add/Remove; Icons squircle compare + Tint; hypr live apply coalesced; mega-page merge Out |
-| Desktop → Gaps / Borders / Motion / Dock & menu bar / Spaces / Default apps / Focus / Control Center / Beacon | `shipped` — Appearance-style hub + `Desktop*Leaf` StickyPaneLoaders; Gaps/Borders/Motion `SettingsFormRow` + live hints; Dock disable honesty + Advanced conf escape; Spaces `workspaceMode`; **Default apps** (`proteus-defaults.py` + xdg-mime / mimeapps.list); **Focus** filters + **profile entity CRUD** (add/rename/delete; combo picker when >3); **Control Center** plates/tiles + **columns 2|3**; Beacon blurb (universal search; Tab / Ctrl+1–4 modes), Clear recent apps + recent files, tag FormRows; live hypr + `proteus-general.conf` / `settings.json` |
+| Desktop → Gaps / Borders / Motion / Dock & menu bar / Spaces / Default apps / Focus / Control Center / Beacon | `shipped` (thin iced) — Gaps live via `proteus-settings-apply`; Spaces `workspaceMode` Fact; **Default apps** picker (`proteus-defaults.py`); **Focus** enable + active profile picker (CRUD Out); CC columns 2|3; Beacon blurb + Clear recents; **Dock & menu bar** layout/size/rounding/autohide Facts → shell mtime reload |
 | Displays (scale / mode / orientation, Identify; layout canvas) | `shipped` (thin) — iced list + layout canvas; Apply writes `~/.config/proteus/displays.json` + live `proteus-settings-apply apply-displays` (`output` scale/pos/mode); Fact loaded at compositor start; **Identify** (`dispatch identify`); **10s snapshot Revert** (Keep / timeout / Refresh / leave / topology); transform/orientation UI still Out |
-| Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) / Touchpad / Tablet / Gamepads | `shipped` — touchpad + tablet Facts → hyprctl; **per-device** `device {}` via `inputDeviceOverrides` (sensitivity + accel; Mouse leaf); tablet **active-area mm** + **pressure range** (global linear) + **eraser-as-button** (`eraser_button_mode` / `override`) + **monitor region** (`input:tablet:*` / `input:tablettool:*`); bezier per-tool curves / gesture maps Out |
+| Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) / Touchpad / Tablet / Gamepads | `shipped` (thin) — mouse/touchpad Facts → `proteus-settings-apply input` → compositor-next `dispatch input-reload` (sensitivity scale on motion · natural scroll invert · scroll factor; tap/accel/DWT held on InputConfig); keyboard `keybinds.json` + `reloadbinds`; tablet/gamepads Facts only; **per-device** `inputDeviceOverrides` Out |
 | Software → Updates / Repos / AUR / Flathub / AppImages / Web apps / Orphans (`packages`) | `shipped` — hub + `Packages*Pane` StickyPaneLoaders; Install\|Installed mode-safe loads + leafUi; sticky action bar; live `$` op + Cancel + last error; empty Installed / orphans / AppImages honesty; **Web apps** (`proteus-webapp` → user `.desktop`, no polkit); hub Needs yay/paru · flatpak; AppImages user-only; escape **Install…** → seeded Software leaf; `software-reliability-smoke` + `software-guest-smoke` in `smoke-all` (yay **or** paru); dep graphs / Snap Out |
 | Sound → Output / Input / Applications / Mixer / Latency (`sound`) | `shipped` — Desktop-style hub + `Sound*Leaf` StickyPaneLoaders; **Mixer** Wave Link–style grid (channels/inputs × mixes; Speakers/mix listen; rename; peaks; drag-reorder with full-row/column drop lines + wider gutters); instant expand/listen (dbl-click rename); slideVol + dump-pause while dragging levels; honest setup CTA; × confirm; graph editor escape (`qpwgraph` Install… → Repos); refcounted `mixBusy`; folder/picker wheel capture; resident `proteus-audio-mix serve` (Python mutations + fallback); Output/Input/Apps/Latency FormRows; pactl + `pw-metadata` |
-| Network → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN / Headscale (`network`) | `shipped` — hub + leaves; password Wi‑Fi; BT pair; Devices IPv4; **Diagnostics** (iface bars · `ss` · firewall · route/DNS · ping · Wireshark); LocalSend; Tailscale peers/exit/login-server; VPN up/down + **WireGuard + OpenVPN import** (`.ovpn` · optional session user/pass · **cert path attach** CA/cert/key/+tls-auth via `+vpn.data` · `networkmanager-openvpn`); **Headscale admin thin** (`proteus-headscale.py` · vault API key · node list · expire/enable · **users list/create** · **policy HuJSON check/save** · browser escape); OpenVPN PKI/PKCS#11/server install · Headscale preauth · user rename/delete · structured ACL editor Out |
+| Network → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN / Headscale (`network`) | `shipped` (thin iced) — machine/wifi/BT; **Devices** link+IPv4; **Diagnostics** route/DNS/`ss`/ping; LocalSend detect/open; Tailscale up/down; VPN nmcli up/down; Headscale users + HuJSON check/save. Out: WireGuard import polish · Wireshark · structured ACL editor |
 | Power (PPD mode + battery + idle/lid + charge limits) | `shipped` — Performance/Balanced/Eco via `powerprofilesctl`; battery via UPower; `pkexec proteus-logind` drop-in + reload (not restart); CC Power tile; **Charge limits** when sysfs `charge_control_*` present (`pkexec proteus-battery-threshold` · fail-closed otherwise); TLP Out |
 | Date, time & weather (clock, timezone search, NTP, locale, **Location**) | `shipped` — timezone/NTP/`localectl set-locale` polkit-gated; searchable locale picker + locale.conf escape; Location explicit place search (never IP); Open-Meteo current + **5-day forecast** + Conditions H/L/sunrise; Match time zone to place when TZ differs; desktop/lock weather widget; manual time / RTC writers Out |
 | Users (session actions + read-only local users · greetd autologin) | `shipped` — Session Lock/Logout; Reboot/Shutdown confirm strip; **lock screen PIN** set/change/clear (`proteus-pin.py`, PAM password gate; hash not in settings.json); current user GECOS/home/UID/groups; other users read-only; Online accounts jump; greetd status + **autologin toggle** via `proteus-greetd` (pkexec `[initial_session]`; no greetd restart); conf escape; no add/remove |
 | Online accounts (provider seats) | `partial` — iced hub + password providers with glance create/edit (Nextcloud/IMAP/CalDAV/CardDAV/Apple via `proteus-accounts`); OAuth PKCE Connect wired; multi-seat glance megas / CalendarPanel write polish stay QML. Detail: [§3a](#3a-online-accounts-detail) |
-| Privacy & security (transparency · mute · session · grants) | `partial` — hub + leaves; what leaves; weather mute; DND / Lock / clipboard / LocalSend; **In use now** (mic/camera/screen apps via `privacy-indicators.py`); category Allow/Deny + per-app Allow/Ask/Deny in `permissions.json` (`proteus-permissions.py` · `Permissions.qml`); Flatpak mic/camera overrides; **portal PermissionStore sync** (devices mic/camera + screencast best-effort); **capture enforce** (Deny + Ask mute/destroy active mic/camera/**screen** screencast-like PW nodes; session Allow-once via runtime session file); **portal Session.Close** best-effort on screen Deny/Ask (`org.freedesktop.portal.Session.Close` + PW destroy fallback); **Ask prompt** (`PrivacyAsk` · Allow once / Always Allow / Deny at Dock/Beacon launch **+ mid-session mic/camera/screen** via activity probe); EnvGate ask≠deny; **fail-closed until `Permissions.ready`** (privacy-gated apps + Diagnostics); smoke/install harness; **not a full OS sandbox** (no AppArmor/v4l2 ACL · perfect screencast attribution Out) |
+| Privacy & security (transparency · mute · session · grants) | `partial` — iced hub: **In use now**; category Allow/Ask/Deny; **Flatpak** mic/camera overrides (`proteus-permissions.py`); **Diagnostics** readiness (permissions.json · portal-sync · activity). Shell Ask prompt + capture enforce remain. Out: full per-app grant matrix polish · AppArmor |
 | About (hardware class / capabilities) | `shipped` — OS/kernel/hostname (`SystemInfo`); Hyprland/Quickshell versions; tip hash; hw-probe class/caps; CPU/mem/swap/storage/uptime (`SystemLoad`, About-active only); battery when present (`Power`/UPower); Mission Center escape; Check for updates → Software; **hard Session posture** (`SessionPosture` → `proteus-posture`, confirm); soft Hyprland profile under **Advanced · window rules** (`HyprProfile`); Copy + Copied; session power under Users only; no in-Settings live dashboard |
 | Host / VM·container setup | **thin Settings hub** (`virtualization`) — Workloads jump · engines status · headless chrome Fact; mutations stay in `proteus-workloads` app; auto-resolver / Portainer Out |
 | Cold-start (open feel) | `shipped` — async `shell.qml` → `Settings.qml`; `kit/StickyPaneLoader` (active category first, sticky after visit); Keyboard/Keybinds deferred; Settings QS skips live hw-probe (`Hardware.isSettingsApp` → cache only) |

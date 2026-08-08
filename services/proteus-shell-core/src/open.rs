@@ -21,14 +21,26 @@ fn repo_roots(root_env: Option<&str>) -> Vec<PathBuf> {
     roots
 }
 
-/// Settings ladder (openSettings): the live tree launcher first — PATH may
-/// still point at a stale /usr/local copy — then PATH, then the live path
-/// again so the failure names the expected location.
+/// Settings ladder: live iced binary first (sibling ProteusSettings or
+/// PROTEUS_SETTINGS_ROOT), then installed wrapper names on the same roots,
+/// then PATH (`proteus-settings` / `proteus-settings-next`).
 pub fn settings_candidates(root_env: Option<&str>) -> Vec<PathBuf> {
-    repo_roots(root_env)
-        .iter()
-        .map(|r| r.join("apps/proteus-settings/proteus-settings"))
-        .collect()
+    let mut out = Vec::new();
+    if let Ok(s) = std::env::var("PROTEUS_SETTINGS_ROOT") {
+        let s = s.trim();
+        if !s.is_empty() {
+            out.push(PathBuf::from(s).join("target/release/proteus-settings-next"));
+        }
+    }
+    for r in repo_roots(root_env) {
+        // Sibling checkout next to Proteus (VM 9p often mounts Settings separately).
+        out.push(r.join("../ProteusSettings/target/release/proteus-settings-next"));
+        out.push(r.join("target/release/proteus-settings-next"));
+        out.push(PathBuf::from("/mnt/proteus-settings/target/release/proteus-settings-next"));
+        out.push(PathBuf::from("/usr/local/libexec/proteus/proteus-settings-next"));
+        out.push(PathBuf::from("/usr/local/bin/proteus-settings"));
+    }
+    out
 }
 
 /// Workloads ladder (openWorkloadsApp): installed binary on PATH first, then
@@ -108,20 +120,15 @@ mod tests {
     }
 
     #[test]
-    fn settings_ladder_prefers_proteus_root() {
+    fn settings_ladder_prefers_iced_bins() {
         let cands = settings_candidates(Some("/opt/checkout"));
-        assert_eq!(
-            cands,
-            vec![
-                PathBuf::from("/opt/checkout/apps/proteus-settings/proteus-settings"),
-                PathBuf::from("/mnt/proteus/apps/proteus-settings/proteus-settings"),
-            ]
-        );
-        // Blank root env falls back to the VM mount alone.
-        assert_eq!(
-            settings_candidates(Some("  ")),
-            vec![PathBuf::from("/mnt/proteus/apps/proteus-settings/proteus-settings")]
-        );
+        assert!(cands.iter().any(|p| {
+            p.ends_with("ProteusSettings/target/release/proteus-settings-next")
+                || p.ends_with("proteus-settings-next")
+        }));
+        assert!(!cands.iter().any(|p| p.to_string_lossy().contains("apps/proteus-settings")));
+        let blank = settings_candidates(Some("  "));
+        assert!(blank.iter().any(|p| p.starts_with("/mnt/proteus")));
     }
 
     #[test]

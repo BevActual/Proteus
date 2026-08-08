@@ -74,6 +74,46 @@ grep -q 'theme_slider' "${ROOT}/services/proteus-ui/src/widgets.rs" \
   && ok "proteus-ui theme_slider/theme_switch" \
   || die "proteus-ui missing theme_slider/theme_switch"
 
+# System Settings primitives (Apple-look pass).
+grep -q 'fn settings_group\|fn settings_row\|fn sidebar_item\|fn large_title\|fn hub_row' \
+  "${ROOT}/services/proteus-ui/src/widgets.rs" \
+  && ok "proteus-ui settings_group/row/sidebar/large_title/hub_row" \
+  || die "proteus-ui missing Settings inset-list primitives"
+
+# Compact CTAs + trailing end-align (not full-width strips).
+grep -q 'fn compact_button_style' "${ROOT}/services/proteus-ui/src/theme.rs" \
+  && ok "proteus-ui compact_button_style" \
+  || die "proteus-ui missing compact_button_style"
+grep -q 'align_x(Alignment::End)' "${ROOT}/services/proteus-ui/src/widgets.rs" \
+  && awk '/pub fn settings_row/{p=1} p&&/container\(content\)/{c=1} c&&/width\(Length::Shrink\)/{ok=1} p&&/^pub fn / && !/settings_row/{exit} END{exit !ok}' \
+    "${ROOT}/services/proteus-ui/src/widgets.rs" \
+  && ok "settings_row trailing Shrink+End" \
+  || die "settings_row trailing not shrink end-aligned"
+# Compact button fill only on hover/press (highlight = button, not rest slab).
+grep -A20 'fn compact_button_style' "${ROOT}/services/proteus-ui/src/theme.rs" \
+  | grep -q 'button::Status::Active => (None' \
+  && ok "compact_button_style Active transparent" \
+  || die "compact_button_style must not fill at rest"
+
+# Dock plate: rest extent + rounding + span/vertical layout args.
+grep -q 'plate_extent: f32' "${ROOT}/services/proteus-ui/src/widgets.rs" \
+  && grep -A8 'pub fn dock_plate' "${ROOT}/services/proteus-ui/src/widgets.rs" \
+    | grep -q 'rounding: f32' \
+  && grep -A8 'pub fn dock_plate' "${ROOT}/services/proteus-ui/src/widgets.rs" \
+    | grep -q 'vertical: bool' \
+  && ok "dock_plate extent/rounding/span" \
+  || die "dock_plate must take plate_extent + rounding (+ span/vertical)"
+grep -A6 'pub fn menu_bar_plate' "${ROOT}/services/proteus-ui/src/widgets.rs" \
+  | grep -q 'rounding: f32' \
+  && ok "menu_bar_plate rounding arg" \
+  || die "menu_bar_plate must take rounding"
+
+# Hub row = inset list nav (not CTA slab).
+grep -q 'inset list row with trailing chevron\|not a CTA' \
+  "${ROOT}/services/proteus-ui/src/widgets.rs" \
+  && ok "hub_row list-nav honesty" \
+  || die "hub_row missing list-nav contract comment"
+
 # No leftover QML chrome trees
 if find "${ROOT}/shell" "${ROOT}/apps" -name '*.qml' 2>/dev/null | grep -q .; then
   find "${ROOT}/shell" "${ROOT}/apps" -name '*.qml' >&2 || true

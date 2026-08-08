@@ -22,6 +22,47 @@ ok "ProteusSettings at ${ST_ROOT}"
 grep -q 'proteus-settings-next' "${ST_ROOT}/Cargo.toml" \
   && ok "bin name proteus-settings-next" || bad "Cargo.toml missing proteus-settings-next"
 
+# System Settings look (proteus-ui inset lists + shell chrome)
+grep -q 'settings_group\|large_title\|ui_sidebar_item\|sidebar_item as' \
+  "${ST_ROOT}/src/panes/common.rs" "${ST_ROOT}/src/main.rs" \
+  && ok "Settings inset-list / large_title / sidebar" \
+  || bad "Settings Apple-look chrome missing"
+grep -q 'Facts · CLI · iced' "${ST_ROOT}/src/main.rs" \
+  && bad "Settings sidebar still shows marketing subtitle" \
+  || ok "Settings sidebar quiet (no Facts·CLI·iced)"
+
+# Compact CTAs — Shrink helpers + hub list is one inset plate
+grep -q 'fn action_button\|fn primary_button\|fn button_cluster' \
+  "${ST_ROOT}/src/panes/common.rs" \
+  && grep -q 'Length::Shrink' "${ST_ROOT}/src/panes/common.rs" \
+  && grep -q 'compact_button_style\|accent_button_style' "${ST_ROOT}/src/panes/common.rs" \
+  && ok "compact action/primary/button_cluster" \
+  || bad "Settings compact CTA helpers missing"
+# Arrow-key nav + hub/sidebar focus caret
+grep -q 'NavKey\|nav_zone\|hub_focus' "${ST_ROOT}/src/main.rs" \
+  && grep -q 'ArrowUp\|ArrowDown\|ArrowLeft\|ArrowRight' "${ST_ROOT}/src/main.rs" \
+  && grep -q 'focused' "${ST_ROOT}/src/main.rs" \
+  && ok "Settings arrow-key nav + focus caret" \
+  || bad "Settings keyboard nav missing"
+# Leaf pages must not steal Enter/Up/Down from text fields (iced gap).
+grep -q 'Leaf pages host text fields\|NOT Up/Down/Enter' "${ST_ROOT}/src/main.rs" \
+  && grep -q 'if repeat' "${ST_ROOT}/src/main.rs" \
+  && ok "Settings nav ignores leaf typing + key-repeat" \
+  || bad "Settings nav still steals keys from text fields"
+grep -q 'hub_row\|settings_group' "${ST_ROOT}/src/panes/common.rs" \
+  && grep -q 'fn hub_list' "${ST_ROOT}/src/panes/common.rs" \
+  && ok "hub_list → settings_group/hub_row" \
+  || bad "hub_list inset contract missing"
+# Ban full-width accent Install / Make default strips (must use helpers).
+if grep -RnE 'button\(text\("(Install|Remove|Make default)"\)\)' \
+  "${ST_ROOT}/src/panes" 2>/dev/null \
+  | grep -v 'action_button\|primary_button' \
+  | grep -q .; then
+  bad "raw Install/Remove/Make-default buttons — use action_button/primary_button"
+else
+  ok "no raw Install/Remove/Make-default accent strips"
+fi
+
 # Source gates — packages deepen
 grep -q 'packages-orphans' "${ST_ROOT}/src/panes/packages.rs" \
   && ok "packages-orphans leaf" || bad "packages-orphans missing"
@@ -70,7 +111,23 @@ grep -q 'peripherals-mouse\|SetMouseSensitivity' "${ST_ROOT}/src/panes/periphera
 grep -q 'peripherals-touchpad\|SetTouchpadNatural' "${ST_ROOT}/src/panes/peripherals.rs" \
   && ok "peripherals-touchpad leaf" || bad "peripherals-touchpad missing"
 grep -q 'hypr_apply_pointer\|hypr_apply_touchpad' "${ST_ROOT}/src/backend.rs" \
-  && ok "pointer/touchpad apply (Fact-only)" || bad "pointer/touchpad apply missing"
+  && ok "pointer/touchpad apply helpers" || bad "pointer/touchpad apply helpers missing"
+if grep -q 'proteus-settings-apply' "${ST_ROOT}/src/backend.rs" \
+  && grep -q '\["input"\]' "${ST_ROOT}/src/backend.rs"; then
+  ok "pointer/touchpad live apply (proteus-settings-apply input)"
+else
+  bad "pointer/touchpad live apply missing"
+fi
+grep -qE '^\s*input\)|dispatch.*input-reload' "${ROOT}/shell/scripts/proteus-settings-apply" \
+  && ok "settings-apply input → input-reload" \
+  || bad "settings-apply input subcommand missing"
+if grep -q 'Fact-only until libinput' "${ST_ROOT}/src/panes/peripherals.rs"; then
+  bad "peripherals still Fact-only banner"
+else
+  ok "peripherals UI live-apply honesty"
+fi
+grep -q 'Live via proteus-settings-apply' "${ST_ROOT}/src/panes/peripherals.rs" \
+  && ok "peripherals live-apply copy" || bad "peripherals live-apply copy missing"
 if grep -q 'Command::new("hyprctl")' "${ST_ROOT}/src/backend.rs"; then
   bad "Settings backend still spawns hyprctl"
 else
@@ -109,11 +166,17 @@ grep -q 'fn aur_search\|fn aur_foreign\|fn aur_install' "${ST_ROOT}/src/backend.
   && ok "accounts pane module" || bad "accounts pane missing"
 grep -q 'ConnectNextcloud\|ConnectImap\|accounts_connect_password' "${ST_ROOT}/src/panes/accounts.rs" "${ST_ROOT}/src/main.rs" "${ST_ROOT}/src/backend.rs" \
   && ok "accounts password providers" || bad "accounts password wiring missing"
-if grep -qE 'Open in QML Settings|open_qml_settings|OpenQml' "${ST_ROOT}/src/panes/pending.rs" "${ST_ROOT}/src/backend.rs" 2>/dev/null; then
-  skip "QML Settings escape still in sibling (retire in ProteusSettings)"
+if grep -qE 'Open in QML Settings|open_qml_settings|OpenQml' \
+  "${ST_ROOT}/src/panes" "${ST_ROOT}/src/backend.rs" "${ST_ROOT}/src/main.rs" 2>/dev/null; then
+  bad "QML Settings escape still present (must be retired)"
 else
   ok "no QML Settings escape in sibling"
 fi
+grep -q 'desktop-beacon' "${ST_ROOT}/src/nav.rs" \
+  && ok "desktop-beacon hub id" || bad "desktop-beacon hub id missing"
+grep -q 'defaults_list\|SetDefault\|ClearBeaconRecents\|SetFocusActive' \
+  "${ST_ROOT}/src/panes/desktop.rs" "${ST_ROOT}/src/backend.rs" "${ST_ROOT}/src/main.rs" \
+  && ok "desktop defaults/focus/beacon wire" || bad "desktop thin leaves missing"
 grep -q 'ConnectOAuth\|accounts_connect_oauth' "${ST_ROOT}/src/panes/accounts.rs" "${ST_ROOT}/src/backend.rs" \
   && ok "Accounts OAuth PKCE wire" || bad "Accounts OAuth missing"
 [[ -f "${ST_ROOT}/src/panes/displays.rs" ]] \
@@ -124,8 +187,21 @@ grep -q 'sound-matrix\|MixRoute\|audio_mix_status' "${ST_ROOT}/src/panes/sound.r
   && ok "Mixer list thin" || bad "Mixer thin missing"
 grep -q 'desktop-spaces\|SetWorkspaceMode\|desktop-beacon\|controlCenterColumns' "${ST_ROOT}/src/panes/desktop.rs" \
   && ok "desktop remaining leaves" || bad "desktop leaves missing"
+grep -q 'SetDockLayout\|SetDockIconSize\|SetDockRounding\|SetDockAutoHide\|SetBarHeight\|SetBarRounding\|SetBarAutoHide' \
+  "${ST_ROOT}/src/panes/desktop.rs" "${ST_ROOT}/src/main.rs" \
+  && grep -q 'dockLayout\|barHeight\|barRounding' "${ST_ROOT}/src/panes/desktop.rs" \
+  && ok "Dock & menu bar layout/size/rounding/autohide" \
+  || bad "desktop-dock chrome Facts UI missing"
 grep -q 'network-vpn\|VpnUp\|network-headscale\|headscale_status' "${ST_ROOT}/src/panes/network.rs" "${ST_ROOT}/src/backend.rs" \
   && ok "VPN + Headscale thin" || bad "VPN/Headscale missing"
+grep -q 'network-diagnostics\|network-localsend\|network-devices' "${ST_ROOT}/src/panes/network.rs" \
+  && ok "network devices/diagnostics/localsend leaves" || bad "network Phase C leaves missing"
+grep -q 'fn network_devices\|fn network_diagnostics\|fn localsend_status' "${ST_ROOT}/src/backend.rs" \
+  && ok "network Phase C backends" || bad "network Phase C backends missing"
+grep -q 'privacy-flatpak\|FlatpakSet\|privacy-diagnostics' "${ST_ROOT}/src/panes/privacy.rs" \
+  && ok "privacy-flatpak leaf" || bad "privacy-flatpak missing"
+grep -q 'fn privacy_flatpak_list\|fn privacy_flatpak_set\|fn privacy_diagnostics' "${ST_ROOT}/src/backend.rs" \
+  && ok "privacy flatpak/diagnostics backends" || bad "privacy Phase D backends missing"
 grep -q 'peripherals-keyboard\|keybinds.json\|compositor-next' "${ST_ROOT}/src/panes/peripherals.rs" \
   && ok "keyboard leaf (compositor binds honesty)" || bad "keyboard leaf missing"
 

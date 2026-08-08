@@ -156,12 +156,23 @@ pub fn session_lock_helper() -> Option<PathBuf> {
     session_lock_helper_path()
 }
 
+/// compositor-next does not advertise ext-session-lock yet — protocol helper
+/// cannot blank windows, so Overlay must stay the blanking surface.
+pub fn compositor_supports_session_lock() -> bool {
+    false
+}
+
 /// Attempt protocol lock; returns the mode actually used + reason if fallback.
 pub fn activate_session_lock(requested: SessionLockMode) -> (SessionLockMode, Option<&'static str>) {
     match requested {
         SessionLockMode::Overlay => (SessionLockMode::Overlay, None),
         SessionLockMode::Protocol => {
-            if session_lock_helper_available() {
+            if !compositor_supports_session_lock() {
+                (
+                    SessionLockMode::Overlay,
+                    Some("ext-session-lock not on compositor-next — overlay blanks the desktop"),
+                )
+            } else if session_lock_helper_available() {
                 (SessionLockMode::Protocol, None)
             } else {
                 (
@@ -211,6 +222,14 @@ mod tests {
             SessionLockMode::parse("protocol"),
             SessionLockMode::Protocol
         );
+    }
+
+    #[test]
+    fn protocol_falls_back_until_compositor_supports_session_lock() {
+        assert!(!compositor_supports_session_lock());
+        let (mode, why) = activate_session_lock(SessionLockMode::Protocol);
+        assert_eq!(mode, SessionLockMode::Overlay);
+        assert!(why.is_some());
     }
 
     #[test]

@@ -353,12 +353,13 @@ pub fn launch_hit(hit: &str) {
                     None
                 }
             });
+        // Single raise via proteus-open (deep link + single-instance).
+        let mut cmd = Command::new("proteus-open");
+        cmd.arg("settings");
         if let Some(p) = page {
-            let _ = Command::new("proteus-settings")
-                .arg(format!("--page={p}"))
-                .spawn();
+            cmd.arg("--page").arg(p);
         }
-        let _ = Command::new("proteus-open").arg("settings").spawn();
+        let _ = cmd.spawn();
         return;
     }
     if lower.contains("workload") {
@@ -373,6 +374,11 @@ pub fn launch_hit(hit: &str) {
         .trim()
         .to_string();
     let id = desktop_id.trim_end_matches(".desktop");
+    // Ghostty needs proteus-terminal on VirGL VMs (OpenGL 4.3 path).
+    if is_ghostty_desktop_id(id) {
+        let _ = Command::new("proteus-terminal").spawn();
+        return;
+    }
     if Command::new("gtk-launch").arg(id).spawn().is_ok() {
         return;
     }
@@ -384,9 +390,22 @@ pub fn launch_hit(hit: &str) {
         .into_iter()
         .find(|a| a.desktop_id == desktop_id || a.id == id)
     {
+        if is_ghostty_desktop_id(&app.id) || app.exec.contains("ghostty") {
+            let _ = Command::new("proteus-terminal").spawn();
+            return;
+        }
         let exec = strip_exec_field_codes(&app.exec);
         let _ = Command::new("bash").args(["-lc", &exec]).spawn();
     }
+}
+
+/// Dock / Beacon / gtk-launch ids that should use `proteus-terminal`.
+pub fn is_ghostty_desktop_id(id: &str) -> bool {
+    let id = id
+        .trim()
+        .trim_end_matches(".desktop")
+        .to_ascii_lowercase();
+    id == "com.mitchellh.ghostty" || id == "ghostty" || id.ends_with(".ghostty")
 }
 
 fn strip_exec_field_codes(exec: &str) -> String {
@@ -404,5 +423,13 @@ mod tests {
     #[test]
     fn strip_codes() {
         assert_eq!(strip_exec_field_codes("foo %u --bar"), "foo --bar");
+    }
+
+    #[test]
+    fn ghostty_ids() {
+        assert!(is_ghostty_desktop_id("com.mitchellh.ghostty"));
+        assert!(is_ghostty_desktop_id("com.mitchellh.ghostty.desktop"));
+        assert!(is_ghostty_desktop_id("ghostty"));
+        assert!(!is_ghostty_desktop_id("org.gnome.Nautilus"));
     }
 }

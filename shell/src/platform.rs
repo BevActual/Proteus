@@ -438,6 +438,204 @@ pub fn bt_connect(mac: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Wi‑Fi radio on/off via NetworkManager.
+pub fn wifi_radio_enabled() -> bool {
+    Command::new("nmcli")
+        .args(["-t", "-f", "WIFI", "radio"])
+        .output()
+        .ok()
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .trim()
+                .eq_ignore_ascii_case("enabled")
+        })
+        .unwrap_or(true)
+}
+
+pub fn wifi_radio_set(on: bool) -> Result<(), String> {
+    sh_ok("nmcli", &["radio", "wifi", if on { "on" } else { "off" }])
+}
+
+pub fn wifi_radio_toggle() -> Result<bool, String> {
+    let next = !wifi_radio_enabled();
+    wifi_radio_set(next)?;
+    Ok(next)
+}
+
+/// Bluetooth powered state (bluez).
+pub fn bt_radio_enabled() -> bool {
+    Command::new("bluetoothctl")
+        .args(["show"])
+        .output()
+        .ok()
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .any(|l| l.contains("Powered: yes"))
+        })
+        .unwrap_or(false)
+}
+
+pub fn bt_radio_set(on: bool) -> Result<(), String> {
+    sh_ok("bluetoothctl", &["power", if on { "on" } else { "off" }])
+}
+
+pub fn bt_radio_toggle() -> Result<bool, String> {
+    let next = !bt_radio_enabled();
+    bt_radio_set(next)?;
+    Ok(next)
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct WeatherGlance {
+    pub enabled: bool,
+    pub has_location: bool,
+    pub name: String,
+    pub temp_label: String,
+    pub condition: String,
+    pub error: String,
+}
+
+/// Thin Open-Meteo glance for the menu-bar weather chip / popover.
+pub fn weather_glance() -> WeatherGlance {
+    let base = proteus_shell_core::facts::config_base();
+    let settings = proteus_shell_core::facts::read_settings(&base);
+    let enabled = settings
+        .get("weatherEnabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let name = settings
+        .get("locationName")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let lat = settings
+        .get("locationLatitude")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let lon = settings
+        .get("locationLongitude")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let units = settings
+        .get("weatherUnits")
+        .and_then(|v| v.as_str())
+        .unwrap_or("metric");
+    let has_location = lat.abs() > 0.01 || lon.abs() > 0.01 || !name.is_empty();
+    if !enabled {
+        return WeatherGlance {
+            enabled: false,
+            has_location,
+            name,
+            temp_label: "—".into(),
+            condition: String::new(),
+            error: "Weather muted".into(),
+        };
+    }
+    if !has_location {
+        return WeatherGlance {
+            enabled: true,
+            has_location: false,
+            name: String::new(),
+            temp_label: "—".into(),
+            condition: String::new(),
+            error: "Set location in Settings".into(),
+        };
+    }
+    let unit = if units == "imperial" {
+        "fahrenheit"
+    } else {
+        "celsius"
+    };
+    let url = format!(
+        "https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,weather_code&temperature_unit={unit}"
+    );
+    let out = Command::new("curl")
+        .args(["-fsS", "--max-time", "3", &url])
+        .output();
+    let Ok(out) = out else {
+        return WeatherGlance {
+            enabled: true,
+            has_location: true,
+            name,
+            temp_label: "…".into(),
+            condition: String::new(),
+            error: "Fetch unavailable".into(),
+        };
+    };
+    if !out.status.success() {
+        return WeatherGlance {
+            enabled: true,
+            has_location: true,
+            name,
+            temp_label: "—".into(),
+            condition: String::new(),
+            error: "Weather error".into(),
+        };
+    }
+    let raw = String::from_utf8_lossy(&out.stdout);
+    let temp = raw
+        .find("\"temperature_2m\":")
+        .and_then(|i| {
+            let rest = &raw[i + "\"temperature_2m\":".len()..];
+            rest.split([',', '}'])
+                .next()
+                .and_then(|s| s.trim().parse::<f64>().ok())
+        });
+    let code = raw
+        .find("\"weather_code\":")
+        .and_then(|i| {
+            let rest = &raw[i + "\"weather_code\":".len()..];
+            rest.split([',', '}'])
+                .next()
+                .and_then(|s| s.trim().parse::<i32>().ok())
+        })
+        .unwrap_or(0);
+    let condition = weather_code_label(code);
+    let temp_label = temp
+        .map(|t| format!("{:.0}°", t))
+        .unwrap_or_else(|| "—".into());
+    WeatherGlance {
+        enabled: true,
+        has_location: true,
+        name,
+        temp_label,
+        condition,
+        error: String::new(),
+    }
+}
+
+fn weather_code_label(code: i32) -> String {
+    match code {
+        0 => "Clear".into(),
+        1..=3 => "Cloudy".into(),
+        45 | 48 => "Fog".into(),
+        51..=67 => "Rain".into(),
+        71..=77 => "Snow".into(),
+        80..=82 => "Showers".into(),
+        95..=99 => "Storm".into(),
+        _ => "—".into(),
+    }
+}
+
+pub fn set_chrome_mode(mode: &str) -> Result<(), String> {
+    let base = proteus_shell_core::facts::config_base();
+    let patch = serde_json::json!({ "chromeMode": mode });
+    proteus_shell_core::facts::write_settings(&base, &patch).map(|_| ())
+}
+
+pub fn screenshot(kind: &str) -> Result<(), String> {
+    let arg = match kind {
+        "screen" | "full" => "screen",
+        _ => "region",
+    };
+    Command::new("proteus-screenshot")
+        .arg(arg)
+        .spawn()
+        .map_err(|e| format!("proteus-screenshot: {e}"))?;
+    Ok(())
+}
 
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct FocusProfile {
@@ -969,27 +1167,48 @@ fn wallpaper_assets_dir() -> std::path::PathBuf {
 /// Read wallpaper settings from settings.json (same keys as QS `BgConfig.qml`).
 pub fn wallpaper_state() -> WallpaperState {
     let base = proteus_shell_core::facts::config_base();
-    let s = proteus_shell_core::facts::read_settings(&base);
+    wallpaper_from_settings(&proteus_shell_core::facts::read_settings(&base))
+}
+
+/// Wallpaper from an already-loaded settings object (avoids a second disk read).
+pub fn wallpaper_from_settings(s: &serde_json::Value) -> WallpaperState {
     let get = |k: &str| s.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
 
     let kind = {
         let k = get("wallpaperKind");
-        if k.is_empty() { "image".into() } else { k }
+        if k.is_empty() {
+            "image".into()
+        } else {
+            k
+        }
     };
     let color = {
         let c = get("wallpaperColor");
-        if c.is_empty() { "#0f1419".into() } else { c }
+        if c.is_empty() {
+            "#0f1419".into()
+        } else {
+            c
+        }
     };
     let mode = {
         let m = get("wallpaperMode");
-        if m.is_empty() { "fill".into() } else { m }
+        if m.is_empty() {
+            "fill".into()
+        } else {
+            m
+        }
     };
     let id = get("wallpaperId");
     let custom = get("wallpaperCustomPath");
     let daily = get("wallpaperDailyPath");
 
     if kind == "solid" {
-        return WallpaperState { kind, path: None, color, mode };
+        return WallpaperState {
+            kind,
+            path: None,
+            color,
+            mode,
+        };
     }
 
     let path = if (kind == "daily" || id == "daily") && !daily.is_empty() {
@@ -1014,7 +1233,12 @@ pub fn wallpaper_state() -> WallpaperState {
     };
     // Missing file → solid fallback rather than a broken image.
     let path = path.filter(|p| std::path::Path::new(p).is_file());
-    WallpaperState { kind, path, color, mode }
+    WallpaperState {
+        kind,
+        path,
+        color,
+        mode,
+    }
 }
 
 /// Capture a window thumbnail for dock hover previews (ScreencopyView-class,

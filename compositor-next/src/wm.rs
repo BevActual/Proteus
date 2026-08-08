@@ -119,8 +119,8 @@ impl Wm {
         Self {
             active_workspace: 1,
             layout: LayoutKind::Dwindle,
-            gaps_out: 8,
-            gaps_in: 4,
+            gaps_out: 10,
+            gaps_in: 6,
             smart_gaps: true,
             master_factor: 0.5,
             toplevels: Vec::new(),
@@ -160,8 +160,8 @@ impl Wm {
         loc: (i32, i32),
         output: String,
     ) {
-        // Default SSD for xdg; callers set false for X11 / ClientSide.
-        self.add_toplevel_ssd(address, class, title, loc, output, true);
+        // Default CSD; xdg-decoration handler enables SSD only when requested.
+        self.add_toplevel_ssd(address, class, title, loc, output, false);
     }
 
     pub fn add_toplevel_ssd(
@@ -606,6 +606,11 @@ impl Wm {
             return Ok(vec![]);
         }
 
+        if verb == "input-reload" || verb == "reload input" {
+            // Handled on CompositorNext (needs InputConfig) — ctl special-cases.
+            return Ok(vec![]);
+        }
+
         // output <name> scale <f> | pos|position <x> <y> | mode <WxH[@Hz]>
         if let Some(rest) = verb.strip_prefix("output ") {
             let rest = rest.trim();
@@ -802,8 +807,8 @@ mod tests {
     #[test]
     fn gaps_and_masterfactor_dispatch() {
         let mut wm = Wm::new();
-        assert_eq!(wm.gaps_out, 8);
-        assert_eq!(wm.gaps_in, 4);
+        assert_eq!(wm.gaps_out, 10);
+        assert_eq!(wm.gaps_in, 6);
         assert!((wm.master_factor - 0.5).abs() < f64::EPSILON);
         wm.dispatch("gapsout 12").unwrap();
         assert_eq!(wm.gaps_out, 12);

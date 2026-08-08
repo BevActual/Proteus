@@ -21,7 +21,7 @@ use smithay::{
     wayland::dmabuf::DmabufFeedbackBuilder,
 };
 
-use crate::screencopy::{flip_y_xrgb, CapturedFrame};
+use crate::screencopy::{prepare_screencopy_pixels, CapturedFrame};
 use crate::{CalloopData, CompositorNext};
 
 pub fn init_winit(
@@ -92,6 +92,7 @@ pub fn init_winit(
                 {
                     let (renderer, mut framebuffer) = backend.bind().unwrap();
                     let mut custom = state.ssd_render_elements(renderer, &output);
+                    custom.extend(state.focus_ring_render_elements(renderer, &output));
                     custom.extend(state.identify_render_elements(renderer, &output));
                     custom.extend(state.cursor_render_elements(renderer, &output));
                     let _ = smithay::desktop::space::render_output::<
@@ -127,6 +128,7 @@ pub fn init_winit(
                     ) {
                         if let Ok(mut fb) = renderer.bind(&mut tex) {
                             let mut custom = state.ssd_render_elements(renderer, &output);
+                            custom.extend(state.focus_ring_render_elements(renderer, &output));
                             custom.extend(state.identify_render_elements(renderer, &output));
                             custom.extend(state.cursor_render_elements(renderer, &output));
                             let _ = smithay::desktop::space::render_output::<
@@ -150,11 +152,11 @@ pub fn init_winit(
                                 renderer.copy_framebuffer(&fb, rect, Fourcc::Abgr8888)
                             {
                                 if let Ok(pixels) = renderer.map_texture(&mapping) {
-                                    let flipped = flip_y_xrgb(pixels, size.w, size.h);
+                                    let prepared = prepare_screencopy_pixels(pixels, size.w, size.h);
                                     state.last_frame = Some(CapturedFrame {
                                         width: size.w,
                                         height: size.h,
-                                        data: abgr_to_xrgb(&flipped),
+                                        data: abgr_to_xrgb(&prepared),
                                     });
                                 }
                             }

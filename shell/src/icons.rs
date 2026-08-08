@@ -248,6 +248,9 @@ pub fn chrome_glyph(name: &str) -> svg::Handle {
         "focus" => GLYPH_FOCUS,
         "calendar" => GLYPH_CALENDAR,
         "backspace" => GLYPH_BACKSPACE,
+        "spaces" => GLYPH_SPACES,
+        "pencil" => GLYPH_PENCIL,
+        "tile" => GLYPH_TILE,
         _ => GLYPH_DOT,
     };
     svg::Handle::from_memory(bytes)
@@ -285,6 +288,10 @@ const GLYPH_FOCUS: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox=
 const GLYPH_CALENDAR: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2.5" fill="none" stroke="#fff" stroke-width="2"/><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" d="M3 9.5h18M8 2.8v4M16 2.8v4"/></svg>"##;
 const GLYPH_BACKSPACE: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round" d="M8.5 5h11A1.5 1.5 0 0 1 21 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-11L3 12l5.5-7z"/><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" d="m11 9.5 5 5M16 9.5l-5 5"/></svg>"##;
 const GLYPH_DOT: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="#fff"/></svg>"##;
+/// Mission Control–style 2×2 Space grid for the menu-bar control.
+const GLYPH_SPACES: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5" fill="none" stroke="#fff" stroke-width="2"/><rect x="13" y="3" width="8" height="8" rx="1.5" fill="none" stroke="#fff" stroke-width="2"/><rect x="3" y="13" width="8" height="8" rx="1.5" fill="none" stroke="#fff" stroke-width="2"/><rect x="13" y="13" width="8" height="8" rx="1.5" fill="#fff"/></svg>"##;
+const GLYPH_PENCIL: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 20h4l11-11-4-4L4 16v4zM13 7l4 4"/></svg>"##;
+const GLYPH_TILE: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="18" rx="1.5" fill="none" stroke="#fff" stroke-width="2"/><rect x="13" y="3" width="8" height="8" rx="1.5" fill="none" stroke="#fff" stroke-width="2"/><rect x="13" y="13" width="8" height="8" rx="1.5" fill="none" stroke="#fff" stroke-width="2"/></svg>"##;
 
 #[cfg(test)]
 mod tests {
@@ -296,6 +303,7 @@ mod tests {
             "wifi",
             "bluetooth",
             "volume",
+            "tile",
             "battery",
             "mic",
             "camera",
@@ -315,6 +323,8 @@ mod tests {
             "focus",
             "calendar",
             "backspace",
+            "spaces",
+            "pencil",
             "unknown-falls-back",
         ] {
             let _ = chrome_glyph(name);

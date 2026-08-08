@@ -14,13 +14,14 @@
 | winit backend (nested window as output) | `works` |
 | xdg-shell toplevels (map, popups) | `works` |
 | Interactive move / resize pointer grabs | `works` — marks window `floating`; loc synced into wm roster |
-| Equal / dwindle / master tiling | `partial` — default **dwindle**; `dispatch layout equal\|dwindle\|master`; gaps out/in (default 8/4); **smart-gaps** (default on; zero gaps when one tiled window); `masterfactor`; per-output + exclusive zone; `togglefloating` |
-| xdg-decoration (`zxdg_decoration_manager_v1`) | `works` (thin) — SSD mode negotiate + compositor titlebar (28px) + cosmic-text title + close/move hits; no maximize polish |
+| Equal / dwindle / master tiling | `partial` — default **dwindle**; `dispatch layout equal\|dwindle\|master`; gaps out/in (default **10/6**); **smart-gaps** (default on; zero gaps when one tiled window); `masterfactor`; per-output + exclusive zone; `togglefloating` |
+| Focus ring (CSD) | `works` (thin) — 2px accent MemoryRenderBuffer around focused **CSD** window; Cosmic `IndicatorShader` is pattern-only (never forked) |
+| xdg-decoration (`zxdg_decoration_manager_v1`) | `works` (thin) — **CSD-first** (GTK ServerSide asks ignored); SSD titlebar (28px) only when `t.ssd`; cosmic-text + close/move hits |
 | xdg popup pointer/keyboard grabs | `works` |
 | Nested Xwayland + X11Wm | `works` — soft-fail if `Xwayland` missing; X11 clients join wm/IPC roster |
 | wlr-layer-shell (map/arrange/anchor, exclusive zones via `layer_map`) | `works` |
 | wp_viewporter + wp_fractional_scale | `works` — iced_layershell clients hard-require viewporter |
-| `zwlr_screencopy_manager_v1` (SHM + linux-dmabuf) | `works` — grim + `copy_with_damage`; nested + DRM GLES upload into client dmabufs; offscreen readback for CPU `last_frame` |
+| `zwlr_screencopy_manager_v1` (SHM + linux-dmabuf) | `works` — grim + `copy_with_damage`; nested + DRM GLES upload into client dmabufs; offscreen readback for CPU `last_frame`; **Y-flip auto** skips CPU flip on virtio-gpu (`PROTEUS_SCREENCOPY_FLIP_Y=0\|1` override) so grim matches the seat |
 | Portal Screenshot (`xdg-desktop-portal-wlr`) | `partial` — spike sets `XDG_CURRENT_DESKTOP=wlroots`; smoke runs isolated dbus Screenshot when portal-wlr is installed (SKIP otherwise). **Shipping base prefers portal-wlr**; hyprland portal optional for Fact rollback. |
 | Gamescope nesting (client under spike) | `partial` — smoke nests `gamescope` under spike `WAYLAND_DISPLAY`, asserts ctl `clients` growth; SKIP if binary missing or backends exit (no Vulkan / VirGL). Console-home **not** swapped. |
 | PipeWire Screencast | `partial` — compositor `copy_with_damage` ready for xdp-wlr/wf-recorder; smoke via `wf-recorder` when installed (SKIP otherwise). PipeWire stays never-own. |
@@ -43,7 +44,7 @@
 `movetoworkspacesilent N|special:minimized` · `fullscreen 1` · `togglefloating` ·
 `layout equal|dwindle|master` · `gapsout N` · `gapsin N` · `smartgaps on|off|toggle` · `masterfactor F` ·
 `output <name> scale <f>` · `output <name> pos <x> <y>` · `output <name> mode <WxH[@Hz]>` ·
-`identify [secs]` · `reloadbinds` ·
+`identify [secs]` · `reloadbinds` · `input-reload` ·
 `movewindow output:<name>` · `focusoutput <name>`
 
 Queries (hypr-shaped JSON fields): `workspaces` · `activeworkspace` ·
@@ -150,8 +151,9 @@ proteus-compositor-next: layer mapped: proteus-bar
 
 ### xdg-decoration (2026-08-06)
 
-- `XdgDecorationState` + `XdgDecorationHandler`: prefer `Mode::ServerSide` on
-  new / unset; honor explicit `ClientSide` requests; sync `ToplevelRecord.ssd`.
+- `XdgDecorationState` + `XdgDecorationHandler`: prefer `Mode::ClientSide` on
+  new / unset (app chrome); SSD only for explicit `ServerSide`; sync
+  `ToplevelRecord.ssd`.
 - Thin SSD draw ([`decoration.rs`](../../compositor-next/src/decoration.rs)):
   `TITLEBAR_H=28` solid bar (+ maximize/close squares) + **cosmic-text title** via
   `MemoryRenderBuffer` (truncate/ellipsis); maximize / close / drag-move on the bar.
@@ -200,6 +202,14 @@ engine 2026-08-06. `env/hypr/` **deleted**. Settings apply via
 maximize hit + thin multi-GPU enumerate; Displays Fact load + live `output`
 modeset + Identify flash; Settings 10s Revert; session Super keybinds
 (`binds.rs` / `keybinds.json`) landed.
+
+## Cosmic pattern peer (behavior only — never fork)
+
+Skim of `cosmic-comp` (IndicatorShader / tiling chrome). **Borrow:** focused
+window gets a thin accent outline (we use MemoryRenderBuffer, not their GLES
+pixel shader); clearer default gaps so tiles read as separate seats. **Ignore:**
+libcosmic / iced shell crates, corner-radius protocol, stack tabs, overview
+backdrop shaders, pop-launcher. Proteus chrome stays in `proteus-shell`.
 
 ## Out
 

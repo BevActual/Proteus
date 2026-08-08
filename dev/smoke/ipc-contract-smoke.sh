@@ -20,6 +20,8 @@ ok "ipc targets in lib.rs"
 # Core verbs that smokes / keybinds rely on
 grep -q 'launcher\|beacon' "${CTL}" || die "ctl missing launcher/beacon"
 grep -qi 'control.center\|control_center\|controlCenter' "${CTL}" || die "ctl missing control center"
+grep -q '"notifications"' "${CTL}" || die "ctl missing chrome notifications"
+grep -q 'calendar\|weather' "${CTL}" || die "ctl missing calendar/weather"
 grep -q 'widgets' "${CTL}" || die "ctl missing widgets"
 grep -q '"lock"' "${CTL}" || die "ctl missing lock"
 grep -q 'state' "${CTL}" || die "ctl missing state"

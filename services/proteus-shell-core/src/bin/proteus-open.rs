@@ -79,7 +79,8 @@ fn open_settings(args: &[String]) -> i32 {
     let candidates = open::settings_candidates(root.as_deref());
     // Live tree first (stale /usr/local copies), then PATH.
     let bin = open::first_executable(&candidates)
-        .or_else(|| open::path_lookup("proteus-settings"));
+        .or_else(|| open::path_lookup("proteus-settings"))
+        .or_else(|| open::path_lookup("proteus-settings-next"));
     let Some(bin) = bin else {
         eprintln!(
             "proteus-open: proteus-settings not found (tried {}, PATH)",
@@ -91,7 +92,15 @@ fn open_settings(args: &[String]) -> i32 {
         );
         return 1;
     };
-    spawn(&bin, &[], &env)
+    // Prefer argv deep links when the iced binary understands --page/--query.
+    let mut argv = Vec::new();
+    if !page.is_empty() {
+        argv.push(format!("--page={page}"));
+    }
+    if !query.is_empty() {
+        argv.push(format!("--query={query}"));
+    }
+    spawn(&bin, &argv, &env)
 }
 
 fn open_workloads(args: &[String]) -> i32 {

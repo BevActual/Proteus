@@ -62,6 +62,12 @@ pub struct Theme {
     pub privacy_screen: Color,
     /// Default squircle icon plate fill (`iconPlateDefault`).
     pub icon_plate: Color,
+    /// Dock frost amount (`glassAlpha`) — richer floor from `chromeOpacity`.
+    pub glass_alpha: f32,
+    /// Menu bar frost (`menuBarAlpha`) — clearer curve from `chromeOpacity`.
+    pub menu_bar_alpha: f32,
+    /// Raw `chromeOpacity` Fact (0..=1).
+    pub chrome_opacity: f32,
 }
 
 impl Default for Theme {
@@ -87,7 +93,7 @@ impl Theme {
     }
 
     /// Build a theme from Proteus settings JSON (`chromeMode`, `accentCustom`,
-    /// `accentCustomEnabled`).
+    /// `accentCustomEnabled`, `chromeOpacity`).
     pub fn from_settings(settings: &serde_json::Value) -> Self {
         let mode = settings
             .get("chromeMode")
@@ -106,7 +112,31 @@ impl Theme {
             None
         };
 
-        Self::from_mode(mode, accent)
+        let mut theme = Self::from_mode(mode, accent);
+        let opacity = settings
+            .get("chromeOpacity")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.28) as f32;
+        theme.apply_chrome_opacity(opacity);
+        theme
+    }
+
+    /// Derive `glass_alpha` / `menu_bar_alpha` from `chromeOpacity` (CHROME §5).
+    /// Dark default 0.28 → glass ≈0.90, menu ≈0.40 (dock richer, bar clearer).
+    pub fn apply_chrome_opacity(&mut self, opacity: f32) {
+        let op = opacity.clamp(0.0, 1.0);
+        self.chrome_opacity = op;
+        // Liquid Glass v1: dock richer frost; menu bar clearer (wallpaper-first).
+        match self.mode {
+            ChromeMode::Dark => {
+                self.glass_alpha = (op * 1.65 + 0.44).min(0.97);
+                self.menu_bar_alpha = (op * 0.85 + 0.16).min(0.82);
+            }
+            ChromeMode::Light => {
+                self.glass_alpha = (op * 1.25 + 0.62).min(0.98);
+                self.menu_bar_alpha = (op * 0.75 + 0.42).min(0.90);
+            }
+        }
     }
 
     /// Page background color.
@@ -200,6 +230,36 @@ impl Theme {
         }
     }
 
+    /// Compact Settings control (Advanced… / Night Shift… posture) — hairline,
+    /// shrink-to-label. Fill only on hover/press so highlight means the button.
+    pub fn compact_button_style(
+        &self,
+    ) -> impl Fn(&iced::Theme, button::Status) -> button::Style + Copy {
+        let hover = self.bg_hover;
+        let pressed = lighten(self.bg_hover, 0.04);
+        let text_color = self.text;
+        let border = self.border;
+        let radius = self.radius_md;
+        move |_theme, status| {
+            let (background, border_c) = match status {
+                button::Status::Hovered => (Some(Background::Color(hover)), border),
+                button::Status::Pressed => (Some(Background::Color(pressed)), border),
+                button::Status::Disabled => (None, fade(border, 0.45)),
+                button::Status::Active => (None, border),
+            };
+            button::Style {
+                background,
+                text_color,
+                border: Border {
+                    radius: radius.into(),
+                    width: 1.0,
+                    color: border_c,
+                },
+                ..Default::default()
+            }
+        }
+    }
+
     /// Destructive filled button using the danger color.
     pub fn danger_button_style(
         &self,
@@ -253,7 +313,7 @@ impl Theme {
             ChromeMode::Light => Color::from_rgba(0.86, 0.87, 0.90, 0.92),
             ChromeMode::Dark => Color::from_rgba(0.18, 0.19, 0.22, 0.88),
         };
-        Self {
+        let mut theme = Self {
             mode,
             accent_soft: fade(accent, accent_soft_a),
             scrim: fade(bg, scrim_a),
@@ -265,6 +325,9 @@ impl Theme {
             privacy_cam: Color::from_rgb(0.20, 0.75, 0.35),
             privacy_screen: Color::from_rgb(0.55, 0.35, 0.85),
             icon_plate,
+            glass_alpha: 0.82,
+            menu_bar_alpha: 0.55,
+            chrome_opacity: 0.28,
             space_xs: token_px(&SPACE, "spaceXs"),
             space_sm: token_px(&SPACE, "spaceSm"),
             space_md: token_px(&SPACE, "spaceMd"),
@@ -287,7 +350,9 @@ impl Theme {
             text: parse_css_color(surfaces.text),
             text_dim: parse_css_color(surfaces.text_dim),
             text_mute: parse_css_color(surfaces.text_mute),
-        }
+        };
+        theme.apply_chrome_opacity(0.28);
+        theme
     }
 }
 
@@ -396,6 +461,18 @@ mod tests {
         assert!((theme.accent.r - 0.06666667).abs() < 0.001);
         assert!((theme.accent.g - 0.13333334).abs() < 0.001);
         assert!((theme.accent.b - 0.2).abs() < 0.001);
+    }
+
+    #[test]
+    fn from_settings_derives_glass_alpha_from_chrome_opacity() {
+        let settings = serde_json::json!({
+            "chromeMode": "dark",
+            "chromeOpacity": 0.28
+        });
+        let theme = Theme::from_settings(&settings);
+        assert!((theme.glass_alpha - 0.90).abs() < 0.03);
+        assert!((theme.menu_bar_alpha - 0.40).abs() < 0.03);
+        assert!(theme.glass_alpha > theme.menu_bar_alpha);
     }
 
     #[test]

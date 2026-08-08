@@ -81,6 +81,19 @@ export PATH="/usr/local/bin:${PROTEUS_ROOT}/shell/scripts:${PATH}"
 export QS_ICON_THEME="${QS_ICON_THEME:-Papirus-Dark}"
 export QT_QPA_PLATFORMTHEME="${QT_QPA_PLATFORMTHEME:-gtk3}"
 
+# Optional session overrides (`~/.config/proteus/session.env`). Only set
+# PROTEUS_DRM_TRANSFORM here when the *physical* panel is wrong — never from
+# grim/screencopy orientation alone (capture can disagree with the seat).
+_session_env="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/session.env"
+if [[ -r "${_session_env}" ]]; then
+  # shellcheck disable=SC1090
+  set -a
+  # shellcheck source=/dev/null
+  source "${_session_env}"
+  set +a
+fi
+unset _session_env
+
 # --- Phase 3 engine switch: Gamescope-owned console session -----------------
 console_session_wanted() {
   [[ "${PROTEUS_SURFACE}" == "console" ]] || return 1

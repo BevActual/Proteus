@@ -41,15 +41,13 @@
       ],
       "requiresAny": [],
       "backsFacts": [
-        "~/.config/hypr/proteus-general.conf",
-        "~/.config/hypr/proteus-keybinds.conf",
+        "~/.config/proteus/settings.json",
         "~/.config/proteus/keybinds.json"
       ],
       "backsCli": [
-        "proteus-workspace",
+        "proteus-settings-apply",
         "proteus-defaults.py",
-        "beacon-file-index.py",
-        "hyprctl"
+        "proteus-compositorctl"
       ],
       "postures": [
         "desktop"
@@ -111,18 +109,19 @@
     {
       "id": "peripherals",
       "label": "Peripherals",
-      "status": "shipped",
+      "status": "partial",
       "requires": [],
       "requiresAny": [
         "keyboard",
         "pointer"
       ],
       "backsFacts": [
-        "~/.config/hypr/proteus-general.conf",
+        "~/.config/proteus/settings.json",
         "~/.config/proteus/keybinds.json"
       ],
       "backsCli": [
-        "hyprctl"
+        "proteus-settings-apply",
+        "proteus-compositorctl"
       ]
     },
     {

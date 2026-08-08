@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# proteus-bg — retired Quickshell wallpaper runner.
-# Owned proteus-shell paints the BG layer. Kept as a no-op so legacy
-# hypr exec-once / Settings apply / pkill paths stay quiet.
+# Retired Quickshell wallpaper runner — owned shell paints BG.
+# No-op so legacy callers (pkill / Settings apply) stay quiet.
 exit 0

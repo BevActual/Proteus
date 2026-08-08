@@ -15,6 +15,7 @@ mod grabs;
 mod handlers;
 mod identify;
 mod input;
+mod input_config;
 mod layout;
 mod screencopy;
 mod state;
@@ -62,6 +63,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let state = CompositorNext::new(&mut event_loop, display, &seat_name);
     state.init_screencopy_global();
+    eprintln!(
+        "proteus-compositor-next: screencopy flip_y={} (PROTEUS_SCREENCOPY_FLIP_Y / virtio auto)",
+        crate::screencopy::screencopy_should_flip_y()
+    );
 
     let socket = state.socket_name.clone();
     let mut data = CalloopData {

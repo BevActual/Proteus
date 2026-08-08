@@ -34,11 +34,23 @@ fi
 
 # Layer namespace + IPC target constants (source-level parity)
 for ns in proteus-bar proteus-dock proteus-launcher proteus-control-center \
-          proteus-hud proteus-bg proteus-desktop-widgets proteus-toast \
+          proteus-spaces proteus-hud proteus-bg proteus-desktop-widgets proteus-toast \
           proteus-privacy-ask proteus-lock; do
   grep -q "\"${ns}\"" "${ROOT}/shell/src/lib.rs" \
     && ok "layer ${ns}" || bad "layer ${ns}"
 done
+grep -q 'ToggleSpaces\|visible_space_ids\|chrome.*spaces\|"spaces"' \
+  "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/spaces.rs" "${ROOT}/shell/src/ctl.rs" \
+  && ok "Spaces Mission Control path" || bad "Spaces overview missing"
+grep -q 'mosaic_cell_size\|CARD_W\|pencil' \
+  "${ROOT}/shell/src/spaces.rs" "${ROOT}/shell/src/icons.rs" \
+  && ok "Spaces overview UX (mosaic + pencil)" || bad "Spaces UX polish missing"
+grep -q 'workspaceNames\|names_with_rename\|SpacesRename' \
+  "${ROOT}/shell/src/spaces.rs" "${ROOT}/shell/src/main.rs" \
+  && ok "Spaces rename Fact path" || bad "Spaces rename missing"
+grep -q 'move_window_to_workspace\|SpacesDrop\|SpacesDragStart' \
+  "${ROOT}/shell/src/wm_ipc.rs" "${ROOT}/shell/src/main.rs" "${ROOT}/shell/src/spaces.rs" \
+  && ok "Spaces drag-move" || bad "Spaces drag-move missing"
 for t in lock chrome widgets hud; do
   grep -q "\"${t}\"" "${ROOT}/shell/src/lib.rs" \
     && ok "ipc target ${t}" || bad "ipc target ${t}"
@@ -66,6 +78,16 @@ for sym in DOCK LAUNCHER CONTROL_CENTER HUD BG DESKTOP_WIDGETS TOAST PRIVACY_ASK
 done
 grep -q 'session_chrome_suppressed\|session_start_lock_pending' "${ROOT}/shell/src/main.rs" \
   && ok "lock chrome suppress" || bad "lock suppress missing"
+# Opaque lock floor — wallpaper/solid in Overlay so windows cannot peek.
+grep -q 'fn lock_backdrop\|lock_backdrop(' "${ROOT}/shell/src/surfaces.rs" \
+  && grep -q 'lock_view(' "${ROOT}/shell/src/main.rs" \
+  && grep -q 'wallpaper_handle' "${ROOT}/shell/src/main.rs" \
+  && ok "lock opaque backdrop (no desktop peek)" \
+  || bad "lock_backdrop / wallpaper floor missing"
+grep -q 'compositor_supports_session_lock' "${ROOT}/shell/src/engine.rs" \
+  && grep -q 'ext-session-lock not on compositor-next' "${ROOT}/shell/src/engine.rs" \
+  && ok "protocol lock deferred until compositor supports it" \
+  || bad "session-lock compositor gate missing"
 grep -q 'try_unlock\|check-unlock' "${ROOT}/shell/src/platform.rs" \
   && ok "PAM unlock path" || bad "PAM unlock missing"
 grep -q 'spawn_socket2_listener' "${ROOT}/shell/src/wm_ipc.rs" \
@@ -74,6 +96,24 @@ grep -q 'volumeUp\|volume_step\|brightnessUp' "${ROOT}/shell/src/ctl.rs" \
   && ok "HUD volume/brightness steps" || bad "HUD steps missing"
 grep -q 'customizeDesktop\|dockLaunch\|focusCycle' "${ROOT}/shell/src/ctl.rs" \
   && ok "chrome IPC parity verbs" || bad "chrome IPC verbs missing"
+grep -q '"notifications"' "${ROOT}/shell/src/ctl.rs" \
+  && ok "chrome notifications IPC" || bad "notifications IPC missing"
+grep -q 'center_hub_view\|ToggleNotifications\|DesktopPress' "${ROOT}/shell/src/surfaces.rs" \
+  && ok "center hub + wallpaper hold" || bad "center hub / hold missing"
+grep -q 'desktop_widgets\|HOLD_MS\|desktopWidgets' "${ROOT}/shell/src/desktop_widgets.rs" \
+  && ok "desktop widget placement module" || bad "desktop_widgets missing"
+grep -q 'WifiRadioToggle\|AppearanceMode\|Screenshot' "${ROOT}/shell/src/surfaces.rs" \
+  && ok "CC quick-settings harden" || bad "CC functional tiles missing"
+grep -q 'module_tile\|WifiRadioToggle' "${ROOT}/shell/src/surfaces.rs" \
+  && ok "CC 2-col module grid" || bad "CC module grid missing"
+# Quieter menu bar — wifi/BT/volume chips collapse into CC.
+if grep -n 'let right = row!' "${ROOT}/shell/src/surfaces.rs" | head -1 >/dev/null \
+  && awk '/let right = row!/,/align_y/' "${ROOT}/shell/src/surfaces.rs" | head -20 \
+    | grep -qE 'wifi_chip|bt_chip|vol_chip|tile_chip'; then
+  bad "menu bar still has dense wifi/BT/vol/tile chips"
+else
+  ok "menu bar quieter right cluster"
+fi
 grep -q 'widgets' "${ROOT}/shell/src/ctl.rs" \
   && ok "widgets CRUD ctl" || bad "widgets ctl missing"
 grep -q 'run_notifications_server\|org.freedesktop.Notifications' "${ROOT}/shell/src/platform.rs" \
@@ -88,33 +128,113 @@ grep -q 'start_tray_watcher\|tray_poll' "${ROOT}/shell/src/platform.rs" \
   && ok "SNI tray watcher" || bad "SNI tray missing"
 grep -q 'load_dock_pins\|dockPins' "${ROOT}/shell/src/main.rs" \
   && ok "dock pins from facts" || bad "dock pins missing"
+grep -q 'proteus-launcher\|is_beacon_pin' "${ROOT}/shell/src/main.rs" "${ROOT}/shell/src/surfaces.rs" \
+  && ok "Beacon dock pin" || bad "Beacon dock pin missing"
 grep -q 'settings_catalog_hits\|--page=' "${ROOT}/shell/src/beacon.rs" \
   && ok "Beacon settings catalog" || bad "Beacon settings missing"
 grep -q 'lock_screen_view\|Click or type to unlock\|Enter unlock PIN\|Use password' \
   "${ROOT}/shell/src/lock_ui.rs" \
   && ok "lock full-bleed PIN/reveal" || bad "lock GUI shallow"
+grep -q 'lock-password-input\|lock_password_focus_pending\|LockWakeChar' \
+  "${ROOT}/shell/src/main.rs" "${ROOT}/shell/src/lock_ui.rs" "${ROOT}/shell/src/surfaces.rs" \
+  && grep -q 'repeat' "${ROOT}/shell/src/main.rs" \
+  && ok "lock password focus + wake keystroke (no repeat bunches)" \
+  || bad "lock password input lag guards missing"
+grep -q 'no WM/sensor/applet spam while typing' "${ROOT}/shell/src/main.rs" \
+  && grep -q '1000' "${ROOT}/shell/src/main.rs" \
+  && ok "lock auth light tick" || bad "lock still heavy-ticks while typing"
 grep -q 'LockReveal\|LockPinDigit\|lock_ui' "${ROOT}/shell/src/main.rs" "${ROOT}/shell/src/surfaces.rs" \
   && ok "lock shell wiring" || bad "lock shell wiring missing"
-grep -q 'WindowClose\|WindowMinimize\|WindowMaximize' "${ROOT}/shell/src/surfaces.rs" \
-  && ok "bar traffic-lights msgs" || bad "bar traffic-lights missing"
+grep -q 'Windows-style\|not in the menu bar' "${ROOT}/shell/src/surfaces.rs" \
+  && ok "bar defers window chrome to SSD" || bad "bar still claims traffic-lights"
+if grep -qE 'fn traffic_light|Message::WindowClose|Message::WindowMinimize' \
+  "${ROOT}/shell/src/surfaces.rs"; then
+  bad "bar still paints traffic-lights"
+else
+  ok "bar has no traffic-lights widgets"
+fi
 grep -q 'window_close\|window_minimize\|window_maximize' "${ROOT}/shell/src/wm_ipc.rs" \
-  && ok "wm_ipc window traffic-lights" || bad "wm_ipc window helpers missing"
+  && ok "wm_ipc window helpers (dock/IPC)" || bad "wm_ipc window helpers missing"
+grep -q 'Minimize\|minimize_hit' "${ROOT}/compositor-next/src/decoration.rs" \
+  && ok "SSD minimize chrome" || bad "SSD minimize missing"
 grep -q 'PrivacyDots\|privacy_dots\|OpenPrivacy' "${ROOT}/shell/src/platform.rs" "${ROOT}/shell/src/surfaces.rs" \
   && ok "privacy dots" || bad "privacy dots missing"
 grep -q 'PowerProfile\|power_set_profile_index\|VolumeStep' "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/platform.rs" \
   && ok "CC power/volume" || bad "CC power/volume missing"
+grep -qE 'ToggleFloating|VolumeMute' "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/main.rs" \
+  && grep -qE 'glyph_view\("wifi"|glyph_view\("tile"' "${ROOT}/shell/src/surfaces.rs" \
+  && ok "bar wifi/BT/volume/tile chips" || bad "bar system chips missing"
+grep -q 'is_ghostty_desktop_id\|proteus-terminal' "${ROOT}/shell/src/beacon.rs" \
+  && ok "Beacon Ghostty → proteus-terminal" || bad "Beacon Ghostty route missing"
 grep -q 'NotifDismiss' "${ROOT}/shell/src/surfaces.rs" \
   && ok "CC notif dismiss" || bad "CC notif dismiss missing"
-grep -q 'dock_activate\|DockAction' "${ROOT}/shell/src/wm_ipc.rs" \
+grep -q 'dock_activate\|DockAction\|dock_activate_plan' "${ROOT}/shell/src/wm_ipc.rs" \
   && ok "dock minimize/restore" || bad "dock activate missing"
+grep -q 'DockPlan::Cycle\|running.len() >= 2' "${ROOT}/shell/src/wm_ipc.rs" \
+  && ok "dock multi-window cycle" || bad "dock cycle missing"
+grep -q 'dock_plan_cycle_multi_focused\|dock_pins_defaults_include_beacon' \
+  "${ROOT}/shell/src/wm_ipc.rs" "${ROOT}/shell/src/surfaces.rs" \
+  && ok "dock cargo unit tests" || bad "dock unit tests missing"
+grep -q 'dock_transients\|dock_divider' "${ROOT}/shell/src/surfaces.rs" \
+  && ok "dock pin/transient divider" || bad "dock transients missing"
+grep -q 'DOCK_PREVIEW_DWELL_MS\|DockPreviewFocus\|DockPreviewClose\|Hidden' \
+  "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/main.rs" \
+  && ok "dock dwell preview interact" || bad "dock dwell preview missing"
+grep -q 'dock_bounce\|DOCK_BOUNCE_TIMEOUT_MS' "${ROOT}/shell/src/main.rs" "${ROOT}/shell/src/surfaces.rs" \
+  && ok "dock launch bounce" || bad "dock bounce missing"
+grep -q 'glass_alpha\|apply_chrome_opacity' "${ROOT}/services/proteus-ui/src/theme.rs" \
+  && ok "chromeOpacity → glass_alpha" || bad "glass_alpha from settings missing"
+grep -q 'dockIconSize\|dock_icon_size' "${ROOT}/shell/src/main.rs" \
+  && ok "dockIconSize Fact" || bad "dockIconSize missing"
+grep -q 'BAR || n == layers::DOCK => Layer::Top' "${ROOT}/shell/src/main.rs" \
+  && grep -q 'dock_strip_h(surfaces::DOCK_ICON_REST)\|ExclusiveZoneChange' "${ROOT}/shell/src/main.rs" \
+  && ok "dock Top + exclusive_zone" || bad "dock layer/exclusive missing"
+grep -q 'DOCK_LEAVE_DELAY_MS\|DockPreviewEnter\|dock_leave_at' \
+  "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/main.rs" \
+  && ok "dock preview hover bridge" || bad "dock leave bridge missing"
+grep -q 'preview_band' "${ROOT}/shell/src/surfaces.rs" \
+  && grep -qE 'DOCK_LAYER_H: u32 = (3[0-9]{2}|[4-9][0-9]{2})' "${ROOT}/shell/src/surfaces.rs" \
+  && ok "dock preview band does not crush shelf" || bad "dock shelf crush guard missing"
+grep -q 'DockLayout\|dockLayout\|DOCK_HOVER_SCALE' \
+  "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/main.rs" \
+  && ok "dock layout + hover scale (no magnify)" || bad "dock layout/hover missing"
+grep -q 'dock_dot_count\|dock_running_windows\|dock_active_dot_index' \
+  "${ROOT}/shell/src/surfaces.rs" \
+  && ok "dock multi-window dots" || bad "dock running dots missing"
+grep -q 'layers::BG || n == layers::LOCK => -1' "${ROOT}/shell/src/main.rs" \
+  && ok "wallpaper+lock DontCare full-bleed" || bad "BG/lock exclusive clips"
+grep -q 'apply_settings_if_changed\|settings_mtime' "${ROOT}/shell/src/main.rs" \
+  && grep -q 'skip_sync' "${ROOT}/shell/src/main.rs" \
+  && grep -q 'LockPinDigit\|PinEntry' "${ROOT}/shell/src/main.rs" \
+  && ok "shell settings mtime + light surface path" || bad "shell lag guards missing"
+grep -q 'fn pull_wm\|try_lock' "${ROOT}/shell/src/main.rs" \
+  && grep -q 'from_millis(33)' "${ROOT}/shell/src/main.rs" \
+  && grep -q 'reload_widgets\|rebuild_strip' "${ROOT}/shell/src/lock_ui.rs" \
+  && ok "shell responsiveness (wm pull / 30fps anim / lock cache)" \
+  || bad "shell responsiveness guards missing"
+grep -q 'skip_reconcile\|WmShared\|flush_pending_sliders' \
+  "${ROOT}/shell/src/main.rs" "${ROOT}/shell/src/wm_ipc.rs" \
+  && grep -q 'chrono\|Local::now' "${ROOT}/shell/src/surfaces.rs" \
+  && ok "shell responsiveness pass2 (wm gen / clock / sliders)" \
+  || bad "shell responsiveness pass2 missing"
 grep -q 'filter_beacon_hits\|Window ·\|File ·\|beacon-file-index' "${ROOT}/shell/src/beacon.rs" \
   && ok "Beacon Windows/files thin" || bad "Beacon Windows/files missing"
 grep -q 'ToggleDnd\|wifi_list_thin\|bt_list_thin' "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/platform.rs" \
   && ok "CC DND/WiFi/BT" || bad "CC tiles missing"
 grep -q 'ToggleFocus\|focus_profiles\|Focus Mode' "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/platform.rs" \
   && ok "CC Focus Mode thin" || bad "CC Focus missing"
-grep -q 'Hovered\|magnify\|pad_boost\|radius: if hovered' "${ROOT}/shell/src/surfaces.rs" \
-  && ok "dock magnify thin" || bad "dock magnify missing"
+grep -q 'DOCK_MAG_CELLS\|dock_mag_falloff\|dock_mag_strength' \
+  "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/main.rs" \
+  && bad "dock magnify helpers must be removed" \
+  || ok "dock magnify retired"
+grep -q 'fn dock_plate_h' "${ROOT}/shell/src/surfaces.rs" \
+  && grep -q 'dock_plate(' "${ROOT}/shell/src/surfaces.rs" \
+  && grep -q 'dock_autohide\|dock_slide\|DOCK_PEEK_SLIDE' "${ROOT}/shell/src/main.rs" "${ROOT}/shell/src/surfaces.rs" \
+  && ok "dock plate + autohide peek" \
+  || bad "dock plate / autohide missing"
+grep -q 'DOCK_POINTER_EPS' "${ROOT}/shell/src/main.rs" \
+  && bad "DOCK_POINTER_EPS (magnify coalesce) must be gone" \
+  || ok "no dock pointer magnify coalesce"
 grep -q 'menu_bar_plate\|dock_plate\|elevated_chip\|chrome_tile' \
   "${ROOT}/services/proteus-ui/src/widgets.rs" \
   && ok "chrome glass tokens" || bad "chrome glass helpers missing"

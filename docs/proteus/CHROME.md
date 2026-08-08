@@ -122,11 +122,18 @@ From `Theme.qml` (`Config.chromeMode` → `light`).
 
 Alpha tracks `Config.chromeOpacity` (`chromeAlpha` / `glassAlpha` / `menuBarAlpha`).
 Blur flag: `Config.chromeBlur`. Liquid Glass v1: menu bar is wallpaper-first
-(clearer curve); dock is continuous frost (richer floor + curve edge glow, never
-a straight specular strip); Beacon Apps empty home is Recents hierarchy or
-honest empty; Files empty home is Recents + Places (or honest empty), search
-groups Folders then Files. Status HUD (volume/brightness) uses the same elevated plate as
-notification toasts — top-right chip; suppressed while Control Center is open. Control Center tiles resolve via `ControlCenterLayout` (`controlCenterLayout` in settings.json — order/visibility/span/size/**columns 2|3**). Soft Focus Mode filters toasts; hard DND ignores filters. Customize tiles + columns in Settings → Desktop → Control Center (CC footer Edit ›).
+(clearer curve; `barHeight` / `barRounding` / `barAutoHide` Facts); dock is
+continuous frost (richer floor + curve edge glow, never a straight specular
+strip) with layout Facts `dockLayout` (`center`\|`span`\|`left`\|`right`),
+`dockRounding`, `dockIconSize`, `dockAutoHide` — **no magnify** (Windows-style
+per-icon hover scale + autohide edge peek). Beacon Apps empty home is Recents
+hierarchy or honest empty; Files empty home is Recents + Places (or honest empty),
+search groups Folders then Files. Status HUD (volume/brightness) uses the same
+elevated plate as notification toasts — top-right chip; suppressed while Control
+Center is open. Control Center tiles resolve via `ControlCenterLayout`
+(`controlCenterLayout` in settings.json — order/visibility/span/size/**columns 2|3**).
+Soft Focus Mode filters toasts; hard DND ignores filters. Customize tiles + columns
+in Settings → Desktop → Control Center (CC footer Edit ›).
 
 | Token | Recipe | Use |
 |-------|--------|-----|
@@ -191,31 +198,28 @@ Settings lists.
 
 ## 9. Patterns
 
-Composition kit under `apps/proteus-settings/kit/` (panes import `../kit`;
-shell surfaces that rhyme):
+Live kit: [`services/proteus-ui`](../../services/proteus-ui) (Settings sibling +
+shell). System Settings posture — inset grouped lists, soft sidebar selection,
+large titles. QML kit paths are retired.
 
 | Pattern | Role |
 |---------|------|
-| **Settings hub › leaf** | Category list → one control leaf; Esc / ‹ back |
-| **SettingsGroup** | Titled grouped list |
-| **SettingsFormRow** | Label + hint + trailing control |
-| **SettingsHubList** | › rows into sub-settings |
-| **SettingsSegmented** | Exclusive segment pick |
-| **SettingsCombo** | Trailing popup picker (Theme chip + elevated menu; not Fusion ComboBox); menu **flips above** the chip when it would clip at the window bottom (`margins` keep it inside small windows) |
-| **ThemeSlider / ThemeSwitch** | Shared accent controls (`shell/shared/`) — drop-in Controls Slider/Switch: accent fill/track, white knob/thumb, hairline groove. Stock Controls Slider/Switch are banned outside these wrappers (`chrome-tokens-smoke` gate) |
+| **Settings hub › leaf** | Sidebar category → hub › leaf; Esc / ‹ back |
+| **`settings_group`** | Section caption above one elevated plate; hairline `separator` between rows |
+| **`settings_row` / `form_row`** | Label (+ optional caption) left; control **trailing right** |
+| **`hub_row`** | Full-width inset **list** row + chevron into sub-settings (nav, not a compact CTA) |
+| **`sidebar_item`** | Rounded pill; selected = `accent_soft` + accent label |
+| **`large_title`** | ~30pt content title (System Settings) |
+| **`segmented_control`** | Exclusive segment pick |
+| **`theme_slider` / `theme_switch`** | Shared accent controls — stock iced Slider/Switch banned outside these (`chrome-tokens-smoke`) |
 | **Fact line** | Mute one-liner naming the on-disk / CLI fact |
 
-Shell chrome (TopBar, Dock, Control Center, lock Customize, desktop Customize)
-should reuse the same space/radius/text/accent rules even when not importing
-those QML types. Desktop Customize bar / empty hint / applet size− use
-`elevatedFill` · `chromeBorder` · `textMute` · `danger` — not hardcoded rgba
-(dock − badge and drag Remove label are `danger` on the tooltip plate).
-Interactive plates share one hover language: rows/menus use `bgHover`, chrome
-tiles use `chromeHover` — hover is brightness, never accent. Status facts stay
-honest: battery % appears only with a real battery (`Power.hasBattery`), never
-a VM/desktop 0%. Settings runs as a floating 820×560 sheet (hypr windowrule);
-wide/tiled windows cap + center the pane column instead of pinning it to the
-sidebar with a void.
+Shell chrome (menu bar, dock, Control Center, Beacon, lock / desktop Customize)
+reuses the same space/radius/text/accent rules. Menu bar stays wallpaper-first
+and quieter (status detail in CC); CC uses a 2-column module grid. Hover is
+brightness (`bgHover` / chrome hover), never accent wash. Battery % only with a
+real battery. Settings is a floating iced sheet (~920×640). **Out this door:**
+true Wayland backdrop blur (`chromeBlur` compositor path).
 
 ---
 

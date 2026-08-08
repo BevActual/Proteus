@@ -133,41 +133,128 @@ fn toplevel_minimized(t: &Toplevel) -> bool {
     t.workspace < 0
 }
 
-/// Dock click: minimize focused match · restore minimized · focus running · else launch.
-pub fn dock_activate(pin: &str, hypr: &WmState) -> DockAction {
+/// Pure dock click decision (no compositor I/O) — unit-tested.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DockPlan {
+    Minimize,
+    Cycle(String),
+    Restore(String),
+    Focus(String),
+    Launch,
+}
+
+impl DockPlan {
+    pub fn action(&self) -> DockAction {
+        match self {
+            DockPlan::Minimize => DockAction::Minimized,
+            DockPlan::Cycle(_) => DockAction::Cycled,
+            DockPlan::Restore(_) => DockAction::Restored,
+            DockPlan::Focus(_) => DockAction::Focused,
+            DockPlan::Launch => DockAction::Launch,
+        }
+    }
+}
+
+/// Decide dock click outcome from current WM snapshot.
+pub fn dock_activate_plan(pin: &str, hypr: &WmState) -> DockPlan {
     let pin_l = pin.to_lowercase();
-    if pin_matches(&pin_l, &hypr.active_class, &hypr.active_title) {
-        let _ = window_minimize();
-        return DockAction::Minimized;
-    }
-    if let Ok(clients) = hyprctl_json(&["clients"]) {
-        if let Some(arr) = clients.as_array() {
-            for c in arr {
-                let class = c["class"].as_str().unwrap_or("");
-                let title = c["title"].as_str().unwrap_or("");
-                let addr = c["address"].as_str().unwrap_or("");
-                let ws_name = c["workspace"]["name"].as_str().unwrap_or("");
-                let minimized = ws_name.contains("minimized") || ws_name.contains("special");
-                if minimized && pin_matches(&pin_l, class, title) && !addr.is_empty() {
-                    let _ = focus_window_address(addr);
-                    let _ = dispatch(&format!(
-                        "movetoworkspacesilent {}",
-                        hypr.active_workspace
-                    ));
-                    let _ = focus_window_address(addr);
-                    return DockAction::Restored;
-                }
-            }
+    let running: Vec<&Toplevel> = hypr
+        .toplevels
+        .iter()
+        .filter(|t| !toplevel_minimized(t) && pin_matches(&pin_l, &t.class, &t.title))
+        .collect();
+    let focused_match = pin_matches(&pin_l, &hypr.active_class, &hypr.active_title);
+
+    // Multi-window: cycle among non-minimized matches instead of minimizing.
+    if focused_match && running.len() >= 2 {
+        let idx = running
+            .iter()
+            .position(|t| t.address == hypr.active_address)
+            .unwrap_or(0);
+        let next = running[(idx + 1) % running.len()];
+        if next.address != hypr.active_address {
+            return DockPlan::Cycle(next.address.clone());
         }
     }
-    for t in &hypr.toplevels {
-        if !toplevel_minimized(t) && pin_matches(&pin_l, &t.class, &t.title) {
-            if focus_window_address(&t.address).is_ok() {
-                return DockAction::Focused;
+
+    if focused_match {
+        return DockPlan::Minimize;
+    }
+    if let Some(t) = hypr
+        .toplevels
+        .iter()
+        .find(|t| toplevel_minimized(t) && pin_matches(&pin_l, &t.class, &t.title))
+    {
+        return DockPlan::Restore(t.address.clone());
+    }
+    if let Some(t) = running.first() {
+        return DockPlan::Focus(t.address.clone());
+    }
+    DockPlan::Launch
+}
+
+/// Dock click: cycle multi-window focused match · minimize single · restore ·
+/// focus running · else launch.
+pub fn dock_activate(pin: &str, hypr: &WmState) -> DockAction {
+    match dock_activate_plan(pin, hypr) {
+        DockPlan::Minimize => {
+            let _ = window_minimize();
+            DockAction::Minimized
+        }
+        DockPlan::Cycle(addr) => {
+            if focus_window_address(&addr).is_ok() {
+                DockAction::Cycled
+            } else {
+                DockAction::Launch
             }
         }
+        DockPlan::Restore(addr) => {
+            let _ = dock_focus_or_restore(&addr, hypr);
+            DockAction::Restored
+        }
+        DockPlan::Focus(addr) => {
+            if focus_window_address(&addr).is_ok() {
+                DockAction::Focused
+            } else {
+                DockAction::Launch
+            }
+        }
+        DockPlan::Launch => DockAction::Launch,
     }
-    DockAction::Launch
+}
+
+/// Restore a parked (`special:minimized`) window, or focus a visible one.
+pub fn dock_focus_or_restore(address: &str, hypr: &WmState) -> Result<(), String> {
+    let addr = address.trim();
+    if addr.is_empty() {
+        return Err("empty address".into());
+    }
+    let minimized = hypr
+        .toplevels
+        .iter()
+        .find(|t| t.address == addr)
+        .map(toplevel_minimized)
+        .unwrap_or(false);
+    if minimized {
+        focus_window_address(addr)?;
+        dispatch(&format!(
+            "movetoworkspacesilent {}",
+            hypr.active_workspace
+        ))?;
+    }
+    focus_window_address(addr)
+}
+
+/// Close a toplevel by address (focus then killactive).
+pub fn window_close_address(address: &str) -> Result<(), String> {
+    focus_window_address(address)?;
+    window_close()
+}
+
+/// Move a toplevel to workspace `ws` without following focus (Mission Control drag).
+pub fn move_window_to_workspace(address: &str, ws: i64) -> Result<(), String> {
+    focus_window_address(address)?;
+    dispatch(&format!("movetoworkspacesilent {ws}"))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -175,6 +262,7 @@ pub enum DockAction {
     Minimized,
     Restored,
     Focused,
+    Cycled,
     Launch,
 }
 
@@ -217,9 +305,20 @@ pub fn refresh_state() -> WmState {
     state
 }
 
-pub type SharedWm = std::sync::Arc<std::sync::Mutex<WmState>>;
+/// Shared WM snapshot + generation (UI clones only when `gen` advances).
+#[derive(Debug, Clone, Default)]
+pub struct WmShared {
+    pub state: WmState,
+    pub gen: u64,
+}
+
+pub type SharedWm = std::sync::Arc<std::sync::Mutex<WmShared>>;
 /// One-release alias after Hyprland purge rename.
 pub type SharedHypr = SharedWm;
+
+pub fn shared_from_state(state: WmState) -> SharedWm {
+    std::sync::Arc::new(std::sync::Mutex::new(WmShared { state, gen: 1 }))
+}
 
 /// Spawn event listener on PROTEUS_COMPOSITOR_SOCK `subscribe`.
 pub fn spawn_socket2_listener(shared: SharedWm) {
@@ -248,7 +347,8 @@ fn smithay_subscribe_loop(shared: SharedWm) {
                     {
                         let next = refresh_state();
                         if let Ok(mut g) = shared.lock() {
-                            *g = next;
+                            g.state = next;
+                            g.gen = g.gen.wrapping_add(1);
                         }
                     }
                 }
@@ -270,6 +370,15 @@ pub fn socket_command(cmd: &str) -> Result<String, String> {
 mod tests {
     use super::*;
 
+    fn tl(addr: &str, class: &str, title: &str, workspace: i64) -> Toplevel {
+        Toplevel {
+            address: addr.into(),
+            class: class.into(),
+            title: title.into(),
+            workspace,
+        }
+    }
+
     #[test]
     fn compositor_sock_tolerant() {
         let _ = compositor_sock();
@@ -278,5 +387,81 @@ mod tests {
     #[test]
     fn engine_always_smithay_ipc() {
         assert_eq!(crate::engine::resolve_compositor_engine(), "smithay");
+    }
+
+    #[test]
+    fn dock_plan_launch_when_nothing_running() {
+        let hypr = WmState::default();
+        assert_eq!(
+            dock_activate_plan("ghostty", &hypr),
+            DockPlan::Launch
+        );
+    }
+
+    #[test]
+    fn dock_plan_minimize_single_focused() {
+        let hypr = WmState {
+            toplevels: vec![tl("0x1", "ghostty", "term", 1)],
+            active_workspace: 1,
+            active_class: "ghostty".into(),
+            active_title: "term".into(),
+            active_address: "0x1".into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            dock_activate_plan("ghostty", &hypr),
+            DockPlan::Minimize
+        );
+    }
+
+    #[test]
+    fn dock_plan_cycle_multi_focused() {
+        let hypr = WmState {
+            toplevels: vec![
+                tl("0x1", "ghostty", "a", 1),
+                tl("0x2", "ghostty", "b", 1),
+            ],
+            active_workspace: 1,
+            active_class: "ghostty".into(),
+            active_title: "a".into(),
+            active_address: "0x1".into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            dock_activate_plan("ghostty", &hypr),
+            DockPlan::Cycle("0x2".into())
+        );
+    }
+
+    #[test]
+    fn dock_plan_restore_minimized() {
+        let hypr = WmState {
+            toplevels: vec![tl("0x9", "ghostty", "parked", -1)],
+            active_workspace: 2,
+            active_class: String::new(),
+            active_title: String::new(),
+            active_address: String::new(),
+            ..Default::default()
+        };
+        assert_eq!(
+            dock_activate_plan("ghostty", &hypr),
+            DockPlan::Restore("0x9".into())
+        );
+    }
+
+    #[test]
+    fn dock_plan_focus_running_unfocused() {
+        let hypr = WmState {
+            toplevels: vec![tl("0x3", "org.gnome.Nautilus", "Home", 1)],
+            active_workspace: 1,
+            active_class: "ghostty".into(),
+            active_title: "term".into(),
+            active_address: "0x1".into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            dock_activate_plan("org.gnome.Nautilus", &hypr),
+            DockPlan::Focus("0x3".into())
+        );
     }
 }

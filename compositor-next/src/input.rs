@@ -72,8 +72,16 @@ impl CompositorNext {
                 let Some(output_geo) = self.space.output_geometry(output) else {
                     return;
                 };
+                let scale = self.input_config.sensitivity_scale();
+                let raw = event.delta();
+                let delta = smithay::utils::Point::from((raw.x * scale, raw.y * scale));
+                let raw_unaccel = event.delta_unaccel();
+                let delta_unaccel = smithay::utils::Point::from((
+                    raw_unaccel.x * scale,
+                    raw_unaccel.y * scale,
+                ));
                 let pointer = self.seat.get_pointer().unwrap();
-                let mut pos = pointer.current_location() + event.delta();
+                let mut pos = pointer.current_location() + delta;
                 pos.x = pos.x.clamp(
                     output_geo.loc.x as f64,
                     (output_geo.loc.x + output_geo.size.w) as f64,
@@ -97,8 +105,8 @@ impl CompositorNext {
                     self,
                     under,
                     &RelativeMotionEvent {
-                        delta: event.delta(),
-                        delta_unaccel: event.delta_unaccel(),
+                        delta,
+                        delta_unaccel,
                         utime: event.time(),
                     },
                 );
@@ -143,6 +151,10 @@ impl CompositorNext {
                             SsdHit::Maximize { address } => {
                                 self.focus_address(&address);
                                 self.toggle_maximized(&address);
+                            }
+                            SsdHit::Minimize { address } => {
+                                self.focus_address(&address);
+                                self.minimize_address(&address);
                             }
                             SsdHit::Titlebar { address } => {
                                 self.start_ssd_move(&address, button, location, serial);
@@ -208,14 +220,25 @@ impl CompositorNext {
             }
             InputEvent::PointerAxis { event, .. } => {
                 let source = event.source();
+                let scroll = self.input_config.scroll_scale();
+                let natural = self.input_config.natural_scroll;
                 let horizontal_amount = event.amount(Axis::Horizontal).unwrap_or_else(|| {
                     event.amount_v120(Axis::Horizontal).unwrap_or(0.0) * 15.0 / 120.
-                });
-                let vertical_amount = event.amount(Axis::Vertical).unwrap_or_else(|| {
+                }) * scroll;
+                let mut vertical_amount = event.amount(Axis::Vertical).unwrap_or_else(|| {
                     event.amount_v120(Axis::Vertical).unwrap_or(0.0) * 15.0 / 120.
-                });
-                let horizontal_amount_discrete = event.amount_v120(Axis::Horizontal);
-                let vertical_amount_discrete = event.amount_v120(Axis::Vertical);
+                }) * scroll;
+                let horizontal_amount_discrete =
+                    event.amount_v120(Axis::Horizontal).map(|v| v * scroll);
+                let mut vertical_amount_discrete =
+                    event.amount_v120(Axis::Vertical).map(|v| v * scroll);
+                if natural {
+                    // Invert vertical for natural scroll (touchpad / wheel).
+                    vertical_amount = -vertical_amount;
+                    if let Some(d) = vertical_amount_discrete.as_mut() {
+                        *d = -*d;
+                    }
+                }
 
                 let mut frame = AxisFrame::new(event.time_msec()).source(source);
                 if horizontal_amount != 0.0 {

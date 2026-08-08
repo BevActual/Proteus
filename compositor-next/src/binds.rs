@@ -23,6 +23,15 @@ pub struct BindMods {
 }
 
 impl BindMods {
+    pub const fn none() -> Self {
+        Self {
+            logo: false,
+            shift: false,
+            ctrl: false,
+            alt: false,
+        }
+    }
+
     pub const fn logo_only() -> Self {
         Self {
             logo: true,
@@ -162,6 +171,25 @@ pub fn keysym_to_name(sym: Keysym) -> Option<&'static str> {
     if sym == ks(keysyms::KEY_s) || sym == ks(keysyms::KEY_S) {
         return Some("s");
     }
+    if sym == ks(keysyms::KEY_e) || sym == ks(keysyms::KEY_E) {
+        return Some("e");
+    }
+    // Media / brightness (no Super) — XF86 keys on laptop / USB boards.
+    if sym == ks(keysyms::KEY_XF86AudioRaiseVolume) {
+        return Some("xf86audioraisevolume");
+    }
+    if sym == ks(keysyms::KEY_XF86AudioLowerVolume) {
+        return Some("xf86audiolowervolume");
+    }
+    if sym == ks(keysyms::KEY_XF86AudioMute) {
+        return Some("xf86audiomute");
+    }
+    if sym == ks(keysyms::KEY_XF86MonBrightnessUp) {
+        return Some("xf86monbrightnessup");
+    }
+    if sym == ks(keysyms::KEY_XF86MonBrightnessDown) {
+        return Some("xf86monbrightnessdown");
+    }
     None
 }
 
@@ -247,6 +275,60 @@ pub fn default_binds() -> Vec<BindEntry> {
             mods: BindMods::logo_shift(),
             key: "s".into(),
             action: BindAction::Exec(vec!["proteus-screenshot".into()]),
+        },
+        BindEntry {
+            id: "files".into(),
+            mods: BindMods::logo_only(),
+            key: "e".into(),
+            action: BindAction::Exec(vec![
+                "xdg-open".into(),
+                std::env::var("HOME").unwrap_or_else(|_| "/home".into()),
+            ]),
+        },
+        BindEntry {
+            id: "volume_up".into(),
+            mods: BindMods::none(),
+            key: "xf86audioraisevolume".into(),
+            action: BindAction::Shell {
+                target: "hud".into(),
+                method: "volumeUp".into(),
+            },
+        },
+        BindEntry {
+            id: "volume_down".into(),
+            mods: BindMods::none(),
+            key: "xf86audiolowervolume".into(),
+            action: BindAction::Shell {
+                target: "hud".into(),
+                method: "volumeDown".into(),
+            },
+        },
+        BindEntry {
+            id: "volume_mute".into(),
+            mods: BindMods::none(),
+            key: "xf86audiomute".into(),
+            action: BindAction::Shell {
+                target: "hud".into(),
+                method: "volumeMute".into(),
+            },
+        },
+        BindEntry {
+            id: "brightness_up".into(),
+            mods: BindMods::none(),
+            key: "xf86monbrightnessup".into(),
+            action: BindAction::Shell {
+                target: "hud".into(),
+                method: "brightnessUp".into(),
+            },
+        },
+        BindEntry {
+            id: "brightness_down".into(),
+            mods: BindMods::none(),
+            key: "xf86monbrightnessdown".into(),
+            action: BindAction::Shell {
+                target: "hud".into(),
+                method: "brightnessDown".into(),
+            },
         },
     ];
     for d in ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"] {
@@ -446,6 +528,9 @@ mod tests {
         let d = default_binds();
         assert!(d.iter().any(|e| e.id == "beacon"));
         assert!(d.iter().any(|e| e.id == "lock"));
+        assert!(d.iter().any(|e| e.id == "files"));
+        assert!(d.iter().any(|e| e.id == "volume_up"));
+        assert!(d.iter().any(|e| e.id == "brightness_down"));
         assert!(d.iter().any(|e| e.id == "workspace_1"));
         assert!(d.iter().any(|e| e.id == "workspace_10"));
     }

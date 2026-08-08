@@ -36,6 +36,9 @@ fi
   && die "shell/src/hypr.rs must be renamed to wm_ipc.rs" || true
 grep -q 'SsdHit::Maximize\|maximize_hit' "${CRATE}/src/input.rs" "${CRATE}/src/decoration.rs" \
   || die "SSD maximize hit missing (SsdHit::Maximize / maximize_hit)"
+grep -q 'SsdHit::Minimize\|minimize_hit\|minimize_address' \
+  "${CRATE}/src/input.rs" "${CRATE}/src/decoration.rs" "${CRATE}/src/ctl.rs" \
+  || die "SSD minimize hit missing (SsdHit::Minimize / minimize_address)"
 grep -q 'enumerate gpus\|PROTEUS_DRM_DEVICE' "${CRATE}/src/drm.rs" \
   || die "drm multi-GPU thin enumerate / PROTEUS_DRM_DEVICE missing"
 grep -q 'cursor_render_elements\|CursorState\|Kind::Cursor' \
@@ -55,6 +58,8 @@ grep -q 'OutputPos\|OutputMode\|output .* mode' "${CRATE}/src/wm.rs" \
   || die "dispatch output pos/mode missing"
 grep -q 'apply-displays' "${ROOT}/shell/scripts/proteus-settings-apply" \
   || die "proteus-settings-apply apply-displays missing"
+grep -qE '^\s*input\)|input-reload' "${ROOT}/shell/scripts/proteus-settings-apply" \
+  || die "proteus-settings-apply input missing"
 [[ -f "${CRATE}/src/identify.rs" ]] || die "missing identify.rs"
 grep -q 'start_identify\|parse_identify_secs\|identify_render_elements' \
   "${CRATE}/src/identify.rs" "${CRATE}/src/ctl.rs" \
@@ -64,6 +69,12 @@ grep -q 'identify_render_elements' "${CRATE}/src/winit.rs" "${CRATE}/src/drm.rs"
 [[ -f "${CRATE}/src/binds.rs" ]] || die "missing binds.rs (session keybinds)"
 grep -q 'reloadbinds\|BindsState\|default_binds' "${CRATE}/src/binds.rs" "${CRATE}/src/ctl.rs" "${CRATE}/src/input.rs" \
   || die "keybinds SoT / reloadbinds missing"
+grep -q 'id: "files"' "${CRATE}/src/binds.rs" \
+  && grep -q 'xf86audioraisevolume\|xf86monbrightnessdown' "${CRATE}/src/binds.rs" \
+  || die "files / XF86 media default binds missing"
+grep -q 'input-reload\|InputConfig\|sensitivity_scale' \
+  "${CRATE}/src/ctl.rs" "${CRATE}/src/input_config.rs" "${CRATE}/src/input.rs" \
+  || die "input-reload / InputConfig missing"
 grep -q 'beacon\|workspace_1\|FilterResult::Intercept' "${CRATE}/src/binds.rs" "${CRATE}/src/input.rs" \
   || die "beacon/workspace intercept missing"
 [[ -f "${ROOT}/env/settings/keybinds.defaults.json" ]] \
@@ -122,6 +133,9 @@ grep -q 'clients_json_live\|"at"' "${CRATE}/src/ctl.rs" \
   || die "ctl clients must emit live at/size"
 grep -q 'zwlr_screencopy_manager_v1\|ZwlrScreencopyManagerV1' "${CRATE}/src/screencopy.rs" \
   || die "screencopy manager missing"
+grep -q 'screencopy_should_flip_y\|PROTEUS_SCREENCOPY_FLIP_Y\|prepare_screencopy_pixels' \
+  "${CRATE}/src/screencopy.rs" \
+  || die "screencopy Y-flip auto (virtio) missing"
 grep -q 'linux_dmabuf' "${CRATE}/src/screencopy.rs" \
   || die "screencopy must advertise linux_dmabuf"
 grep -q 'get_dmabuf' "${CRATE}/src/screencopy.rs" \
@@ -168,8 +182,9 @@ grep -q 'CopyWithDamage\|with_damage' "${CRATE}/src/screencopy.rs" \
   || die "screencopy must implement copy_with_damage"
 grep -q 'XdgDecorationState' "${CRATE}/src/state.rs" \
   || die "XdgDecorationState missing on compositor state"
-grep -q 'Mode::ServerSide\|ServerSide' "${CRATE}/src/handlers.rs" \
-  || die "xdg-decoration must prefer ServerSide"
+grep -q 'Mode::ClientSide' "${CRATE}/src/handlers.rs" \
+  && grep -q 'Ignore ServerSide' "${CRATE}/src/handlers.rs" \
+  || die "xdg-decoration must force ClientSide (app chrome)"
 grep -q 'delegate_xdg_decoration' "${CRATE}/src/handlers.rs" \
   || die "delegate_xdg_decoration missing"
 [[ -f "${CRATE}/src/decoration.rs" ]] || die "missing decoration.rs"
@@ -177,6 +192,10 @@ grep -q 'TITLEBAR_H' "${CRATE}/src/decoration.rs" \
   || die "TITLEBAR_H missing"
 grep -q 'ssd_render_elements' "${CRATE}/src/decoration.rs" \
   || die "ssd_render_elements missing"
+grep -q 'focus_ring_render_elements\|FOCUS_RING_W' "${CRATE}/src/decoration.rs" \
+  || die "focus ring chrome missing"
+grep -q 'focus_ring_render_elements' "${CRATE}/src/winit.rs" \
+  || die "winit must call focus_ring_render_elements"
 grep -q 'cosmic-text\|truncate_title_to_width\|MemoryRenderBuffer' "${CRATE}/src/decoration.rs" \
   || die "SSD title text rasterize missing"
 grep -q 'cosmic-text' "${CRATE}/Cargo.toml" \
@@ -332,6 +351,11 @@ except Exception:
   echo "${rb}" | grep -q '"ok": *true' \
     && ok "dispatch reloadbinds" \
     || die "reloadbinds failed: ${rb}"
+
+  ir="$("${CTL}" dispatch input-reload 2>/dev/null || true)"
+  echo "${ir}" | grep -q '"ok": *true' \
+    && ok "dispatch input-reload" \
+    || die "input-reload failed: ${ir}"
 
   idf="$("${CTL}" dispatch identify 2>/dev/null || true)"
   echo "${idf}" | grep -q '"ok": *true' \

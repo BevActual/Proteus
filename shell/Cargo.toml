@@ -41,3 +41,5 @@ iced_layershell = "0.19"
 iced_sessionlock = "0.19"
 zbus = { version = "5", default-features = true }
 zvariant = "5"
+tokio = { version = "1", default-features = false, features = ["rt", "sync"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }

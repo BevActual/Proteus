@@ -120,6 +120,18 @@ impl CompositorNext {
                 self.binds.reload();
                 return serde_json::json!({"ok": true}).to_string();
             }
+            if rest == "input-reload" || rest == "reload input" {
+                self.input_config.reload();
+                eprintln!(
+                    "proteus-compositor-next: input-reload sensitivity={} scale={:.3} natural={} tap={} scroll={}",
+                    self.input_config.sensitivity,
+                    self.input_config.sensitivity_scale(),
+                    self.input_config.natural_scroll,
+                    self.input_config.tap_to_click,
+                    self.input_config.scroll_factor
+                );
+                return serde_json::json!({"ok": true}).to_string();
+            }
             if rest == "identify" || rest.starts_with("identify ") {
                 let arg = rest.strip_prefix("identify").unwrap_or("").trim();
                 match crate::identify::parse_identify_secs(arg) {
@@ -208,15 +220,29 @@ impl CompositorNext {
                 } else {
                     (t.workspace, t.workspace.to_string())
                 };
-                let (at_x, at_y, w, h) = if let Some(win) = self.windows.get(&t.address) {
+                let (at_x, at_y, w, h, bbox) = if let Some(win) = self.windows.get(&t.address)
+                {
                     let loc = self
                         .space
                         .element_location(win)
                         .unwrap_or_else(|| (t.loc_x, t.loc_y).into());
                     let geo = win.geometry();
-                    (loc.x, loc.y, geo.size.w.max(0), geo.size.h.max(0))
+                    let bb = win.bbox();
+                    (
+                        loc.x,
+                        loc.y,
+                        geo.size.w.max(0),
+                        geo.size.h.max(0),
+                        [bb.loc.x, bb.loc.y, bb.size.w, bb.size.h],
+                    )
                 } else {
-                    (t.loc_x, t.loc_y, t.size_w, t.size_h)
+                    (
+                        t.loc_x,
+                        t.loc_y,
+                        t.size_w,
+                        t.size_h,
+                        [0, 0, t.size_w, t.size_h],
+                    )
                 };
                 json!({
                     "address": t.address,
@@ -229,6 +255,10 @@ impl CompositorNext {
                     "output": t.output,
                     "at": [at_x, at_y],
                     "size": [w, h],
+                    "bbox": bbox,
+                    "floating": t.floating,
+                    "maximized": t.maximized,
+                    "ssd": t.ssd,
                 })
             })
             .collect();
@@ -439,6 +469,19 @@ impl CompositorNext {
             } else if let Some(x11) = window.x11_surface() {
                 let _ = x11.close();
             }
+        }
+    }
+
+    /// Park a toplevel on `special:minimized` (SSD minimize / dock cycle).
+    pub fn minimize_address(&mut self, addr: &str) {
+        let verb = format!("movetoworkspacesilent special:minimized,address:{addr}");
+        match self.wm.dispatch(&verb) {
+            Ok(ops) => {
+                self.apply_wm_ops(ops);
+                self.broadcast_event(&format!("dispatch>>{verb}"));
+                self.broadcast_event("activewindow>>");
+            }
+            Err(e) => eprintln!("proteus-compositor-next: minimize: {e}"),
         }
     }
 

@@ -442,32 +442,31 @@ delegate_xdg_shell!(CompositorNext);
 
 impl XdgDecorationHandler for CompositorNext {
     fn new_decoration(&mut self, toplevel: ToplevelSurface) {
+        // Always CSD — GTK often *requests* ServerSide even when it draws its
+        // own header; honoring that reserved a 28px SSD gap and let windows
+        // feel like they sit under the dock/menu chrome.
         toplevel.with_pending_state(|state| {
-            state.decoration_mode = Some(Mode::ServerSide);
+            state.decoration_mode = Some(Mode::ClientSide);
         });
         toplevel.send_configure();
-        self.sync_ssd_for_toplevel(&toplevel, true);
+        self.sync_ssd_for_toplevel(&toplevel, false);
     }
 
-    fn request_mode(&mut self, toplevel: ToplevelSurface, mode: Mode) {
-        // Prefer SSD; honor ClientSide when the client explicitly asks.
-        let chosen = match mode {
-            Mode::ClientSide => Mode::ClientSide,
-            _ => Mode::ServerSide,
-        };
+    fn request_mode(&mut self, toplevel: ToplevelSurface, _mode: Mode) {
+        // Ignore ServerSide asks — app chrome only (see new_decoration).
         toplevel.with_pending_state(|state| {
-            state.decoration_mode = Some(chosen);
+            state.decoration_mode = Some(Mode::ClientSide);
         });
         toplevel.send_configure();
-        self.sync_ssd_for_toplevel(&toplevel, chosen == Mode::ServerSide);
+        self.sync_ssd_for_toplevel(&toplevel, false);
     }
 
     fn unset_mode(&mut self, toplevel: ToplevelSurface) {
         toplevel.with_pending_state(|state| {
-            state.decoration_mode = Some(Mode::ServerSide);
+            state.decoration_mode = Some(Mode::ClientSide);
         });
         toplevel.send_configure();
-        self.sync_ssd_for_toplevel(&toplevel, true);
+        self.sync_ssd_for_toplevel(&toplevel, false);
     }
 }
 

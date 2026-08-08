@@ -85,6 +85,66 @@ pub fn flip_y_xrgb(src: &[u8], width: i32, height: i32) -> Vec<u8> {
     out
 }
 
+/// Whether offscreen GLES `copy_framebuffer` rows need a CPU Y-flip for
+/// top-left `last_frame` (grim / dock thumbs / portal).
+///
+/// Classic desktop GL ReadPixels is bottom-up → flip. Virtio-gpu/VirGL
+/// offscreen readback is already top-left; flipping there made grim show the
+/// menu bar on the wrong edge (seat stayed correct). Override with
+/// `PROTEUS_SCREENCOPY_FLIP_Y=0|1` (never infer seat orientation from grim).
+pub fn screencopy_should_flip_y() -> bool {
+    match std::env::var("PROTEUS_SCREENCOPY_FLIP_Y") {
+        Ok(raw) => {
+            let v = raw.trim().to_ascii_lowercase();
+            match v.as_str() {
+                "1" | "true" | "on" | "yes" | "flip" => true,
+                "0" | "false" | "off" | "no" | "none" => false,
+                other => {
+                    eprintln!(
+                        "proteus-compositor-next: unknown PROTEUS_SCREENCOPY_FLIP_Y={other} — auto"
+                    );
+                    !virtio_gpu_present()
+                }
+            }
+        }
+        Err(_) => !virtio_gpu_present(),
+    }
+}
+
+fn virtio_gpu_present() -> bool {
+    let Ok(entries) = std::fs::read_dir("/sys/class/drm") else {
+        return false;
+    };
+    for ent in entries.flatten() {
+        let name = ent.file_name();
+        let name = name.to_string_lossy();
+        if !name.starts_with("card") || name.contains('-') {
+            continue;
+        }
+        let driver = ent.path().join("device/driver");
+        if let Ok(link) = std::fs::read_link(&driver) {
+            if link.to_string_lossy().contains("virtio") {
+                return true;
+            }
+        }
+        if let Ok(uevent) = std::fs::read_to_string(ent.path().join("device/uevent")) {
+            if uevent.to_ascii_lowercase().contains("virtio") {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Map GLES readback into top-left row-major pixels for `CapturedFrame`.
+pub fn prepare_screencopy_pixels(src: &[u8], width: i32, height: i32) -> Vec<u8> {
+    if screencopy_should_flip_y() {
+        flip_y_xrgb(src, width, height)
+    } else {
+        src.to_vec()
+    }
+}
+
 pub struct ScreencopyManagerGlobalData;
 
 pub enum ScreencopyFrameState {
@@ -467,5 +527,35 @@ impl Dispatch<ZwlrScreencopyFrameV1, ScreencopyFrameState> for CompositorNext {
             }
             _ => unreachable!(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn flip_y_swaps_first_and_last_row() {
+        let src = [
+            1u8, 0, 0, 0, 2, 0, 0, 0, // y0
+            3, 0, 0, 0, 4, 0, 0, 0, // y1
+        ];
+        let out = flip_y_xrgb(&src, 2, 2);
+        assert_eq!(&out[0..4], &[3, 0, 0, 0]);
+        assert_eq!(&out[8..12], &[1, 0, 0, 0]);
+    }
+
+    #[test]
+    fn prepare_respects_flip_env() {
+        std::env::set_var("PROTEUS_SCREENCOPY_FLIP_Y", "0");
+        assert!(!screencopy_should_flip_y());
+        let src = [1u8, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0];
+        assert_eq!(prepare_screencopy_pixels(&src, 2, 2), src);
+
+        std::env::set_var("PROTEUS_SCREENCOPY_FLIP_Y", "1");
+        assert!(screencopy_should_flip_y());
+        let flipped = prepare_screencopy_pixels(&src, 2, 2);
+        assert_eq!(&flipped[0..4], &[3, 0, 0, 0]);
+        std::env::remove_var("PROTEUS_SCREENCOPY_FLIP_Y");
     }
 }
