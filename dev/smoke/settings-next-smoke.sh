@@ -208,6 +208,11 @@ grep -q 'peripherals-keyboard\|keybinds.json\|compositor' "${ST_ROOT}/src/panes/
 # Phase 2 megas — canvas / grid / glances / headscale policy
 grep -q 'Layout canvas\|SetPosition\|NudgeX\|canvas::Program\|Canvas::new' "${ST_ROOT}/src/panes/displays.rs" \
   && ok "Displays layout canvas" || bad "Displays canvas missing"
+grep -q 'SetTransform\|transform_label' "${ST_ROOT}/src/panes/displays.rs" \
+  && grep -q 'SetTransform' "${ST_ROOT}/src/main.rs" \
+  && grep -q 'transform' "${ST_ROOT}/src/backend.rs" "${ROOT}/shell/scripts/proteus-settings-apply" \
+  && ok "Displays orientation/transform UI + apply" \
+  || bad "Displays orientation/transform missing"
 grep -q 'Wave Link grid\|MixRoute\|MixVolume' "${ST_ROOT}/src/panes/sound.rs" \
   && ok "Mixer Wave Link grid" || bad "Mixer grid missing"
 grep -q 'Glances\|EditSeat\|Connect / Save' "${ST_ROOT}/src/panes/accounts.rs" \
