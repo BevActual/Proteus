@@ -57,7 +57,7 @@ postures are thesis only. Docs describe the thesis ahead of code where marked
 | Quickshell shell | `retired` | QML chrome deleted 2026-08-06; do not reintroduce |
 | Nested compositor (host) | `shipped` | `dev/run-nested.sh` — compositor winit `-c proteus-chrome` (Hyprland purged) |
 | Owned-engine dogfood gate | `shipped` — Wave 4 closed; **2026-08-06 tree flip:** `shell/` is sole chrome crate (was `shell-next`); Quickshell + Settings QML deleted; face scaffold `shell/src/faces/`; see OWNED-STACK |
-| Owned compositor (`proteus-compositor`) | `shipped` (thin) | `compositor/` Smithay; DRM session + nested winit — [COMPOSITOR.md](./COMPOSITOR.md) · [COMPOSITOR-SPIKE.md](./COMPOSITOR-SPIKE.md) |
+| Owned compositor (`proteus-compositor`) | `shipped` (thin) | `compositor/` Smithay; DRM session + nested winit; `zwp_idle_inhibit` → systemd-inhibit for `proteus-idle` — [COMPOSITOR.md](./COMPOSITOR.md) · [COMPOSITOR-SPIKE.md](./COMPOSITOR-SPIKE.md) |
 | Soft hypr profile reload | `retired` | `env/hypr/` deleted; hard posture via `proteus-posture` only |
 | QS version pin / respawn policy | `retired` | `proteus-qs` + user unit deleted with QML chrome |
 

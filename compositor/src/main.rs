@@ -14,6 +14,7 @@ mod drm;
 mod grabs;
 mod handlers;
 mod identify;
+mod idle_inhibit;
 mod input;
 mod input_config;
 mod layout;

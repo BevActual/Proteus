@@ -39,6 +39,7 @@
 | Displays Fact + modeset | `works` (thin) — load `displays.json`; `dispatch output` scale/pos/mode/**transform**; monitors JSON live transform; **Identify** flash; Settings **10s Revert**; Settings orientation UI **In** (flipped Out) |
 | Session keybinds | `works` (thin) — Super chords in compositor (`binds.rs`); Super+Ctrl+1–0 local Spaces; Fact `keybinds.json`; `reloadbinds` (+ reload `workspaceNames`) |
 | `ext-session-lock-v1` | `partial` (thin) — `session_lock.rs` tracked; global advertised; blank xdg windows while locked; LockSurfaces drawn; ctl `session-lock` (`supported`/`pending`/`locked`/`active`); **Overlay remains default** shell Fact; protocol opt-in dogfood via `compositor-session-lock.sh` + `proteus-session-lock` |
+| `zwp_idle_inhibit_manager_v1` | `works` (thin) — `idle_inhibit.rs`; track inhibitors; `systemd-inhibit --what=idle` bridge for `proteus-idle`; ctl `idle-inhibit`; visibility-strict / ext-idle-notify Out |
 
 ### Supported ctl dispatches
 
@@ -54,7 +55,8 @@
 
 Queries (hypr-shaped JSON fields): `workspaces` · `activeworkspace` ·
 `clients` (incl. `at`/`size`/`output`) · `activewindow` · `monitors`
-(incl. `focused` · `activeWorkspace` · `transform`) · `session-lock`
+(incl. `focused` · `activeWorkspace` · `transform`) · `session-lock` ·
+`idle-inhibit`
 (`supported`/`pending`/`locked`/`active`). Workspace `name` honors `workspaceNames`.
 Helper: `proteus-compositorctl`.
 
@@ -228,4 +230,5 @@ backdrop shaders, pop-launcher. Proteus chrome stays in `proteus-shell`.
 
 Flipped transform UI, deeper multi-GPU policy,
 console-home gamescope swap, Settings keybind rebind editor,
-blur/anim polish, flip shell lock default to protocol.
+blur/anim polish, flip shell lock default to protocol,
+ext-idle-notify, visibility-strict idle-inhibit.

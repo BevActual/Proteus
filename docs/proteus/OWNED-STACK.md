@@ -55,7 +55,7 @@ useful even if the ladder stops there:
 |------|------|-----------|
 | **0. `proteus-shell-core`** | Facts, gating, posture, theme derivation as a tested Rust crate + subscribe stream (§4) | Prerequisite for every renderer (iced, XR); typed + `cargo test` |
 | **1. Owned chrome** | iced layer-shell shell (`shell/`) over the core — **shipped** (QML retired) | Compositor-agnostic chrome; faces under `shell/src/faces/` |
-| **2. Compositor** | Smithay `compositor/` — **Hyprland purged**; DRM session + Displays Fact (incl. live transform) + keybinds + nested winit; shell IPC `wm_ipc.rs`; `proteus-settings-apply`; owned idle; protocol lock opt-in dogfood | Deeper multi-GPU / flipped transform UI / blur still out — [COMPOSITOR-SPIKE.md](./COMPOSITOR-SPIKE.md) |
+| **2. Compositor** | Smithay `compositor/` — **Hyprland purged**; DRM session + Displays Fact (incl. live transform) + keybinds + nested winit; shell IPC `wm_ipc.rs`; `proteus-settings-apply`; owned idle + `zwp_idle_inhibit` bridge; protocol lock opt-in dogfood | Deeper multi-GPU / flipped transform UI / blur / idle-notify still out — [COMPOSITOR-SPIKE.md](./COMPOSITOR-SPIKE.md) |
 | **3. Faces on the owned stack** | Console + XR faces land natively (input, surfaces, state — one vocabulary) | Where the integration payoff compounds |
 | **4. App chrome toolkit** | First-party apps move from Tauri/WebKit to the owned iced toolkit | WebKit is the largest remaining black box; Settings/Workloads already iced siblings |
 

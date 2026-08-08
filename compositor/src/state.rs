@@ -31,6 +31,7 @@ use smithay::{
             wlr_layer::WlrLayerShellState,
             xdg::{decoration::XdgDecorationState, XdgShellState},
         },
+        idle_inhibit::IdleInhibitManagerState,
         session_lock::SessionLockManagerState,
         shm::ShmState,
         socket::ListeningSocketSource,
@@ -115,6 +116,13 @@ pub struct CompositorNext {
     pub session_lock_pending: bool,
     pub pending_locker: Option<SessionLocker>,
     pub pending_lock_blank_outputs: HashSet<String>,
+
+    /// zwp_idle_inhibit_manager_v1 global (Smithay).
+    pub idle_inhibit_state: IdleInhibitManagerState,
+    /// Surfaces with active idle inhibitors (thin — no visibility filter).
+    pub idle_inhibit_surfaces: Vec<WlSurface>,
+    /// systemd-inhibit bridge while any inhibitor is alive.
+    pub idle_inhibit_bridge: crate::idle_inhibit::SystemdIdleInhibit,
 }
 
 impl CompositorNext {
@@ -141,6 +149,7 @@ impl CompositorNext {
         let popups = PopupManager::default();
         let xwayland_shell_state = XWaylandShellState::new::<Self>(&dh);
         let session_lock_state = SessionLockManagerState::new::<Self, _>(&dh, |_| true);
+        let idle_inhibit_state = IdleInhibitManagerState::new::<Self>(&dh);
 
         let mut seat: Seat<Self> = seat_state.new_wl_seat(&dh, seat_name);
         // Repeat delay/rate — slightly conservative so iced text fields and
@@ -205,6 +214,9 @@ impl CompositorNext {
             session_lock_pending: false,
             pending_locker: None,
             pending_lock_blank_outputs: HashSet::new(),
+            idle_inhibit_state,
+            idle_inhibit_surfaces: Vec::new(),
+            idle_inhibit_bridge: crate::idle_inhibit::SystemdIdleInhibit::default(),
         }
     }
 

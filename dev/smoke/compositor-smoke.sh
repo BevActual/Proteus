@@ -100,6 +100,14 @@ grep -q 'input-reload\|InputConfig\|sensitivity_scale' \
 grep -q 'SessionLockManagerState\|delegate_session_lock\|session_lock' \
   "${CRATE}/src/session_lock.rs" "${CRATE}/src/state.rs" \
   || die "ext-session-lock module missing"
+grep -q 'IdleInhibitHandler\|delegate_idle_inhibit\|IdleInhibitManagerState' \
+  "${CRATE}/src/idle_inhibit.rs" "${CRATE}/src/state.rs" \
+  || die "zwp_idle_inhibit module missing"
+grep -q 'systemd-inhibit\|SystemdIdleInhibit\|idle_inhibit_bridge' \
+  "${CRATE}/src/idle_inhibit.rs" \
+  || die "idle-inhibit systemd bridge missing"
+grep -q 'idle-inhibit' "${CRATE}/src/ctl.rs" \
+  || die "ctl idle-inhibit probe missing"
 grep -q 'session-lock' "${CRATE}/src/ctl.rs" \
   || die "ctl session-lock probe missing"
 grep -q '"pending"\|session_lock_pending\|"active"' "${CRATE}/src/ctl.rs" \
@@ -408,6 +416,14 @@ else
     && echo "${slock}" | grep -q '"supported": *true' \
     && ok "ctl session-lock supported" \
     || die "session-lock probe failed: ${slock}"
+
+  # idle-inhibit probe — global advertised; count 0 until a client inhibits.
+  iinh="$("${CTL}" idle-inhibit 2>/dev/null || true)"
+  echo "${iinh}" | grep -q '"ok": *true' \
+    && echo "${iinh}" | grep -q '"supported": *true' \
+    && echo "${iinh}" | grep -q '"count"' \
+    && ok "ctl idle-inhibit supported" \
+    || die "idle-inhibit probe failed: ${iinh}"
 
   disp="$("${CTL}" dispatch workspace 2 2>/dev/null || true)"
   echo "${disp}" | grep -q '"ok": *true' \

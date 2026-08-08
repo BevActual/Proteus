@@ -182,6 +182,18 @@ impl CompositorNext {
                 "active": self.session_lock_active(),
             })
             .to_string()
+        } else if line == "idle-inhibit" {
+            self.sync_idle_inhibit_bridge();
+            // Touch global so IdleInhibitManagerState is considered live.
+            let _ = self.idle_inhibit_state.global();
+            serde_json::json!({
+                "ok": true,
+                "supported": true,
+                "active": self.idle_inhibit_active(),
+                "count": self.idle_inhibit_count(),
+                "bridge": self.idle_inhibit_bridge.active(),
+            })
+            .to_string()
         } else if line == "clients" {
             // Prefer live Space / Window geometry for hypr-shaped at/size.
             self.clients_json_live().to_string()
