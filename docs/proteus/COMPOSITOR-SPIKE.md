@@ -17,7 +17,7 @@
 | Interactive move / resize pointer grabs | `works` — marks window `floating`; loc synced into wm roster; **bindm** Super+LMB move · Super+RMB resize (`keybinds.json` `bindm` Fact) |
 | Equal / dwindle / master tiling | `partial` — default **dwindle**; `dispatch layout equal\|dwindle\|master`; gaps out/in (default **10/6**); **smart-gaps** (default on; zero gaps when one tiled window); `masterfactor`; per-output + exclusive zone; `togglefloating` |
 | Focus ring (CSD) | `works` (thin) — 2px accent MemoryRenderBuffer around focused **CSD** window; Cosmic `IndicatorShader` is pattern-only (never forked) |
-| xdg-decoration (`zxdg_decoration_manager_v1`) | `works` (thin) — **CSD-first** (GTK ServerSide asks ignored); SSD titlebar (28px) only when `t.ssd`; cosmic-text + close/move hits |
+| xdg-decoration (`zxdg_decoration_manager_v1`) | `works` (thin) — **CSD-first** (GTK ServerSide asks ignored); SSD titlebar (28px) only when `t.ssd`; cosmic-text + close/max/min hits; double-click titlebar maximize; button hover/press |
 | xdg popup pointer/keyboard grabs | `works` |
 | Nested Xwayland + X11Wm | `works` — soft-fail if `Xwayland` missing; X11 clients join wm/IPC roster |
 | wlr-layer-shell (map/arrange/anchor, exclusive zones via `layer_map`) | `works` |
@@ -32,7 +32,7 @@
 | Shell engine-aware IPC (`shell/src/wm_ipc.rs`) | `works` |
 | Clients JSON hypr-shaped `at` / `size` | `works` — live Space/Window geometry |
 | Session / DRM / libinput backend | `works` (thin) — `--backend drm`; **only** shipping path via `proteus-session` (Fact=hyprland refused; nested/missing/DRM fail → exit 1); install Fact + portal-wlr; Hyprland purged |
-| SSD maximize hit | `works` (thin) — `SsdHit::Maximize` / `maximize_hit` |
+| SSD maximize hit | `works` (thin) — `SsdHit::Maximize` / `maximize_hit`; titlebar double-click toggle |
 | Multi-GPU enumerate | `thin` — DRM lists GPUs; prefers **card** (Primary) node; `PROTEUS_DRM_DEVICE` override |
 | Soft cursor | `works` (thin) — default arrow MemoryRenderBuffer; `cursor_image` tracked; client surface → default |
 | VirGL / virtio transform | `thin` — prefers **card** node; `PROTEUS_DRM_TRANSFORM` (`normal`/`180`/`flipped`/…) for host-GL orientation quirks (no auto flip — VirGL hosts differ) |
@@ -167,8 +167,9 @@ proteus-compositor: layer mapped: proteus-bar
   new / unset (app chrome); SSD only for explicit `ServerSide`; sync
   `ToplevelRecord.ssd`.
 - Thin SSD draw ([`decoration.rs`](../../compositor/src/decoration.rs)):
-  `TITLEBAR_H=28` solid bar (+ maximize/close squares) + **cosmic-text title** via
-  `MemoryRenderBuffer` (truncate/ellipsis); maximize / close / drag-move on the bar.
+  `TITLEBAR_H=28` solid bar (+ minimize/maximize/close) + **cosmic-text title** via
+  `MemoryRenderBuffer` (truncate/ellipsis); hits + drag-move; **double-click**
+  titlebar maximize/restore; button **hover/press** colors.
 
 ### Displays Fact / modeset (2026-08-06)
 

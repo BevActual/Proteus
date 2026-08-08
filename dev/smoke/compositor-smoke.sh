@@ -50,6 +50,12 @@ grep -q 'SsdHit::Maximize\|maximize_hit' "${CRATE}/src/input.rs" "${CRATE}/src/d
 grep -q 'SsdHit::Minimize\|minimize_hit\|minimize_address' \
   "${CRATE}/src/input.rs" "${CRATE}/src/decoration.rs" "${CRATE}/src/ctl.rs" \
   || die "SSD minimize hit missing (SsdHit::Minimize / minimize_address)"
+grep -q 'is_ssd_titlebar_double_click\|SSD_DOUBLE_CLICK_MS' \
+  "${CRATE}/src/decoration.rs" "${CRATE}/src/input.rs" \
+  || die "SSD titlebar double-click maximize missing"
+grep -q 'ssd_hover\|SsdChromePart\|btn_fill\|COLOR_CLOSE_HOVER' \
+  "${CRATE}/src/decoration.rs" "${CRATE}/src/input.rs" "${CRATE}/src/state.rs" \
+  || die "SSD button hover/press feedback missing"
 grep -q 'enumerate gpus\|PROTEUS_DRM_DEVICE' "${CRATE}/src/drm.rs" \
   || die "drm multi-GPU thin enumerate / PROTEUS_DRM_DEVICE missing"
 grep -q 'cursor_render_elements\|CursorState\|Kind::Cursor' \

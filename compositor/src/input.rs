@@ -21,9 +21,14 @@ use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel;
 use smithay::utils::{Logical, Point, Rectangle};
 
 use crate::binds::{self, BindAction, BindmAction};
-use crate::decoration::SsdHit;
+use crate::decoration::{
+    is_ssd_titlebar_double_click, ssd_chrome_part_from_hit, SsdHit, SsdTitlebarClick,
+};
 use crate::grabs::{MoveSurfaceGrab, ResizeSurfaceGrab};
 use crate::state::CompositorNext;
+
+/// libinput / smithay BTN_LEFT.
+const BTN_LEFT: u32 = 0x110;
 
 impl CompositorNext {
     pub fn process_input_event<I: InputBackend>(&mut self, event: InputEvent<I>) {
@@ -120,6 +125,7 @@ impl CompositorNext {
                     },
                 );
                 pointer.frame(self);
+                self.update_ssd_pointer_chrome(pos);
             }
             InputEvent::PointerMotionAbsolute { event, .. } => {
                 let Some(output) = self.space.outputs().next() else {
@@ -140,6 +146,7 @@ impl CompositorNext {
                     },
                 );
                 pointer.frame(self);
+                self.update_ssd_pointer_chrome(pos);
             }
             InputEvent::PointerButton { event, .. } => {
                 let pointer = self.seat.get_pointer().unwrap();
@@ -148,6 +155,11 @@ impl CompositorNext {
                 let button = event.button_code();
                 let button_state = event.state();
                 let location = pointer.current_location();
+                let time_msec = event.time_msec();
+
+                if button == BTN_LEFT && button_state == ButtonState::Released {
+                    self.ssd_pressed = None;
+                }
 
                 if ButtonState::Pressed == button_state && !pointer.is_grabbed() {
                     if self.session_lock_active() {
@@ -171,6 +183,11 @@ impl CompositorNext {
 
                     // SSD chrome takes precedence over client surfaces under the bar.
                     if let Some(hit) = self.ssd_hit_at(location) {
+                        if button == BTN_LEFT {
+                            if let Some(part) = ssd_chrome_part_from_hit(&hit) {
+                                self.ssd_pressed = Some(part);
+                            }
+                        }
                         match hit {
                             SsdHit::Close { address } => {
                                 self.focus_address(&address);
@@ -185,7 +202,29 @@ impl CompositorNext {
                                 self.minimize_address(&address);
                             }
                             SsdHit::Titlebar { address } => {
-                                self.start_ssd_move(&address, button, location, serial);
+                                self.focus_address(&address);
+                                if button == BTN_LEFT
+                                    && is_ssd_titlebar_double_click(
+                                        self.ssd_last_titlebar_click.as_ref(),
+                                        &address,
+                                        time_msec,
+                                        location.x,
+                                        location.y,
+                                    )
+                                {
+                                    self.ssd_last_titlebar_click = None;
+                                    self.toggle_maximized(&address);
+                                } else {
+                                    if button == BTN_LEFT {
+                                        self.ssd_last_titlebar_click = Some(SsdTitlebarClick {
+                                            address: address.clone(),
+                                            time_msec,
+                                            x: location.x,
+                                            y: location.y,
+                                        });
+                                    }
+                                    self.start_ssd_move(&address, button, location, serial);
+                                }
                             }
                         }
                         pointer.button(
@@ -194,7 +233,7 @@ impl CompositorNext {
                                 button,
                                 state: button_state,
                                 serial,
-                                time: event.time_msec(),
+                                time: time_msec,
                             },
                         );
                         pointer.frame(self);
@@ -313,6 +352,15 @@ impl CompositorNext {
                 pointer.frame(self);
             }
             _ => {}
+        }
+    }
+
+    fn update_ssd_pointer_chrome(&mut self, pos: Point<f64, Logical>) {
+        let hover = self
+            .ssd_hit_at(pos)
+            .and_then(|h| ssd_chrome_part_from_hit(&h));
+        if hover != self.ssd_hover {
+            self.ssd_hover = hover;
         }
     }
 

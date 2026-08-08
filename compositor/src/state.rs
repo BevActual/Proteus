@@ -87,6 +87,12 @@ pub struct CompositorNext {
     pub pending_screencopies: Vec<PendingScreencopy>,
     /// SSD titlebar font + MemoryRenderBuffer cache.
     pub ssd_chrome: crate::decoration::SsdChrome,
+    /// Last LMB on SSD titlebar body (double-click maximize).
+    pub ssd_last_titlebar_click: Option<crate::decoration::SsdTitlebarClick>,
+    /// Pointer over close/max/min cell.
+    pub ssd_hover: Option<(String, crate::decoration::SsdChromePart)>,
+    /// LMB held on close/max/min cell.
+    pub ssd_pressed: Option<(String, crate::decoration::SsdChromePart)>,
     /// Soft pointer cursor (default arrow).
     pub cursor: crate::cursor::CursorState,
     /// Identify flash deadline + badge cache.
@@ -184,6 +190,9 @@ impl CompositorNext {
             last_frame: None,
             pending_screencopies: Vec::new(),
             ssd_chrome: crate::decoration::SsdChrome::default(),
+            ssd_last_titlebar_click: None,
+            ssd_hover: None,
+            ssd_pressed: None,
             cursor: crate::cursor::CursorState::default(),
             identify_until: None,
             identify_chrome: crate::identify::IdentifyChrome::default(),

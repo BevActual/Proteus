@@ -1,5 +1,6 @@
 //! Thin server-side decoration chrome (OWNED-STACK compositor spike).
-//! Solid titlebar + maximize/close hits + cosmic-text title (MemoryRenderBuffer).
+//! Solid titlebar + close/maximize/minimize hits + cosmic-text title
+//! (MemoryRenderBuffer). Double-click titlebar maximize · button hover/press.
 
 use std::collections::HashMap;
 
@@ -30,12 +31,84 @@ const COLOR_FOCUS_RING: [u8; 4] = [88, 166, 255, 220];
 const COLOR_BAR: [u8; 4] = [31, 33, 41, 255]; // ~0.12,0.13,0.16
 const COLOR_BAR_FOCUSED: [u8; 4] = [46, 51, 61, 255]; // ~0.18,0.20,0.24
 const COLOR_CLOSE: [u8; 4] = [191, 71, 71, 255]; // ~0.75,0.28,0.28
+const COLOR_CLOSE_HOVER: [u8; 4] = [220, 95, 95, 255];
+const COLOR_CLOSE_PRESS: [u8; 4] = [150, 50, 50, 255];
 const COLOR_MAXIMIZE: [u8; 4] = [90, 120, 160, 255]; // soft blue square
+const COLOR_MAXIMIZE_HOVER: [u8; 4] = [120, 150, 190, 255];
+const COLOR_MAXIMIZE_PRESS: [u8; 4] = [70, 95, 130, 255];
 const COLOR_MINIMIZE: [u8; 4] = [120, 124, 136, 255]; // mute gray —
+const COLOR_MINIMIZE_HOVER: [u8; 4] = [150, 154, 166, 255];
+const COLOR_MINIMIZE_PRESS: [u8; 4] = [90, 94, 106, 255];
 const COLOR_TITLE: CosmicColor = CosmicColor::rgb(0xE8, 0xE8, 0xEC);
 const TITLE_PAD_X: i32 = 8;
 const FONT_SIZE: f32 = 13.0;
 const LINE_HEIGHT: f32 = 18.0;
+
+/// Double-click window for SSD titlebar maximize (msec).
+pub const SSD_DOUBLE_CLICK_MS: u32 = 400;
+/// Max pointer drift between clicks (logical px).
+pub const SSD_DOUBLE_CLICK_SLOP: f64 = 4.0;
+
+/// Titlebar control cell (hover / pressed feedback).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SsdChromePart {
+    Close,
+    Maximize,
+    Minimize,
+}
+
+/// Last LMB press on SSD titlebar body (for double-click maximize).
+#[derive(Debug, Clone)]
+pub struct SsdTitlebarClick {
+    pub address: String,
+    pub time_msec: u32,
+    pub x: f64,
+    pub y: f64,
+}
+
+/// True when `time`/`pos` is a second click on the same titlebar within the window.
+pub fn is_ssd_titlebar_double_click(
+    prev: Option<&SsdTitlebarClick>,
+    address: &str,
+    time_msec: u32,
+    x: f64,
+    y: f64,
+) -> bool {
+    let Some(p) = prev else {
+        return false;
+    };
+    if p.address != address {
+        return false;
+    }
+    let dt = time_msec.wrapping_sub(p.time_msec);
+    if dt > SSD_DOUBLE_CLICK_MS {
+        return false;
+    }
+    (x - p.x).abs() <= SSD_DOUBLE_CLICK_SLOP && (y - p.y).abs() <= SSD_DOUBLE_CLICK_SLOP
+}
+
+pub fn ssd_chrome_part_from_hit(hit: &SsdHit) -> Option<(String, SsdChromePart)> {
+    match hit {
+        SsdHit::Close { address } => Some((address.clone(), SsdChromePart::Close)),
+        SsdHit::Maximize { address } => Some((address.clone(), SsdChromePart::Maximize)),
+        SsdHit::Minimize { address } => Some((address.clone(), SsdChromePart::Minimize)),
+        SsdHit::Titlebar { .. } => None,
+    }
+}
+
+fn btn_fill(part: SsdChromePart, hover: bool, pressed: bool) -> [u8; 4] {
+    match (part, pressed, hover) {
+        (SsdChromePart::Close, true, _) => COLOR_CLOSE_PRESS,
+        (SsdChromePart::Close, _, true) => COLOR_CLOSE_HOVER,
+        (SsdChromePart::Close, _, _) => COLOR_CLOSE,
+        (SsdChromePart::Maximize, true, _) => COLOR_MAXIMIZE_PRESS,
+        (SsdChromePart::Maximize, _, true) => COLOR_MAXIMIZE_HOVER,
+        (SsdChromePart::Maximize, _, _) => COLOR_MAXIMIZE,
+        (SsdChromePart::Minimize, true, _) => COLOR_MINIMIZE_PRESS,
+        (SsdChromePart::Minimize, _, true) => COLOR_MINIMIZE_HOVER,
+        (SsdChromePart::Minimize, _, _) => COLOR_MINIMIZE,
+    }
+}
 
 /// Font + titlebar pixel cache for SSD chrome.
 pub struct SsdChrome {
@@ -70,6 +143,8 @@ struct TitleCacheKey {
     h: i32,
     focused: bool,
     show_maximize: bool,
+    hover: Option<SsdChromePart>,
+    pressed: Option<SsdChromePart>,
 }
 
 impl Default for SsdChrome {
@@ -317,6 +392,17 @@ pub fn truncate_title_to_width(
     best
 }
 
+fn part_active(
+    part: SsdChromePart,
+    hover: Option<SsdChromePart>,
+    pressed: Option<SsdChromePart>,
+) -> (bool, bool) {
+    (
+        hover == Some(part),
+        pressed == Some(part),
+    )
+}
+
 fn rasterize_titlebar(
     chrome: &mut SsdChrome,
     title: &str,
@@ -324,6 +410,8 @@ fn rasterize_titlebar(
     h: i32,
     focused: bool,
     show_maximize: bool,
+    hover: Option<SsdChromePart>,
+    pressed: Option<SsdChromePart>,
 ) -> MemoryRenderBuffer {
     let w = w.max(1);
     let h = h.max(1);
@@ -351,16 +439,18 @@ fn rasterize_titlebar(
     let inner_w = (btn_w - 2 * inset).max(1);
     let inner_h = (h - 2 * inset).max(1);
     // Windows order from the right: close · maximize · minimize.
+    let (h_close, p_close) = part_active(SsdChromePart::Close, hover, pressed);
     fill_rgba(
         &mut pixels,
         stride,
         w,
         h,
         Rectangle::new((w - btn_w + inset, inset).into(), (inner_w, inner_h).into()),
-        COLOR_CLOSE,
+        btn_fill(SsdChromePart::Close, h_close, p_close),
     );
     let mut next = 2;
     if show_maximize && w >= btn_w * 2 {
+        let (h_max, p_max) = part_active(SsdChromePart::Maximize, hover, pressed);
         fill_rgba(
             &mut pixels,
             stride,
@@ -370,7 +460,7 @@ fn rasterize_titlebar(
                 (w - 2 * btn_w + inset, inset).into(),
                 (inner_w, inner_h).into(),
             ),
-            COLOR_MAXIMIZE,
+            btn_fill(SsdChromePart::Maximize, h_max, p_max),
         );
         next = 3;
     }
@@ -378,6 +468,7 @@ fn rasterize_titlebar(
         // Minimize: thin bar in the lower third of the button cell.
         let bar_h = (inner_h / 5).max(1);
         let bar_y = inset + inner_h - bar_h - (inset / 2).max(1);
+        let (h_min, p_min) = part_active(SsdChromePart::Minimize, hover, pressed);
         fill_rgba(
             &mut pixels,
             stride,
@@ -387,7 +478,7 @@ fn rasterize_titlebar(
                 (w - next * btn_w + inset, bar_y).into(),
                 (inner_w, bar_h).into(),
             ),
-            COLOR_MINIMIZE,
+            btn_fill(SsdChromePart::Minimize, h_min, p_min),
         );
     }
 
@@ -522,6 +613,8 @@ impl CompositorNext {
         let out_name = output.name();
         let active = self.wm.active_for_output(&out_name);
         let primary = self.primary_output_name();
+        let hover = self.ssd_hover.clone();
+        let pressed = self.ssd_pressed.clone();
         let mut out = Vec::new();
         let mut keep: Vec<String> = Vec::new();
 
@@ -566,12 +659,22 @@ impl CompositorNext {
                 bar_local.to_physical_precise_round(scale);
             let pw = bar_phys.size.w.max(1);
             let ph = bar_phys.size.h.max(1);
+            let hover_here = hover
+                .as_ref()
+                .filter(|(a, _)| a == &address)
+                .map(|(_, p)| *p);
+            let pressed_here = pressed
+                .as_ref()
+                .filter(|(a, _)| a == &address)
+                .map(|(_, p)| *p);
             let key = TitleCacheKey {
                 title: title.clone(),
                 w: pw,
                 h: ph,
                 focused: focused_here,
                 show_maximize,
+                hover: hover_here,
+                pressed: pressed_here,
             };
 
             let need_new = match self.ssd_chrome.buffers.get(&address) {
@@ -586,6 +689,8 @@ impl CompositorNext {
                     ph,
                     focused_here,
                     show_maximize,
+                    hover_here,
+                    pressed_here,
                 );
                 self.ssd_chrome.buffers.insert(
                     address.clone(),
@@ -772,6 +877,45 @@ mod tests {
     fn empty_title_truncates_clean() {
         let mut fs = FontSystem::new();
         assert_eq!(truncate_title_to_width(&mut fs, "", 100.0), "");
+    }
+
+    #[test]
+    fn titlebar_double_click_window() {
+        let prev = SsdTitlebarClick {
+            address: "0x1".into(),
+            time_msec: 1000,
+            x: 10.0,
+            y: 10.0,
+        };
+        assert!(is_ssd_titlebar_double_click(
+            Some(&prev),
+            "0x1",
+            1200,
+            11.0,
+            9.0
+        ));
+        assert!(!is_ssd_titlebar_double_click(
+            Some(&prev),
+            "0x1",
+            1500,
+            11.0,
+            9.0
+        ));
+        assert!(!is_ssd_titlebar_double_click(
+            Some(&prev),
+            "0x2",
+            1100,
+            11.0,
+            9.0
+        ));
+        assert!(!is_ssd_titlebar_double_click(
+            Some(&prev),
+            "0x1",
+            1100,
+            20.0,
+            10.0
+        ));
+        assert!(!is_ssd_titlebar_double_click(None, "0x1", 1100, 10.0, 10.0));
     }
 
     #[test]
