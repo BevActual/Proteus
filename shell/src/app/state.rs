@@ -225,6 +225,9 @@ pub(crate) struct App {
     pub(crate) hud_kind: String,
     pub(crate) hud_value: f32,
     pub(crate) privacy_ask: Option<String>,
+    pub(crate) privacy_ask_app: Option<String>,
+    /// Throttle for mid-session `enforce-capture` while privacy dots are lit.
+    pub(crate) privacy_enforce_at: Option<Instant>,
     pub(crate) beacon_query: String,
     pub(crate) toast: Option<Notification>,
     pub(crate) notif_items: Vec<Notification>,

@@ -181,6 +181,12 @@ grep -q 'Minimize\|minimize_hit' "${ROOT}/compositor/src/decoration.rs" \
   && ok "SSD minimize chrome" || bad "SSD minimize missing"
 grep -rq --include='*.rs' 'PrivacyDots\|privacy_dots\|OpenPrivacy' "${PLATFORM}" "${SURFACES}" \
   && ok "privacy dots" || bad "privacy dots missing"
+grep -rq --include='*.rs' 'PrivacyAllow\|session-allow\|privacy_ask_app\|enforce-capture' \
+  "${APP}" "${SURFACES}" "${ROOT}/shell/src/ctl.rs" \
+  && grep -q 'session-allow\|session-clear\|save_session_allows' \
+    "${ROOT}/shell/scripts/proteus-permissions.py" \
+  && ok "Privacy Ask Allow/Deny + session/enforce thin" \
+  || bad "Privacy Ask wire missing"
 grep -rq --include='*.rs' 'PowerProfile\|power_set_profile_index\|VolumeStep' "${SURFACES}" "${PLATFORM}" \
   && ok "CC power/volume" || bad "CC power/volume missing"
 grep -rqE --include='*.rs' 'ToggleFloating|VolumeMute' "${SURFACES}" "${APP}" "${MAIN}" \

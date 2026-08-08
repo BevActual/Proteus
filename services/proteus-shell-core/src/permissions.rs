@@ -121,7 +121,20 @@ impl PermissionsStore {
             return;
         };
         if let Some(obj) = v.as_object() {
+            // Dual shape: grants[] + flat "app\tcat": true map.
+            if let Some(arr) = obj.get("grants").and_then(|g| g.as_array()) {
+                for item in arr {
+                    if let Some(k) = item.as_str() {
+                        if k.contains('\t') {
+                            self.session_allow.insert(k.to_string(), true);
+                        }
+                    }
+                }
+            }
             for (k, val) in obj {
+                if k == "grants" || !k.contains('\t') {
+                    continue;
+                }
                 if val.as_bool().unwrap_or(false) || val.as_str() == Some("allow") {
                     self.session_allow.insert(k.clone(), true);
                 }

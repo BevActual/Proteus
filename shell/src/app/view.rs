@@ -229,7 +229,9 @@ pub(crate) fn view_real(app: &App, id: window::Id) -> Element<'_, Message> {
             }
         }
         n if n == layers::PRIVACY_ASK => match &app.privacy_ask {
-            Some(cat) if !suppressed => surfaces::privacy_ask_view(&app.theme, cat),
+            Some(cat) if !suppressed => {
+                surfaces::privacy_ask_view(&app.theme, cat, app.privacy_ask_app.as_deref())
+            }
             _ => surfaces::empty_layer(&app.theme),
         },
         _ if app.face == Face::Console && !suppressed => {

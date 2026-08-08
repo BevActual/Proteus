@@ -169,11 +169,35 @@ pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
                 n.items.retain(|x| x.id != id);
             }
         }
-        SurfaceMsg::PrivacyAllow | SurfaceMsg::PrivacyDeny => {
-            if let Ok(mut s) = app.chrome.lock() {
-                s.privacy_ask = None;
+        SurfaceMsg::PrivacyAllow => {
+            let (cat, app_id) = {
+                let s = app.chrome.lock().ok();
+                s.map(|g| (g.privacy_ask.clone(), g.privacy_ask_app.clone()))
+                    .unwrap_or((None, None))
+            };
+            if let (Some(cat), Some(aid)) = (cat.as_deref(), app_id.as_deref()) {
+                let _ = std::process::Command::new("proteus-permissions.py")
+                    .args(["session-allow", aid, cat])
+                    .spawn();
             }
-            app.chrome_epoch.fetch_add(1, Ordering::Relaxed);
+            clear_privacy_ask(app);
+        }
+        SurfaceMsg::PrivacyDeny => {
+            let (cat, app_id) = {
+                let s = app.chrome.lock().ok();
+                s.map(|g| (g.privacy_ask.clone(), g.privacy_ask_app.clone()))
+                    .unwrap_or((None, None))
+            };
+            if let (Some(cat), Some(aid)) = (cat.as_deref(), app_id.as_deref()) {
+                let _ = std::process::Command::new("proteus-permissions.py")
+                    .args(["store-set-app", aid, cat, "deny"])
+                    .spawn();
+            } else {
+                let _ = std::process::Command::new("proteus-permissions.py")
+                    .arg("enforce-capture")
+                    .spawn();
+            }
+            clear_privacy_ask(app);
         }
         SurfaceMsg::OpenSettingsPage(page) => {
             let _ = std::process::Command::new("proteus-open")
@@ -193,4 +217,14 @@ pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
         _ => unreachable!(),
     }
     Task::none()
+}
+
+fn clear_privacy_ask(app: &mut App) {
+    if let Ok(mut s) = app.chrome.lock() {
+        s.privacy_ask = None;
+        s.privacy_ask_app = None;
+    }
+    app.privacy_ask = None;
+    app.privacy_ask_app = None;
+    app.chrome_epoch.fetch_add(1, Ordering::Relaxed);
 }

@@ -37,6 +37,7 @@ pub(crate) fn sync_snapshots(app: &mut App) {
         app.hud_kind = c.hud_kind.clone();
         app.hud_value = c.hud_value;
         app.privacy_ask = c.privacy_ask.clone();
+        app.privacy_ask_app = c.privacy_ask_app.clone();
         app.beacon_query = c.beacon_query.clone();
         app.widget_kinds = c.widgets.clone();
         // IPC `widgets add` only updates kind list — place any missing.
@@ -67,6 +68,7 @@ pub(crate) fn sync_snapshots(app: &mut App) {
             hud_value: c.hud_value,
             toast_queue: c.toast_queue.clone(),
             privacy_ask: c.privacy_ask.clone(),
+            privacy_ask_app: c.privacy_ask_app.clone(),
             widgets_customize: c.widgets_customize,
             lock_customize: c.lock_customize,
             widgets: c.widgets.clone(),
@@ -200,6 +202,22 @@ pub(crate) fn refresh_heavy(app: &mut App) {
     if let Ok(s) = app.heavy.snap.try_lock() {
         app.power = s.power.clone();
         app.privacy_dots = s.privacy.clone();
+        // Thin capture enforce while indicators are lit (Deny/Ask + no session grant).
+        let dots = app.privacy_dots.mic || app.privacy_dots.camera || app.privacy_dots.screen;
+        if dots {
+            let due = app
+                .privacy_enforce_at
+                .map(|t| t.elapsed() >= Duration::from_secs(12))
+                .unwrap_or(true);
+            if due {
+                app.privacy_enforce_at = Some(Instant::now());
+                thread::spawn(|| {
+                    let _ = std::process::Command::new("proteus-permissions.py")
+                        .arg("enforce-capture")
+                        .output();
+                });
+            }
+        }
         app.dnd = s.dnd;
         app.volume = s.volume;
         app.brightness = s.brightness;

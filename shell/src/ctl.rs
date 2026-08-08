@@ -59,7 +59,10 @@ pub struct ChromeState {
     pub hud_kind: String,
     pub hud_value: f32,
     pub toast_queue: VecDeque<String>,
+    /// Privacy Ask category (`microphone` | `camera` | `screen`).
     pub privacy_ask: Option<String>,
+    /// Optional app id for the open Privacy Ask (session / store target).
+    pub privacy_ask_app: Option<String>,
     pub widgets_customize: bool,
     /// Customize Lock Screen edit chrome on the lock layer.
     pub lock_customize: bool,
@@ -96,6 +99,7 @@ impl ChromeState {
             "widgets": self.widgets,
             "widgetsSnap": self.widgets_snap,
             "privacyAsk": self.privacy_ask,
+            "privacyAskApp": self.privacy_ask_app,
             "engine": "owned",
             "layers": crate::layers::all(),
             "targets": ipc_targets::all(),
@@ -393,12 +397,34 @@ pub fn handle_request(state: &SharedChrome, epoch: &ChromeEpoch, req: &Request) 
             }
         }
         (ipc_targets::CHROME, "privacyAsk") => {
-            s.privacy_ask = req.args.first().cloned();
+            let cat = req.args.first().cloned().unwrap_or_default();
+            let cat = cat.trim().to_string();
+            if cat.is_empty() || cat.eq_ignore_ascii_case("clear") {
+                s.privacy_ask = None;
+                s.privacy_ask_app = None;
+            } else {
+                let lower = cat.to_lowercase();
+                let norm = match lower.as_str() {
+                    "mic" | "microphone" => "microphone",
+                    "cam" | "camera" => "camera",
+                    "screen" | "screenshare" | "screencast" => "screen",
+                    other => other,
+                };
+                s.privacy_ask = Some(norm.to_string());
+                s.privacy_ask_app = req
+                    .args
+                    .get(1)
+                    .map(|a| a.trim().to_string())
+                    .filter(|a| !a.is_empty());
+            }
             bump(epoch);
             Response {
                 ok: true,
                 error: String::new(),
-                result: json!({"privacyAsk": s.privacy_ask}),
+                result: json!({
+                    "privacyAsk": s.privacy_ask,
+                    "privacyAskApp": s.privacy_ask_app,
+                }),
             }
         }
         (ipc_targets::HUD, "ping" | "hide") => {

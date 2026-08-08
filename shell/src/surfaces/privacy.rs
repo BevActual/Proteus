@@ -22,13 +22,21 @@ use super::{
     DockPreview, DockPreviewWin, Message,
 };
 
-pub fn privacy_ask_view<'a>(theme: &'a Theme, category: &'a str) -> Element<'a, Message> {
+pub fn privacy_ask_view<'a>(
+    theme: &'a Theme,
+    category: &'a str,
+    app_id: Option<&'a str>,
+) -> Element<'a, Message> {
     // Category icon disc in its semantic privacy color.
     let (glyph, color) = match category {
         "mic" | "microphone" => ("mic", theme.privacy_mic),
         "camera" | "cam" => ("camera", theme.privacy_cam),
         "screen" | "screenshare" => ("screen", theme.privacy_screen),
         _ => ("dot", theme.accent),
+    };
+    let subtitle = match app_id {
+        Some(app) if !app.is_empty() => format!("Allow {category} for {app}?"),
+        _ => format!("Allow {category} access?"),
     };
     let disc = container(crate::icons::glyph_view(glyph, 18.0, color))
         .width(Length::Fixed(40.0))
@@ -57,7 +65,7 @@ pub fn privacy_ask_view<'a>(theme: &'a Theme, category: &'a str) -> Element<'a, 
                         .size(14)
                         .font(semibold())
                         .color(theme.text),
-                    text(format!("Allow {category} access?"))
+                    text(subtitle)
                         .size(13)
                         .color(theme.text_dim),
                 ]
@@ -70,7 +78,7 @@ pub fn privacy_ask_view<'a>(theme: &'a Theme, category: &'a str) -> Element<'a, 
                     .on_press(Message::PrivacyDeny)
                     .padding(Padding::new(8.0).left(20.0).right(20.0))
                     .style(theme.ghost_button_style()),
-                button(text("Allow").size(13))
+                button(text("Allow once").size(13))
                     .on_press(Message::PrivacyAllow)
                     .padding(Padding::new(8.0).left(20.0).right(20.0))
                     .style(theme.accent_button_style()),

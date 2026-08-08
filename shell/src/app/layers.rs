@@ -157,7 +157,11 @@ pub(crate) fn overlay_desired(app: &App, ns: &str) -> (InputShape, KeyboardInter
             } else {
                 InputShape::Empty
             },
-            Ki::None,
+            if app.privacy_ask.is_some() {
+                Ki::Exclusive
+            } else {
+                Ki::None
+            },
         ),
         n if n == layers::DESKTOP_WIDGETS => (
             if app.chrome_snap.widgets_customize || !app.desktop_widgets.items.is_empty() {

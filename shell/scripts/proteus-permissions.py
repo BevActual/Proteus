@@ -66,7 +66,12 @@ def session_path() -> Path:
 
 
 def load_session_allows() -> set[str]:
-    """Keys 'appId\\tcategory' from session file."""
+    """Keys 'appId\\tcategory' from session file.
+
+    Accepts both shapes:
+    - `{ "grants": ["app\\tcat", ...] }` (Python / iced writer)
+    - `{ "app\\tcat": true, ... }` (legacy flat map)
+    """
     path = session_path()
     if not path.is_file():
         return set()
@@ -75,11 +80,60 @@ def load_session_allows() -> set[str]:
     except Exception:
         return set()
     out: set[str] = set()
-    for item in raw.get("grants") or []:
-        s = str(item or "").strip()
-        if "\t" in s:
-            out.add(s)
+    if isinstance(raw, dict):
+        for item in raw.get("grants") or []:
+            s = str(item or "").strip()
+            if "\t" in s:
+                out.add(s)
+        for k, val in raw.items():
+            if k == "grants" or "\t" not in str(k):
+                continue
+            if val is True or val == "allow":
+                out.add(str(k))
     return out
+
+
+def save_session_allows(keys: set[str]) -> None:
+    path = session_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    grants = sorted(k for k in keys if "\t" in k)
+    # Dual-write: grants[] for Python readers + flat map for shell-core.
+    payload: dict = {"grants": grants}
+    for k in grants:
+        payload[k] = True
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def cmd_session_allow(args: argparse.Namespace) -> int:
+    aid = normalize_app_id(args.app)
+    cat = str(args.category)
+    if not aid:
+        print(json.dumps({"ok": False, "error": "empty app id"}))
+        return 1
+    if cat not in CATEGORIES:
+        print(json.dumps({"ok": False, "error": f"unknown category: {cat}"}))
+        return 1
+    keys = load_session_allows()
+    keys.add(f"{aid}\t{cat}")
+    save_session_allows(keys)
+    print(json.dumps({"ok": True, "app": aid, "category": cat, "session": True}))
+    return 0
+
+
+def cmd_session_clear(args: argparse.Namespace) -> int:
+    aid = normalize_app_id(args.app) if getattr(args, "app", None) else ""
+    cat = str(getattr(args, "category", "") or "")
+    keys = load_session_allows()
+    if aid and cat:
+        keys.discard(f"{aid}\t{cat}")
+        save_session_allows(keys)
+    elif not aid and not cat:
+        save_session_allows(set())
+    else:
+        print(json.dumps({"ok": False, "error": "need app+category or neither"}))
+        return 1
+    print(json.dumps({"ok": True, "cleared": True}))
+    return 0
 
 
 def _run(cmd: list[str], timeout: float = 8.0) -> tuple[int, str, str]:
@@ -777,8 +831,8 @@ def cmd_store_set_category(args: argparse.Namespace) -> int:
     if cat not in CATEGORIES:
         print(json.dumps({"ok": False, "error": f"unknown category: {cat}"}))
         return 1
-    if state not in ("allow", "deny"):
-        print(json.dumps({"ok": False, "error": "category state must be allow|deny"}))
+    if state not in ("allow", "ask", "deny"):
+        print(json.dumps({"ok": False, "error": "category state must be allow|ask|deny"}))
         return 1
     data = load_store()
     data["categories"][cat] = state
@@ -1018,7 +1072,7 @@ def main() -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("store-get", help="Print permissions.json")
-    p_sc = sub.add_parser("store-set-category", help="Set global category allow|deny")
+    p_sc = sub.add_parser("store-set-category", help="Set global category allow|ask|deny")
     p_sc.add_argument("category")
     p_sc.add_argument("state")
 
@@ -1026,6 +1080,13 @@ def main() -> int:
     p_sa.add_argument("app")
     p_sa.add_argument("category")
     p_sa.add_argument("state")
+
+    p_sess = sub.add_parser("session-allow", help="Ephemeral Allow-once grant for this session")
+    p_sess.add_argument("app")
+    p_sess.add_argument("category")
+    p_sclear = sub.add_parser("session-clear", help="Clear session grants (all or one)")
+    p_sclear.add_argument("app", nargs="?", default="")
+    p_sclear.add_argument("category", nargs="?", default="")
 
     sub.add_parser("activity", help="In-use mic/camera/screen + apps")
 
@@ -1052,6 +1113,8 @@ def main() -> int:
         "store-get": cmd_store_get,
         "store-set-category": cmd_store_set_category,
         "store-set-app": cmd_store_set_app,
+        "session-allow": cmd_session_allow,
+        "session-clear": cmd_session_clear,
         "activity": cmd_activity,
         "flatpak-list": cmd_flatpak_list,
         "flatpak-set": cmd_flatpak_set,

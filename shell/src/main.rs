@@ -251,6 +251,8 @@ fn main() -> Result<(), iced_layershell::Error> {
                 hud_kind: String::new(),
                 hud_value: 0.0,
                 privacy_ask: None,
+                privacy_ask_app: None,
+                privacy_enforce_at: None,
                 beacon_query: String::new(),
                 toast: None,
                 notif_items: Vec::new(),
