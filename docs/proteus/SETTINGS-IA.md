@@ -153,7 +153,7 @@ Examples:
 | Bluetooth (power · scan · pair/connect) | `bluetoothctl` · blueman escape for advanced |
 | VPN profiles (list · up/down · WG / OpenVPN import · cert path attach) | `nmcli connection` up/down · `import type wireguard|openvpn` · optional user/pass + CA/cert/key `+vpn.data` (session-only) |
 | LocalSend (status + open / start / stop) | `localsend` · port 53317 |
-| Tailscale (status · peers · exit-node · login-server) | `tailscale status --json` · `set --exit-node` · `up --login-server` · `wl-copy` |
+| Tailscale thin usable (status · peers · exit-node · login-server · up/down) | `tailscale status --json` · `exit-node list` · `up --login-server=` / `--exit-node=` · Fact `tailscaleLoginServer` — deep ACL Out |
 | Network diagnostics (iface rates · ss · firewall · route · DNS · ping) | `/proc/net/dev` · `ss -tun/-tln` · firewalld/ufw/`nft` · `/proc/net/route` · `resolv.conf` · `ping` |
 | Packet capture escape | Wireshark Open / Install… → Repos · `wireshark-qt` (Flatpak still Opens if present) |
 | Package updates / search / remove / orphans | `pacman -Qu` / `-Ss` / `-Qqe` / `-Qdt` · apply `pkexec proteus-pkg` (multi install/remove; selective upgrades) |
@@ -190,7 +190,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Spaces, Default apps, **Focus**, **Control Center** layout, Beacon | `settings.json` + `proteus-settings-apply` · Focus · CC layout · `proteus-defaults.py` · launcher* | `shipped` |
 | **Displays** (`displays`) | Layout canvas + per-monitor scale/orientation; Identify; 10s Revert; Refresh/topology honesty; Fact `displays.json` (incl. transform) | compositorctl + `displays.json` | `shipped` (thin; orientation UI In · flipped Out) |
 | **Sound** (`sound`) | Category → Output / Input / Applications / Mixer / Latency | pactl + `proteus-audio-mix` / `audio-peak.py` + `pw-metadata` + `pw-link` | `shipped` |
-| **Network** (`network`) | Category → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN / Headscale — password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG/OpenVPN import · Headscale admin thin (nodes · users · policy text) | hostnamectl / nmcli / bluetoothctl / localsend / tailscale / `proteus-headscale.py` | `shipped` |
+| **Network** (`network`) | Category → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN / Headscale — password Wi‑Fi · BT pair · **TS thin usable** (peers · exit-node · login-server · up/down; deep ACL Out) · VPN up/down · WG/OpenVPN import · Headscale admin thin (nodes · users · policy text) | hostnamectl / nmcli / bluetoothctl / localsend / tailscale / `proteus-headscale.py` | `shipped` |
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse, Touchpad, Tablet, Gamepads (Guide Facts) | keybinds thin rebind + `proteus-settings-apply input` (`mouse*` · `touchpad*` · `tabletPressure*` · tip/eraser curves); gamepad Facts; gestures / `inputDeviceOverrides` Out | `shipped` (thin) |
 | **Power** (`power`) | Power mode segmented (PPD); battery (UPower); **Charge limits** (sysfs `charge_control_*` when present); idle / lid via `proteus-logind` drop-in + conf escape | `powerprofilesctl` / UPower / `proteus-logind` / `proteus-battery-threshold` | `shipped` |
 | **Users** (`users`) | Session Lock/Logout + confirm Reboot/Shutdown; lock screen PIN set/change/clear; current user (GECOS/home) + other local users read-only; Online accounts jump; greetd status + autologin write + conf escape | session Facts · `proteus-pin.py` · id/getent · `proteus-greetd` (pkexec `[initial_session]`) | `shipped` |
@@ -358,13 +358,13 @@ Tailscale · VPN · Headscale). Hub state lives in iced Network pane modules.
 | Wi‑Fi | Scan/connect/disconnect; secured SSIDs → in-pane password; Rescan |
 | Bluetooth | Power · Scan · pair/connect/disconnect/forget; Install… → Repos seeded `blueman` when missing; blueman escape |
 | LocalSend | Install… → AUR seeded `localsend-bin`; Start/Stop / Open / copy address; CC menu + Beacon |
-| Tailscale | Status / IP / peers / exit-node / login-server; Install… → Repos seeded `tailscale`; up·down·login |
+| Tailscale | Thin usable In: status / peers / exit-node picker / login-server Fact · up·down; Install… → Repos seeded `tailscale`; deep ACL Out |
 | VPN | Profile Connect/Disconnect; WireGuard + OpenVPN `.ovpn` import; optional user/pass + cert path attach; NetworkManager escape for PKCS#11 / advanced |
 | Headscale | Remote admin URL + vault API key; node list; expire/enable; users list/create; policy HuJSON check/save (db mode); Open admin UI; does not run Headscale locally |
 
 | Pane | Live apply | On-disk / helper |
 |------|------------|------------------|
-| Network | `hostnamectl` · `nmcli` wifi/VPN/WG/OpenVPN · `bluetoothctl` · `tailscale` up/down/set/login-server · `proteus-headscale.py` · clipboard IP | Escape: blueman / NetworkManager / Wireshark / browser admin — OpenVPN PKI/PKCS#11 · Headscale preauth/structured ACL · in-pane capture Out |
+| Network | `hostnamectl` · `nmcli` wifi/VPN/WG/OpenVPN · `bluetoothctl` · `tailscale` up/down/`--login-server=`/`--exit-node=` · `proteus-headscale.py` · clipboard IP | Escape: blueman / NetworkManager / Wireshark / browser admin — OpenVPN PKI/PKCS#11 · Tailscale deep ACL · Headscale preauth/structured ACL · in-pane capture Out |
 
 **Module rule:** Network leaf helpers stay in ProteusSettings Network modules +
 `proteus-ui` — not a single mega-inline pane body.

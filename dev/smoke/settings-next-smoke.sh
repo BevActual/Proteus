@@ -153,8 +153,14 @@ grep -q 'Keep\|RevertNow\|displays_revert\|DisplaysApplyDone' \
   && ok "Displays 10s Revert" || bad "Displays Revert missing"
 grep -q 'network-tailscale\|TailscaleUp' "${ST_ROOT}/src/panes/network.rs" \
   && ok "network-tailscale leaf" || bad "network-tailscale missing"
+grep -q 'TailscaleLoginDraft\|TailscaleSetExit\|Login server\|Set exit' \
+  "${ST_ROOT}/src/panes/network.rs" \
+  && ok "network-tailscale thin usable UI" || bad "network-tailscale thin usable UI missing"
 grep -q 'tailscale_status\|tailscale_up' "${ST_ROOT}/src/backend.rs" \
   && ok "tailscale backend" || bad "tailscale backend missing"
+grep -q 'exit_nodes\|current_exit\|login_server\|TailscalePeer\|--login-server=\|--exit-node=' \
+  "${ST_ROOT}/src/backend.rs" \
+  && ok "tailscale peers/exit/login-server" || bad "tailscale peers/exit/login-server missing"
 grep -q 'packages-appimages\|AppImageAdd' "${ST_ROOT}/src/panes/packages.rs" \
   && ok "packages-appimages leaf" || bad "packages-appimages missing"
 grep -q 'appimages_list\|appimages_add' "${ST_ROOT}/src/backend.rs" \
