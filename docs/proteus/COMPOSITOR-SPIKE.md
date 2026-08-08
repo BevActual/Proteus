@@ -36,7 +36,7 @@
 | Multi-GPU enumerate | `thin` — DRM lists GPUs; prefers **card** (Primary) node; `PROTEUS_DRM_DEVICE` override |
 | Soft cursor | `works` (thin) — default arrow MemoryRenderBuffer; `cursor_image` tracked; client surface → default |
 | VirGL / virtio transform | `thin` — prefers **card** node; `PROTEUS_DRM_TRANSFORM` (`normal`/`180`/`flipped`/…) for host-GL orientation quirks (no auto flip — VirGL hosts differ) |
-| Displays Fact + modeset | `works` (thin) — load `displays.json`; `dispatch output` scale/pos/mode/**transform**; monitors JSON live transform; **Identify** flash; Settings **10s Revert**; Settings orientation UI **In** (flipped Out) |
+| Displays Fact + modeset | `works` (thin) — load `displays.json`; `dispatch output` scale/pos/mode/**transform**; monitors JSON live transform; **Identify** flash; Settings **10s Revert**; Settings orientation UI **In** (Normal/90/180/270 · Flipped 0–7) |
 | Session keybinds | `works` (thin) — Super chords in compositor (`binds.rs`); Super+Ctrl+1–0 local Spaces; Fact `keybinds.json`; `reloadbinds` (+ reload `workspaceNames`) |
 | `ext-session-lock-v1` | `partial` (thin) — `session_lock.rs` tracked; global advertised; blank xdg windows while locked; LockSurfaces drawn; ctl `session-lock` (`supported`/`pending`/`locked`/`active`); **Overlay remains default** shell Fact; protocol opt-in dogfood via `compositor-session-lock.sh` + `proteus-session-lock` |
 | `zwp_idle_inhibit_manager_v1` | `works` (thin) — `idle_inhibit.rs`; track inhibitors; `systemd-inhibit --what=idle` bridge for `proteus-idle`; ctl `idle-inhibit`; visibility-strict / ext-idle-notify Out |
@@ -183,7 +183,7 @@ proteus-compositor: layer mapped: proteus-bar
 - Identify: `dispatch identify [secs]` (default 3) — centered connector-name
   badge per output ([`identify.rs`](../../compositor/src/identify.rs)).
 - Settings: 10s snapshot Revert after Apply (Settings-owned; restore Fact + live).
-- Settings orientation UI **In** (Normal/90/180/270); flipped transforms still Out.
+- Settings orientation UI **In** (Normal/90/180/270 · Flipped / Flip 90/180/270).
 
 ### Session-wire (2026-08-06)
 
