@@ -48,6 +48,19 @@ for verb in \
     || { echo "compositor-game-present: dispatch failed: ${verb} → ${out}" >&2; exit 1; }
 done
 
-# Unit math for present_dst_rect lives in game_present.rs cargo tests.
+# Static gate: Rescale blit path symbols (thin v1 In).
+CRATE="${ROOT}/compositor"
+grep -q 'RescaleRenderElement' "${CRATE}/src/render_elements.rs" \
+  || { echo "compositor-game-present: missing RescaleRenderElement" >&2; exit 1; }
+grep -q 'game_present_render_elements\|fn game_present_render' \
+  "${CRATE}/src/render_elements.rs" \
+  || { echo "compositor-game-present: missing game_present_render_elements" >&2; exit 1; }
+grep -q 'unmap_elem' "${CRATE}/src/ctl.rs" \
+  || { echo "compositor-game-present: apply_game_present_layout must unmap" >&2; exit 1; }
+grep -q 'CustomRenderElement' \
+  "${CRATE}/src/drm.rs" "${CRATE}/src/winit.rs" \
+  || { echo "compositor-game-present: DRM/winit must use CustomRenderElement" >&2; exit 1; }
+
+# Unit math for present_dst_rect / present_scale_factors lives in game_present.rs cargo tests.
 echo "compositor-game-present: OK"
 exit 0

@@ -129,7 +129,7 @@ per-surface view state, input handling — views over the core's stream.
 | Overlays + lock | `shipped` — Beacon/CC/HUD/toast/lock Customize thin |
 | Boot reliability | `shipped` — protocol gates + respawn watchdog |
 | Widgets + faces | `partial` — `shell/src/faces/`; console/host thin; **gamescope console-home not swapped** |
-| Game-present (rung 2 depth) | `partial` — ctl + Fact `game-present`; integer/stretch/fill + fps/filter policy; Steam via `proteus-gamescope` owned path; nest FORCE-only |
+| Game-present (rung 2 depth) | `partial` — ctl + Fact; Rescale/NN blit thin In; FSR / fill-crop / fps_limit Out; Steam via `proteus-gamescope` owned path; nest FORCE-only |
 | Console session ownership | `partial` — `proteus-session` always smithay; focus-stack via `proteus-console-focus`; gs-session FORCE-only |
 | Engine switch | `shipped` — **owned-only** (`proteus-chrome`); Quickshell path deleted 2026-08-06; `shell-engine` fact may still read `owned` |
 | Swap gate | `shipped` — QML chrome + Settings QML deleted; iced sole path |

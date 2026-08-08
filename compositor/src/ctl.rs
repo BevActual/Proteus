@@ -399,10 +399,9 @@ impl CompositorNext {
         }
     }
 
-    /// Map + configure the game-present window into `present_dst_rect` on its output.
-    ///
-    /// Thin v1: client is sized to the destination (integer letterbox or stretch
-    /// fill). Compositor-side buffer Rescale blit remains Out.
+    /// Configure the game-present window at native (`restore_*`) size, unmap from
+    /// Space, and leave blit into `present_dst_rect` to `game_present_render_elements`
+    /// (Rescale + Relocate).
     pub fn apply_game_present_layout(&mut self, addr: &str) {
         use crate::game_present::present_dst_rect;
         use smithay::utils::{Logical, Point, Rectangle, Size};
@@ -449,9 +448,7 @@ impl CompositorNext {
             })
             .unwrap_or((320, 200));
 
-        // For stretch/fill, source aspect still used for Fill later; stretch uses full out.
-        // Integer uses src as the unit to scale. When re-applying after a prior stretch
-        // configure, prefer restore_* if set.
+        // Prefer restore_* across mode flips so stretch never becomes the new "native".
         let (src_w, src_h) = self
             .wm
             .find(addr)
@@ -479,11 +476,13 @@ impl CompositorNext {
             output_geo.size.h,
             mode,
         );
+        // Letterbox loc for roster/hit-test; client content size stays native.
         let loc = Point::<i32, Logical>::from((output_geo.loc.x + dst.x, output_geo.loc.y + dst.y));
-        let size = Size::<i32, Logical>::from((dst.w, dst.h));
+        let size = Size::<i32, Logical>::from((src_w, src_h));
         let tile = Rectangle::new(loc, size);
 
-        self.space.map_element(window.clone(), loc, false);
+        // Unmap so Space does not 1:1-draw; render path Rescale-blits into dst.
+        self.space.unmap_elem(&window);
         self.wm
             .set_geometry(addr, (loc.x, loc.y), (size.w, size.h));
 
@@ -497,7 +496,7 @@ impl CompositorNext {
             let _ = x11.configure(Some(tile));
         }
         eprintln!(
-            "proteus-compositor: game-present layout {} mode={} {}x{} @{},{} (src {}x{} scale={:.2})",
+            "proteus-compositor: game-present layout {} mode={} blit {}x{} @{},{} (native {}x{} scale={:.2})",
             addr,
             mode.as_str(),
             dst.w,
@@ -545,6 +544,13 @@ impl CompositorNext {
             let Some(window) = self.windows.get(&addr).cloned() else {
                 continue;
             };
+            // Game-present stays Space-unmapped; Rescale path draws it.
+            if self.wm.game_present_address.as_deref() == Some(addr.as_str()) {
+                if self.space.elements().any(|w| w == &window) {
+                    self.space.unmap_elem(&window);
+                }
+                continue;
+            }
             let mapped = self.space.elements().any(|w| w == &window);
             if on_active && !mapped {
                 self.space.map_element(window, (x, y), false);
@@ -673,11 +679,13 @@ impl CompositorNext {
         let Some(window) = self.windows.get(addr).cloned() else {
             return;
         };
+        let game_present = self.wm.game_present_address.as_deref() == Some(addr);
         let primary = self.primary_output_name();
         if let Some(t) = self.wm.find(addr) {
             if self.wm.window_on_active_board(t, &primary) {
                 let mapped = self.space.elements().any(|w| w == &window);
-                if !mapped {
+                // Do not re-map game-present into Space (Rescale blit owns draw).
+                if !mapped && !game_present {
                     self.space
                         .map_element(window.clone(), (t.loc_x, t.loc_y), false);
                 }
@@ -687,7 +695,9 @@ impl CompositorNext {
                 }
             }
         }
-        self.space.raise_element(&window, true);
+        if !game_present {
+            self.space.raise_element(&window, true);
+        }
         self.wm.focused = Some(addr.to_string());
         let surface = window
             .toplevel()

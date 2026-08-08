@@ -19,7 +19,6 @@ use smithay::{
         libinput::{LibinputInputBackend, LibinputSessionInterface},
         renderer::{
             damage::OutputDamageTracker,
-            element::memory::MemoryRenderBufferRenderElement,
             gles::{GlesRenderer, GlesTexture},
             Bind, ExportMem, Offscreen,
         },
@@ -703,33 +702,15 @@ fn render_drm_crtc(
             surfaces,
             ..
         } = &mut *rt;
-        let ssd = if data.state.session_lock_active() {
-            Vec::new()
-        } else {
-            data.state.ssd_render_elements(renderer, &output)
-        };
-        let focus = if data.state.session_lock_active() {
-            Vec::new()
-        } else {
-            data.state.focus_ring_render_elements(renderer, &output)
-        };
-        let identify = if data.state.session_lock_active() {
-            Vec::new()
-        } else {
-            data.state.identify_render_elements(renderer, &output)
-        };
-        let cursor = data.state.cursor_render_elements(renderer, &output);
-        let mut custom = ssd;
-        custom.extend(focus);
-        custom.extend(identify);
-        custom.extend(cursor);
+        data.state.apply_game_present_texture_filter(renderer);
+        let custom = data.state.output_custom_render_elements(renderer, &output);
         let surf = surfaces.get_mut(&crtc).unwrap();
         let mut fb = renderer
             .bind(&mut dmabuf)
             .map_err(|e| format!("bind: {e:?}"))?;
         let _ = smithay::desktop::space::render_output::<
             _,
-            MemoryRenderBufferRenderElement<_>,
+            crate::render_elements::CustomRenderElement<_>,
             _,
             _,
         >(
@@ -746,6 +727,7 @@ fn render_drm_crtc(
         let _ = data
             .state
             .draw_session_lock_surfaces(renderer, &mut fb, &output);
+        CompositorNext::clear_game_present_texture_filter(renderer);
     }
 
     let mode_size: Size<i32, smithay::utils::Physical> = output
@@ -777,19 +759,11 @@ fn render_drm_crtc(
             Offscreen::<GlesTexture>::create_buffer(renderer, Fourcc::Abgr8888, buf_size)
         {
             if let Ok(mut fb) = renderer.bind(&mut tex) {
-                let mut custom = if data.state.session_lock_active() {
-                    Vec::new()
-                } else {
-                    data.state.ssd_render_elements(renderer, &output)
-                };
-                if !data.state.session_lock_active() {
-                    custom.extend(data.state.focus_ring_render_elements(renderer, &output));
-                    custom.extend(data.state.identify_render_elements(renderer, &output));
-                }
-                custom.extend(data.state.cursor_render_elements(renderer, &output));
+                data.state.apply_game_present_texture_filter(renderer);
+                let custom = data.state.output_custom_render_elements(renderer, &output);
                 let _ = smithay::desktop::space::render_output::<
                     _,
-                    MemoryRenderBufferRenderElement<_>,
+                    crate::render_elements::CustomRenderElement<_>,
                     _,
                     _,
                 >(
@@ -806,6 +780,7 @@ fn render_drm_crtc(
                 let _ = data
                     .state
                     .draw_session_lock_surfaces(renderer, &mut fb, &output);
+                CompositorNext::clear_game_present_texture_filter(renderer);
                 let rect = Rectangle::from_size(buf_size);
                 if let Ok(mapping) = renderer.copy_framebuffer(&fb, rect, Fourcc::Abgr8888) {
                     if let Ok(pixels) = renderer.map_texture(&mapping) {
@@ -837,6 +812,8 @@ fn render_drm_crtc(
                 |_, _| Some(output.clone()),
             );
         });
+        data.state
+            .send_game_present_frames(&output, data.state.start_time.elapsed());
         let map = layer_map_for_output(&output);
         for layer in map.layers() {
             layer.send_frame(

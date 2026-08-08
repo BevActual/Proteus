@@ -59,6 +59,18 @@ pub fn present_dst_rect(
     }
 }
 
+/// Per-axis blit scale from source content size into a `PresentDst`.
+///
+/// Integer mode is uniform (`dst.scale`); stretch/fill may be non-uniform.
+pub fn present_scale_factors(src_w: i32, src_h: i32, dst: PresentDst) -> (f64, f64) {
+    let src_w = src_w.max(1);
+    let src_h = src_h.max(1);
+    (
+        f64::from(dst.w) / f64::from(src_w),
+        f64::from(dst.h) / f64::from(src_h),
+    )
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ScaleMode {
     #[default]
@@ -192,5 +204,22 @@ mod tests {
     fn present_dst_stretch_fills() {
         let d = present_dst_rect(320, 200, 1280, 720, ScaleMode::Stretch);
         assert_eq!((d.x, d.y, d.w, d.h), (0, 0, 1280, 720));
+    }
+
+    #[test]
+    fn present_scale_factors_integer_uniform() {
+        let d = present_dst_rect(320, 200, 1280, 720, ScaleMode::Integer);
+        let (sx, sy) = present_scale_factors(320, 200, d);
+        assert!((sx - 3.0).abs() < f64::EPSILON);
+        assert!((sy - 3.0).abs() < f64::EPSILON);
+        assert!((sx - d.scale).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn present_scale_factors_stretch_axes() {
+        let d = present_dst_rect(320, 200, 1280, 720, ScaleMode::Stretch);
+        let (sx, sy) = present_scale_factors(320, 200, d);
+        assert!((sx - 4.0).abs() < f64::EPSILON); // 1280/320
+        assert!((sy - 3.6).abs() < f64::EPSILON); // 720/200
     }
 }

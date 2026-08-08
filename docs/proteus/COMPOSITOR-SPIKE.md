@@ -24,7 +24,7 @@
 | wp_viewporter + wp_fractional_scale | `works` — iced_layershell clients hard-require viewporter |
 | `zwlr_screencopy_manager_v1` (SHM + linux-dmabuf) | `works` — grim + `copy_with_damage`; nested + DRM GLES upload into client dmabufs; offscreen readback for CPU `last_frame`; **Y-flip auto** skips CPU flip on virtio-gpu (`PROTEUS_SCREENCOPY_FLIP_Y=0\|1` override) so grim matches the seat |
 | Portal Screenshot (`xdg-desktop-portal-wlr`) | `partial` — sets `XDG_CURRENT_DESKTOP=wlroots`; smoke runs isolated dbus Screenshot when portal-wlr is installed (SKIP otherwise). **Shipping prefers portal-wlr** (Hyprland portal retired with Hyprland). |
-| Owned game-present + focus-stack | `partial` — ctl + Fact; **scale apply thin** (`present_dst_rect` / `apply_game_present_layout`); compositor Rescale blit Out; smoke `compositor-game-present.sh`. Steam helper defaults to owned path. |
+| Owned game-present + focus-stack | `partial` — ctl + Fact; **Rescale blit thin** (`present_dst_rect` + `RescaleRenderElement` / `game_present_render_elements`); client stays native size; Space-unmapped; Fact `filter` → NN/Linear; FSR / fill-crop / fps_limit Out; smoke `compositor-game-present.sh`. Steam helper defaults to owned path. |
 | Gamescope nesting (interim) | `partial` — optional smoke still nests `gamescope` as a client; product nest only with `PROTEUS_FORCE_GAMESCOPE=1` / `engine=gamescope`. Console-home **not** swapped. |
 | PipeWire Screencast | `partial` — compositor `copy_with_damage` ready for xdp-wlr/wf-recorder; smoke via `wf-recorder` when installed (SKIP otherwise). PipeWire stays never-own. |
 | Input routing (pointer/keyboard, layers above windows) | `thin` |
@@ -121,12 +121,15 @@ proteus-compositor: layer mapped: proteus-bar
 - Ctl: `proteus-compositorctl game-present` · `dispatch game-present …` ·
   `focus-stack …` — see [`game_present.rs`](../../compositor/src/game_present.rs) +
   [`wm.rs`](../../compositor/src/wm.rs).
-- **Scale apply (thin):** `present_dst_rect` + `apply_game_present_layout` maps and
-  configures the client into integer letterbox or stretch/fill output rect
-  (restore_* keeps source size across mode flips). Compositor-side buffer
-  Rescale/NN blit still **Out**.
+- **Rescale blit (thin In):** `apply_game_present_layout` configures the client at
+  native/`restore_*` size (Fullscreen ok), **unmaps** from Space, and the DRM/winit
+  `render_output` path draws via `game_present_render_elements` —
+  `RescaleRenderElement` + `RelocateRenderElement` into `present_dst_rect`
+  (integer letterbox / stretch). Fact `filter` → `TextureFilter::Nearest|Linear`
+  around the present draw. See [`render_elements.rs`](../../compositor/src/render_elements.rs).
+- Still **Out:** FSR, fill-crop, `fps_limit` enforcement.
 - Smoke: [`dev/smoke/compositor-game-present.sh`](../../dev/smoke/compositor-game-present.sh)
-  (no gamescope binary required) + `cargo test` present_dst_* .
+  (no gamescope binary required) + `cargo test` present_dst_* / present_scale_* .
 - Desktop launch: [`shell/scripts/proteus-gamescope`](../../shell/scripts/proteus-gamescope)
   — **owned** bare + map into game-present; nest only
   `PROTEUS_FORCE_GAMESCOPE=1` / Fact `engine=gamescope`.

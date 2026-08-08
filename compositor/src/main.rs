@@ -19,6 +19,7 @@ mod idle_inhibit;
 mod input;
 mod input_config;
 mod layout;
+mod render_elements;
 mod screencopy;
 mod session_lock;
 mod state;

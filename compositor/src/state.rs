@@ -295,11 +295,91 @@ impl CompositorNext {
         }
         drop(map);
 
+        if let Some(hit) = self.game_present_surface_under(pos) {
+            return Some(hit);
+        }
+
         self.space.element_under(pos).and_then(|(window, location)| {
             window
                 .surface_under(pos - location.to_f64(), WindowSurfaceType::ALL)
                 .map(|(s, p)| (s, (p + location).to_f64()))
         })
+    }
+
+    /// Hit-test the Space-unmapped game-present window via letterbox/stretch dst.
+    fn game_present_surface_under(
+        &self,
+        pos: Point<f64, Logical>,
+    ) -> Option<(WlSurface, Point<f64, Logical>)> {
+        use crate::game_present::present_dst_rect;
+
+        let addr = self.wm.game_present_address.as_deref()?;
+        let window = self.windows.get(addr)?;
+        let primary = self
+            .space
+            .outputs()
+            .next()
+            .map(|o| o.name())
+            .unwrap_or_default();
+        let out_name = self
+            .wm
+            .find(addr)
+            .map(|t| {
+                if t.output.is_empty() {
+                    primary.clone()
+                } else {
+                    t.output.clone()
+                }
+            })
+            .unwrap_or(primary);
+        let output = self.space.outputs().find(|o| o.name() == out_name)?;
+        let output_geo = self.space.output_geometry(output)?;
+
+        let (src_w, src_h) = self.wm.find(addr).map(|t| {
+            let w = if t.restore_w > 0 {
+                t.restore_w
+            } else if t.size_w > 0 {
+                t.size_w
+            } else {
+                window.geometry().size.w
+            };
+            let h = if t.restore_h > 0 {
+                t.restore_h
+            } else if t.size_h > 0 {
+                t.size_h
+            } else {
+                window.geometry().size.h
+            };
+            (w.max(1), h.max(1))
+        })?;
+
+        let dst = present_dst_rect(
+            src_w,
+            src_h,
+            output_geo.size.w,
+            output_geo.size.h,
+            self.wm.game_present.scale_mode,
+        );
+        let dst_x = f64::from(output_geo.loc.x + dst.x);
+        let dst_y = f64::from(output_geo.loc.y + dst.y);
+        let dst_w = f64::from(dst.w.max(1));
+        let dst_h = f64::from(dst.h.max(1));
+        if pos.x < dst_x || pos.y < dst_y || pos.x >= dst_x + dst_w || pos.y >= dst_y + dst_h {
+            return None;
+        }
+        // Map dst (visual) → src (client) so surface_under sees native coords.
+        let src_local = Point::from((
+            (pos.x - dst_x) * f64::from(src_w) / dst_w,
+            (pos.y - dst_y) * f64::from(src_h) / dst_h,
+        ));
+        window
+            .surface_under(src_local, WindowSurfaceType::ALL)
+            .map(|(s, p)| {
+                // Seat does surface_local = pointer - focus_loc; choose focus_loc so
+                // that equals src-space coords under non-uniform Rescale.
+                let surface_local = src_local - p.to_f64();
+                (s, pos - surface_local)
+            })
     }
 }
 

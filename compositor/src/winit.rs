@@ -8,7 +8,7 @@ use smithay::{
         allocator::Fourcc,
         egl::EGLDevice,
         renderer::{
-                    damage::OutputDamageTracker, element::memory::MemoryRenderBufferRenderElement,
+            damage::OutputDamageTracker,
             gles::{GlesRenderer, GlesTexture},
             Bind, ExportMem, ImportDma, Offscreen,
         },
@@ -93,19 +93,11 @@ pub fn init_winit(
 
                 {
                     let (renderer, mut framebuffer) = backend.bind().unwrap();
-                    let mut custom = if state.session_lock_active() {
-                        Vec::new()
-                    } else {
-                        state.ssd_render_elements(renderer, &output)
-                    };
-                    if !state.session_lock_active() {
-                        custom.extend(state.focus_ring_render_elements(renderer, &output));
-                        custom.extend(state.identify_render_elements(renderer, &output));
-                    }
-                    custom.extend(state.cursor_render_elements(renderer, &output));
+                    state.apply_game_present_texture_filter(renderer);
+                    let custom = state.output_custom_render_elements(renderer, &output);
                     let _ = smithay::desktop::space::render_output::<
                         _,
-                        MemoryRenderBufferRenderElement<_>,
+                        crate::render_elements::CustomRenderElement<_>,
                         _,
                         _,
                     >(
@@ -120,6 +112,7 @@ pub fn init_winit(
                         clear,
                     );
                     let _ = state.draw_session_lock_surfaces(renderer, &mut framebuffer, &output);
+                    CompositorNext::clear_game_present_texture_filter(renderer);
                 }
                 if let Err(e) = backend.submit(Some(&[damage])) {
                     eprintln!("proteus-compositor: submit: {e:?}");
@@ -138,19 +131,11 @@ pub fn init_winit(
                         buf_size,
                     ) {
                         if let Ok(mut fb) = renderer.bind(&mut tex) {
-                            let mut custom = if state.session_lock_active() {
-                                Vec::new()
-                            } else {
-                                state.ssd_render_elements(renderer, &output)
-                            };
-                            if !state.session_lock_active() {
-                                custom.extend(state.focus_ring_render_elements(renderer, &output));
-                                custom.extend(state.identify_render_elements(renderer, &output));
-                            }
-                            custom.extend(state.cursor_render_elements(renderer, &output));
+                            state.apply_game_present_texture_filter(renderer);
+                            let custom = state.output_custom_render_elements(renderer, &output);
                             let _ = smithay::desktop::space::render_output::<
                                 _,
-                                MemoryRenderBufferRenderElement<_>,
+                                crate::render_elements::CustomRenderElement<_>,
                                 _,
                                 _,
                             >(
@@ -165,6 +150,7 @@ pub fn init_winit(
                                 clear,
                             );
                             let _ = state.draw_session_lock_surfaces(renderer, &mut fb, &output);
+                            CompositorNext::clear_game_present_texture_filter(renderer);
                             let rect = Rectangle::from_size(buf_size);
                             if let Ok(mapping) =
                                 renderer.copy_framebuffer(&fb, rect, Fourcc::Abgr8888)
@@ -197,6 +183,7 @@ pub fn init_winit(
                             |_, _| Some(output.clone()),
                         )
                     });
+                    state.send_game_present_frames(&output, state.start_time.elapsed());
                     let map = layer_map_for_output(&output);
                     for layer in map.layers() {
                         layer.send_frame(

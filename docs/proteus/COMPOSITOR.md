@@ -160,7 +160,7 @@ compositor chrome for that unit.
 | Settings → keybinds / gaps / displays | `shipped` (thin) — Facts + `proteus-settings-apply` / compositorctl |
 | Hyprland session / QS chrome | `retired` |
 | Console hard switch | `partial` — owned smithay + console face stub; game-present/focus-stack; gs-session FORCE-only |
-| Game-present | `partial` — Fact `game-present` + ctl `dispatch game-present` / `focus-stack`; integer/stretch/fill + fps/filter policy (no FSR yet) |
+| Game-present | `partial` — Fact `game-present` + ctl; Rescale/NN blit thin (`RescaleRenderElement`); integer/stretch + filter; FSR / fill-crop / fps_limit Out |
 | Host hard switch | `partial` — headless default + seat attach |
 | Owned compositor depth | `shipped` (thin) — per-output Spaces boards + see [COMPOSITOR-SPIKE.md](./COMPOSITOR-SPIKE.md) |
 | Capability resolver | `planned` |

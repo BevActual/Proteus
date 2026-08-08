@@ -86,7 +86,7 @@ grep -qE '^\s*input\)|input-reload' "${ROOT}/shell/scripts/proteus-settings-appl
 grep -q 'start_identify\|parse_identify_secs\|identify_render_elements' \
   "${CRATE}/src/identify.rs" "${CRATE}/src/ctl.rs" \
   || die "dispatch identify / identify overlay missing"
-grep -q 'identify_render_elements' "${CRATE}/src/winit.rs" "${CRATE}/src/drm.rs" \
+grep -q 'identify_render_elements' "${CRATE}/src/winit.rs" "${CRATE}/src/drm.rs" "${CRATE}/src/render_elements.rs" \
   || die "identify render path missing in winit/drm"
 [[ -f "${CRATE}/src/binds.rs" ]] || die "missing binds.rs (session keybinds)"
 grep -q 'reloadbinds\|BindsState\|default_binds' "${CRATE}/src/binds.rs" "${CRATE}/src/ctl.rs" "${CRATE}/src/input.rs" \
@@ -270,6 +270,11 @@ bash -n "${ROOT}/shell/scripts/proteus-gamescope" \
 grep -q 'game.present\|game_present\|GamePresent' \
   "${CRATE}/src/wm.rs" "${CRATE}/src/game_present.rs" \
   || die "compositor missing game-present module/dispatch"
+grep -q 'RescaleRenderElement\|game_present_render_elements' \
+  "${CRATE}/src/render_elements.rs" \
+  || die "compositor missing game-present Rescale blit path"
+grep -q 'CustomRenderElement' "${CRATE}/src/drm.rs" "${CRATE}/src/winit.rs" \
+  || die "DRM/winit render_output must use CustomRenderElement"
 grep -q 'focus.stack\|FocusStackLayer\|focus_stack' \
   "${CRATE}/src/wm.rs" \
   || die "compositor missing focus-stack dispatch"
@@ -302,20 +307,22 @@ grep -q 'ssd_render_elements' "${CRATE}/src/decoration.rs" \
   || die "ssd_render_elements missing"
 grep -q 'focus_ring_render_elements\|FOCUS_RING_W' "${CRATE}/src/decoration.rs" \
   || die "focus ring chrome missing"
-grep -q 'focus_ring_render_elements' "${CRATE}/src/winit.rs" \
+grep -q 'focus_ring_render_elements' "${CRATE}/src/winit.rs" "${CRATE}/src/render_elements.rs" \
   || die "winit must call focus_ring_render_elements"
 grep -q 'cosmic-text\|truncate_title_to_width\|MemoryRenderBuffer' "${CRATE}/src/decoration.rs" \
   || die "SSD title text rasterize missing"
 grep -q 'cosmic-text' "${CRATE}/Cargo.toml" \
   || die "cosmic-text dep missing"
-grep -q 'MemoryRenderBufferRenderElement' "${CRATE}/src/winit.rs" \
-  || die "winit must pass MemoryRenderBufferRenderElement SSD custom elements"
-grep -q 'MemoryRenderBufferRenderElement' "${CRATE}/src/drm.rs" \
-  || die "drm must pass MemoryRenderBufferRenderElement SSD custom elements"
-grep -q 'ssd_render_elements' "${CRATE}/src/winit.rs" \
+grep -q 'CustomRenderElement\|MemoryRenderBufferRenderElement' "${CRATE}/src/winit.rs" \
+  || die "winit must pass CustomRenderElement / Memory SSD custom elements"
+grep -q 'CustomRenderElement\|MemoryRenderBufferRenderElement' "${CRATE}/src/drm.rs" \
+  || die "drm must pass CustomRenderElement / Memory SSD custom elements"
+grep -q 'ssd_render_elements\|output_custom_render_elements' "${CRATE}/src/winit.rs" "${CRATE}/src/render_elements.rs" \
   || die "winit must call ssd_render_elements"
-grep -q 'ssd_render_elements' "${CRATE}/src/drm.rs" \
+grep -q 'ssd_render_elements\|output_custom_render_elements' "${CRATE}/src/drm.rs" "${CRATE}/src/render_elements.rs" \
   || die "drm must call ssd_render_elements"
+grep -q 'RescaleRenderElement\|game_present_render_elements' "${CRATE}/src/render_elements.rs" \
+  || die "game-present Rescale blit path missing"
 grep -q 'ssd_hit_at\|SsdHit\|start_ssd_move' "${CRATE}/src/input.rs" \
   || die "SSD titlebar input hit-test missing"
 grep -q 'outer_to_content_geo' "${CRATE}/src/ctl.rs" \
