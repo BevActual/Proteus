@@ -391,7 +391,11 @@ fn rasterize_titlebar(
         );
     }
 
-    let text_max = title_text_max_width_ex(w, show_maximize);
+    let text_max = if show_maximize {
+        title_text_max_width(w)
+    } else {
+        title_text_max_width_ex(w, false)
+    };
     if text_max > 0 && !title.is_empty() {
         let fitted = truncate_title_to_width(&mut chrome.font_system, title, text_max as f32);
         if !fitted.is_empty() {
