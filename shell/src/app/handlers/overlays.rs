@@ -31,6 +31,14 @@ pub(crate) fn gate_launch_for_privacy(app: &mut App, target: &str) -> bool {
     true
 }
 
+/// Returns true when Focus blocked the launch (allowedApps / keywords).
+pub(crate) fn gate_launch_for_focus(_app: &mut App, target: &str) -> bool {
+    let Some(aid) = privacy_gate::desktop_id_for_launch(target) else {
+        return false;
+    };
+    !platform::focus_launch_allowed(&aid)
+}
+
 pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
     match m {
         SurfaceMsg::ToggleLauncher => {
@@ -141,6 +149,9 @@ pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
             warm_icons(app);
         }
         SurfaceMsg::BeaconLaunch(id) => {
+            if gate_launch_for_focus(app, &id) {
+                return Task::none();
+            }
             if gate_launch_for_privacy(app, &id) {
                 return Task::none();
             }

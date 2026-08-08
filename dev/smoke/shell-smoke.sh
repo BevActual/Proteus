@@ -268,6 +268,9 @@ grep -rq --include='*.rs' 'ToggleFocus\|focus_profiles\|Focus Mode' "${SURFACES}
 grep -q 'apply_focus_schedule\|schedule_window_active\|focus_schedule_last' \
   "${PLATFORM}/focus.rs" "${APP}/runtime.rs" "${APP}/state.rs" \
   && ok "Focus schedule auto-apply thin" || bad "Focus schedule auto-apply missing"
+grep -q 'focus_launch_allowed\|gate_launch_for_focus' \
+  "${PLATFORM}/focus.rs" "${APP}/handlers/overlays.rs" "${APP}/handlers/dock.rs" \
+  && ok "Focus launch enforce thin" || bad "Focus launch enforce missing"
 grep -rq --include='*.rs' 'DOCK_MAG_CELLS\|dock_mag_falloff\|dock_mag_strength' \
   "${SURFACES}" "${APP}" "${MAIN}" \
   && bad "dock magnify helpers must be removed" \

@@ -179,6 +179,105 @@ pub fn focus_active() -> bool {
     focus_mode() != "off"
 }
 
+fn string_list(v: Option<&Value>) -> Vec<String> {
+    v.and_then(|x| x.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|e| e.as_str())
+                .map(|s| s.trim().to_lowercase())
+                .filter(|s| !s.is_empty())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn active_focus_profile(settings: &Value) -> Option<&Value> {
+    let active = settings
+        .get("focusActiveProfileId")
+        .and_then(|v| v.as_str())
+        .unwrap_or("work")
+        .trim();
+    settings
+        .get("focusProfiles")
+        .and_then(|v| v.as_array())
+        .and_then(|arr| {
+            arr.iter().find(|p| {
+                p.get("id").and_then(|x| x.as_str()).unwrap_or("") == active
+            })
+        })
+}
+
+/// Whether a Beacon/Dock launch target is permitted under the active Focus profile.
+///
+/// When Focus is off → always allow. When on:
+/// - `keywordDeny` substrings block the desktop id
+/// - non-empty `allowedApps` is a whitelist (desktop id / basename match)
+/// - else non-empty `keywordAllow` requires a substring match
+/// - empty lists → allow (no enforce)
+pub fn focus_launch_allowed(desktop_id: &str) -> bool {
+    if !focus_active() {
+        return true;
+    }
+    let id = desktop_id
+        .trim()
+        .trim_end_matches(".desktop")
+        .to_lowercase();
+    if id.is_empty() {
+        return true;
+    }
+    let base = proteus_shell_core::facts::config_base();
+    let settings = proteus_shell_core::facts::read_settings(&base);
+    let Some(profile) = active_focus_profile(&settings) else {
+        return true;
+    };
+    let deny = string_list(profile.get("keywordDeny"));
+    if deny.iter().any(|k| id.contains(k.as_str())) {
+        return false;
+    }
+    let allowed = string_list(profile.get("allowedApps"));
+    if !allowed.is_empty() {
+        return allowed.iter().any(|a| {
+            let a = a.trim_end_matches(".desktop");
+            id == a || id.ends_with(&format!(".{a}")) || a.ends_with(&format!(".{id}")) || id.contains(a)
+        });
+    }
+    let allow_kw = string_list(profile.get("keywordAllow"));
+    if !allow_kw.is_empty() {
+        return allow_kw.iter().any(|k| id.contains(k.as_str()));
+    }
+    true
+}
+
+/// Pure helper for tests — same rules without reading Focus mode / Facts.
+pub fn focus_launch_allowed_for_profile(desktop_id: &str, profile: &Value, focus_on: bool) -> bool {
+    if !focus_on {
+        return true;
+    }
+    let id = desktop_id
+        .trim()
+        .trim_end_matches(".desktop")
+        .to_lowercase();
+    if id.is_empty() {
+        return true;
+    }
+    let deny = string_list(profile.get("keywordDeny"));
+    if deny.iter().any(|k| id.contains(k.as_str())) {
+        return false;
+    }
+    let allowed = string_list(profile.get("allowedApps"));
+    if !allowed.is_empty() {
+        return allowed.iter().any(|a| {
+            let a = a.trim_end_matches(".desktop");
+            id == a || id.contains(a)
+        });
+    }
+    let allow_kw = string_list(profile.get("keywordAllow"));
+    if !allow_kw.is_empty() {
+        return allow_kw.iter().any(|k| id.contains(k.as_str()));
+    }
+    true
+}
+
 pub fn set_focus_mode(mode: &str) -> Result<(), String> {
     let mode = match mode.trim().to_lowercase().as_str() {
         "indefinite" | "on" | "1" | "true" => "indefinite",
@@ -225,6 +324,29 @@ mod tests {
     fn parse_hhmm_ok() {
         assert_eq!(parse_hhmm("09:30"), Some(9 * 60 + 30));
         assert!(parse_hhmm("25:00").is_none());
+    }
+
+    #[test]
+    fn launch_allowed_apps_and_keywords() {
+        let p = json!({
+            "allowedApps": ["org.gnome.Calculator", "ghostty"],
+            "keywordAllow": [],
+            "keywordDeny": ["steam"]
+        });
+        assert!(focus_launch_allowed_for_profile("org.gnome.Calculator", &p, true));
+        assert!(focus_launch_allowed_for_profile("ghostty.desktop", &p, true));
+        assert!(!focus_launch_allowed_for_profile("firefox", &p, true));
+        assert!(!focus_launch_allowed_for_profile("steam", &p, true));
+        assert!(focus_launch_allowed_for_profile("firefox", &p, false));
+
+        let kw = json!({
+            "allowedApps": [],
+            "keywordAllow": ["term", "code"],
+            "keywordDeny": ["game"]
+        });
+        assert!(focus_launch_allowed_for_profile("proteus-terminal", &kw, true));
+        assert!(!focus_launch_allowed_for_profile("game-store", &kw, true));
+        assert!(!focus_launch_allowed_for_profile("firefox", &kw, true));
     }
 }
 
