@@ -263,9 +263,12 @@ grep -q 'Wave Link grid\|MixRoute\|MixVolume' "${ST_ROOT}/src/panes/sound.rs" \
   && ok "Mixer Wave Link grid" || bad "Mixer grid missing"
 grep -q 'row peaks\|ch.peak\|audio_mix_peaks' "${ST_ROOT}/src/panes/sound.rs" "${ST_ROOT}/src/backend.rs" \
   && grep -q 'MixMove\|audio_mix_move_channel\|move-channel' \
-    "${ST_ROOT}/src/panes/sound.rs" "${ST_ROOT}/src/backend.rs" "${ST_ROOT}/src/main.rs" \
+  "${ST_ROOT}/src/panes/sound.rs" "${ST_ROOT}/src/backend.rs" "${ST_ROOT}/src/main.rs" \
   && grep -qE 'channel reorder|reorder ↑↓|move-channel\) In' "${ST_ROOT}/src/panes/sound.rs" \
   && ok "Mixer peaks In · channel reorder ↑↓ In" || bad "Mixer peaks/reorder honesty wrong"
+grep -q 'MixDragStart\|MixDragHover\|MixDragEnd\|finish_mix_drag\|free-pointer grip' \
+  "${ST_ROOT}/src/panes/sound.rs" "${ST_ROOT}/src/main.rs" \
+  && ok "Mixer free-pointer drag thin" || bad "Mixer free-pointer drag missing"
 grep -q 'audio_mix_peaks_tick\|AudioMixPeaks\|live while open\|peaks live' \
   "${ST_ROOT}/src/main.rs" "${ST_ROOT}/src/backend.rs" "${ST_ROOT}/src/panes/sound.rs" \
   && ok "Mixer live peak stream" || bad "Mixer live peaks missing"
