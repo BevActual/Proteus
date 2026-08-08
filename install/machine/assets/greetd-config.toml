@@ -2,7 +2,7 @@
 # The VT to run the greeter on. Can be the number of a VT, or "next"/"current"
 vt = 1
 
-# Cold boot → Proteus session directly (lock screen is Quickshell, not tuigreet)
+# Cold boot → Proteus session directly (lock screen is iced shell, not tuigreet)
 [initial_session]
 command = "/usr/local/bin/proteus-session"
 user = "andrew"

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# proteus-dock-activate — dock click: focus / minimize / launch using hyprctl
-# as source of truth (Quickshell Hyprland.toplevels can retain dead Chromium
-# handles and then silently "focus" ghosts instead of relaunching).
+# proteus-dock-activate — dock click: focus / minimize / launch via
+# proteus-compositorctl (owned Smithay). Primary dock path is iced shell
+# (`wm_ipc::dock_activate`); this helper is the CLI / escape hatch.
 #
 # Usage: proteus-dock-activate <desktop-id> [class-match]
 #   desktop-id  — e.g. chromium · org.gnome.Nautilus
-#   class-match — substring for hyprctl client class (default: last id segment)
+#   class-match — substring for client class (default: last id segment)
 set -euo pipefail
 
 ID="$(printf '%s' "${1:-}" | sed 's/\.desktop$//I')"
@@ -19,18 +19,19 @@ if [[ -z "${MATCH}" ]]; then
 fi
 
 MINIMIZED="${PROTEUS_MINIMIZED_NAME:-special:minimized}"
-# Allow bare name or special: prefix
 case "${MINIMIZED}" in
   special:*) ;;
   *) MINIMIZED="special:${MINIMIZED}" ;;
 esac
 
 need() { command -v "$1" >/dev/null 2>&1 || { echo "proteus-dock-activate: missing $1" >&2; exit 127; }; }
-need hyprctl
+need proteus-compositorctl
 need python3
 
-CLIENTS_JSON="$(hyprctl -j clients 2>/dev/null || echo '[]')"
-ACTIVE_JSON="$(hyprctl -j activewindow 2>/dev/null || echo '{}')"
+ctl() { proteus-compositorctl "$@"; }
+
+CLIENTS_JSON="$(ctl clients 2>/dev/null || echo '[]')"
+ACTIVE_JSON="$(ctl activewindow 2>/dev/null || echo '{}')"
 
 # Rows: addr, workspace, mapped, focusHistoryID, is_active (1/0)
 mapfile -t ROWS < <(MATCH="${MATCH}" python3 -c '
@@ -59,20 +60,18 @@ for c in clients:
         ws = ""
         w = c.get("workspace") or {}
         if isinstance(w, dict):
-            ws = str(w.get("name") or "")
+            ws = str(w.get("name") or w.get("id") or "")
+        else:
+            ws = str(w)
         mapped = "1" if c.get("mapped", True) else "0"
         try:
             fhid = int(c.get("focusHistoryID", 999))
         except Exception:
             fhid = 999
-        # Only trust hyprctl activewindow. Empty/Invalid (layer-shell focus)
-        # must not invent "active" via focusHistoryID==0 — that false-minimizes
-        # the dock target instead of raising it (#1600).
         is_act = "1" if (active and addr == active) else "0"
         print(f"{addr}\t{ws}\t{mapped}\t{fhid}\t{is_act}")
 ' "${CLIENTS_JSON}" "${ACTIVE_JSON}")
 
-# Drop unmapped ghosts
 LIVE=()
 for row in "${ROWS[@]:-}"; do
   [[ -z "${row}" ]] && continue
@@ -81,22 +80,31 @@ for row in "${ROWS[@]:-}"; do
   LIVE+=("${addr}"$'\t'"${ws}"$'\t'"${is_act}")
 done
 
-active_addr=""
-
 is_minimized() {
   local ws="$1"
-  [[ "${ws}" == "${MINIMIZED}" || "${ws}" == special:minimized || "${ws}" == minimized ]]
+  [[ "${ws}" == "${MINIMIZED}" || "${ws}" == special:minimized || "${ws}" == minimized || "${ws}" == "-1" ]]
+}
+
+active_ws_id() {
+  python3 - <<'PY' 2>/dev/null || echo 1
+import json, subprocess
+try:
+    aw = json.loads(subprocess.check_output(
+        ["proteus-compositorctl", "activeworkspace"], text=True, timeout=3))
+    print(aw.get("id") or 1)
+except Exception:
+    print(1)
+PY
 }
 
 focus_addr() {
   local addr="$1" ws="$2"
   if is_minimized "${ws}"; then
-    hyprctl dispatch movetoworkspace "+0,address:${addr}" >/dev/null
+    ctl dispatch "movetoworkspacesilent $(active_ws_id),address:${addr}" >/dev/null
   fi
-  hyprctl dispatch focuswindow "address:${addr}" >/dev/null
+  ctl dispatch "focuswindow address:${addr}" >/dev/null
 }
 
-# Forward PROTEUS_ADAPT_* from our env into compositor-side launches (#1599).
 adapt_env_prefix() {
   local bits=()
   local k
@@ -111,11 +119,13 @@ adapt_env_prefix() {
 }
 
 launch_app() {
-  # Compositor-side launch so Wayland/env match the session (not SSH).
+  # Launch in-session Wayland env (no compositor exec dispatch yet).
   local prefix
   prefix="$(adapt_env_prefix)"
   if command -v gtk-launch >/dev/null 2>&1; then
-    hyprctl dispatch exec "${prefix}gtk-launch ${ID}" >/dev/null && return 0
+    # shellcheck disable=SC2086
+    ${prefix}gtk-launch "${ID}" >/dev/null 2>&1 &
+    return 0
   fi
   local desk=""
   for d in \
@@ -129,17 +139,21 @@ launch_app() {
     fi
   done
   if [[ -n "${desk}" ]] && command -v gio >/dev/null 2>&1; then
-    hyprctl dispatch exec "${prefix}gio launch ${desk}" >/dev/null && return 0
+    # shellcheck disable=SC2086
+    ${prefix}gio launch "${desk}" >/dev/null 2>&1 &
+    return 0
   fi
-  # Last resort: first Exec token from the desktop file
   if [[ -n "${desk}" ]]; then
     local bin
     bin="$(grep -m1 '^Exec=' "${desk}" | sed 's/^Exec=//; s/ %[UuFfDdNnickvm]//g; s/ %%/ /g' | awk '{print $1}')"
     if [[ -n "${bin}" ]]; then
-      hyprctl dispatch exec "${prefix}${bin}" >/dev/null && return 0
+      # shellcheck disable=SC2086
+      ${prefix}${bin} >/dev/null 2>&1 &
+      return 0
     fi
   fi
-  hyprctl dispatch exec "${prefix}${ID}" >/dev/null
+  # shellcheck disable=SC2086
+  ${prefix}${ID} >/dev/null 2>&1 &
 }
 
 if ((${#LIVE[@]} == 0)); then
@@ -147,7 +161,6 @@ if ((${#LIVE[@]} == 0)); then
   exit 0
 fi
 
-# Parse live rows
 ADDRS=()
 WSS=()
 ACTS=()
@@ -158,7 +171,6 @@ for row in "${LIVE[@]}"; do
   ACTS+=("${is_act}")
 done
 
-# Find active index among our windows
 active_i=-1
 for i in "${!ADDRS[@]}"; do
   if [[ "${ACTS[$i]}" == "1" ]]; then
@@ -167,20 +179,17 @@ for i in "${!ADDRS[@]}"; do
   fi
 done
 
-# Single frontmost visible → minimize (taskbar toggle)
 if ((${#ADDRS[@]} == 1)) && ((active_i == 0)) && ! is_minimized "${WSS[0]}"; then
-  hyprctl dispatch movetoworkspacesilent "${MINIMIZED},address:${ADDRS[0]}" >/dev/null
+  ctl dispatch "movetoworkspacesilent ${MINIMIZED},address:${ADDRS[0]}" >/dev/null
   exit 0
 fi
 
-# Several windows, one focused → cycle
 if ((${#ADDRS[@]} > 1)) && ((active_i >= 0)) && ! is_minimized "${WSS[$active_i]}"; then
   next=$(( (active_i + 1) % ${#ADDRS[@]} ))
   focus_addr "${ADDRS[$next]}" "${WSS[$next]}"
   exit 0
 fi
 
-# Prefer a visible window; else restore minimized
 target=-1
 for i in "${!ADDRS[@]}"; do
   if ! is_minimized "${WSS[$i]}"; then

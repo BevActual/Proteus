@@ -1,13 +1,14 @@
-# COMPOSITOR-SPIKE — Smithay rung 2 (honest status)
+# COMPOSITOR-SPIKE — Smithay depth checklist (honest status)
 
-> Spike record for the owned-compositor rung ([OWNED-STACK.md](./OWNED-STACK.md)).
+> Depth record for the owned-compositor rung ([OWNED-STACK.md](./OWNED-STACK.md)).
 > **Smithay is the only shipping session engine** (Hyprland purged 2026-08-06).
-> Nested dogfood = compositor-next winit via `./dev/run-nested.sh`. Live DRM
-> stays opt-in for CI (`PROTEUS_COMPOSITOR_DRM=1`).
+> Nested dogfood = compositor winit via `./dev/run-nested.sh`. Live DRM
+> stays opt-in for CI (`PROTEUS_COMPOSITOR_DRM=1`). Filename keeps “SPIKE” for
+> link stability; the crate is `compositor/` / `proteus-compositor`.
 
-## What exists (2026-08-06)
+## What exists (2026-08-08)
 
-`compositor-next/` — minimal Smithay 0.7 compositor, smallvil-derived:
+`compositor/` — Smithay 0.7 session compositor (shipping thin):
 
 | Piece | Status |
 |-------|--------|
@@ -22,11 +23,11 @@
 | wlr-layer-shell (map/arrange/anchor, exclusive zones via `layer_map`) | `works` |
 | wp_viewporter + wp_fractional_scale | `works` — iced_layershell clients hard-require viewporter |
 | `zwlr_screencopy_manager_v1` (SHM + linux-dmabuf) | `works` — grim + `copy_with_damage`; nested + DRM GLES upload into client dmabufs; offscreen readback for CPU `last_frame`; **Y-flip auto** skips CPU flip on virtio-gpu (`PROTEUS_SCREENCOPY_FLIP_Y=0\|1` override) so grim matches the seat |
-| Portal Screenshot (`xdg-desktop-portal-wlr`) | `partial` — spike sets `XDG_CURRENT_DESKTOP=wlroots`; smoke runs isolated dbus Screenshot when portal-wlr is installed (SKIP otherwise). **Shipping base prefers portal-wlr**; hyprland portal optional for Fact rollback. |
-| Gamescope nesting (client under spike) | `partial` — smoke nests `gamescope` under spike `WAYLAND_DISPLAY`, asserts ctl `clients` growth; SKIP if binary missing or backends exit (no Vulkan / VirGL). Console-home **not** swapped. |
+| Portal Screenshot (`xdg-desktop-portal-wlr`) | `partial` — sets `XDG_CURRENT_DESKTOP=wlroots`; smoke runs isolated dbus Screenshot when portal-wlr is installed (SKIP otherwise). **Shipping prefers portal-wlr** (Hyprland portal retired with Hyprland). |
+| Gamescope nesting (client under compositor) | `partial` — smoke nests `gamescope` under compositor `WAYLAND_DISPLAY`, asserts ctl `clients` growth; SKIP if binary missing or backends exit (no Vulkan / VirGL). Console-home **not** swapped. |
 | PipeWire Screencast | `partial` — compositor `copy_with_damage` ready for xdp-wlr/wf-recorder; smoke via `wf-recorder` when installed (SKIP otherwise). PipeWire stays never-own. |
 | Input routing (pointer/keyboard, layers above windows) | `thin` |
-| Workspace roster `1..=10` + `special:minimized` parking | `works` |
+| Workspace roster `1..=10` + `special:minimized` parking | `works` — **per-output boards** (synced `workspace N` · local `workspace N,output:NAME`); monitors JSON `activeWorkspace` + focused |
 | Control socket (`PROTEUS_COMPOSITOR_SOCK`) query + dispatch + subscribe | `works` |
 | Shell engine-aware IPC (`shell/src/wm_ipc.rs`) | `works` |
 | Clients JSON hypr-shaped `at` / `size` | `works` — live Space/Window geometry |
@@ -37,10 +38,12 @@
 | VirGL / virtio transform | `thin` — prefers **card** node; `PROTEUS_DRM_TRANSFORM` (`normal`/`180`/`flipped`/…) for host-GL orientation quirks (no auto flip — VirGL hosts differ) |
 | Displays Fact + modeset | `works` (thin) — load `displays.json`; `dispatch output` scale/pos/mode; **Identify** flash; Settings **10s Revert** |
 | Session keybinds | `works` (thin) — Super chords in compositor (`binds.rs`); Fact `keybinds.json`; `reloadbinds` |
+| `ext-session-lock-v1` | `partial` (thin) — global advertised; blank xdg windows while locked; LockSurfaces drawn; ctl `session-lock` probe; Overlay remains default Fact |
 
 ### Supported ctl dispatches
 
-`workspace N` · `focuswindow address:…` · `killactive` · `cyclenext` ·
+`workspace N` (synced all heads) · `workspace N,output:NAME` (local) ·
+`focuswindow address:…` · `killactive` · `cyclenext` ·
 `movetoworkspacesilent N|special:minimized` · `fullscreen 1` · `togglefloating` ·
 `layout equal|dwindle|master` · `gapsout N` · `gapsin N` · `smartgaps on|off|toggle` · `masterfactor F` ·
 `output <name> scale <f>` · `output <name> pos <x> <y>` · `output <name> mode <WxH[@Hz]>` ·
@@ -48,23 +51,25 @@
 `movewindow output:<name>` · `focusoutput <name>`
 
 Queries (hypr-shaped JSON fields): `workspaces` · `activeworkspace` ·
-`clients` (incl. `at`/`size`/`output`) · `activewindow`. Helper: `proteus-compositorctl`.
+`clients` (incl. `at`/`size`/`output`) · `activewindow` · `monitors`
+(incl. `focused` · `activeWorkspace`) · `session-lock` (`{"ok":true,"supported":true}`).
+Helper: `proteus-compositorctl`.
 
 ## Prove (2026-08-06)
 
 ### Layers (2026-08-05, host nested run)
 
 ```
-./target/debug/proteus-compositor-next -c ./target/debug/proteus-shell --face desktop
-proteus-compositor-next: nested spike on WAYLAND_DISPLAY=wayland-2
-proteus-compositor-next: layer mapped: proteus-bar
+./target/debug/proteus-compositor -c ./target/debug/proteus-shell --face desktop
+proteus-compositor: nested on WAYLAND_DISPLAY=wayland-2
+proteus-compositor: layer mapped: proteus-bar
 … (all ten proteus-shell chrome layers)
 ```
 
 ### IPC (2026-08-06)
 
-- `cargo test -p compositor-next` — wm roster unit tests (incl. `at`/`size`).
-- `./dev/smoke/compositor-next-smoke.sh` — build + (when DISPLAY set) ctl
+- `cargo test -p compositor` — wm roster unit tests (incl. `at`/`size`).
+- `./dev/smoke/compositor-smoke.sh` — build + (when DISPLAY set) ctl
   round-trip: workspaces → dispatch workspace 2 → activeworkspace.
 
 ### Grabs (2026-08-06)
@@ -93,20 +98,20 @@ proteus-compositor-next: layer mapped: proteus-bar
 
 ### Portals Screenshot (2026-08-06)
 
-- Spike process + `-c` children set `XDG_CURRENT_DESKTOP=wlroots` for
+- Compositor process + `-c` children set `XDG_CURRENT_DESKTOP=wlroots` for
   `xdg-desktop-portal-wlr` `UseIn`.
-- Helper: [`dev/smoke/compositor-next-portal-screenshot.sh`](../../dev/smoke/compositor-next-portal-screenshot.sh)
+- Helper: [`dev/smoke/compositor-portal-screenshot.sh`](../../dev/smoke/compositor-portal-screenshot.sh)
   — `dbus-run-session` + preferred `wlr` + non-interactive Screenshot.
 - Smoke: SKIP if `xdg-desktop-portal-wlr` missing; otherwise attempt Screenshot
   under nested `WAYLAND_DISPLAY` (inconclusive host setups soft-skip).
 - Shipping: `xdg-desktop-portal-wlr` in base packages + `env/portal/portals.conf`
-  (`Preferred=wlr;gtk`). Hyprland portal optional for `compositor-engine=hyprland`.
+  (`Preferred=wlr;gtk`). Hyprland portal retired with Hyprland.
 - PipeWire Screencast still **out**.
 
 ### Gamescope nesting (2026-08-06)
 
-- Helper: [`dev/smoke/compositor-next-gamescope.sh`](../../dev/smoke/compositor-next-gamescope.sh)
-  — nest `gamescope -W 1280 -H 720 -- sleep …` under spike display; retry
+- Helper: [`dev/smoke/compositor-gamescope.sh`](../../dev/smoke/compositor-gamescope.sh)
+  — nest `gamescope -W 1280 -H 720 -- sleep …` under compositor display; retry
   `--backend sdl` on early exit; poll ctl `clients` for growth / `gamescope`.
 - Smoke: SKIP (rc 2) if gamescope missing or both backends die; FAIL if up but
   absent from clients.
@@ -114,7 +119,7 @@ proteus-compositor-next: layer mapped: proteus-bar
 
 ### Tiling (2026-08-06)
 
-- [`layout.rs`](../../compositor-next/src/layout.rs) — `equal_column_layout`,
+- [`layout.rs`](../../compositor/src/layout.rs) — `equal_column_layout`,
   `dwindle_layout` (default), `master_layout(factor)`, `inset_rect`,
   `work_area_with_exclusive`.
 - `dispatch layout equal|dwindle|master`; `gapsout` / `gapsin` (defaults 8 / 4);
@@ -128,24 +133,24 @@ proteus-compositor-next: layer mapped: proteus-bar
 ### Screencast / copy_with_damage (2026-08-06)
 
 - `CopyWithDamage` always queues until the next redraw; fulfill sends full-buffer
-  `damage` then `flags`/`ready` ([`screencopy.rs`](../../compositor-next/src/screencopy.rs)).
-- Helper: [`dev/smoke/compositor-next-screencast.sh`](../../dev/smoke/compositor-next-screencast.sh)
+  `damage` then `flags`/`ready` ([`screencopy.rs`](../../compositor/src/screencopy.rs)).
+- Helper: [`dev/smoke/compositor-screencast.sh`](../../dev/smoke/compositor-screencast.sh)
   — short `wf-recorder` under nested display (SKIP if missing).
 - Full portal Screencast UI dogfood still **out**.
 
 ### DRM / session (2026-08-06)
 
-- [`drm.rs`](../../compositor-next/src/drm.rs) — `LibSeatSession`, primary GPU
+- [`drm.rs`](../../compositor/src/drm.rs) — `LibSeatSession`, primary GPU
   (`PROTEUS_DRM_DEVICE` override), **all** connected desktop connectors (side-by-side),
   GBM scanout, libinput, session pause/activate, `UdevBackend` hotplug resync.
 - Screencopy: offscreen readback per crtc → `last_frame` +
-  `drain_pending_screencopies_for`; shared [`dmabuf_init.rs`](../../compositor-next/src/dmabuf_init.rs).
+  `drain_pending_screencopies_for`; shared [`dmabuf_init.rs`](../../compositor/src/dmabuf_init.rs).
 - CLI: `--backend winit|drm` (env `PROTEUS_COMPOSITOR_BACKEND`); DRM failures
   exit non-zero (no silent winit fallback).
 - Equal-column / dwindle / master tiling is **per output** (windows tagged with
   `Output::name()`; empty tag → primary). `dispatch movewindow output:<name>` +
   `dispatch focusoutput <name>` (pointer warp to output center).
-- Helper: [`dev/smoke/compositor-next-drm.sh`](../../dev/smoke/compositor-next-drm.sh)
+- Helper: [`dev/smoke/compositor-drm.sh`](../../dev/smoke/compositor-drm.sh)
   — live prove only when `PROTEUS_COMPOSITOR_DRM=1` (free VT/VM); otherwise SKIP.
 - Multi-GPU still **out**.
 
@@ -154,19 +159,19 @@ proteus-compositor-next: layer mapped: proteus-bar
 - `XdgDecorationState` + `XdgDecorationHandler`: prefer `Mode::ClientSide` on
   new / unset (app chrome); SSD only for explicit `ServerSide`; sync
   `ToplevelRecord.ssd`.
-- Thin SSD draw ([`decoration.rs`](../../compositor-next/src/decoration.rs)):
+- Thin SSD draw ([`decoration.rs`](../../compositor/src/decoration.rs)):
   `TITLEBAR_H=28` solid bar (+ maximize/close squares) + **cosmic-text title** via
   `MemoryRenderBuffer` (truncate/ellipsis); maximize / close / drag-move on the bar.
 
 ### Displays Fact / modeset (2026-08-06)
 
 - Fact: `~/.config/proteus/displays.json` (Settings write).
-- Load at DRM/winit start ([`displays.rs`](../../compositor-next/src/displays.rs)):
+- Load at DRM/winit start ([`displays.rs`](../../compositor/src/displays.rs)):
   scale + position; DRM mode match via connector modes + `use_mode`.
 - Live: `dispatch output <name> scale|pos|mode`; helper
   `proteus-settings-apply apply-displays`.
 - Identify: `dispatch identify [secs]` (default 3) — centered connector-name
-  badge per output ([`identify.rs`](../../compositor-next/src/identify.rs)).
+  badge per output ([`identify.rs`](../../compositor/src/identify.rs)).
 - Settings: 10s snapshot Revert after Apply (Settings-owned; restore Fact + live).
 - Out: transform/orientation UI.
 
@@ -180,19 +185,19 @@ proteus-compositor-next: layer mapped: proteus-bar
 
 ### Dogfood gate (2026-08-06)
 
-- Helper: [`dev/smoke/compositor-next-dogfood.sh`](../../dev/smoke/compositor-next-dogfood.sh)
+- Helper: [`dev/smoke/compositor-dogfood.sh`](../../dev/smoke/compositor-dogfood.sh)
   — static asserts + nested ctl prove; DRM via `PROTEUS_COMPOSITOR_DRM=1`; guest
   via `PROTEUS_GUEST=1` (Fact `smithay` + binary hard; `COMP_LIVE` soft-SKIP).
 - Nested host path: [`dev/run-nested.sh`](../../dev/run-nested.sh) →
-  compositor-next **winit** `-c proteus-chrome` (never Hyprland).
+  compositor **winit** `-c proteus-chrome` (never Hyprland).
 
 ## Opt-in / rollback
 
-- Build: `cargo build -p compositor-next` (not in `default-members`).
+- Build: `cargo build -p compositor` (not in `default-members`).
 - Engine: empty / `smithay` → smithay; `hyprland` → **refused** by session.
 - Nested: `./dev/run-nested.sh`.
-- Run DRM (VT/VM): `./target/debug/proteus-compositor-next --backend drm`
-  (optionally `-c …`); smoke: `PROTEUS_COMPOSITOR_DRM=1 ./dev/smoke/compositor-next-drm.sh`.
+- Run DRM (VT/VM): `./target/debug/proteus-compositor --backend drm`
+  (optionally `-c …`); smoke: `PROTEUS_COMPOSITOR_DRM=1 ./dev/smoke/compositor-drm.sh`.
 
 ## Doctrine
 

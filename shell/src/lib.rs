@@ -15,7 +15,7 @@ pub mod platform;
 pub mod spaces;
 pub mod surfaces;
 
-/// Layer namespaces — Hyprland rules / layerrules target these ids.
+/// Layer namespaces — compositor layerrules target these ids.
 pub mod layers {
     pub const BAR: &str = "proteus-bar";
     pub const DOCK: &str = "proteus-dock";

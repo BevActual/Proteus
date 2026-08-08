@@ -2,7 +2,7 @@
 doc: applications
 role: architecture
 audience: architects, contributors, app authors
-last_updated: "2026-07-30"
+last_updated: "2026-08-08"
 doc_status: active
 scope: Adaptive apps — one identity, environment-shaped; not every app on every kit
 related:
@@ -86,19 +86,19 @@ Likewise: a **TV** is a device class that often runs **console** posture; a
 
 ## 3. App contract
 
-`partial` — Wave A manifests ship under `env/apps/`; EnvGate enforces
-`requires` / `requiresAny` / **`postures`** (hard vs SessionPosture) /
-**`device_classes`** (hard vs `Hardware.deviceClass`) when a desktop entry
+`partial` — Wave A manifests ship under `env/apps/`; shell-core gating enforces
+`requires` / `requiresAny` / **`postures`** (hard vs session posture) /
+**`device_classes`** (hard vs probe `device_class`) when a desktop entry
 matches; **`prefers`** is soft (Beacon hint + search boost); **`adapts`** is
 soft shaping (`appAdaptProfile` / Beacon hint / **`PROTEUS_ADAPT_*` launch env** —
-never blocks apps). EnvGate resolves `input` + `nav` + **`panes`** (via
-`FocusMode.paneDensity`) and Dock/Beacon inject `PROTEUS_ADAPT_INPUT` /
+never blocks apps). Gating resolves `input` + `nav` + **`panes`** (via Focus
+pane density) and Dock/Beacon inject `PROTEUS_ADAPT_INPUT` /
 `PROTEUS_ADAPT_NAV` / `PROTEUS_ADAPT_PANES` when launching. When panes resolve
 to **minimal** (Focus on), Settings **hard-hides** non-allowlisted hubs/leaves
 (Desktop→Focus · Privacy · Users · Notifications · About stay). `input: remote`
-resolves via `Hardware.has("remote")` — probe CEC/IR/lirc / Bluetooth HID
-remote-like names or soft stub `PROTEUS_REMOTE_PROBE=1`. Settings About reads
-launch env via `AdaptEnv.qml` (soft display — first-party consumer wedge).
+resolves via probe remote capability — CEC/IR/lirc / Bluetooth HID remote-like
+names or soft stub `PROTEUS_REMOTE_PROBE=1`. Settings About may surface adapt
+launch env (soft display — first-party consumer wedge).
 
 Each app declares a contract (manifest / metadata):
 
@@ -109,10 +109,10 @@ Each app declares a contract (manifest / metadata):
 | **prefers** | Soft capability hints — Beacon subtitle + ranking boost (never blocks) |
 | **postures** | Hard allow-list vs session posture (`desktop` · `console` · `host`; empty = any) |
 | **device_classes** | Hard allow-list vs Wave A class (`desktop` · `laptop` · `tablet` · `phone` · `server`; empty = any) |
-| **adapts** | Soft UI-shaping for apps; EnvGate resolves `input` + `nav` + `panes` (Focus on → minimal); launch injects `PROTEUS_ADAPT_*`; Settings hard-hides panes when minimal |
+| **adapts** | Soft UI-shaping for apps; shell-core resolves `input` + `nav` + `panes` (Focus on → minimal); launch injects `PROTEUS_ADAPT_*`; Settings hard-hides panes when minimal |
 
-On disk: `env/apps/schema.json` + `env/apps/catalog.json`. EnvGate loads the
-catalog at session start (`catalogPath` via `shellRoot/../env/apps/…`).
+On disk: `env/apps/schema.json` + `env/apps/catalog.json`. Shell-core loads the
+catalog at session start (`env/apps/…` beside the tree / install root).
 
 Example sketches:
 
@@ -129,7 +129,7 @@ Example sketches:
   **Shares** (Samba usershare add/remove); dashboard cards deep-link tabs
   (`proteus-workloads --tab …`); Settings → Virtualization thin hub.
 - **Vitals glance** — requires `vitals`; `device_classes: ["watch","phone"]`
-  (catalog example; blocks on desktop/laptop VM); no Hyprland needed.  
+  (catalog example; blocks on desktop/laptop VM).  
 - **Console titles** (games, Plex, streaming/web apps) — posture `console`
   (and often `desktop`); launch from Console shelves, not store Big Picture.
   Adapts to `remote` / `gamepad`. **Store apps** (Steam, Heroic, …) may list
@@ -150,20 +150,20 @@ with a clear reason (“needs libvirt”, “needs display”).
 
 | Surface | Gate |
 |---------|------|
-| Settings sidebar | `EnvGate.availableSettingsPanes()` — Sound needs audio caps; Network needs wifi/ethernet/bt; … |
-| Beacon | Hide gated apps unless searching; search shows them dimmed with reason (`Beacon.qml` → `EnvGate.appAvailable`) |
-| Dock | `DockApps.visiblePinned` via optional `requires` / `requiresAny` on pins |
+| Settings sidebar | shell-core pane gate — Sound needs audio caps; Network needs wifi/ethernet/bt; … |
+| Beacon | Hide gated apps unless searching; search shows them dimmed with reason (`gate_app`) |
+| Dock | Visible pins honor optional `requires` / `requiresAny` |
 | App manifests | `env/apps/catalog.json` preferred over `appRules` / category heuristics |
 
-Code: `shell/shared/EnvGate.qml`. Fail-open until `Hardware.ready`. Missing
-catalog → heuristics only (`manifestsReady` false).
+Code: `services/proteus-shell-core` (`gate.rs` + catalogs). Fail-open until
+hardware probe is ready. Missing catalog → heuristics only.
 
 **User grants:** manifests may list `permissions` (`microphone` · `camera` ·
-`location` · `notifications` · `screen` · `diagnostics`). EnvGate requires
-`Permissions.granted` (Allow only; Ask/Deny block). Store:
-`~/.config/proteus/permissions.json` via `Permissions.qml`. Fail-open until the
-store is ready. Native OS sandbox for pacman apps stays Out — Flatpak overrides
-are separate (Settings → Privacy → Flatpak apps).
+`location` · `notifications` · `screen` · `diagnostics`). Gating requires
+Allow (Ask/Deny block). Store: `~/.config/proteus/permissions.json` via
+`proteus-permissions.py` + shell/Settings. Fail-open until the store is ready.
+Native OS sandbox for pacman apps stays Out — Flatpak overrides are separate
+(Settings → Privacy → Flatpak apps).
 
 This avoids pretending every creative app belongs on a vitals band or that every
 ops tool belongs on the console.
@@ -193,7 +193,7 @@ applied across the OS environment tuple, not only writing modes.
 Build adaptive apps per [STACK.md](./STACK.md):
 
 - Product windows → **Tauri + TS** (shared UI that branches on environment)  
-- OS Settings facets → **Quickshell** today  
+- OS Settings facets → **iced** (`proteus-settings-next`)  
 - Headless / privileged → **Rust** CLI/API the GUI calls  
 
 Do not ship `rowena-phone` and `rowena-desktop` as separate products if one
@@ -206,8 +206,8 @@ adaptive app can honor the contract.
 | Item | Status |
 |------|--------|
 | Environment tuple (docs) | `planned` / locked in prose |
-| App capability manifest | `partial` — `env/apps/` schema + catalog; EnvGate load + postures/prefers/device_classes/adapts + launch env |
-| Beacon filtering by contract | `partial` — manifest match + heuristic fallback + prefers boost + adapts hint + Dock/Beacon/`openSettings` `PROTEUS_ADAPT_*` + Settings About `AdaptEnv` |
+| App capability manifest | `partial` — `env/apps/` schema + catalog; shell-core load + postures/prefers/device_classes/adapts + launch env |
+| Beacon filtering by contract | `partial` — manifest match + heuristic fallback + prefers boost + adapts hint + Dock/Beacon/`openSettings` `PROTEUS_ADAPT_*` + Settings About adapt env |
 | DesktopEntries launcher | `shipped` (desktop) |
 | Console lean seats | `partial` — Browser / Media / Terminal / Steam / RetroArch / Desktop via `proteus-console-launch`; Games · Media · Apps · Search · Settings list IA; Apps = curated lean-back; Media = streaming; **Console Settings face**; Search = DesktopEntries + extras |
 

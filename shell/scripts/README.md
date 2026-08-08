@@ -5,11 +5,12 @@
 | `proteus-terminal` | Ghostty launcher; VM OpenGL 4.3 workaround | **shipped** |
 | `proteus-screenshot` | grim + slurp + satty annotate | **interim** |
 | `proteus-clipboard` | cliphist + fuzzel picker | **interim** — Beacon Clipboard mode preferred |
-| `proteus-colorpick` | hyprpicker → clipboard | **interim** |
+| `proteus-colorpick` | grim+slurp one-pixel → clipboard (wlroots) | **interim** |
 | `check-unlock.py` / `proteus-pin.py` / `proteus_auth.py` | Lock unlock (PAM password or hashed PIN) + PIN set/clear | **shipped** |
 | `proteus-pick-media` | Console Media seat file picker (zenity / kdialog) | **shipped** |
-| `proteus-chrome` | Chrome supervisor (flock / backoff / `--restart` waits for prior flock) | **shipped** |
-| `proteus-workspace` | Spaces dispatcher (synced / per-display bands; `status` / `ensure` hotplug; scratch + custom `special-*`; `settings.json` `workspaceMode` / `specialWorkspaces`) | **shipped** |
+| `proteus-chrome` | Chrome supervisor (respawn watchdog; owned iced only) | **shipped** |
+| `proteus-dock-activate` | CLI dock focus/minimize/launch via `proteus-compositorctl` (primary path is iced `wm_ipc`) | **shipped** (escape) |
+| `proteus-workspace` | Spaces band math / fixtures; live → compositorctl synced + local per-output boards | **partial** |
 | `privacy-indicators.py` | Mic / camera / screen-in-use probe → JSON (+ `apps[]`) for menu-bar + Privacy → In use now | **shipped** |
 | `proteus-permissions.py` | `permissions.json` store + Flatpak override list/set + activity wrapper | **shipped** |
 | `proteus-defaults.py` | Default apps list/set (`xdg-mime` / gio) for Settings → Desktop → Default apps | **shipped** |

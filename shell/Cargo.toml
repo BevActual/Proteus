@@ -3,7 +3,7 @@ name = "proteus-shell"
 version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-only"
-description = "Owned iced layer-shell session (OWNED-STACK rung 1) — parallel to Quickshell"
+description = "Owned iced layer-shell session chrome (OWNED-STACK rung 1)"
 
 [[bin]]
 name = "proteus-shell"

@@ -1,4 +1,4 @@
-//! Spaces Mission Control — visible-set helpers + overview surface.
+//! Spaces overview — visible-set helpers + full-screen surface.
 //!
 //! Compositor-next exposes fixed workspaces 1..=10. Grow/shrink is a shell
 //! visible-set rule (occupied ∪ active + one trailing empty). Names live in
@@ -16,7 +16,7 @@ use crate::wm_ipc::{Toplevel, WmState};
 pub const SPACE_MIN: i64 = 1;
 pub const SPACE_MAX: i64 = 10;
 
-/// Equal landscape card geometry (Mission Control strip).
+/// Equal landscape card geometry (Spaces overview strip).
 const CARD_W: f32 = 280.0;
 const CARD_H: f32 = 200.0;
 const STAGE_H: f32 = 140.0;
@@ -31,9 +31,19 @@ pub struct SpaceWinThumb {
     pub handle: iced::widget::image::Handle,
 }
 
-/// Non-minimized toplevel workspace ids in 1..=10.
-pub fn occupied_space_ids(hypr: &WmState) -> BTreeSet<i64> {
-    hypr.toplevels
+/// Non-minimized toplevel workspace ids in 1..=10 on one output.
+pub fn occupied_space_ids_for_output(wm: &WmState, output: &str) -> BTreeSet<i64> {
+    wm.toplevels
+        .iter()
+        .filter(|t| t.workspace >= SPACE_MIN && t.workspace <= SPACE_MAX)
+        .filter(|t| t.output.is_empty() || t.output == output)
+        .map(|t| t.workspace)
+        .collect()
+}
+
+/// Non-minimized toplevel workspace ids in 1..=10 (all outputs).
+pub fn occupied_space_ids(wm: &WmState) -> BTreeSet<i64> {
+    wm.toplevels
         .iter()
         .filter(|t| t.workspace >= SPACE_MIN && t.workspace <= SPACE_MAX)
         .map(|t| t.workspace)
@@ -107,10 +117,22 @@ pub fn names_with_rename(names: &[String], id: i64, name: &str) -> Vec<String> {
     out
 }
 
-pub fn windows_on_space<'a>(hypr: &'a WmState, id: i64) -> Vec<&'a Toplevel> {
-    hypr.toplevels
+pub fn windows_on_space<'a>(wm: &'a WmState, id: i64) -> Vec<&'a Toplevel> {
+    wm.toplevels
         .iter()
         .filter(|t| t.workspace == id)
+        .collect()
+}
+
+pub fn windows_on_space_for_output<'a>(
+    wm: &'a WmState,
+    output: &str,
+    id: i64,
+) -> Vec<&'a Toplevel> {
+    wm.toplevels
+        .iter()
+        .filter(|t| t.workspace == id)
+        .filter(|t| t.output.is_empty() || t.output == output)
         .collect()
 }
 
@@ -187,6 +209,7 @@ fn preview_stage<'a>(
     thumbs: &'a HashMap<String, SpaceWinThumb>,
     drag_addr: Option<&'a str>,
     space_id: i64,
+    output: Option<&'a str>,
 ) -> Element<'a, Message> {
     let mute = theme.text_mute;
     let hair = theme.hairline;
@@ -220,7 +243,7 @@ fn preview_stage<'a>(
             border: Border::default(),
             ..Default::default()
         })
-        .on_press(Message::SpacesSelect(space_id))
+        .on_press(Message::SpacesSelect(space_id, output.map(str::to_string)))
         .into();
     }
 
@@ -270,10 +293,10 @@ fn preview_stage<'a>(
         .into()
 }
 
-/// Mission Control overview. `open_t` is 0→1 open fade (OutCubic).
-pub fn overview_view<'a>(
+/// Horizontal strip of Space cards for one output (or all outputs when `output` is None).
+fn card_strip<'a>(
     theme: &'a Theme,
-    hypr: &'a WmState,
+    wm: &'a WmState,
     names: &'a [String],
     spaces_floor: i64,
     thumbs: &'a HashMap<String, SpaceWinThumb>,
@@ -281,36 +304,34 @@ pub fn overview_view<'a>(
     rename_buf: &'a str,
     drag_addr: Option<&'a str>,
     drag_target: Option<i64>,
-    open_t: f32,
+    drag_target_output: Option<&'a str>,
+    active_workspace: i64,
+    output: Option<&'a str>,
 ) -> Element<'a, Message> {
     let accent = theme.accent;
     let accent_soft = theme.accent_soft;
     let mute = theme.text_mute;
     let hair = theme.hairline;
     let elevated = theme.bg_elevated;
-    let occupied = occupied_space_ids(hypr);
-    let visible = visible_space_ids(hypr.active_workspace, &occupied, spaces_floor);
-    let t = open_t.clamp(0.0, 1.0);
+    let occupied = match output {
+        Some(out) => occupied_space_ids_for_output(wm, out),
+        None => occupied_space_ids(wm),
+    };
+    let visible = visible_space_ids(active_workspace, &occupied, spaces_floor);
 
     let mut cards = row![].spacing(16).align_y(Alignment::Center);
     for &id in &visible {
-        let active = id == hypr.active_workspace;
-        let wins = windows_on_space(hypr, id);
-        let is_drop = drag_addr.is_some() && drag_target == Some(id);
-        let border_c = if is_drop {
-            accent
-        } else if active {
-            accent
-        } else {
-            hair
+        let active = id == active_workspace;
+        let wins = match output {
+            Some(out) => windows_on_space_for_output(wm, out, id),
+            None => windows_on_space(wm, id),
         };
-        let border_w = if is_drop {
-            1.5
-        } else if active {
-            1.0
-        } else {
-            1.0
-        };
+        let same_column = output.is_none()
+            || drag_target_output.is_none()
+            || output == drag_target_output;
+        let is_drop = drag_addr.is_some() && drag_target == Some(id) && same_column;
+        let border_c = if is_drop || active { accent } else { hair };
+        let border_w = if is_drop { 1.5 } else { 1.0 };
         let bg = if active {
             accent_soft
         } else {
@@ -329,6 +350,7 @@ pub fn overview_view<'a>(
         } else {
             let label = space_name(names, id);
             let switch_id = id;
+            let out_sel = output.map(str::to_string);
             row![
                 button(
                     row![
@@ -358,7 +380,7 @@ pub fn overview_view<'a>(
                     },
                     ..Default::default()
                 })
-                .on_press(Message::SpacesSelect(switch_id)),
+                .on_press(Message::SpacesSelect(switch_id, out_sel.clone())),
                 button(crate::icons::glyph_view("pencil", 12.0, mute))
                     .padding(Padding::from([4, 6]))
                     .style(move |_t, s| button::Style {
@@ -382,7 +404,7 @@ pub fn overview_view<'a>(
             .into()
         };
 
-        let stage = preview_stage(theme, &wins, thumbs, drag_addr, id);
+        let stage = preview_stage(theme, &wins, thumbs, drag_addr, id, output);
         let card_body = column![header, stage]
             .spacing(10)
             .width(Length::Fixed(CARD_W - 24.0));
@@ -402,10 +424,11 @@ pub fn overview_view<'a>(
 
         let id_enter = id;
         let id_release = id;
+        let out_hover = output.map(str::to_string);
         cards = cards.push(
             iced::widget::mouse_area(card)
-                .on_enter(Message::SpacesDragHover(id_enter))
-                .on_release(Message::SpacesDrop(id_release)),
+                .on_enter(Message::SpacesDragHover(id_enter, out_hover.clone()))
+                .on_release(Message::SpacesDrop(id_release, out_hover)),
         );
     }
 
@@ -438,12 +461,111 @@ pub fn overview_view<'a>(
         cards = cards.push(plus);
     }
 
+    scrollable_if_needed(cards)
+}
+
+/// Spaces overview. `open_t` is 0→1 open fade (OutCubic).
+pub fn overview_view<'a>(
+    theme: &'a Theme,
+    wm: &'a WmState,
+    names: &'a [String],
+    spaces_floor: i64,
+    thumbs: &'a HashMap<String, SpaceWinThumb>,
+    rename_id: Option<i64>,
+    rename_buf: &'a str,
+    drag_addr: Option<&'a str>,
+    drag_target: Option<i64>,
+    drag_target_output: Option<&'a str>,
+    open_t: f32,
+) -> Element<'a, Message> {
+    let hair = theme.hairline;
+    let elevated = theme.bg_elevated;
+    let t = open_t.clamp(0.0, 1.0);
+
     let title = text("Spaces")
         .size(20)
         .font(semibold())
         .color(theme.text);
 
-    let strip = scrollable_if_needed(cards);
+    let strip: Element<'a, Message> = if wm.monitors.len() > 1 {
+        let mut columns = row![].spacing(32).align_y(Alignment::Start);
+        for mon in &wm.monitors {
+            let out = mon.name.as_str();
+            let strip = card_strip(
+                theme,
+                wm,
+                names,
+                spaces_floor,
+                thumbs,
+                rename_id,
+                rename_buf,
+                drag_addr,
+                drag_target,
+                drag_target_output,
+                mon.active_workspace,
+                Some(out),
+            );
+            let header_label = text(out)
+                .size(13)
+                .font(semibold())
+                .color(theme.text);
+            let header: Element<'a, Message> = if mon.focused {
+                let accent = theme.accent;
+                let accent_soft = theme.accent_soft;
+                row![
+                    header_label,
+                    container(text("Focused").size(10).color(accent))
+                        .padding(Padding::from([2, 8]))
+                        .style(move |_t| container::Style {
+                            background: Some(Background::Color(accent_soft)),
+                            border: Border {
+                                radius: 8.0.into(),
+                                width: 1.0,
+                                color: hair,
+                            },
+                            ..Default::default()
+                        }),
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center)
+                .into()
+            } else {
+                header_label.into()
+            };
+            let col = container(column![header, strip].spacing(12).width(Length::Shrink))
+                .padding(16)
+                .style(move |_t| container::Style {
+                    background: Some(Background::Color(elevated.scale_alpha(0.5))),
+                    border: Border {
+                        radius: 20.0.into(),
+                        width: 1.0,
+                        color: hair,
+                    },
+                    ..Default::default()
+                });
+            columns = columns.push(col);
+        }
+        iced::widget::scrollable(columns)
+            .direction(iced::widget::scrollable::Direction::Horizontal(
+                iced::widget::scrollable::Scrollbar::new(),
+            ))
+            .into()
+    } else {
+        card_strip(
+            theme,
+            wm,
+            names,
+            spaces_floor,
+            thumbs,
+            rename_id,
+            rename_buf,
+            drag_addr,
+            drag_target,
+            drag_target_output,
+            wm.active_workspace,
+            None,
+        )
+    };
 
     let content = column![title, strip]
         .spacing(20)
@@ -498,6 +620,7 @@ mod tests {
             class: "app".into(),
             title: "t".into(),
             workspace: ws,
+            output: String::new(),
         }
     }
 
@@ -542,7 +665,7 @@ mod tests {
 
     #[test]
     fn occupied_skips_minimized() {
-        let hypr = WmState {
+        let wm = WmState {
             toplevels: vec![
                 tl(1),
                 Toplevel {
@@ -550,11 +673,68 @@ mod tests {
                     class: "x".into(),
                     title: "m".into(),
                     workspace: -1,
+                    output: String::new(),
                 },
             ],
             ..Default::default()
         };
-        assert_eq!(occupied_space_ids(&hypr), BTreeSet::from([1]));
+        assert_eq!(occupied_space_ids(&wm), BTreeSet::from([1]));
+    }
+
+    #[test]
+    fn occupied_per_output() {
+        let wm = WmState {
+            toplevels: vec![
+                Toplevel {
+                    address: "0x1".into(),
+                    class: "a".into(),
+                    title: "t".into(),
+                    workspace: 1,
+                    output: "eDP-1".into(),
+                },
+                Toplevel {
+                    address: "0x2".into(),
+                    class: "b".into(),
+                    title: "t".into(),
+                    workspace: 2,
+                    output: "HDMI-A-1".into(),
+                },
+            ],
+            ..Default::default()
+        };
+        assert_eq!(
+            occupied_space_ids_for_output(&wm, "eDP-1"),
+            BTreeSet::from([1])
+        );
+        assert_eq!(
+            occupied_space_ids_for_output(&wm, "HDMI-A-1"),
+            BTreeSet::from([2])
+        );
+    }
+
+    #[test]
+    fn windows_on_space_for_output_filters() {
+        let wm = WmState {
+            toplevels: vec![
+                Toplevel {
+                    address: "0x1".into(),
+                    class: "a".into(),
+                    title: "t".into(),
+                    workspace: 3,
+                    output: "eDP-1".into(),
+                },
+                Toplevel {
+                    address: "0x2".into(),
+                    class: "b".into(),
+                    title: "t".into(),
+                    workspace: 3,
+                    output: "HDMI-A-1".into(),
+                },
+            ],
+            ..Default::default()
+        };
+        assert_eq!(windows_on_space_for_output(&wm, "eDP-1", 3).len(), 1);
+        assert_eq!(windows_on_space_for_output(&wm, "HDMI-A-1", 3).len(), 1);
     }
 
     #[test]

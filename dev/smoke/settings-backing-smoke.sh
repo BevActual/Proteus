@@ -21,7 +21,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
 cd "${ROOT}"
 fail=0
-die() { echo "settings-backing-smoke: FAIL $*" >&2; fail=1; }
+bad() { echo "settings-backing-smoke: FAIL $*" >&2; fail=1; }
+die() { bad "$*"; } # accumulate (do not exit)
 ok()  { echo "settings-backing-smoke: OK $*"; }
 
 CATALOG="env/settings/catalog.json"
@@ -29,10 +30,12 @@ CATALOG="env/settings/catalog.json"
 
 # External tools Proteus wraps but does not ship. Declared explicitly so that a
 # typo ("nmcl") fails instead of being waved through as "probably external".
-EXTERNAL="nmcli bluetoothctl tailscale pactl wpctl hyprctl powerprofilesctl
+EXTERNAL="nmcli bluetoothctl tailscale pactl wpctl proteus-compositorctl powerprofilesctl
           timedatectl localectl pacman flatpak"
 
-python3 - "${CATALOG}" <<'PY' > /tmp/proteus-backing.$$ || { echo "settings-backing-smoke: FAIL could not parse catalog" >&2; exit 1; }
+MAP="$(mktemp)"
+trap 'rm -f "${MAP}"' EXIT
+python3 - "${CATALOG}" <<'PY' > "${MAP}" || { echo "settings-backing-smoke: FAIL could not parse catalog" >&2; exit 1; }
 import json, sys
 for e in json.load(open(sys.argv[1]))["hubs"]:
     hub = e["id"]
@@ -46,8 +49,6 @@ for e in json.load(open(sys.argv[1]))["hubs"]:
         print(f"CLI\t{hub}\t{x}")
     print(f"HUB\t{hub}")
 PY
-MAP=/tmp/proteus-backing.$$
-trap 'rm -f "${MAP}"' EXIT
 
 hubs=$(grep -c '^HUB' "${MAP}" || true)
 [[ "${hubs}" -ge 15 ]] || die "only ${hubs} hubs parsed from the catalog (expected >= 15)"

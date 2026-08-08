@@ -15,7 +15,7 @@ base + the `install/` overlay.
 | Layer | Entry | Runs where | Role |
 |-------|--------|-----------|------|
 | Base Arch | [`dev/vm/guest-install.sh`](../../dev/vm/guest-install.sh) (VM) · manual Arch (bare metal) | Live ISO, root | Unattended disk: partition, pacstrap, user, sshd |
-| Overlay | [`install/bootstrap.sh`](../../install/bootstrap.sh) | Installed machine (sudo) | Hyprland / owned iced shell / Settings / desktop + console kit |
+| Overlay | [`install/bootstrap.sh`](../../install/bootstrap.sh) | Installed machine (sudo) | smithay compositor / owned iced shell / Settings / desktop + console kit |
 | Host drive | [`dev/vm/provision.sh`](../../dev/vm/provision.sh) → [`dev/vm/bootstrap.sh`](../../dev/vm/bootstrap.sh) | Host | Cache ISO/disk, wait for SSH, run the overlay remotely (VM only) |
 
 Overlay stages (detail: [install/README.md](../../install/README.md)):
@@ -54,7 +54,7 @@ is not inherited. The root is therefore a Fact on disk, like `posture` and
 Every candidate is validated (`<root>/shell` must exist) before it is accepted,
 so a stale Fact after moving the tree degrades to the next source instead of
 stranding the session. `config.sh` also writes
-`~/.config/proteus/compositor-engine=smithay` and installs `proteus-compositor-next`
+`~/.config/proteus/compositor-engine=smithay` and installs `proteus-compositor`
 when a release/debug binary (or cargo) is available. **Hyprland is purged** —
 Fact=`hyprland` is refused; `env/hypr/` is **deleted** (not archived). Settings
 apply via `proteus-settings-apply` / `proteus-compositorctl`; idle is
@@ -164,7 +164,7 @@ The `console` stage (and the earlier `apps` stage) put the seat kit on PATH —
 [dev/vm/README.md](../../dev/vm/README.md) §VFIO) and
 `proteus-console-session set-mode session`, the next console login boots the
 **Gamescope session** (Proteus Home + Guide focus-flip) instead of the
-Hyprland kiosk.
+smithay seat interim.
 
 ### Flip to console and launch a title
 
@@ -178,7 +178,7 @@ bash /mnt/proteus/dev/dogfood/dogfood-console.sh --restore            # back to 
 proteus-posture console
 proteus-console-seat --expect-class steam -- steam -gamepadui
 # trail: tail -f /run/user/$UID/proteus-console-seat.log
-# chrome: qs -p /mnt/proteus/shell ipc call chrome state
+# chrome: proteus-shellctl state
 ```
 
 **Repair vs full packages:** `apply-console-kit.sh` = helpers/seed (+ best-effort
@@ -186,13 +186,14 @@ pkgs). Full Steam/RetroArch/cores/udev = overlay `console` stage or
 `sudo bash /mnt/proteus/install/machine/install-console-software.sh`.
 
 Phase 1 = supervised seats + capabilities probe (Gamescope only when
-`gamescopeUsable`; QEMU/VirGL typically bare kiosk). **Phase 2** = nested
-session Fact via `proteus-console-session` (`seat`\|`gamescope`) + launch
-adaptive flags + ConsoleBar toggle — still nested under Hyprland (sole
-Gamescope compositor Out). Pad passthrough (`PROTEUS_VM_PAD=auto`),
+`gamescopeUsable`; QEMU/VirGL typically bare smithay seat). **Phase 2** = session
+Fact via `proteus-console-session` (`seat`\|`gamescope`) + launch adaptive flags
+— Gamescope-as-session when Vulkan allows; otherwise smithay + seats. Pad
+passthrough (`PROTEUS_VM_PAD=auto`),
 Steam/RetroArch specifics, and VM audio/GL caveats live in
-[dev/vm/README.md](../../dev/vm/README.md). Guest gate:
-`./dev/smoke/console-guest-smoke.sh` (SKIP unless SSH / `PROTEUS_GUEST=1`).
+[dev/vm/README.md](../../dev/vm/README.md). Guest console gate (deferred from
+desktop `smoke-all`): `./dev/smoke/console-guest-smoke.sh` (SKIP unless SSH /
+`PROTEUS_GUEST=1`).
 
 ## Honesty / expectations
 

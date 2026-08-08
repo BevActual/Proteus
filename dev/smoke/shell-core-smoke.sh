@@ -104,8 +104,8 @@ PY
 ok "serve emits a facts line on start"
 
 # Owned shell launches Settings/Workloads via platform helpers / proteus-open
-grep -q 'proteus-open\|proteus-settings\|OpenSettings' \
-  "${ROOT}/shell/src/platform.rs" "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'proteus-open\|proteus-settings\|OpenSettings' \
+  "${ROOT}/shell/src/platform" "${ROOT}/shell/src/surfaces" "${ROOT}/shell/src/app" "${ROOT}/shell/src/main.rs" \
   && ok "owned shell Settings launch path" \
   || die "owned shell missing Settings launch"
 

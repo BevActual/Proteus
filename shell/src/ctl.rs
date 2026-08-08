@@ -50,7 +50,7 @@ pub struct ChromeState {
     pub weather_open: bool,
     /// Notification Center (center menu-bar hub; not Control Center).
     pub notifications_open: bool,
-    /// Mission Control Spaces overview.
+    /// Spaces overview (full-screen).
     pub spaces_open: bool,
     pub locked: bool,
     pub session_start_lock_pending: bool,

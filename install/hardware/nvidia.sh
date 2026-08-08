@@ -56,9 +56,9 @@ if command -v mkinitcpio >/dev/null 2>&1; then
   proteus_root mkinitcpio -P || true
 fi
 
-proteus_hw_hypr_envs "proteus-hw-nvidia" "env = NVD_BACKEND,direct
-env = LIBVA_DRIVER_NAME,nvidia
-env = __GLX_VENDOR_LIBRARY_NAME,nvidia"
+proteus_hw_session_envs "proteus-hw-nvidia" "NVD_BACKEND=direct
+LIBVA_DRIVER_NAME=nvidia
+__GLX_VENDOR_LIBRARY_NAME=nvidia"
 
 echo "hardware/nvidia: OK (reboot recommended)"
 echo "  Older GPUs without GSP: install nvidia-580xx-dkms manually (ArchWiki)."

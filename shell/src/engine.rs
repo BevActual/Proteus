@@ -3,6 +3,8 @@
 use std::env;
 use std::path::PathBuf;
 
+use crate::wm_ipc;
+
 /// Chrome engine — owned iced is the only shipping path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShellEngine {
@@ -34,8 +36,8 @@ pub fn write_engine_fact(engine: ShellEngine) -> Result<(), String> {
 }
 
 /// Resolve compositor engine fact. **Smithay only** (Hyprland purged).
-/// Empty / smithay / compositor-next → smithay. Unknown → smithay with eprintln.
-/// Explicit hyprland/hypr → smithay with refuse message (session exits 1).
+/// Empty / smithay / compositor / compositor-next → smithay. Unknown → smithay
+/// with eprintln. Explicit hyprland/hypr → smithay with refuse message.
 pub fn resolve_compositor_engine() -> &'static str {
     let raw = env::var("PROTEUS_COMPOSITOR_ENGINE").unwrap_or_default();
     let from_env = raw.trim().to_lowercase();
@@ -58,7 +60,7 @@ pub fn resolve_compositor_engine() -> &'static str {
             );
             "smithay"
         }
-        "" | "smithay" | "compositor-next" => "smithay",
+        "" | "smithay" | "compositor" | "compositor-next" => "smithay",
         other => {
             eprintln!(
                 "proteus-shell: compositor-engine={other:?} unknown — using smithay"
@@ -156,10 +158,16 @@ pub fn session_lock_helper() -> Option<PathBuf> {
     session_lock_helper_path()
 }
 
-/// compositor-next does not advertise ext-session-lock yet — protocol helper
-/// cannot blank windows, so Overlay must stay the blanking surface.
+/// True when the compositor ctl reports ext-session-lock support.
 pub fn compositor_supports_session_lock() -> bool {
-    false
+    session_lock_supported_from_json(
+        wm_ipc::compositorctl_json(&["session-lock"]).ok(),
+    )
+}
+
+fn session_lock_supported_from_json(v: Option<serde_json::Value>) -> bool {
+    v.and_then(|j| j.get("supported").and_then(|s| s.as_bool()))
+        .unwrap_or(false)
 }
 
 /// Attempt protocol lock; returns the mode actually used + reason if fallback.
@@ -170,7 +178,7 @@ pub fn activate_session_lock(requested: SessionLockMode) -> (SessionLockMode, Op
             if !compositor_supports_session_lock() {
                 (
                     SessionLockMode::Overlay,
-                    Some("ext-session-lock not on compositor-next — overlay blanks the desktop"),
+                    Some("ext-session-lock not on compositor — overlay blanks the desktop"),
                 )
             } else if session_lock_helper_available() {
                 (SessionLockMode::Protocol, None)
@@ -225,11 +233,22 @@ mod tests {
     }
 
     #[test]
-    fn protocol_falls_back_until_compositor_supports_session_lock() {
+    fn protocol_falls_back_without_compositor_sock() {
         assert!(!compositor_supports_session_lock());
         let (mode, why) = activate_session_lock(SessionLockMode::Protocol);
         assert_eq!(mode, SessionLockMode::Overlay);
         assert!(why.is_some());
+    }
+
+    #[test]
+    fn session_lock_probe_parsing() {
+        assert!(session_lock_supported_from_json(Some(
+            serde_json::json!({"ok": true, "supported": true})
+        )));
+        assert!(!session_lock_supported_from_json(Some(
+            serde_json::json!({"ok": true, "supported": false})
+        )));
+        assert!(!session_lock_supported_from_json(None));
     }
 
     #[test]

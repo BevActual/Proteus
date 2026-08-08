@@ -20,7 +20,7 @@ proteus_root pacman -S --noconfirm --needed mesa vulkan-intel intel-media-driver
   exit 0
 }
 
-proteus_hw_hypr_envs "proteus-hw-intel" "# Intel — ANV / media
-env = LIBVA_DRIVER_NAME,iHD"
+proteus_hw_session_envs "proteus-hw-intel" "# Intel — ANV / media
+LIBVA_DRIVER_NAME=iHD"
 
 echo "hardware/intel: OK"

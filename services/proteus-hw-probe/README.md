@@ -12,4 +12,4 @@ PROTEUS_HW_PROBE_FORCE_REMOTE=1 ./proteus-hw-probe --compact
 ```
 
 Spec: [../../docs/proteus/HARDWARE.md](../../docs/proteus/HARDWARE.md).
-QML stub without hardware: `PROTEUS_REMOTE_PROBE=1`.
+Soft stub without hardware: `PROTEUS_REMOTE_PROBE=1`.

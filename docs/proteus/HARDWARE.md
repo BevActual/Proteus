@@ -2,7 +2,7 @@
 doc: hardware
 role: reference
 audience: architects, contributors, hardware / driver planners
-last_updated: "2026-07-30"
+last_updated: "2026-08-08"
 doc_status: active
 scope: Device classes we target + capability/module catalog (sensors, I/O, compute, radios)
 related:
@@ -251,14 +251,13 @@ the resolver maps modules → capabilities.
 | `services/proteus-hw-probe/proteus_hw_probe.py` | Probe logic |
 | `services/proteus-hw-probe/proteus-hw-probe` | CLI wrapper |
 | `dev/smoke/hw-probe-smoke.sh` | JSON shape gate |
-| `shell/shared/Hardware.qml` | Cache-first; shell live-probes + deferred refresh; Settings cache-only; `Hardware.has("wifi")`; `has("remote")` honors probe CEC/IR/BT HID or `PROTEUS_REMOTE_PROBE` stub |
-| `ShellState` | Mirrors class / caps; `refreshHardware()` |
-| Probe `--cache` | Writes `~/.config/proteus/hw-probe.json` (no QML hex encode) |
+| shell / shell-core | Cache-first; shell live-probes + deferred refresh; Settings prefers cache for fast open; remote capability honors probe CEC/IR/BT HID or `PROTEUS_REMOTE_PROBE` stub |
+| Probe `--cache` | Writes `~/.config/proteus/hw-probe.json` |
+| `install/hardware/*.sh` | GPU packages + `~/.config/proteus/hw.env` (sourced by `proteus-session`) |
 
-Shell loads cache then runs a live probe in the background (`Hardware`
-singleton `Component.onCompleted` + deferred refresh). Settings is a separate
-QS process and skips the live probe (`isSettingsApp`) so open stays instant —
-About still shows class + capability chips from cache (Refresh can re-run).
+Shell loads cache then refreshes the probe in the background. Settings is a
+separate iced process and skips the live probe so open stays instant — About
+still shows class + capability chips from cache (Refresh can re-run).
 
 Emits `schema: proteus.hw.probe/v0` with `device_class`, `modules` (present),
 `capabilities` (true flags), plus `details` (DRM connectors, session env).

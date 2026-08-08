@@ -24,10 +24,10 @@ proteus_as_user mkdir -p "${USER_HOME}/.config/proteus"
 printf 'smithay\n' | proteus_as_user tee "${USER_HOME}/.config/proteus/compositor-engine" >/dev/null
 proteus_log "compositor-engine=smithay (Hyprland purged — no Fact rollback)"
 
-# Prefer installing compositor-next when the tree/binary is available.
-if [[ -x "${PROTEUS_ROOT}/install/machine/install-proteus-compositor-next.sh" ]]; then
-  bash "${PROTEUS_ROOT}/install/machine/install-proteus-compositor-next.sh" \
-    || proteus_log "note: compositor-next install soft-failed (session will refuse without binary)"
+# Prefer installing compositor when the tree/binary is available.
+if [[ -x "${PROTEUS_ROOT}/install/machine/install-proteus-compositor.sh" ]]; then
+  bash "${PROTEUS_ROOT}/install/machine/install-proteus-compositor.sh" \
+    || proteus_log "note: compositor install soft-failed (session will refuse without binary)"
 fi
 
 # Portal preference for smithay / wlroots sessions.

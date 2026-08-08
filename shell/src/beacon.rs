@@ -1,7 +1,7 @@
 //! Beacon desktop-entry enumeration + launch helpers.
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 #[derive(Debug, Clone)]
@@ -175,11 +175,10 @@ pub fn filter_beacon_hits(q: &str, limit: usize, windows: &[crate::wm_ipc::Tople
             }
         }
     }
-    for path in file_hits(&q, 8) {
+    for label in file_hits(&q, 8) {
         if hits.len() >= limit {
             break;
         }
-        let label = format!("File · {path}");
         if !hits.iter().any(|h| h == &label) {
             hits.push(label);
         }
@@ -204,7 +203,7 @@ pub fn filter_beacon_hits(q: &str, limit: usize, windows: &[crate::wm_ipc::Tople
 
 fn file_hits(q: &str, limit: usize) -> Vec<String> {
     if q.is_empty() {
-        return Vec::new();
+        return file_empty_hits(limit);
     }
     let Some(bin) = beacon_file_index_bin() else {
         return Vec::new();
@@ -227,7 +226,7 @@ fn file_hits(q: &str, limit: usize) -> Vec<String> {
                     h.get("path")
                         .and_then(|p| p.as_str())
                         .or_else(|| h.as_str())
-                        .map(|s| s.to_string())
+                        .map(|s| format!("File · {s}"))
                 })
                 .take(limit)
                 .collect()
@@ -235,7 +234,124 @@ fn file_hits(q: &str, limit: usize) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// Warm the home file index cache (non-blocking — call from a background thread).
+pub fn warm_file_index() {
+    let Some(bin) = beacon_file_index_bin() else {
+        return;
+    };
+    let _ = Command::new("python3")
+        .args([bin.to_string_lossy().as_ref(), "search", "."])
+        .output();
+}
+
+fn file_empty_hits(limit: usize) -> Vec<String> {
+    let mut out = Vec::new();
+    if let Some(home) = std::env::var("HOME").ok().map(PathBuf::from) {
+        for path in [
+            home.clone(),
+            home.join("Documents"),
+            home.join("Downloads"),
+            home.join("Desktop"),
+        ] {
+            if out.len() >= limit {
+                break;
+            }
+            if path.is_dir() {
+                let label = format!("Place · {}", path.display());
+                if !out.iter().any(|h| h == &label) {
+                    out.push(label);
+                }
+            }
+        }
+    }
+    for path in file_recents_from_settings().into_iter().take(8) {
+        if out.len() >= limit {
+            break;
+        }
+        if Path::new(&path).exists() {
+            let label = format!("Recent · {path}");
+            if !out.iter().any(|h| h == &label) {
+                out.push(label);
+            }
+        }
+    }
+    out
+}
+
+fn file_recents_from_settings() -> Vec<String> {
+    let base = proteus_shell_core::facts::config_base();
+    let settings = proteus_shell_core::facts::read_settings(&base);
+    let raw = settings
+        .get("launcherFileRecents")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    parse_path_list(raw)
+}
+
+fn parse_path_list(raw: &str) -> Vec<String> {
+    raw.split([',', ';'])
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect()
+}
+
+/// Append a launched file path to `launcherFileRecents` (dedupe, cap 12).
+pub fn record_file_recent(path: &str) {
+    let path = path.trim();
+    if path.is_empty() {
+        return;
+    }
+    let base = proteus_shell_core::facts::config_base();
+    let settings = proteus_shell_core::facts::read_settings(&base);
+    let raw = settings
+        .get("launcherFileRecents")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let mut paths = parse_path_list(raw);
+    paths.retain(|p| p != path);
+    paths.insert(0, path.to_string());
+    paths.truncate(12);
+    let joined = paths.join(",");
+    let patch = serde_json::json!({ "launcherFileRecents": joined });
+    let _ = proteus_shell_core::facts::write_settings(&base, &patch);
+}
+
+fn file_hit_path(hit: &str) -> Option<&str> {
+    for prefix in ["File · ", "Place · ", "Recent · "] {
+        if let Some(rest) = hit.strip_prefix(prefix) {
+            return Some(rest.trim());
+        }
+    }
+    let lower = hit.to_lowercase();
+    for prefix in ["file · ", "place · ", "recent · "] {
+        if lower.starts_with(prefix) {
+            return Some(hit[prefix.len()..].trim());
+        }
+    }
+    None
+}
+
 fn beacon_file_index_bin() -> Option<PathBuf> {
+    if let Ok(out) = Command::new("which").arg("beacon-file-index.py").output() {
+        if out.status.success() {
+            let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if !path.is_empty() {
+                let p = PathBuf::from(&path);
+                if p.is_file() {
+                    return Some(p);
+                }
+            }
+        }
+    }
+    if let Ok(path_env) = std::env::var("PATH") {
+        for dir in path_env.split(':').filter(|s| !s.is_empty()) {
+            let p = PathBuf::from(dir).join("beacon-file-index.py");
+            if p.is_file() {
+                return Some(p);
+            }
+        }
+    }
     for root in [
         std::env::var("PROTEUS_ROOT").ok().map(PathBuf::from),
         Some(PathBuf::from("/mnt/proteus")),
@@ -321,13 +437,10 @@ pub fn launch_hit(hit: &str) {
         }
         return;
     }
-    if lower.starts_with("file ·") {
-        let path = hit
-            .strip_prefix("File · ")
-            .or_else(|| hit.strip_prefix("file · "))
-            .unwrap_or(hit)
-            .trim();
-        let _ = Command::new("xdg-open").arg(path).spawn();
+    if let Some(path) = file_hit_path(hit) {
+        if Command::new("xdg-open").arg(path).spawn().is_ok() {
+            record_file_recent(path);
+        }
         return;
     }
     if lower == "lock screen" || lower.contains("lock screen") {
@@ -431,5 +544,31 @@ mod tests {
         assert!(is_ghostty_desktop_id("com.mitchellh.ghostty.desktop"));
         assert!(is_ghostty_desktop_id("ghostty"));
         assert!(!is_ghostty_desktop_id("org.gnome.Nautilus"));
+    }
+
+    #[test]
+    fn parse_path_list_splits_comma_semicolon() {
+        assert_eq!(
+            parse_path_list("/a,/b;/c , /d"),
+            vec!["/a", "/b", "/c", "/d"]
+        );
+        assert!(parse_path_list("  , ; ").is_empty());
+    }
+
+    #[test]
+    fn file_hit_path_prefixes() {
+        assert_eq!(
+            file_hit_path("File · /tmp/x"),
+            Some("/tmp/x")
+        );
+        assert_eq!(
+            file_hit_path("Place · /home/u"),
+            Some("/home/u")
+        );
+        assert_eq!(
+            file_hit_path("Recent · /home/u/Downloads/a.pdf"),
+            Some("/home/u/Downloads/a.pdf")
+        );
+        assert_eq!(file_hit_path("Settings · Sound"), None);
     }
 }

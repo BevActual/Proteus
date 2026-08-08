@@ -1,5 +1,6 @@
 //! Console face — lean-back list IA (Games · Media · Apps · Search · Settings).
-//! Thin Hypr path today; rebuild here later (gamescope console-home not swapped).
+//! Thin stub today; rebuild here (Gamescope console-home not swapped).
+//! Shared chrome kit stays in [`crate::surfaces`]; this module owns lean layers + exclusive UI.
 
 use iced::widget::{button, column, row, text};
 use iced::{Alignment, Element, Length, Padding};
@@ -10,8 +11,6 @@ use proteus_ui::widgets::{glass_plate, segmented_control};
 use crate::ctl::ChromeState;
 use crate::surfaces::{semibold, Message};
 
-/// Console list IA (Games · Media · Apps · Search · Settings) — Hypr path;
-/// gamescope console-home not swapped.
 pub fn console_face_view<'a>(
     theme: &'a Theme,
     chrome: &'a ChromeState,

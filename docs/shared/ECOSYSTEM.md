@@ -2,7 +2,7 @@
 doc: ecosystem
 role: context
 audience: contributors, coding agents
-last_updated: "2026-07-29"
+last_updated: "2026-08-08"
 doc_status: active
 scope: Bevington product frame including Proteus as host OS
 related:
@@ -49,7 +49,7 @@ environment under apps**, not a fourth peer writing/AI product.
 - **Rowena / Mobius** remain thin clients of Meridian for models.
 - Insights flow both ways: Proteus Settings/chrome patterns can improve Rowena;
   Rowena tokens/IA and Meridian smoke/gates inform Proteus. Chrome language SoT:
-  [proteus/CHROME.md](../proteus/CHROME.md) (`Theme.qml` binding).
+  [proteus/CHROME.md](../proteus/CHROME.md) (`proteus-ui` / `env/chrome/` binding).
 - Company licensing sketches (if needed): Mobius / Rowena
   `docs/shared/company-policies.md` — not duplicated here.
 

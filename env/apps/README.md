@@ -7,24 +7,24 @@ Spec: [APPLICATIONS.md](../../docs/proteus/APPLICATIONS.md).
 | File | Role |
 |------|------|
 | `schema.json` | JSON Schema for one manifest object |
-| `catalog.json` | Seed catalog (`manifests[]`) EnvGate loads at session start |
+| `catalog.json` | Seed catalog (`manifests[]`) shell-core loads at session start |
 
-**EnvGate** (`services/proteus-shell-core`) prefers a catalog match (desktop id /
-optional `match` regex) over category heuristics. Fail-open until
-`Hardware.ready`. Unmatched DesktopEntries keep Wave A heuristics.
+**shell-core** (`services/proteus-shell-core`) prefers a catalog match (desktop id /
+optional `match` regex) over category heuristics. Fail-open until hardware
+probe is ready. Unmatched DesktopEntries keep Wave A heuristics.
 
 | Field | Enforcement |
 |-------|-------------|
-| `requires` / `requiresAny` | Hard (Hardware caps) |
-| `postures` | Hard allow-list vs `SessionPosture` (empty = any) |
-| `device_classes` | Hard allow-list vs `Hardware.deviceClass` (empty = any) |
+| `requires` / `requiresAny` | Hard (probe caps) |
+| `postures` | Hard allow-list vs session posture (empty = any) |
+| `device_classes` | Hard allow-list vs probe `device_class` (empty = any) |
 | `prefers` | Soft — Beacon subtitle + search boost; never blocks |
 | `adapts` | Soft shaping — `appAdaptProfile` / Beacon hint / `PROTEUS_ADAPT_*` launch env; never blocks |
-| `permissions` | Hard via `Permissions` (Ask ≠ Deny; fail-closed until ready) |
+| `permissions` | Hard via permissions store (Ask ≠ Deny; fail-closed until ready) |
 
-`adapts.panes` resolves via `FocusMode.paneDensity` (Focus on → minimal). Soft
+`adapts.panes` resolves via Focus pane density (Focus on → minimal). Soft
 hint + launch env for apps; **Settings** hard-hides non-allowlisted hubs/leaves
 when Focus is on (Desktop→Focus · Privacy · Users · Notifications · About stay).
-`proteus-settings` catalog entry is the first-party consumer (`AdaptEnv` · About).
-`input: remote` resolves via `Hardware.has("remote")` — probe CEC/IR/lirc /
-Bluetooth HID remote-like names or soft `PROTEUS_REMOTE_PROBE=1` stub.
+`proteus-settings` catalog entry is the first-party consumer. `input: remote`
+resolves via probe remote capability — CEC/IR/lirc / Bluetooth HID remote-like
+names or soft `PROTEUS_REMOTE_PROBE=1` stub.

@@ -2,7 +2,7 @@
 # One package per line; comments and blanks ignored.
 # Thin: smithay session + owned chrome. Desktop apps → proteus-desktop.packages
 
-# Compositor / session — Hyprland purged; proteus-compositor-next is the engine.
+# Compositor / session — Hyprland purged; proteus-compositor is the engine.
 # Shipping portal-wlr for Screenshot/Screencast.
 xdg-desktop-portal-wlr
 xdg-desktop-portal
@@ -21,13 +21,7 @@ hyprpolkitagent
 greetd
 greetd-tuigreet
 
-# Shell chrome
-quickshell
-qt6-base
-qt6-declarative
-qt6-wayland
-qt6-svg
-qt6-multimedia
+# Shell chrome — iced proteus-shell (no Quickshell / Qt chrome stack).
 
 # Terminal + clipboard + screenshots
 ghostty
@@ -35,7 +29,6 @@ wl-clipboard
 cliphist
 grim
 slurp
-hyprpicker
 libnotify
 fuzzel
 mesa

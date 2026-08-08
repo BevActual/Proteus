@@ -2,7 +2,7 @@
 
 User-scoped online-account seats for Proteus Settings.
 
-- Catalog + status JSON for `Accounts.qml`
+- Catalog + status JSON for iced Settings Accounts panes
 - Google OAuth2 PKCE (`connect google`) when
   `PROTEUS_GOOGLE_OAUTH_CLIENT_ID` or `~/.config/proteus/oauth-google-client-id` is set
 - Microsoft OAuth2 PKCE (`connect microsoft`) when

@@ -20,7 +20,7 @@ proteus_root pacman -S --noconfirm --needed mesa vulkan-radeon libva-mesa-driver
   exit 0
 }
 
-proteus_hw_hypr_envs "proteus-hw-amd" "# AMD — Mesa / RADV
-env = AMD_VULKAN_ICD,RADV"
+proteus_hw_session_envs "proteus-hw-amd" "# AMD — Mesa / RADV
+AMD_VULKAN_ICD=RADV"
 
 echo "hardware/amd: OK"

@@ -4,7 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 fail=0
 
-die() { echo "layout-smoke: FAIL $*" >&2; fail=1; }
+bad() { echo "layout-smoke: FAIL $*" >&2; fail=1; }
+die() { bad "$*"; } # accumulate (do not exit)
 ok() { echo "layout-smoke: OK $*"; }
 
 # Retired QML trees must stay gone
@@ -30,14 +31,38 @@ if [[ -d "${ROOT}/shell-next" ]]; then
 else
   ok "no shell-next"
 fi
+if [[ -d "${ROOT}/compositor-next" ]]; then
+  die "compositor-next must be renamed to compositor/"
+else
+  ok "no compositor-next"
+fi
+[[ -f "${ROOT}/compositor/Cargo.toml" ]] && ok "compositor/Cargo.toml" || die "compositor/Cargo.toml"
 
 # Owned shell crate + face scaffold
 [[ -f "${ROOT}/shell/Cargo.toml" ]] && ok "shell/Cargo.toml" || die "shell/Cargo.toml"
 [[ -f "${ROOT}/shell/src/main.rs" ]] && ok "shell/src/main.rs" || die "shell/src/main.rs"
+[[ -f "${ROOT}/shell/src/app/mod.rs" ]] && ok "app/mod.rs" || die "app/mod.rs"
+[[ -f "${ROOT}/shell/src/platform/mod.rs" ]] && ok "platform/mod.rs" || die "platform/mod.rs"
+[[ -f "${ROOT}/shell/src/app/state.rs" ]] && ok "app/state.rs" || die "app/state.rs"
+[[ -f "${ROOT}/shell/src/app/update.rs" ]] && ok "app/update.rs" || die "app/update.rs"
+[[ -f "${ROOT}/shell/src/app/view.rs" ]] && ok "app/view.rs" || die "app/view.rs"
+[[ -f "${ROOT}/shell/src/app/layers.rs" ]] && ok "app/layers.rs" || die "app/layers.rs"
+[[ -f "${ROOT}/shell/src/app/handlers/mod.rs" ]] && ok "handlers/mod.rs" || die "handlers/mod.rs"
+for h in overlays spaces dock lock widgets system; do
+  [[ -f "${ROOT}/shell/src/app/handlers/${h}.rs" ]] \
+    && ok "handlers/${h}.rs" || die "handlers/${h}.rs"
+done
+[[ -f "${ROOT}/shell/src/app/runtime.rs" ]] && ok "app/runtime.rs" || die "app/runtime.rs"
+[[ -f "${ROOT}/shell/src/app/subscription.rs" ]] && ok "app/subscription.rs" || die "app/subscription.rs"
 [[ -f "${ROOT}/shell/src/faces/mod.rs" ]] && ok "faces/mod.rs" || die "faces/mod.rs"
-[[ -f "${ROOT}/shell/src/faces/desktop.rs" ]] && ok "faces/desktop.rs" || die "faces/desktop.rs"
-[[ -f "${ROOT}/shell/src/faces/console.rs" ]] && ok "faces/console.rs" || die "faces/console.rs"
-[[ -f "${ROOT}/shell/src/faces/host.rs" ]] && ok "faces/host.rs" || die "faces/host.rs"
+[[ -f "${ROOT}/shell/src/faces/desktop/mod.rs" ]] && ok "faces/desktop/mod.rs" || die "faces/desktop/mod.rs"
+[[ -f "${ROOT}/shell/src/faces/console/mod.rs" ]] && ok "faces/console/mod.rs" || die "faces/console/mod.rs"
+[[ -f "${ROOT}/shell/src/faces/host/mod.rs" ]] && ok "faces/host/mod.rs" || die "faces/host/mod.rs"
+[[ -f "${ROOT}/shell/src/surfaces/mod.rs" ]] && ok "surfaces/mod.rs" || die "surfaces/mod.rs"
+for surf in bar dock beacon control_center hub hud toast privacy lock wallpaper widgets; do
+  [[ -f "${ROOT}/shell/src/surfaces/${surf}.rs" ]] \
+    && ok "surfaces/${surf}.rs" || die "surfaces/${surf}.rs"
+done
 
 # Non-QML runtime assets kept under shell/
 [[ -d "${ROOT}/shell/scripts" ]] && ok "shell/scripts" || die "shell/scripts"

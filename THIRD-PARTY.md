@@ -1,34 +1,44 @@
 # Third-party software
 
-Proteus is an environment assembled **on top of** other people's work. Almost
-none of it is bundled — Proteus configures, invokes and wraps software that the
-distribution installs and owns. This file records what it stands on, what the
-relationship is, and where the obligations actually fall.
+Proteus is an environment assembled **on top of** other people's work. Most of
+what it stands on is invoked as separate processes or installed as distribution
+packages. A smaller set — notably **Smithay** and **iced** — is linked into
+owned Rust binaries in this tree. This file records the relationships and where
+obligations fall.
 
 ## What Proteus does with each
 
-Nothing listed here is vendored into this repository. There is no third-party
-source tree, and no file in Proteus is copied or adapted from another project.
+Nothing listed here is vendored as a source tree inside this repository.
+Smithay and iced arrive via Cargo crates and are compiled into
+`proteus-compositor` / `proteus-shell` (and related crates). Everything else is
+configured, invoked, or wrapped as distribution software.
 
 | Project | Licence | How Proteus uses it |
 |---------|---------|---------------------|
 | [Arch Linux](https://archlinux.org/) | per-package; the distribution is not one licence | Base system. `install/` installs packages onto it — Proteus is an overlay, not a fork |
-| [Hyprland](https://hypr.land/) | BSD-3-Clause | Windowing backend for the desktop and console postures. Proteus generates `~/.config/hypr/proteus-*.conf` and drives `hyprctl`; it does not patch or ship Hyprland |
-| [Quickshell](https://quickshell.org/) | LGPL-3.0-only | Chrome runtime. Proteus's QML is *interpreted by* the `quickshell` binary, which stays a distribution package the user can replace or upgrade independently |
-| [Qt 6](https://www.qt.io/) | LGPL-3.0-only (as used here) | Reached through Quickshell; dynamically linked, distribution-provided |
-| [greetd](https://sr.ht/~kennylevinsen/greetd/) · [gamescope](https://github.com/ValveSoftware/gamescope) · [PipeWire](https://pipewire.org/) · [NetworkManager](https://networkmanager.dev/) · pacman · flatpak · snapper · and other system tools | various, several GPL | Invoked as **separate processes** and configured through their own files. Each hub in Settings declares which of these it drives — see `backsCli` in `EnvGate.settingsCatalog`, and `proteus-cli-surface` |
+| [Smithay](https://github.com/Smithay/smithay) | MIT / Apache-2.0 | Wayland compositor library linked into owned `proteus-compositor` ([COMPOSITOR.md](docs/proteus/COMPOSITOR.md)) |
+| [iced](https://iced.rs/) | MIT | UI toolkit linked into owned `proteus-shell`, `proteus-ui`, and sibling Settings/Workloads apps |
+| [greetd](https://sr.ht/~kennylevinsen/greetd/) · [gamescope](https://github.com/ValveSoftware/gamescope) · [PipeWire](https://pipewire.org/) · [NetworkManager](https://networkmanager.dev/) · pacman · flatpak · snapper · and other system tools | various, several GPL | Invoked as **separate processes** and configured through their own files. Each Settings hub declares which of these it drives — see `backsCli` in `env/settings/catalog.json`, and `proteus-cli-surface` |
 
-**Why this repository is not encumbered by the copyleft above.** Using,
-configuring and invoking a program is not the same as incorporating it.
-Proteus's own source is interpreted by an LGPL runtime that the user supplies
-and can swap, and it drives GPL utilities as separate processes. Neither
-relationship makes Proteus a derivative work of those projects.
+**Hyprland / Quickshell / Qt-as-chrome-runtime are retired** (2026-08-06). They
+are not shipping session backends. Do not reintroduce them as product engines
+([OWNED-STACK.md](docs/proteus/OWNED-STACK.md)).
+
+**Why process-invoked GPL tools do not encumber this repository.** Using,
+configuring and invoking a program is not the same as incorporating it. GPL
+utilities (PipeWire, NetworkManager, pacman, …) stay separate processes.
+
+**Linked crates.** Smithay and iced are permissively licensed; Proteus’s own
+source remains GPL-3.0-only ([LICENSE](LICENSE)). Redistributing binaries that
+link those crates still requires honouring each crate’s licence texts (usually
+satisfied by shipping licence notices alongside the binary).
 
 **What changes if Proteus ever ships an ISO.** Building an installable image
-means *redistributing* those packages, and each one's licence then applies to
-the image — normally satisfied by shipping the licence texts, which Arch already
-does under `/usr/share/licenses`. Image productisation is deliberately out of
-scope today ([CURRENT.md](docs/proteus/CURRENT.md) §8).
+means *redistributing* Arch packages (and any bundled Proteus binaries); each
+package’s licence then applies to the image — normally satisfied by shipping
+the licence texts, which Arch already does under `/usr/share/licenses`. Image
+productisation is deliberately out of scope today
+([CURRENT.md](docs/proteus/CURRENT.md) §8).
 
 ## Assets in this repository
 
@@ -44,9 +54,7 @@ reproduced and audited rather than taken on trust:
 
 ## Acknowledgement
 
-Hyprland and Quickshell are treated as **backends** in this project's
-architecture, not as the product ([COMPOSITOR.md](docs/proteus/COMPOSITOR.md)).
-That is an engineering position, not a diminishment: Proteus exists because
-those projects are good enough to build a system on, and the same is true of
-Arch, Qt, PipeWire and the rest of the stack above. None of them endorse this
-project.
+Smithay and iced are foundations of the owned session stack, not the product
+story ([COMPOSITOR.md](docs/proteus/COMPOSITOR.md) ·
+[STACK.md](docs/proteus/STACK.md)). Gamescope remains a borrowed console-session
+engine behind contracts. None of these projects endorse Proteus.

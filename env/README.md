@@ -18,7 +18,7 @@ why it is not folded into `install/`:
 | `fastfetch/` | P monogram + modules on shell start |
 | `bash/proteus-bashrc.sh` | Run fastfetch when Ghostty opens. Named `bash/`, not `shell/`, because `shell/` at the repo root means the owned iced chrome crate |
 | `portal/` | xdg-desktop-portal preference (`portals.conf` → wlr) |
-| `systemd/user/` | Optional user units (e.g. idle); Quickshell unit retired |
+| `systemd/user/` | Optional user units (e.g. idle); retired QS unit gone |
 | ~~`hypr/`~~ | **Deleted** — Hyprland purged; `set-hypr-profile.sh` is a retired stub |
 
 ## No tooling here

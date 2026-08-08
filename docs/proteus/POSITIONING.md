@@ -2,7 +2,7 @@
 doc: positioning
 role: external-summary
 audience: contributors, partners, future public copy
-last_updated: "2026-08-01"
+last_updated: "2026-08-08"
 doc_status: active
 scope: Product thesis, field comparison, differentiator, non-goals
 related:
@@ -41,8 +41,8 @@ related:
 
 ## 1. What it is
 
-**Proteus** is a single Arch-based environment (Quickshell chrome + compositor
-backends + a real Settings control center) that **hard-switches posture** —
+**Proteus** is a single Arch-based environment (iced chrome + owned Smithay
+compositor + a real Settings control center) that **hard-switches posture** —
 **desktop**, **console**, or **host** — without shipping three distros.
 Posture means **hardware capabilities + intended use**, not just screen size.
 Other jobs (home, wearable, XR, vehicle) stay thesis until the focus three are
@@ -137,7 +137,7 @@ Proteus (unfocused)    “another shell”            “Portainer rice”
 **Open:** unified OS identity that **hard-switches job** — desk, console, or
 host — without three distros.
 
-Differentiator is not Hyprland + Quickshell. It is:
+Differentiator is not a rice over a borrowed desktop stack. It is:
 
 > **Posture = hardware + intended use**, with **console** and **host** as
 > first-class hard switches beside **desktop** — not afterthought ISOs or chrome

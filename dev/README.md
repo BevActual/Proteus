@@ -2,12 +2,13 @@
 
 | Path | Role |
 |------|------|
-| `smoke-all.sh` | Entry point — runs every gate in `smoke/` (guest gates skip unless SSH `:2222` / `PROTEUS_GUEST=1`) |
-| `smoke/*-smoke.sh` | Fail-closed gates: layout · config schema · app manifest · chrome tokens · software · power/logind · accounts · audio-mix · hw-probe · install · session · qs-version · guest QS · guest software |
-| `run-nested.sh` | Nested Hyprland shell test on host |
-| `run-desktop.sh` | Bare desktop surface via `qs -p shell` |
+| `smoke-all.sh` | **Desktop spine** entry — shellcheck · doc-links · layout · ipc · config-schema · chrome-tokens · shell-core · shell · compositor · owned-dogfood · settings-next · settings-backing · install · session · guest `owned-guest` (SSH / `PROTEUS_GUEST=1`) |
+| `smoke/*-smoke.sh` | Individual gates. Console/host/software-guest + retired QML leaf stubs are **not** in `smoke-all` until desktop is rock solid — run them directly when needed |
+| `smoke/_guest_ssh.sh` | Shared guest SSH helpers (`proteus_guest_ssh_*`) for owned-guest / dogfood |
+| `run-nested.sh` | Nested compositor (winit) + iced chrome on host — primary shell quick-test |
+| `run-desktop.sh` | Thin alias → `run-nested.sh` (Quickshell path retired) |
 | `generate-wallpapers.py` | Regenerate `shell/assets/wallpaper-*.jpg` |
 
-New gate → add under `smoke/` (repo root is `../..`) and register it in
-`smoke-all.sh`. Gate table with one-line purposes:
+New **desktop** gate → add under `smoke/` and register it in `smoke-all.sh`.
+Posture/console/host gates stay as scripts until re-enabled. Gate table:
 [CURRENT.md §6](../docs/proteus/CURRENT.md).

@@ -1,8 +1,8 @@
-//! Window-manager IPC bridge — owned compositor-next only
+//! Window-manager IPC bridge — owned compositor only
 //! (`PROTEUS_COMPOSITOR_SOCK`). Hyprland / hyprctl purged.
 //!
-//! Mirrors what Quickshell.Hyprland + ConfigHypr provided: workspaces,
-//! toplevels, active window, and keyword dispatch.
+//! Replaces the old Quickshell.Hyprland + ConfigHypr path: workspaces,
+//! toplevels, active window, and keyword dispatch via compositorctl JSON.
 
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
@@ -24,20 +24,28 @@ pub struct Toplevel {
     pub class: String,
     pub title: String,
     pub workspace: i64,
+    /// Output name from compositor clients JSON (empty when unknown).
+    #[serde(default)]
+    pub output: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct Monitor {
+    pub name: String,
+    pub focused: bool,
+    pub active_workspace: i64,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct WmState {
     pub workspaces: Vec<Workspace>,
     pub toplevels: Vec<Toplevel>,
+    pub monitors: Vec<Monitor>,
     pub active_workspace: i64,
     pub active_title: String,
     pub active_class: String,
     pub active_address: String,
 }
-
-/// One-release alias after Hyprland purge rename.
-pub type HyprState = WmState;
 
 pub fn compositor_sock() -> Option<PathBuf> {
     if let Ok(p) = std::env::var("PROTEUS_COMPOSITOR_SOCK") {
@@ -80,8 +88,8 @@ fn smithay_json(cmd: &str) -> Result<serde_json::Value, String> {
     serde_json::from_str(resp.trim()).map_err(|e| format!("smithay ctl json: {e}"))
 }
 
-/// Compositor ctl query (hypr-shaped JSON). Name kept for call-site stability.
-pub fn hyprctl_json(args: &[&str]) -> Result<serde_json::Value, String> {
+/// Compositor ctl query (hypr-shaped JSON for migration parity).
+pub fn compositorctl_json(args: &[&str]) -> Result<serde_json::Value, String> {
     let cmd = args.join(" ");
     smithay_json(&cmd)
 }
@@ -156,23 +164,23 @@ impl DockPlan {
 }
 
 /// Decide dock click outcome from current WM snapshot.
-pub fn dock_activate_plan(pin: &str, hypr: &WmState) -> DockPlan {
+pub fn dock_activate_plan(pin: &str, wm: &WmState) -> DockPlan {
     let pin_l = pin.to_lowercase();
-    let running: Vec<&Toplevel> = hypr
+    let running: Vec<&Toplevel> = wm
         .toplevels
         .iter()
         .filter(|t| !toplevel_minimized(t) && pin_matches(&pin_l, &t.class, &t.title))
         .collect();
-    let focused_match = pin_matches(&pin_l, &hypr.active_class, &hypr.active_title);
+    let focused_match = pin_matches(&pin_l, &wm.active_class, &wm.active_title);
 
     // Multi-window: cycle among non-minimized matches instead of minimizing.
     if focused_match && running.len() >= 2 {
         let idx = running
             .iter()
-            .position(|t| t.address == hypr.active_address)
+            .position(|t| t.address == wm.active_address)
             .unwrap_or(0);
         let next = running[(idx + 1) % running.len()];
-        if next.address != hypr.active_address {
+        if next.address != wm.active_address {
             return DockPlan::Cycle(next.address.clone());
         }
     }
@@ -180,7 +188,7 @@ pub fn dock_activate_plan(pin: &str, hypr: &WmState) -> DockPlan {
     if focused_match {
         return DockPlan::Minimize;
     }
-    if let Some(t) = hypr
+    if let Some(t) = wm
         .toplevels
         .iter()
         .find(|t| toplevel_minimized(t) && pin_matches(&pin_l, &t.class, &t.title))
@@ -195,8 +203,8 @@ pub fn dock_activate_plan(pin: &str, hypr: &WmState) -> DockPlan {
 
 /// Dock click: cycle multi-window focused match · minimize single · restore ·
 /// focus running · else launch.
-pub fn dock_activate(pin: &str, hypr: &WmState) -> DockAction {
-    match dock_activate_plan(pin, hypr) {
+pub fn dock_activate(pin: &str, wm: &WmState) -> DockAction {
+    match dock_activate_plan(pin, wm) {
         DockPlan::Minimize => {
             let _ = window_minimize();
             DockAction::Minimized
@@ -209,7 +217,7 @@ pub fn dock_activate(pin: &str, hypr: &WmState) -> DockAction {
             }
         }
         DockPlan::Restore(addr) => {
-            let _ = dock_focus_or_restore(&addr, hypr);
+            let _ = dock_focus_or_restore(&addr, wm);
             DockAction::Restored
         }
         DockPlan::Focus(addr) => {
@@ -224,12 +232,12 @@ pub fn dock_activate(pin: &str, hypr: &WmState) -> DockAction {
 }
 
 /// Restore a parked (`special:minimized`) window, or focus a visible one.
-pub fn dock_focus_or_restore(address: &str, hypr: &WmState) -> Result<(), String> {
+pub fn dock_focus_or_restore(address: &str, wm: &WmState) -> Result<(), String> {
     let addr = address.trim();
     if addr.is_empty() {
         return Err("empty address".into());
     }
-    let minimized = hypr
+    let minimized = wm
         .toplevels
         .iter()
         .find(|t| t.address == addr)
@@ -239,7 +247,7 @@ pub fn dock_focus_or_restore(address: &str, hypr: &WmState) -> Result<(), String
         focus_window_address(addr)?;
         dispatch(&format!(
             "movetoworkspacesilent {}",
-            hypr.active_workspace
+            wm.active_workspace
         ))?;
     }
     focus_window_address(addr)
@@ -251,7 +259,7 @@ pub fn window_close_address(address: &str) -> Result<(), String> {
     window_close()
 }
 
-/// Move a toplevel to workspace `ws` without following focus (Mission Control drag).
+/// Move a toplevel to workspace `ws` without following focus (Spaces overview drag).
 pub fn move_window_to_workspace(address: &str, ws: i64) -> Result<(), String> {
     focus_window_address(address)?;
     dispatch(&format!("movetoworkspacesilent {ws}"))
@@ -266,9 +274,38 @@ pub enum DockAction {
     Launch,
 }
 
+/// Parse hypr-shaped `monitors` JSON array (focused heads first).
+pub fn parse_monitors_json(arr: &[serde_json::Value]) -> Vec<Monitor> {
+    let mut monitors: Vec<Monitor> = arr
+        .iter()
+        .map(|m| Monitor {
+            name: m["name"].as_str().unwrap_or("").into(),
+            focused: m["focused"].as_bool().unwrap_or(false),
+            active_workspace: m["activeWorkspace"]["id"]
+                .as_i64()
+                .unwrap_or(1),
+        })
+        .collect();
+    monitors.sort_by(|a, b| b.focused.cmp(&a.focused));
+    monitors
+}
+
+/// Focused monitor when multi-head data is present.
+pub fn focused_monitor<'a>(wm: &'a WmState) -> Option<&'a Monitor> {
+    wm.monitors
+        .iter()
+        .find(|m| m.focused)
+        .or(wm.monitors.first())
+}
+
 pub fn refresh_state() -> WmState {
     let mut state = WmState::default();
-    if let Ok(ws) = hyprctl_json(&["workspaces"]) {
+    if let Ok(monitors) = compositorctl_json(&["monitors"]) {
+        if let Some(arr) = monitors.as_array() {
+            state.monitors = parse_monitors_json(arr);
+        }
+    }
+    if let Ok(ws) = compositorctl_json(&["workspaces"]) {
         if let Some(arr) = ws.as_array() {
             for w in arr {
                 state.workspaces.push(Workspace {
@@ -279,13 +316,13 @@ pub fn refresh_state() -> WmState {
             }
         }
     }
-    if let Ok(active) = hyprctl_json(&["activeworkspace"]) {
+    if let Ok(active) = compositorctl_json(&["activeworkspace"]) {
         state.active_workspace = active["id"].as_i64().unwrap_or(0);
         for w in &mut state.workspaces {
             w.active = w.id == state.active_workspace;
         }
     }
-    if let Ok(clients) = hyprctl_json(&["clients"]) {
+    if let Ok(clients) = compositorctl_json(&["clients"]) {
         if let Some(arr) = clients.as_array() {
             for c in arr {
                 state.toplevels.push(Toplevel {
@@ -293,11 +330,12 @@ pub fn refresh_state() -> WmState {
                     class: c["class"].as_str().unwrap_or("").into(),
                     title: c["title"].as_str().unwrap_or("").into(),
                     workspace: c["workspace"]["id"].as_i64().unwrap_or(0),
+                    output: c["output"].as_str().unwrap_or("").into(),
                 });
             }
         }
     }
-    if let Ok(win) = hyprctl_json(&["activewindow"]) {
+    if let Ok(win) = compositorctl_json(&["activewindow"]) {
         state.active_title = win["title"].as_str().unwrap_or("").into();
         state.active_class = win["class"].as_str().unwrap_or("").into();
         state.active_address = win["address"].as_str().unwrap_or("").into();
@@ -313,8 +351,6 @@ pub struct WmShared {
 }
 
 pub type SharedWm = std::sync::Arc<std::sync::Mutex<WmShared>>;
-/// One-release alias after Hyprland purge rename.
-pub type SharedHypr = SharedWm;
 
 pub fn shared_from_state(state: WmState) -> SharedWm {
     std::sync::Arc::new(std::sync::Mutex::new(WmShared { state, gen: 1 }))
@@ -376,7 +412,22 @@ mod tests {
             class: class.into(),
             title: title.into(),
             workspace,
+            output: String::new(),
         }
+    }
+
+    #[test]
+    fn parse_monitors_focused_first() {
+        let arr = serde_json::json!([
+            {"name": "HDMI-A-1", "focused": false, "activeWorkspace": {"id": 2}},
+            {"name": "eDP-1", "focused": true, "activeWorkspace": {"id": 5}},
+        ]);
+        let mons = parse_monitors_json(arr.as_array().unwrap());
+        assert_eq!(mons.len(), 2);
+        assert!(mons[0].focused);
+        assert_eq!(mons[0].name, "eDP-1");
+        assert_eq!(mons[0].active_workspace, 5);
+        assert_eq!(mons[1].name, "HDMI-A-1");
     }
 
     #[test]
@@ -391,16 +442,16 @@ mod tests {
 
     #[test]
     fn dock_plan_launch_when_nothing_running() {
-        let hypr = WmState::default();
+        let wm = WmState::default();
         assert_eq!(
-            dock_activate_plan("ghostty", &hypr),
+            dock_activate_plan("ghostty", &wm),
             DockPlan::Launch
         );
     }
 
     #[test]
     fn dock_plan_minimize_single_focused() {
-        let hypr = WmState {
+        let wm = WmState {
             toplevels: vec![tl("0x1", "ghostty", "term", 1)],
             active_workspace: 1,
             active_class: "ghostty".into(),
@@ -409,14 +460,14 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(
-            dock_activate_plan("ghostty", &hypr),
+            dock_activate_plan("ghostty", &wm),
             DockPlan::Minimize
         );
     }
 
     #[test]
     fn dock_plan_cycle_multi_focused() {
-        let hypr = WmState {
+        let wm = WmState {
             toplevels: vec![
                 tl("0x1", "ghostty", "a", 1),
                 tl("0x2", "ghostty", "b", 1),
@@ -428,14 +479,14 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(
-            dock_activate_plan("ghostty", &hypr),
+            dock_activate_plan("ghostty", &wm),
             DockPlan::Cycle("0x2".into())
         );
     }
 
     #[test]
     fn dock_plan_restore_minimized() {
-        let hypr = WmState {
+        let wm = WmState {
             toplevels: vec![tl("0x9", "ghostty", "parked", -1)],
             active_workspace: 2,
             active_class: String::new(),
@@ -444,14 +495,14 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(
-            dock_activate_plan("ghostty", &hypr),
+            dock_activate_plan("ghostty", &wm),
             DockPlan::Restore("0x9".into())
         );
     }
 
     #[test]
     fn dock_plan_focus_running_unfocused() {
-        let hypr = WmState {
+        let wm = WmState {
             toplevels: vec![tl("0x3", "org.gnome.Nautilus", "Home", 1)],
             active_workspace: 1,
             active_class: "ghostty".into(),
@@ -460,7 +511,7 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(
-            dock_activate_plan("org.gnome.Nautilus", &hypr),
+            dock_activate_plan("org.gnome.Nautilus", &wm),
             DockPlan::Focus("0x3".into())
         );
     }

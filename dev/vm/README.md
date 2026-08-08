@@ -60,11 +60,10 @@ Guide button → nav; face buttons / D-pad while console nav is up.
 
 ### Steam / RetroArch (console seats)
 
-**Phase 1:** Hyprland kiosk + supervised `proteus-console-seat` (wait for map →
+**Phase 1:** smithay seat + supervised `proteus-console-seat` (wait for map →
 fullscreen by address → reaper). Gamescope only when Vulkan is usable.
-**Phase 2 (shipped):** nested Gamescope *session mode* under Hyprland via
-`proteus-console-session` Fact + ConsoleBar toggle when `gamescopeUsable` —
-does **not** replace Hyprland as sole compositor.
+**Phase 2 (partial):** Gamescope *session mode* via `proteus-console-session`
+Fact when `gamescopeUsable` — VirGL guests usually stay on smithay + bare seats.
 
 Console software lives in `install/proteus-console.packages` — the overlay
 `console` stage installs it (multilib included). Re-apply by hand:
@@ -88,9 +87,9 @@ proteus-console-seat --expect-class 'com.libretro.RetroArch|retroarch' -- retroa
 Dogfood checks after launch:
 
 ```bash
-qs -p /mnt/proteus/shell ipc call chrome state   # surface must stay "console"
-tail -f /run/user/$UID/proteus-console-seat.log  # mapped address + fullscreen
-hyprctl activewindow -j | head                  # ~fullscreen size
+proteus-shellctl state                          # face / chrome must stay console
+tail -f /run/user/$UID/proteus-console-seat.log # mapped address + fullscreen
+proteus-compositorctl activewindow | head       # ~fullscreen size
 ```
 
 `proteus-console-launch` skips Gamescope inside QEMU (no Vulkan); override with
@@ -107,9 +106,9 @@ audio detail stays in this file.
 ./dev/vm/provision.sh prepare     # ISO + disk in PROTEUS_VM_CACHE
 ./dev/vm/run.sh install           # if disk empty — Arch live + guest-install.sh
 ./dev/vm/run.sh                   # boot installed disk
-./dev/vm/provision.sh             # SSH → overlay (Hyprland/QS/desktop kit)
+./dev/vm/provision.sh             # SSH → overlay (smithay/iced/desktop kit)
 ./dev/vm/run.sh snapshot hyprland-base
-PROTEUS_GUEST=1 ./dev/smoke-all.sh
+PROTEUS_GUEST=1 ./dev/smoke-all.sh   # desktop spine + owned-guest
 ```
 
 Overlay stages: [`install/`](../../install/). Knobs: `PROTEUS_INSTALL_DESKTOP=0`,
@@ -151,23 +150,24 @@ Persist in `/etc/fstab` (already set on the `hyprland-base` snapshot disk):
 proteus  /mnt/proteus  9p  trans=virtio,version=9p2000.L,rw,_netdev  0  0
 ```
 
-## Guest desktop (Hyprland + Quickshell)
+## Guest desktop (smithay + iced shell)
 
-On the `hyprland-base` snapshot (and current disk after setup), the guest has a minimal Wayland stack from official Arch repos:
+Current dogfood guest (after overlay) runs the owned Wayland stack:
 
-- **Compositor:** `hyprland`, `xdg-desktop-portal-hyprland`
-- **Shell:** `quickshell` (autostarts `quickshell -p /mnt/proteus/shell`)
+- **Compositor:** `proteus-compositor` (Smithay) + `xdg-desktop-portal-wlr`
+- **Shell:** `proteus-shell` via `proteus-chrome` (iced layer-shell)
+- **Settings:** `proteus-settings-next` via `proteus-settings`
 - **Terminal:** `ghostty`
 - **GPU:** `mesa`, `vulkan-virtio` (virtio-vga)
-- **Session:** `seatd` (enabled), `polkit` + `hyprpolkitagent` (GUI auth for `pkexec` helpers), PipeWire (`pipewire`, `pipewire-pulse`, `wireplumber`)
-- **Qt:** `qt6-base`, `qt6-declarative`, `qt6-wayland`, `qt6-svg`
+- **Session:** `seatd` (enabled), `polkit` + agent, PipeWire (`pipewire`, `pipewire-pulse`, `wireplumber`)
 
-Guest config lives under `~/.config/hypr/hyprland.conf` (andrew). A convenience symlink is at `~/.config/quickshell/proteus` → `/mnt/proteus/shell`.
+Session Fact: `~/.config/proteus/compositor-engine` → `smithay`. Hyprland /
+Quickshell are **retired** (not installed as session engines).
 
 ### Login (greetd) + lock screen
 
-Cold boot uses **greetd autologin** (`andrew` → `proteus-session`), then Quickshell
-shows the **Proteus lock screen** (`lockOnSessionStart`, default on). Unlock with
+Cold boot uses **greetd autologin** (`andrew` → `proteus-session`), then iced
+shell shows the **Proteus lock screen** (`lockOnSessionStart`, default on). Unlock with
 your user password, or an optional **unlock PIN** (Settings → Users → Lock screen
 PIN — numpad on the lock for desktop and console). `Super+L` locks again anytime.
 
@@ -181,15 +181,15 @@ or set `"lockOnSessionStart": false` in `~/.config/proteus/settings.json`.
 ### Session chrome (Wave 4)
 
 **Compositor (2026-08-06):** `proteus-session` is **smithay only**
-(`proteus-compositor-next -c proteus-chrome`). Hyprland is **purged** (no
+(`proteus-compositor -c proteus-chrome`). Hyprland is **purged** (no
 fail-closed, no Fact rollback). Nested: `./dev/run-nested.sh` (winit).
 
 Dogfood checklist (guest VT or free seat):
 
 1. Confirm Fact + binary: `cat ~/.config/proteus/compositor-engine` → `smithay`;
-   `command -v proteus-compositor-next`.
+   `command -v proteus-compositor`.
 2. Log in via greetd → smithay session (Fact=hyprland refuses).
-3. Host/guest smoke: `./dev/smoke/compositor-next-dogfood.sh`.
+3. Host/guest smoke: `./dev/smoke/compositor-dogfood.sh`.
 4. Nested on host: `./dev/run-nested.sh` (never Hyprland).
 
 Default chrome: compositor `-c` → `proteus-chrome` (owned iced
@@ -204,7 +204,7 @@ sudo bash /mnt/proteus/install/machine/apply-console-kit.sh   # once
 
 Hard flip writes `~/.config/proteus/posture` and — inside a managed session
 (started via `proteus-session`) — **ends the session**: the greeter shows and
-the next login picks the engine from the Facts (Hyprland kiosk, or the
+the next login picks the engine from the Facts (smithay seat, or the
 Gamescope session when capabilities allow). Outside a managed session (SSH /
 nested dev) the legacy in-place chrome flip is used so automation keeps
 working. Return via console Desktop seat / CC Desktop tile /
@@ -214,8 +214,8 @@ working. Return via console Desktop seat / CC Desktop tile /
 
 ### GPU passthrough (VFIO) — Gamescope session prove path
 
-VirGL has no hardware Vulkan, so the VM console stays interim (Hyprland kiosk
-+ bare seats). To dogfood the **Gamescope-owned console session** in the same
+VirGL has no hardware Vulkan, so the VM console stays interim (smithay + bare
+seats). To dogfood the **Gamescope-owned console session** in the same
 disk/SSH loop, pass a host GPU through:
 
 1. **IOMMU on** — kernel cmdline `intel_iommu=on` / `amd_iommu=on`
@@ -236,8 +236,8 @@ PROTEUS_VM_VFIO=… PROTEUS_VM_VFIO_PRIMARY=1 ./dev/vm/run.sh
    `"vulkanHw": true` and `"gamescopeUsable": true`; then
    `proteus-console-session set-mode session` and
    `PROTEUS_EXPECT_GS_SESSION=1 bash /mnt/proteus/dev/dogfood/dogfood-console.sh`
-   asserts `replacesHyprland`. The next console login lands in the Gamescope
-   session (Proteus Home + Guide focus-flip).
+   asserts Gamescope session capabilities. The next console login lands in the
+   Gamescope session (Home + Guide focus-flip) when usable.
 
 Pad still rides `PROTEUS_VM_PAD=auto`. This harness is the bridge toward
 hosting game instances under host posture later; that product UI is out of
@@ -248,25 +248,27 @@ scope here.
 If greetd is not running, log in on a TTY and run:
 
 ```bash
+proteus-session
+# or, after overlay install of helpers:
 ~/start-proteus.sh
 ```
 
-   Or simply `Hyprland` if `/mnt/proteus` is already mounted.
-
-Optional auto-start on tty1: `touch ~/.proteus-autostart-hyprland` (see `~/.bash_profile`). SSH logins are unaffected.
-
-Useful binds: `Super+Return` → `proteus-terminal` (Ghostty + VM GL workaround), `Super+Space` Beacon (system search), `Super+,` Settings, `Super+Shift+E` exit Hyprland. Rebind in **Settings → Peripherals → Keyboard** (writes `~/.config/hypr/proteus-keybinds.conf`). Desktop/Displays write `proteus-general.conf` / `proteus-monitors.conf`. First-time guest wiring:
+Useful binds: `Super+Return` → `proteus-terminal` (Ghostty + VM GL workaround),
+`Super+Space` Beacon, `Super+,` Settings, `Super+Shift+E` exit session. Rebind
+in **Settings → Peripherals → Keyboard** (`~/.config/proteus/keybinds.json` +
+compositor `reloadbinds`). Displays: `~/.config/proteus/displays.json`.
+First-time guest wiring:
 
 ```bash
 bash /mnt/proteus/install/machine/install-keybinds.sh
-bash /mnt/proteus/install/machine/install-desktop-conf.sh
+bash /mnt/proteus/install/machine/install-proteus-compositor.sh
 # or all of the above via:
 # Build mutators / helpers on the host first if needed:
 #   (cd services/proteus-pkg && cargo build --release)
 #   (cd services/proteus-logind && cargo build --release)
 #   (cd services/proteus-audio-mix && cargo build --release && mkdir -p bin && cp target/release/proteus-audio-mix bin/)
 bash /mnt/proteus/install/machine/install-settings-app.sh
-# (also runs hide-system-apps.sh — Settings-covered tools + Quickshell hidden; Calculator stays)
+# (also runs hide-system-apps.sh — Settings-covered tools hidden; Calculator stays)
 # Overlay apps + post-install re-run hide-system-apps idempotently.
 # or just the helpers:
 #   sudo bash /mnt/proteus/install/machine/install-proteus-pkg.sh
@@ -279,24 +281,24 @@ bash /mnt/proteus/install/machine/install-settings-app.sh
 
 ### Notes / blockers
 
-- Full Hyprland + Quickshell needs the **QEMU display window**, not SSH alone (no Wayland over plain SSH).
+- Full smithay + iced session needs the **QEMU display window**, not SSH alone (no Wayland over plain SSH).
 - **Lag / GPU:** default tries `virtio-vga-gl` + `gtk,gl=on` (VirGL). That helps most on **AMD/Intel Mesa**. On **NVIDIA proprietary** drivers (especially Wayland hosts), VirGL often fails or stutters — use `PROTEUS_VM_GL=0 ./dev/vm/run.sh` (software `virtio-vga`; expect jank) or dogfood with `./dev/run-nested.sh` on the host instead. Guest packages: `mesa` + `vulkan-virtio`.
 - **Audio quality (honest):** crackle under a VirGL guest desktop is mostly a **guest emulated-HDA soft limit**, not a broken host codec.
   - **What works:** host headphones + non-VM audio are fine. Default path is `ich9-intel-hda` → host **Pulse** (`PROTEUS_VM_AUDIO=pa`) at **48 kHz** with a **~200 ms** audiodev buffer. Guest Settings → Sound latency **High** (PipeWire quantum ~1024) is required. Host `pw-top` typically shows **ERR=0** for `qemu` / EVO4 while the guest ALSA HDA node racks up **ERR** under load — so host underrun chasing does not fix this.
-  - **Strong signal:** with `PROTEUS_VM_GL=0`, guest HDA `ERR` drops near zero (audio becomes much cleaner) while QEMU CPU stays high — points at VirGL/scheduling vs ich9-HDA, not sample-rate mismatch. Tradeoff: software `virtio-vga` makes Hyprland feel laggy.
+  - **Strong signal:** with `PROTEUS_VM_GL=0`, guest HDA `ERR` drops near zero (audio becomes much cleaner) while QEMU CPU stays high — points at VirGL/scheduling vs ich9-HDA, not sample-rate mismatch. Tradeoff: software `virtio-vga` makes the compositor feel laggy.
   - **What does not reliably fix crackle:** larger `PROTEUS_VM_AUDIO_BUFFER` (400–500 ms), swapping `pa` ↔ native `pipewire` ↔ `sdl`. Those help host-side underruns; they do not stop guest HDA xruns under VirGL.
   - **Accept for VM dogfood:** mild crackle with VirGL on is expected. Prefer `./dev/run-nested.sh` on the host when audio quality matters. Keep `PROTEUS_VM_AUDIO=pa` + High latency as the best available default.
   - **Escapes:** `PROTEUS_VM_AUDIO_BUFFER` / `PROTEUS_VM_AUDIO_TIMER`; `PROTEUS_VM_AUDIO=pipewire|sdl|0`; `PROTEUS_VM_GL=0` for an audio A/B; experimental `PROTEUS_VM_SOUND=virtio` (`virtio-sound-pci` — QEMU supports it; guest `virtio_snd` loads, but WirePlumber often stays on `auto_null` unless the session can open the card — not dogfood-ready yet).
 - Host already runs a Wayland session; one VM is enough — extra `qemu-system` processes steal CPU.
-- Shell loads from **9p** (`/mnt/proteus`); heavy Settings/hyprctl spam can feel sticky even with GL.
+- Tree mounts via **9p** (`/mnt/proteus`); rebuild/install helpers after binary changes (`install-proteus-compositor.sh`, `install-shell.sh`, …). Heavy Settings/compositorctl spam can feel sticky even with GL.
 
 ## Snapshots
 
 ```bash
-./dev/vm/run.sh snapshot clean-base     # after a good install
-./dev/vm/run.sh snapshot hyprland-base  # after Hyprland + Quickshell guest setup
+./dev/vm/run.sh snapshot clean-base      # after a good install
+./dev/vm/run.sh snapshot hyprland-base   # legacy name — post-overlay smithay/iced guest (keep if disk already labeled)
 ./dev/vm/run.sh snapshots
-./dev/vm/run.sh restore clean-base      # roll back the qcow2
+./dev/vm/run.sh restore clean-base       # roll back the qcow2
 ./dev/vm/run.sh restore hyprland-base
 ```
 

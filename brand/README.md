@@ -14,7 +14,7 @@ environments. Not a second Tux; Proteus identity.
 | [`proteus-launcher.svg`](./proteus-launcher.svg) | Beacon (system search) dock icon (search + sparkle) |
 
 Colors track chrome defaults: Electric `#3d8bfd` + Teal `#2dd4bf`
-([CHROME.md](../docs/proteus/CHROME.md) / `Theme.qml`).
+([CHROME.md](../docs/proteus/CHROME.md) / `proteus-ui` tokens).
 
 ## Wiring
 
@@ -23,9 +23,9 @@ Colors track chrome defaults: Electric `#3d8bfd` + Teal `#2dd4bf`
 | Icon theme | `install/machine/install-icons.sh` → `hicolor` names `proteus`, `proteus-settings`, `proteus-launcher` |
 | Settings `.desktop` | `Icon=proteus-settings` |
 | Session `.desktop` | `Icon=proteus` |
-| Dock launcher / Settings | Brand SVG via `DockApps.iconSource` (works before icon-cache install) |
+| Dock launcher / Settings | Brand SVG via shell icon resolve (works before icon-cache install) |
 | About pane | Brand SVG |
-| Beacon / launcher apps | `EnvGate.resolveAppIcon` (`.desktop` Icon=, id fallbacks) |
+| Beacon / launcher apps | `shell/src/icons.rs` `resolve_app_icon` (`.desktop` Icon=, id fallbacks) |
 
 Install on guest: `sudo bash /mnt/proteus/install/machine/install-icons.sh`  
 (also runs from `install-settings-app.sh` / greeter apply).

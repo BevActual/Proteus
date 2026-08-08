@@ -81,14 +81,14 @@ grep -q 'proteus_write_root_fact' "${INSTALL}/config.sh" \
   && ok "config stage writes the root Fact" || bad "config stage does not write ~/.config/proteus/root"
 grep -q 'compositor-engine' "${INSTALL}/config.sh" \
   && ok "config writes compositor-engine Fact" || bad "config missing compositor-engine"
-grep -q 'install-proteus-compositor-next' "${INSTALL}/config.sh" \
-  && ok "config installs compositor-next" || bad "config missing compositor install"
+grep -q 'install-proteus-compositor' "${INSTALL}/config.sh" \
+  && ok "config installs compositor" || bad "config missing compositor install"
 grep -q 'xdg-desktop-portal-wlr' "${INSTALL}/proteus-base.packages" \
   && ok "base packages include portal-wlr" || bad "base missing portal-wlr"
 [[ -f "${ROOT}/env/portal/portals.conf" ]] \
   && ok "env/portal/portals.conf" || bad "missing portals.conf"
-[[ -x "${INSTALL}/machine/install-proteus-compositor-next.sh" ]] \
-  && ok "install-proteus-compositor-next.sh" || bad "missing compositor install script"
+[[ -x "${INSTALL}/machine/install-proteus-compositor.sh" ]] \
+  && ok "install-proteus-compositor.sh" || bad "missing compositor install script"
 grep -q 'Hyprland purged\|env/hypr gone\|skipping hyprland.conf seed' "${INSTALL}/config.sh" \
   && ok "config does not seed hyprland.conf" || bad "config still seeds Hyprland"
 if grep -qE '^hyprland$' "${INSTALL}/proteus-base.packages"; then
@@ -124,7 +124,7 @@ fi
   && ok "install-keybinds.sh" || bad "install-keybinds.sh missing"
 grep -q 'keybinds.json' "${ROOT}/install/machine/install-keybinds.sh" \
   && ok "install-keybinds seeds Fact" || bad "install-keybinds still hypr-only"
-grep -q 'binds.rs\|reloadbinds' "${ROOT}/compositor-next/src/binds.rs" "${ROOT}/compositor-next/src/ctl.rs" \
+grep -q 'binds.rs\|reloadbinds' "${ROOT}/compositor/src/binds.rs" "${ROOT}/compositor/src/ctl.rs" \
   && ok "compositor keybinds SoT" || bad "compositor binds missing"
 
 SESSION_BIN="${ROOT}/shell/scripts/proteus-session"
@@ -465,9 +465,9 @@ grep -q 'proteus-compositorctl\|compositorctl' "${ROOT}/shell/scripts/proteus-co
 [[ -x "${ROOT}/shell/scripts/proteus-console-session" ]] && ok shell/scripts/proteus-console-session || bad shell/scripts/proteus-console-session
 [[ -x "${ROOT}/shell/scripts/proteus-console-gs-session" ]] && ok shell/scripts/proteus-console-gs-session || bad shell/scripts/proteus-console-gs-session
 [[ -x "${ROOT}/shell/scripts/proteus-console-focus" ]] && ok shell/scripts/proteus-console-focus || bad shell/scripts/proteus-console-focus
-[[ -f "${ROOT}/shell/src/faces/console.rs" ]] && ok "shell/src/faces/console.rs" || bad "shell face console missing"
-[[ -f "${ROOT}/shell/src/faces/host.rs" ]] && ok "shell/src/faces/host.rs" || bad "shell face host missing"
-[[ -f "${ROOT}/shell/src/faces/desktop.rs" ]] && ok "shell/src/faces/desktop.rs" || bad "shell face desktop missing"
+[[ -f "${ROOT}/shell/src/faces/console/mod.rs" ]] && ok "shell/src/faces/console/mod.rs" || bad "shell face console missing"
+[[ -f "${ROOT}/shell/src/faces/host/mod.rs" ]] && ok "shell/src/faces/host/mod.rs" || bad "shell face host missing"
+[[ -f "${ROOT}/shell/src/faces/desktop/mod.rs" ]] && ok "shell/src/faces/desktop/mod.rs" || bad "shell face desktop missing"
 [[ -x "${ROOT}/dev/dogfood/dogfood-console.sh" ]] && ok dev/dogfood/dogfood-console.sh || bad dev/dogfood/dogfood-console.sh
 grep -q 'proteus-console-seat' "${ROOT}/install/apps.sh" && ok "apps.sh installs proteus-console-seat" || bad "apps.sh missing proteus-console-seat"
 grep -q 'proteus-console-capabilities' "${ROOT}/install/apps.sh" && ok "apps.sh installs proteus-console-capabilities" || bad "apps.sh missing proteus-console-capabilities"
@@ -621,8 +621,8 @@ grep -q 'cliphist store' "${ROOT}/shell/scripts/proteus-chrome" \
 grep -Eiq '^[[:space:]]*exec[[:space:]].*Hyprland|command -v Hyprland' "${ROOT}/dev/run-nested.sh" \
   && bad "run-nested still execs Hyprland" \
   || ok "run-nested does not exec Hyprland"
-grep -q 'proteus-compositor-next' "${ROOT}/dev/run-nested.sh" \
-  && ok "run-nested uses compositor-next" || bad "run-nested missing compositor-next"
+grep -q 'proteus-compositor' "${ROOT}/dev/run-nested.sh" \
+  && ok "run-nested uses compositor" || bad "run-nested missing compositor"
 
 HIDE="${ROOT}/install/machine/hide-system-apps.sh"
 if [[ -f "${HIDE}" ]]; then

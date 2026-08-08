@@ -7,9 +7,9 @@
 | [proteus/POSTURES.md](proteus/POSTURES.md) | Locked postures + device class / kits / capabilities |
 | [proteus/APPLICATIONS.md](proteus/APPLICATIONS.md) | Adaptive apps — one identity, environment-shaped |
 | [proteus/HARDWARE.md](proteus/HARDWARE.md) | Device classes + sensors/modules catalog |
-| [proteus/COMPOSITOR.md](proteus/COMPOSITOR.md) | Hyprland backend + Quickshell limits / profiles |
-| [proteus/COMPOSITOR-SPIKE.md](proteus/COMPOSITOR-SPIKE.md) | Smithay rung 2 spike checklist (parked) |
-| [proteus/STACK.md](proteus/STACK.md) | Languages by layer (QML / Tauri / Rust) |
+| [proteus/COMPOSITOR.md](proteus/COMPOSITOR.md) | Owned Smithay compositor + iced shell |
+| [proteus/COMPOSITOR-SPIKE.md](proteus/COMPOSITOR-SPIKE.md) | Compositor depth checklist (shipping thin) |
+| [proteus/STACK.md](proteus/STACK.md) | Languages by layer (iced / Tauri / Rust) |
 | [proteus/OWNED-STACK.md](proteus/OWNED-STACK.md) | Owned-stack endgame — tiers, sequencing, `proteus-shell-core` |
 | [proteus/SETTINGS-IA.md](proteus/SETTINGS-IA.md) | Control-center categories and backends |
 | [proteus/CHROME.md](proteus/CHROME.md) | Company chrome design lock (tokens + patterns) |

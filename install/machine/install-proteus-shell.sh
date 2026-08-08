@@ -76,13 +76,19 @@ EOF
 fi
 chmod 755 /usr/local/bin/proteus-shell /usr/local/bin/proteus-shellctl
 
-# Session engine fact default — owned (Wave 4). Existing quickshell facts are
-# left alone so operators can keep the fallback until they re-seed.
+# Session engine fact — owned only (Quickshell retired).
 seed_engine_fact() {
   local dir="$1"
+  local f cur
   install -d "${dir}"
-  if [[ ! -f "${dir}/shell-engine" ]]; then
-    echo "owned" >"${dir}/shell-engine"
+  f="${dir}/shell-engine"
+  if [[ -f "${f}" ]]; then
+    cur="$(tr -d '[:space:]' <"${f}" 2>/dev/null || true)"
+    if [[ "${cur}" == "quickshell" || "${cur}" == "qs" ]]; then
+      echo "owned" >"${f}"
+    fi
+  else
+    echo "owned" >"${f}"
   fi
 }
 
@@ -95,10 +101,8 @@ if [[ "$(id -u)" -eq 0 ]]; then
     USER_HOME="$(getent passwd "${USER_NAME}" | cut -d: -f6 || true)"
     if [[ -n "${USER_HOME}" && -d "${USER_HOME}" ]]; then
       install -d -o "${USER_NAME}" -g "${USER_NAME}" "${USER_HOME}/.config/proteus"
-      if [[ ! -f "${USER_HOME}/.config/proteus/shell-engine" ]]; then
-        echo "owned" >"${USER_HOME}/.config/proteus/shell-engine"
-        chown "${USER_NAME}:${USER_NAME}" "${USER_HOME}/.config/proteus/shell-engine"
-      fi
+      seed_engine_fact "${USER_HOME}/.config/proteus"
+      chown "${USER_NAME}:${USER_NAME}" "${USER_HOME}/.config/proteus/shell-engine" 2>/dev/null || true
     fi
   fi
 else

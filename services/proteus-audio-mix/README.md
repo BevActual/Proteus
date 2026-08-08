@@ -27,8 +27,8 @@ Stdin / control FIFO lines:
 | `pause` / `resume` | Pause / resume periodic dumps (drag reorder) |
 | `quit` | Exit |
 
-Optional `--ctl PATH`: also read the same line protocol from a FIFO (QML writes
-via `echo dump > "$XDG_RUNTIME_DIR/proteus-audio-mix.ctl"`).
+Optional `--ctl PATH`: also read the same line protocol from a FIFO (clients
+write via `echo dump > "$XDG_RUNTIME_DIR/proteus-audio-mix.ctl"`).
 
 ## Build / install
 

@@ -2,7 +2,7 @@
 doc: chrome
 role: reference
 audience: UI, contributors, coding agents
-last_updated: "2026-08-05"
+last_updated: "2026-08-08"
 doc_status: active
 scope: Proteus chrome language — principles, tokens, Settings patterns (company reference)
 related:
@@ -85,7 +85,7 @@ Token export lives under `env/chrome/` (this serial door 5/5).
 
 ## 2. Surfaces
 
-From `Theme.qml` (`Config.chromeMode` → `light`).
+From `proteus-ui` / `env/chrome/` (`chromeMode` → `light`).
 
 | Token | Light | Dark | Use |
 |-------|-------|------|-----|

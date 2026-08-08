@@ -2,7 +2,7 @@
 doc: stack
 role: reference
 audience: contributors, coding agents
-last_updated: "2026-08-06"
+last_updated: "2026-08-08"
 doc_status: active
 scope: Languages and runtimes by layer — what to build in what
 related:
@@ -50,6 +50,7 @@ Adaptive app behavior (one identity, environment-shaped): [APPLICATIONS.md](./AP
 
 | What you’re building | Stack | Why |
 |----------------------|-------|-----|
+| Session compositor | **Rust / Smithay** — `compositor/` (`proteus-compositor`) | Only shipping Wayland session engine |
 | Shell chrome (bar, dock, Beacon, overlays) | **iced / `shell/`** (`proteus-shell` via `proteus-chrome`) | Wayland layer-shell; faces under `shell/src/faces/` |
 | Shell spine (facts, tokens, gating, launch) | **Rust** — `services/proteus-shell-core` | Typed + `cargo test`; generates `env/chrome/`; `proteus-open` |
 | Shared iced kit | **Rust** — `services/proteus-ui` | Theme from shell-core tokens; widgets for shell + sibling apps |
@@ -103,5 +104,5 @@ Truth stays on **disk / CLI** regardless of UI stack ([ARCHITECTURE.md](./ARCHIT
 | Exception | Status | Notes |
 |-----------|--------|-------|
 | `services/proteus-hw-probe` in Python | `blessed` | Read-only Wave A probe; Rust rewrite when schema/packaging demands it |
-| Trivial one-liner bash (`hyprctl`, `pactl`) | `blessed` | Not “helpers” — direct apply |
+| Trivial one-liner bash (`proteus-compositorctl`, `pactl`) | `blessed` | Not “helpers” — direct apply |
 | Settings / chrome QML | `retired` | Deleted 2026-08-06; iced only |

@@ -8,7 +8,7 @@ you are** and **what this machine’s job is** (posture = hardware + use).
 | Posture | Intent |
 |---------|--------|
 | Desktop | Create / windowed work (primary spine) |
-| Console | Lean-back consume + play (TV, games) — `proteus-posture` + ConsoleShell |
+| Console | Lean-back consume + play (TV, games) — `proteus-posture` + console face |
 | Host | Operate the box — headless by default, **UI when you want it** |
 
 **Parked (thesis only):** wearable · xr · vehicle · home — see
@@ -28,12 +28,13 @@ to inspectable system facts. See **[docs/](docs/README.md)**.
 | [POSTURES](docs/proteus/POSTURES.md) | Jobs, kits, device class |
 | [APPLICATIONS](docs/proteus/APPLICATIONS.md) | Adaptive apps |
 | [HARDWARE](docs/proteus/HARDWARE.md) | Device classes, sensors, modules |
-| [COMPOSITOR](docs/proteus/COMPOSITOR.md) | Hyprland + owned iced chrome |
+| [COMPOSITOR](docs/proteus/COMPOSITOR.md) | Owned Smithay compositor + iced shell |
 | [STACK](docs/proteus/STACK.md) | iced / Tauri / Rust |
 | [CURRENT](docs/proteus/CURRENT.md) | What’s built today |
 | [AGENTS.md](AGENTS.md) | Agent entry |
 
-Built on Arch Linux + owned iced shell (`proteus-shell`) + Hyprland.
+Built on Arch Linux + owned iced shell (`proteus-shell`) + Smithay compositor
+(`proteus-compositor`).
 
 ## Status
 
@@ -61,7 +62,7 @@ bash /mnt/proteus/install/machine/install-settings-app.sh
 
 SSH: `ssh -p 2222 andrew@127.0.0.1`
 
-## Nested Hyprland (host quick-test)
+## Nested compositor (host quick-test)
 
 Shell-only experiments (does not replace the VM for distro work):
 
@@ -76,42 +77,43 @@ Shell-only experiments (does not replace the VM for distro work):
 
 ```
 docs/            # POSITIONING, ARCHITECTURE, POSTURES, CURRENT, …
+compositor/      # proteus-compositor (Smithay) + proteus-compositorctl
 install/         # Overlay installer — VM and bare metal alike
   hardware/      # GPU + CPU microcode detection
   machine/       # install-time mutators (install-*.sh, apply-*.sh)
-env/             # Seeds: hypr/ · ghostty/ · fastfetch/
-shell/           # Quickshell (chrome)
-  shared/        # Theme, Config, Keybinds, ShellState, …
-  surfaces/      # Desktop + posture stubs
-  scripts/       # Runtime PATH helpers (session, posture, seats, snapshot)
-apps/
-  proteus-settings/   # Control center (Appearance, Desktop, Peripherals, …)
+env/             # Seeds: chrome/ · ghostty/ · fastfetch/
+shell/           # proteus-shell iced chrome
+  src/faces/     # desktop · console · host
+  scripts/       # Runtime PATH helpers (session, posture, seats, …)
 services/
-  proteus-hw-probe/   # Wave A: desktop/laptop → capabilities JSON
-  proteus-pkg/        # privileged pacman mutator (Software)
-  proteus-logind/     # privileged logind drop-in (Power)
-  proteus-audio-mix/  # resident dump+peaks (Sound Mixer)
-  proteus-accounts/   # online-accounts vault + Google PKCE
+  proteus-shell-core/  # facts · tokens · gating · proteus-open
+  proteus-ui/          # shared iced kit
+  proteus-hw-probe/    # Wave A capabilities JSON
+  proteus-pkg/ · proteus-logind/ · proteus-audio-mix/ · proteus-accounts/ · …
 dev/             # Maintainer tooling — never installed onto a machine
   vm/            # QEMU/KVM Arch guest harness
-  smoke/  smoke-all.sh   # gates + suite entry
+  smoke/  smoke-all.sh   # desktop spine gates (+ owned-guest)
   dogfood/  spike/  fixtures/
+
+Siblings (path deps):
+  ../ProteusSettings   # proteus-settings-next
+  ../ProteusWorkloads  # proteus-workloads
 ```
 
 ### Desktop shell (today)
 
 - Top bar: glass menu bar; app title, workspaces, clock+weather, status → Control Center (Beacon is off the bar)
 - **Beacon** (`Super+Space` / `Super+D`; dock pin) — Apps / Files / Clipboard / Actions; fuzzy + tags
-- Dock — floating glass shelf + Mag; pins, running dots
+- Dock — floating glass shelf; pins, running dots; layout/size/rounding/autohide Facts
 - Terminal: `Super+Return` → `proteus-terminal` (Ghostty + VM GL workaround)
-- Session: `proteus-session` → `start-hyprland`/Hyprland; no terminal `exec-once`; stray system apps hidden (`hide-system-apps.sh`)
-- **Settings** (`Super+,`) — Appearance (incl. Icons / Lock), Desktop (incl. Beacon), Displays, Sound, Network, Peripherals (Keyboard / Mouse), Software (pacman / AUR / Flatpak / AppImages / Orphans), …; cold-start via sticky pane loaders
-- Keybinds file: `~/.config/hypr/proteus-keybinds.conf`
+- Session: `proteus-session` → `proteus-compositor --backend drm -c proteus-chrome`
+- **Settings** (`Super+,`) — iced sibling `proteus-settings-next`; Appearance, Desktop (Dock & menu bar, Beacon, …), Displays, Sound, Network, Peripherals, Software, …
+- Keybinds: `~/.config/proteus/keybinds.json` · Displays: `~/.config/proteus/displays.json`
 
 Full honest inventory: [docs/proteus/CURRENT.md](docs/proteus/CURRENT.md).
 
-Edits under `shell/` and `apps/` live-reload via the 9p share when Quickshell
-is running in the VM.
+Guest 9p share mounts the tree at `/mnt/proteus`; rebuild/install helpers to pick
+up binary changes (`install-proteus-compositor.sh`, `install-shell.sh`, …).
 
 ## Licence
 

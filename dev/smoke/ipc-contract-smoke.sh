@@ -28,14 +28,16 @@ grep -q 'state' "${CTL}" || die "ctl missing state"
 ok "core ctl verbs present"
 
 # No smoke may still call qs/quickshell ipc (except retired skip stubs)
+hits="$(mktemp)"
+trap 'rm -f "${hits}"' EXIT
 if grep -RInE '(^|[^#[:alnum:]_])(qs|quickshell)[[:space:]]+(-p[[:space:]]+\S+[[:space:]]+)?ipc[[:space:]]+call' \
   "${ROOT}/dev/smoke" --include='*-smoke.sh' \
   | grep -v 'ipc-contract-smoke.sh' \
   | grep -v 'SKIP (Quickshell' \
   | grep -v '^[^:]*qs-.*-smoke.sh:' \
-  >/tmp/ipc-qs-hits.txt 2>/dev/null; then
-  if [[ -s /tmp/ipc-qs-hits.txt ]]; then
-    cat /tmp/ipc-qs-hits.txt >&2
+  >"${hits}" 2>/dev/null; then
+  if [[ -s "${hits}" ]]; then
+    cat "${hits}" >&2
     die "dev/smoke still calls qs/quickshell ipc"
   fi
 fi

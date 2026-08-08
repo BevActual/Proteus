@@ -1,11 +1,63 @@
 #!/usr/bin/env bash
-# Interim color picker (hyprpicker → clipboard).
-# Replace with first-party Proteus picker later.
+# Color picker — grim + slurp one-pixel sample → clipboard (wlroots).
+# Replaces hyprpicker; first-party Proteus picker still Out.
 set -euo pipefail
 
-need() { command -v "$1" >/dev/null 2>&1 || { notify-send -a Proteus "Color" "Missing $1" 2>/dev/null || echo "missing $1" >&2; exit 1; }; }
-need hyprpicker
+need() {
+  command -v "$1" >/dev/null 2>&1 || {
+    notify-send -a Proteus "Color" "Missing $1" 2>/dev/null || echo "missing $1" >&2
+    exit 1
+  }
+}
+need grim
+need slurp
+need python3
 
-color="$(hyprpicker -a)" || exit 0
+geom="$(slurp -p 2>/dev/null)" || exit 0
+[[ -n "${geom}" ]] || exit 0
+
+color="$(
+  grim -g "${geom}" -t ppm - 2>/dev/null | python3 -c '
+import sys
+data = sys.stdin.buffer.read()
+if not data.startswith(b"P6"):
+    sys.exit(1)
+i = 2
+while i < len(data) and data[i] in b" \t\r\n":
+    i += 1
+while i < len(data) and data[i] == ord("#"):
+    while i < len(data) and data[i] not in b"\n":
+        i += 1
+    while i < len(data) and data[i] in b" \t\r\n":
+        i += 1
+parts = []
+while len(parts) < 3 and i < len(data):
+    while i < len(data) and data[i] in b" \t\r\n":
+        i += 1
+    if i < len(data) and data[i] == ord("#"):
+        while i < len(data) and data[i] not in b"\n":
+            i += 1
+        continue
+    start = i
+    while i < len(data) and data[i] not in b" \t\r\n":
+        i += 1
+    parts.append(data[start:i].decode("ascii", "replace"))
+if len(parts) < 3:
+    sys.exit(1)
+if i < len(data) and data[i] in b" \t\r\n":
+    i += 1
+if i + 2 >= len(data):
+    sys.exit(1)
+r, g, b = data[i], data[i + 1], data[i + 2]
+print(f"#{r:02X}{g:02X}{b:02X}")
+'
+)" || exit 0
+
 [[ -n "${color}" ]] || exit 0
+if command -v wl-copy >/dev/null 2>&1; then
+  printf '%s' "${color}" | wl-copy
+elif command -v xclip >/dev/null 2>&1; then
+  printf '%s' "${color}" | xclip -selection clipboard
+fi
 notify-send -a Proteus "Color" "${color}" 2>/dev/null || true
+echo "${color}"

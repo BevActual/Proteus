@@ -32,8 +32,9 @@ from pathlib import Path
 POSTURES = ("desktop", "console", "host")
 # Wrapped, not shipped — flagged so an operator knows what Proteus owns.
 EXTERNAL = {
-    "nmcli", "bluetoothctl", "tailscale", "pactl", "wpctl", "hyprctl",
-    "powerprofilesctl", "timedatectl", "localectl", "pacman", "flatpak",
+    "nmcli", "bluetoothctl", "tailscale", "pactl", "wpctl",
+    "proteus-compositorctl", "powerprofilesctl", "timedatectl", "localectl",
+    "pacman", "flatpak",
 }
 
 

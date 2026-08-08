@@ -59,7 +59,7 @@ Host tree check (no guest):
 | `proteus-console.packages` | Gamescope, **Steam** (+ ttf-liberation, lib32-mesa), RetroArch + lean cores, game-devices-udev — needs multilib (console stage enables) |
 | `proteus-host.packages` | **samba** (usershares — Workloads app Shares tab) + **smartmontools** / **nvme-cli** (host dashboard drive health) + **podman** (Workloads containers / one-click apps) |
 
-Shipping session is **smithay only** (`proteus-compositor-next` via
+Shipping session is **smithay only** (`proteus-compositor` via
 `proteus-session`). Hyprland is purged. Install writes
 `~/.config/proteus/compositor-engine=smithay` and prefers `xdg-desktop-portal-wlr`.
 See [COMPOSITOR-SPIKE.md](../docs/proteus/COMPOSITOR-SPIKE.md).

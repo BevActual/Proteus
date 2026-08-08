@@ -1,5 +1,6 @@
 //! Host face — Glance · Storage · Network (thin HexOS-style cards).
-//! Rebuild in-tree later; Storage/Network escape to Workloads.
+//! Thin stub today; Storage/Network escape to Workloads.
+//! Shared chrome kit stays in [`crate::surfaces`]; this module owns lean layers + exclusive UI.
 
 use iced::widget::{button, column, text};
 use iced::{Element, Padding};

@@ -30,11 +30,12 @@ CTL_BIN="${ROOT}/target/debug/proteus-shellctl"
 [[ -x "${CTL_BIN}" ]] && ok "proteus-shellctl bin" || bad "proteus-shellctl bin missing"
 
 # Source gates for dogfood readiness
-grep -q 'try_unlock\|check-unlock' "${ROOT}/shell/src/platform.rs" \
+grep -rq --include='*.rs' 'try_unlock\|check-unlock' "${ROOT}/shell/src/platform" \
   && ok "PAM unlock path" || bad "PAM unlock path"
 [[ -f "${ROOT}/shell/scripts/check-unlock.py" ]] \
   && ok "check-unlock.py present" || bad "check-unlock.py missing"
-grep -q 'BOOT_LAYERS_DESKTOP\|boot_layers_for_face' "${ROOT}/shell/src/main.rs" \
+grep -q 'fn boot_layers\|Face::' "${ROOT}/shell/src/faces/mod.rs" \
+  && grep -rq --include='*.rs' 'boot_layers()' "${ROOT}/shell/src/app" "${ROOT}/shell/src/main.rs" \
   && ok "face-aware boot" || bad "face-aware boot"
 for verb in volumeUp volumeDown brightnessUp brightnessDown; do
   grep -q "${verb}" "${ROOT}/shell/src/ctl.rs" \
@@ -45,17 +46,20 @@ grep -q 'spawn_socket2_listener' "${ROOT}/shell/src/wm_ipc.rs" \
 
 # Headless ctl roundtrip (owned session binary — engine env for chrome script)
 if [[ -x "${SHELL_BIN}" && -x "${CTL_BIN}" ]]; then
-  export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/proteus-owned-dogfood-$$}"
+  dog_rt="$(mktemp -d)"
+  dog_log="$(mktemp)"
+  trap 'rm -rf "${dog_rt}"; rm -f "${dog_log}"; kill "${spid:-}" 2>/dev/null || true' EXIT
+  export XDG_RUNTIME_DIR="${dog_rt}"
   install -d "${XDG_RUNTIME_DIR}/proteus"
   export PROTEUS_SHELL_ENGINE=owned
-  "${SHELL_BIN}" --headless >/tmp/proteus-owned-dogfood.log 2>&1 &
+  "${SHELL_BIN}" --headless >"${dog_log}" 2>&1 &
   spid=$!
   sleep 0.5
   if "${CTL_BIN}" chrome state 2>/dev/null | grep -q '"ok"'; then
     ok "owned headless chrome.state"
   else
     bad "owned headless chrome.state"
-    cat /tmp/proteus-owned-dogfood.log >&2 || true
+    cat "${dog_log}" >&2 || true
   fi
   if "${CTL_BIN}" lock lock 2>/dev/null | grep -q '"ok"'; then
     ok "owned headless lock.lock"
@@ -74,13 +78,17 @@ if [[ -x "${SHELL_BIN}" && -x "${CTL_BIN}" ]]; then
   fi
   kill "${spid}" 2>/dev/null || true
   wait "${spid}" 2>/dev/null || true
+  spid=""
+  rm -rf "${dog_rt}"
+  rm -f "${dog_log}"
+  trap - EXIT
 fi
 
 # Nested / VM checklist (manual — do not fail host CI)
-# Nested harness starts proteus-chrome via compositor-next (env/hypr deleted)
+# Nested harness starts proteus-chrome via compositor (env/hypr deleted)
 grep -q 'proteus-chrome' "${ROOT}/shell/scripts/proteus-chrome" \
   && ok "proteus-chrome present" || bad "proteus-chrome missing"
-grep -q 'proteus-compositor-next\|PROTEUS_SHELL_ENGINE' "${ROOT}/dev/run-nested.sh" \
+grep -q 'proteus-compositor\|PROTEUS_SHELL_ENGINE' "${ROOT}/dev/run-nested.sh" \
   && ok "run-nested compositor/engine" || bad "run-nested missing compositor/engine"
 grep -q 'PROTEUS_SHELL_ENGINE' "${ROOT}/dev/run-nested.sh" \
   && ok "run-nested exports engine" || bad "run-nested missing engine"

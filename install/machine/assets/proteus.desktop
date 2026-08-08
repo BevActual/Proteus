@@ -1,8 +1,8 @@
-# Proteus Wayland session — Hyprland + Quickshell from /mnt/proteus
+# Proteus Wayland session — smithay compositor + owned iced chrome
 [Desktop Entry]
 Name=Proteus
 Comment=Bevington Systems Proteus desktop
 Exec=/usr/local/bin/proteus-session
 Icon=proteus
 Type=Application
-DesktopNames=Hyprland
+DesktopNames=wlroots;Proteus

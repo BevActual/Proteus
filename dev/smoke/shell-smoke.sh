@@ -5,6 +5,12 @@
 # engine fact, ctl protocol, and crate tests. Does not require Wayland.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SURFACES="${ROOT}/shell/src/surfaces"
+APP="${ROOT}/shell/src/app"
+PLATFORM="${ROOT}/shell/src/platform"
+MAIN="${ROOT}/shell/src/main.rs"
+# Grep thin main + app/ (session logic lives under app/ after the split).
+shell_app_grep() { grep -rq --include='*.rs' -- "$@" "${APP}" "${MAIN}"; }
 fail=0
 ok() { echo "  OK  $*"; }
 bad() { echo "  FAIL $*"; fail=1; }
@@ -39,18 +45,21 @@ for ns in proteus-bar proteus-dock proteus-launcher proteus-control-center \
   grep -q "\"${ns}\"" "${ROOT}/shell/src/lib.rs" \
     && ok "layer ${ns}" || bad "layer ${ns}"
 done
-grep -q 'ToggleSpaces\|visible_space_ids\|chrome.*spaces\|"spaces"' \
-  "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/spaces.rs" "${ROOT}/shell/src/ctl.rs" \
+grep -rq --include='*.rs' 'ToggleSpaces\|visible_space_ids\|chrome.*spaces\|"spaces"' \
+  "${SURFACES}" "${ROOT}/shell/src/spaces.rs" "${ROOT}/shell/src/ctl.rs" \
   && ok "Spaces Mission Control path" || bad "Spaces overview missing"
 grep -q 'mosaic_cell_size\|CARD_W\|pencil' \
   "${ROOT}/shell/src/spaces.rs" "${ROOT}/shell/src/icons.rs" \
   && ok "Spaces overview UX (mosaic + pencil)" || bad "Spaces UX polish missing"
-grep -q 'workspaceNames\|names_with_rename\|SpacesRename' \
-  "${ROOT}/shell/src/spaces.rs" "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'workspaceNames\|names_with_rename\|SpacesRename' \
+  "${ROOT}/shell/src/spaces.rs" "${APP}" "${MAIN}" \
   && ok "Spaces rename Fact path" || bad "Spaces rename missing"
-grep -q 'move_window_to_workspace\|SpacesDrop\|SpacesDragStart' \
-  "${ROOT}/shell/src/wm_ipc.rs" "${ROOT}/shell/src/main.rs" "${ROOT}/shell/src/spaces.rs" \
+grep -rq --include='*.rs' 'move_window_to_workspace\|SpacesDrop\|SpacesDragStart' \
+  "${ROOT}/shell/src/wm_ipc.rs" "${APP}" "${MAIN}" "${ROOT}/shell/src/spaces.rs" \
   && ok "Spaces drag-move" || bad "Spaces drag-move missing"
+grep -rq --include='*.rs' 'struct Monitor\|occupied_space_ids_for_output\|windows_on_space_for_output' \
+  "${ROOT}/shell/src/wm_ipc.rs" "${ROOT}/shell/src/spaces.rs" \
+  && ok "Spaces per-head helpers" || bad "Spaces per-head helpers missing"
 for t in lock chrome widgets hud; do
   grep -q "\"${t}\"" "${ROOT}/shell/src/lib.rs" \
     && ok "ipc target ${t}" || bad "ipc target ${t}"
@@ -64,31 +73,42 @@ grep -q 'shell-engine' "${ROOT}/shell/src/engine.rs" \
 [[ -f "${ROOT}/shell/src/faces/mod.rs" ]] && ok "faces module" || bad "faces module missing"
 
 # Multi-layer daemon boot (bar + NewLayerShell extras)
-grep -q 'iced_layershell::build_pattern::daemon\|build_pattern::daemon' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'iced_layershell::build_pattern::daemon\|build_pattern::daemon' "${APP}" "${MAIN}" \
   && ok "daemon multi-window entry" || bad "daemon entry missing"
-grep -q 'to_layer_message(multi)' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'to_layer_message(multi)' "${APP}" "${MAIN}" \
   && ok "to_layer_message(multi)" || bad "to_layer_message(multi) missing"
-grep -q 'NewLayerShell' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'NewLayerShell' "${APP}" "${MAIN}" \
   && ok "NewLayerShell boot" || bad "NewLayerShell missing"
-grep -q 'BOOT_LAYERS_DESKTOP\|boot_layers_for_face' "${ROOT}/shell/src/main.rs" \
+grep -q 'fn boot_layers\|Face::' "${ROOT}/shell/src/faces/mod.rs" \
+  && shell_app_grep 'boot_layers()' \
   && ok "face-aware boot layers" || bad "face-aware boot missing"
+[[ -f "${ROOT}/shell/src/faces/desktop/mod.rs" ]] \
+  && [[ -f "${ROOT}/shell/src/faces/console/mod.rs" ]] \
+  && [[ -f "${ROOT}/shell/src/faces/host/mod.rs" ]] \
+  && ok "faces/{desktop,console,host} modules" \
+  || bad "faces per-mode modules missing"
+grep -q 'BOOT_LAYERS' "${ROOT}/shell/src/faces/desktop/mod.rs" \
+  && ok "desktop BOOT_LAYERS" || bad "desktop BOOT_LAYERS missing"
+grep -q 'BOOT_LAYERS_LEAN' "${ROOT}/shell/src/faces/mod.rs" \
+  && ok "lean BOOT_LAYERS" || bad "lean BOOT_LAYERS missing"
 for sym in DOCK LAUNCHER CONTROL_CENTER HUD BG DESKTOP_WIDGETS TOAST PRIVACY_ASK LOCK; do
-  grep -E "BOOT_LAYERS_(DESKTOP|LEAN)" -A20 "${ROOT}/shell/src/main.rs" | grep -q "layers::${sym}" \
+  grep -E "BOOT_LAYERS" -A20 "${ROOT}/shell/src/faces/desktop/mod.rs" \
+    "${ROOT}/shell/src/faces/mod.rs" | grep -q "layers::${sym}" \
     && ok "boot layer ${sym}" || bad "boot layer ${sym}"
 done
-grep -q 'session_chrome_suppressed\|session_start_lock_pending' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'session_chrome_suppressed\|session_start_lock_pending' "${APP}" "${MAIN}" \
   && ok "lock chrome suppress" || bad "lock suppress missing"
 # Opaque lock floor — wallpaper/solid in Overlay so windows cannot peek.
-grep -q 'fn lock_backdrop\|lock_backdrop(' "${ROOT}/shell/src/surfaces.rs" \
-  && grep -q 'lock_view(' "${ROOT}/shell/src/main.rs" \
-  && grep -q 'wallpaper_handle' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'fn lock_backdrop\|lock_backdrop(' "${SURFACES}" \
+  && grep -rq --include='*.rs' 'lock_view(' "${APP}" "${MAIN}" \
+  && grep -rq --include='*.rs' 'wallpaper_handle' "${APP}" "${MAIN}" \
   && ok "lock opaque backdrop (no desktop peek)" \
   || bad "lock_backdrop / wallpaper floor missing"
 grep -q 'compositor_supports_session_lock' "${ROOT}/shell/src/engine.rs" \
-  && grep -q 'ext-session-lock not on compositor-next' "${ROOT}/shell/src/engine.rs" \
-  && ok "protocol lock deferred until compositor supports it" \
+  && grep -q 'session-lock' "${ROOT}/shell/src/engine.rs" \
+  && ok "protocol lock compositor probe" \
   || bad "session-lock compositor gate missing"
-grep -q 'try_unlock\|check-unlock' "${ROOT}/shell/src/platform.rs" \
+grep -rq --include='*.rs' 'try_unlock\|check-unlock' "${PLATFORM}" \
   && ok "PAM unlock path" || bad "PAM unlock missing"
 grep -q 'spawn_socket2_listener' "${ROOT}/shell/src/wm_ipc.rs" \
   && ok "compositor subscribe listener" || bad "subscribe listener missing"
@@ -98,17 +118,17 @@ grep -q 'customizeDesktop\|dockLaunch\|focusCycle' "${ROOT}/shell/src/ctl.rs" \
   && ok "chrome IPC parity verbs" || bad "chrome IPC verbs missing"
 grep -q '"notifications"' "${ROOT}/shell/src/ctl.rs" \
   && ok "chrome notifications IPC" || bad "notifications IPC missing"
-grep -q 'center_hub_view\|ToggleNotifications\|DesktopPress' "${ROOT}/shell/src/surfaces.rs" \
+grep -rq --include='*.rs' 'center_hub_view\|ToggleNotifications\|DesktopPress' "${SURFACES}" \
   && ok "center hub + wallpaper hold" || bad "center hub / hold missing"
 grep -q 'desktop_widgets\|HOLD_MS\|desktopWidgets' "${ROOT}/shell/src/desktop_widgets.rs" \
   && ok "desktop widget placement module" || bad "desktop_widgets missing"
-grep -q 'WifiRadioToggle\|AppearanceMode\|Screenshot' "${ROOT}/shell/src/surfaces.rs" \
+grep -rq --include='*.rs' 'WifiRadioToggle\|AppearanceMode\|Screenshot' "${SURFACES}" \
   && ok "CC quick-settings harden" || bad "CC functional tiles missing"
-grep -q 'module_tile\|WifiRadioToggle' "${ROOT}/shell/src/surfaces.rs" \
+grep -rq --include='*.rs' 'module_tile\|WifiRadioToggle' "${SURFACES}" \
   && ok "CC 2-col module grid" || bad "CC module grid missing"
 # Quieter menu bar — wifi/BT/volume chips collapse into CC.
-if grep -n 'let right = row!' "${ROOT}/shell/src/surfaces.rs" | head -1 >/dev/null \
-  && awk '/let right = row!/,/align_y/' "${ROOT}/shell/src/surfaces.rs" | head -20 \
+if grep -rn --include='*.rs' 'let right = row!' "${SURFACES}/bar.rs" | head -1 >/dev/null \
+  && awk '/let right = row!/,/align_y/' "${SURFACES}/bar.rs" | head -20 \
     | grep -qE 'wifi_chip|bt_chip|vol_chip|tile_chip'; then
   bad "menu bar still has dense wifi/BT/vol/tile chips"
 else
@@ -116,19 +136,21 @@ else
 fi
 grep -q 'widgets' "${ROOT}/shell/src/ctl.rs" \
   && ok "widgets CRUD ctl" || bad "widgets ctl missing"
-grep -q 'run_notifications_server\|org.freedesktop.Notifications' "${ROOT}/shell/src/platform.rs" \
+grep -rq --include='*.rs' 'run_notifications_server\|org.freedesktop.Notifications' "${PLATFORM}" \
   && ok "zbus Notifications server" || bad "zbus Notifications missing"
-grep -q 'dbus-monitor\|NotifBus' "${ROOT}/shell/src/platform.rs" \
+grep -rq --include='*.rs' 'dbus-monitor\|NotifBus' "${PLATFORM}" \
   && ok "notif path / fallback" || bad "notif path missing"
 grep -q 'list_desktop_apps\|filter_desktop_hits\|gtk-launch' "${ROOT}/shell/src/beacon.rs" \
   && ok "Beacon desktop enumerate/launch" || bad "Beacon desktop missing"
 grep -q 'overlays_blocked\|overlays blocked while locked' "${ROOT}/shell/src/ctl.rs" \
   && ok "lock blocks overlays" || bad "lock overlay gate missing"
-grep -q 'start_tray_watcher\|tray_poll' "${ROOT}/shell/src/platform.rs" \
+grep -rq --include='*.rs' 'start_tray_watcher\|tray_poll' "${PLATFORM}" \
   && ok "SNI tray watcher" || bad "SNI tray missing"
-grep -q 'load_dock_pins\|dockPins' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'load_dock_pins\|dockPins' "${APP}" "${MAIN}" \
   && ok "dock pins from facts" || bad "dock pins missing"
-grep -q 'proteus-launcher\|is_beacon_pin' "${ROOT}/shell/src/main.rs" "${ROOT}/shell/src/surfaces.rs" \
+grep -rq --include='*.rs' 'DockEditDone\|persist_dock_pins' "${APP}" "${SURFACES}" \
+  && ok "dock edit + dockPins persist" || bad "dock edit reorder missing"
+grep -rq --include='*.rs' 'proteus-launcher\|is_beacon_pin' "${APP}" "${MAIN}" "${SURFACES}" \
   && ok "Beacon dock pin" || bad "Beacon dock pin missing"
 grep -q 'settings_catalog_hits\|--page=' "${ROOT}/shell/src/beacon.rs" \
   && ok "Beacon settings catalog" || bad "Beacon settings missing"
@@ -136,113 +158,114 @@ grep -q 'lock_screen_view\|Click or type to unlock\|Enter unlock PIN\|Use passwo
   "${ROOT}/shell/src/lock_ui.rs" \
   && ok "lock full-bleed PIN/reveal" || bad "lock GUI shallow"
 grep -q 'lock-password-input\|lock_password_focus_pending\|LockWakeChar' \
-  "${ROOT}/shell/src/main.rs" "${ROOT}/shell/src/lock_ui.rs" "${ROOT}/shell/src/surfaces.rs" \
-  && grep -q 'repeat' "${ROOT}/shell/src/main.rs" \
+  "${APP}" "${MAIN}" "${ROOT}/shell/src/lock_ui.rs" "${SURFACES}" \
+  && grep -rq --include='*.rs' 'repeat' "${APP}" "${MAIN}" \
   && ok "lock password focus + wake keystroke (no repeat bunches)" \
   || bad "lock password input lag guards missing"
-grep -q 'no WM/sensor/applet spam while typing' "${ROOT}/shell/src/main.rs" \
-  && grep -q '1000' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'no WM/sensor/applet spam while typing' "${APP}" "${MAIN}" \
+  && grep -rq --include='*.rs' '1000' "${APP}" "${MAIN}" \
   && ok "lock auth light tick" || bad "lock still heavy-ticks while typing"
-grep -q 'LockReveal\|LockPinDigit\|lock_ui' "${ROOT}/shell/src/main.rs" "${ROOT}/shell/src/surfaces.rs" \
+grep -rq --include='*.rs' 'LockReveal\|LockPinDigit\|lock_ui' "${APP}" "${MAIN}" "${SURFACES}" \
   && ok "lock shell wiring" || bad "lock shell wiring missing"
-grep -q 'Windows-style\|not in the menu bar' "${ROOT}/shell/src/surfaces.rs" \
+grep -rq --include='*.rs' 'Windows-style\|not in the menu bar' "${SURFACES}" \
   && ok "bar defers window chrome to SSD" || bad "bar still claims traffic-lights"
-if grep -qE 'fn traffic_light|Message::WindowClose|Message::WindowMinimize' \
-  "${ROOT}/shell/src/surfaces.rs"; then
+if grep -rqE --include='*.rs' 'fn traffic_light|Message::WindowClose|Message::WindowMinimize' \
+  "${SURFACES}"; then
   bad "bar still paints traffic-lights"
 else
   ok "bar has no traffic-lights widgets"
 fi
 grep -q 'window_close\|window_minimize\|window_maximize' "${ROOT}/shell/src/wm_ipc.rs" \
   && ok "wm_ipc window helpers (dock/IPC)" || bad "wm_ipc window helpers missing"
-grep -q 'Minimize\|minimize_hit' "${ROOT}/compositor-next/src/decoration.rs" \
+grep -q 'Minimize\|minimize_hit' "${ROOT}/compositor/src/decoration.rs" \
   && ok "SSD minimize chrome" || bad "SSD minimize missing"
-grep -q 'PrivacyDots\|privacy_dots\|OpenPrivacy' "${ROOT}/shell/src/platform.rs" "${ROOT}/shell/src/surfaces.rs" \
+grep -rq --include='*.rs' 'PrivacyDots\|privacy_dots\|OpenPrivacy' "${PLATFORM}" "${SURFACES}" \
   && ok "privacy dots" || bad "privacy dots missing"
-grep -q 'PowerProfile\|power_set_profile_index\|VolumeStep' "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/platform.rs" \
+grep -rq --include='*.rs' 'PowerProfile\|power_set_profile_index\|VolumeStep' "${SURFACES}" "${PLATFORM}" \
   && ok "CC power/volume" || bad "CC power/volume missing"
-grep -qE 'ToggleFloating|VolumeMute' "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/main.rs" \
-  && grep -qE 'glyph_view\("wifi"|glyph_view\("tile"' "${ROOT}/shell/src/surfaces.rs" \
+grep -rqE --include='*.rs' 'ToggleFloating|VolumeMute' "${SURFACES}" "${APP}" "${MAIN}" \
+  && grep -rqE --include='*.rs' 'glyph_view\("wifi"|glyph_view\("tile"' "${SURFACES}" \
   && ok "bar wifi/BT/volume/tile chips" || bad "bar system chips missing"
 grep -q 'is_ghostty_desktop_id\|proteus-terminal' "${ROOT}/shell/src/beacon.rs" \
   && ok "Beacon Ghostty → proteus-terminal" || bad "Beacon Ghostty route missing"
-grep -q 'NotifDismiss' "${ROOT}/shell/src/surfaces.rs" \
+grep -rq --include='*.rs' 'NotifDismiss' "${SURFACES}" \
   && ok "CC notif dismiss" || bad "CC notif dismiss missing"
 grep -q 'dock_activate\|DockAction\|dock_activate_plan' "${ROOT}/shell/src/wm_ipc.rs" \
   && ok "dock minimize/restore" || bad "dock activate missing"
 grep -q 'DockPlan::Cycle\|running.len() >= 2' "${ROOT}/shell/src/wm_ipc.rs" \
   && ok "dock multi-window cycle" || bad "dock cycle missing"
-grep -q 'dock_plan_cycle_multi_focused\|dock_pins_defaults_include_beacon' \
-  "${ROOT}/shell/src/wm_ipc.rs" "${ROOT}/shell/src/surfaces.rs" \
+grep -rq --include='*.rs' 'dock_plan_cycle_multi_focused\|dock_pins_defaults_include_beacon' \
+  "${ROOT}/shell/src/wm_ipc.rs" "${SURFACES}" \
   && ok "dock cargo unit tests" || bad "dock unit tests missing"
-grep -q 'dock_transients\|dock_divider' "${ROOT}/shell/src/surfaces.rs" \
+grep -rq --include='*.rs' 'dock_transients\|dock_divider' "${SURFACES}" \
   && ok "dock pin/transient divider" || bad "dock transients missing"
-grep -q 'DOCK_PREVIEW_DWELL_MS\|DockPreviewFocus\|DockPreviewClose\|Hidden' \
-  "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'DOCK_PREVIEW_DWELL_MS\|DockPreviewFocus\|DockPreviewClose\|Hidden' \
+  "${SURFACES}" "${APP}" "${MAIN}" \
   && ok "dock dwell preview interact" || bad "dock dwell preview missing"
-grep -q 'dock_bounce\|DOCK_BOUNCE_TIMEOUT_MS' "${ROOT}/shell/src/main.rs" "${ROOT}/shell/src/surfaces.rs" \
+grep -rq --include='*.rs' 'dock_bounce\|DOCK_BOUNCE_TIMEOUT_MS' "${APP}" "${MAIN}" "${SURFACES}" \
   && ok "dock launch bounce" || bad "dock bounce missing"
 grep -q 'glass_alpha\|apply_chrome_opacity' "${ROOT}/services/proteus-ui/src/theme.rs" \
   && ok "chromeOpacity → glass_alpha" || bad "glass_alpha from settings missing"
-grep -q 'dockIconSize\|dock_icon_size' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'dockIconSize\|dock_icon_size' "${APP}" "${MAIN}" \
   && ok "dockIconSize Fact" || bad "dockIconSize missing"
-grep -q 'BAR || n == layers::DOCK => Layer::Top' "${ROOT}/shell/src/main.rs" \
-  && grep -q 'dock_strip_h(surfaces::DOCK_ICON_REST)\|ExclusiveZoneChange' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'BAR || n == layers::DOCK => Layer::Top' "${APP}" "${MAIN}" \
+  && grep -rq --include='*.rs' 'dock_strip_h(surfaces::DOCK_ICON_REST)\|ExclusiveZoneChange' "${APP}" "${MAIN}" \
   && ok "dock Top + exclusive_zone" || bad "dock layer/exclusive missing"
-grep -q 'DOCK_LEAVE_DELAY_MS\|DockPreviewEnter\|dock_leave_at' \
-  "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'DOCK_LEAVE_DELAY_MS\|DockPreviewEnter\|dock_leave_at' \
+  "${SURFACES}" "${APP}" "${MAIN}" \
   && ok "dock preview hover bridge" || bad "dock leave bridge missing"
-grep -q 'preview_band' "${ROOT}/shell/src/surfaces.rs" \
-  && grep -qE 'DOCK_LAYER_H: u32 = (3[0-9]{2}|[4-9][0-9]{2})' "${ROOT}/shell/src/surfaces.rs" \
+grep -rqE --include='*.rs' 'Preview band above the strip|click-through until a dwell preview' \
+  "${SURFACES}" \
+  && grep -rqE --include='*.rs' 'DOCK_LAYER_H: u32 = (3[0-9]{2}|[4-9][0-9]{2})' "${SURFACES}" \
   && ok "dock preview band does not crush shelf" || bad "dock shelf crush guard missing"
-grep -q 'DockLayout\|dockLayout\|DOCK_HOVER_SCALE' \
-  "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'DockLayout\|dockLayout\|DOCK_HOVER_SCALE' \
+  "${SURFACES}" "${APP}" "${MAIN}" \
   && ok "dock layout + hover scale (no magnify)" || bad "dock layout/hover missing"
-grep -q 'dock_dot_count\|dock_running_windows\|dock_active_dot_index' \
-  "${ROOT}/shell/src/surfaces.rs" \
+grep -rq --include='*.rs' 'dock_dot_count\|dock_running_windows\|dock_active_dot_index' \
+  "${SURFACES}" \
   && ok "dock multi-window dots" || bad "dock running dots missing"
-grep -q 'layers::BG || n == layers::LOCK => -1' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'layers::BG || n == layers::LOCK => -1' "${APP}" "${MAIN}" \
   && ok "wallpaper+lock DontCare full-bleed" || bad "BG/lock exclusive clips"
-grep -q 'apply_settings_if_changed\|settings_mtime' "${ROOT}/shell/src/main.rs" \
-  && grep -q 'skip_sync' "${ROOT}/shell/src/main.rs" \
-  && grep -q 'LockPinDigit\|PinEntry' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'apply_settings_if_changed\|settings_mtime' "${APP}" "${MAIN}" \
+  && grep -rq --include='*.rs' 'skip_sync' "${APP}" "${MAIN}" \
+  && grep -rq --include='*.rs' 'LockPinDigit\|PinEntry' "${APP}" "${MAIN}" \
   && ok "shell settings mtime + light surface path" || bad "shell lag guards missing"
-grep -q 'fn pull_wm\|try_lock' "${ROOT}/shell/src/main.rs" \
-  && grep -q 'from_millis(33)' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'fn pull_wm\|try_lock' "${APP}" "${MAIN}" \
+  && grep -rq --include='*.rs' 'from_millis(33)' "${APP}" "${MAIN}" \
   && grep -q 'reload_widgets\|rebuild_strip' "${ROOT}/shell/src/lock_ui.rs" \
   && ok "shell responsiveness (wm pull / 30fps anim / lock cache)" \
   || bad "shell responsiveness guards missing"
 grep -q 'skip_reconcile\|WmShared\|flush_pending_sliders' \
-  "${ROOT}/shell/src/main.rs" "${ROOT}/shell/src/wm_ipc.rs" \
-  && grep -q 'chrono\|Local::now' "${ROOT}/shell/src/surfaces.rs" \
+  "${APP}" "${MAIN}" "${ROOT}/shell/src/wm_ipc.rs" \
+  && grep -rq --include='*.rs' 'chrono\|Local::now' "${SURFACES}" \
   && ok "shell responsiveness pass2 (wm gen / clock / sliders)" \
   || bad "shell responsiveness pass2 missing"
-grep -q 'filter_beacon_hits\|Window ·\|File ·\|beacon-file-index' "${ROOT}/shell/src/beacon.rs" \
+grep -q 'filter_beacon_hits\|Window ·\|File ·\|Place ·\|Recent ·\|launcherFileRecents\|beacon-file-index\|warm_file_index' "${ROOT}/shell/src/beacon.rs" \
   && ok "Beacon Windows/files thin" || bad "Beacon Windows/files missing"
-grep -q 'ToggleDnd\|wifi_list_thin\|bt_list_thin' "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/platform.rs" \
+grep -rq --include='*.rs' 'ToggleDnd\|wifi_list_thin\|bt_list_thin' "${SURFACES}" "${PLATFORM}" \
   && ok "CC DND/WiFi/BT" || bad "CC tiles missing"
-grep -q 'ToggleFocus\|focus_profiles\|Focus Mode' "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/platform.rs" \
+grep -rq --include='*.rs' 'ToggleFocus\|focus_profiles\|Focus Mode' "${SURFACES}" "${PLATFORM}" \
   && ok "CC Focus Mode thin" || bad "CC Focus missing"
-grep -q 'DOCK_MAG_CELLS\|dock_mag_falloff\|dock_mag_strength' \
-  "${ROOT}/shell/src/surfaces.rs" "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'DOCK_MAG_CELLS\|dock_mag_falloff\|dock_mag_strength' \
+  "${SURFACES}" "${APP}" "${MAIN}" \
   && bad "dock magnify helpers must be removed" \
   || ok "dock magnify retired"
-grep -q 'fn dock_plate_h' "${ROOT}/shell/src/surfaces.rs" \
-  && grep -q 'dock_plate(' "${ROOT}/shell/src/surfaces.rs" \
-  && grep -q 'dock_autohide\|dock_slide\|DOCK_PEEK_SLIDE' "${ROOT}/shell/src/main.rs" "${ROOT}/shell/src/surfaces.rs" \
+grep -rq --include='*.rs' 'fn dock_plate_h' "${SURFACES}" \
+  && grep -rq --include='*.rs' 'dock_plate(' "${SURFACES}" \
+  && grep -rq --include='*.rs' 'dock_autohide\|dock_slide\|DOCK_PEEK_SLIDE' "${APP}" "${MAIN}" "${SURFACES}" \
   && ok "dock plate + autohide peek" \
   || bad "dock plate / autohide missing"
-grep -q 'DOCK_POINTER_EPS' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'DOCK_POINTER_EPS' "${APP}" "${MAIN}" \
   && bad "DOCK_POINTER_EPS (magnify coalesce) must be gone" \
   || ok "no dock pointer magnify coalesce"
 grep -q 'menu_bar_plate\|dock_plate\|elevated_chip\|chrome_tile' \
   "${ROOT}/services/proteus-ui/src/widgets.rs" \
   && ok "chrome glass tokens" || bad "chrome glass helpers missing"
-grep -q 'menu_bar_plate\|dock_plate\|elevated_chip\|chrome_tile' \
-  "${ROOT}/shell/src/surfaces.rs" \
+grep -rq --include='*.rs' 'menu_bar_plate\|dock_plate\|elevated_chip\|chrome_tile' \
+  "${SURFACES}" \
   && ok "chrome glass surfaces" || bad "chrome glass surfaces missing"
-grep -q 'lock_cooldown_secs\|on_fail\|Try again in' \
-  "${ROOT}/shell/src/lock_ui.rs" "${ROOT}/shell/src/platform.rs" \
+grep -rq --include='*.rs' 'lock_cooldown_secs\|on_fail\|Try again in' \
+  "${ROOT}/shell/src/lock_ui.rs" "${PLATFORM}" \
   && ok "lock progressive cooldown" || bad "lock cooldown missing"
 
 # UI/UX parity pass — kit widgets, icon pipeline, motion engine (CHROME.md)
@@ -264,17 +287,17 @@ grep -q 'AnimatedValue' "${ROOT}/shell/src/anim.rs" \
   && grep -q 'Keyframes' "${ROOT}/shell/src/anim.rs" \
   && grep -q 'Deadline' "${ROOT}/shell/src/anim.rs" \
   && ok "anim engine (easing/keyframes/deadline)" || bad "anim engine missing"
-grep -q 'iced::time::every' "${ROOT}/shell/src/main.rs" \
-  && grep -q 'motion_active' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'iced::time::every' "${APP}" "${MAIN}" \
+  && grep -rq --include='*.rs' 'motion_active' "${APP}" "${MAIN}" \
   && ok "timer subscriptions + motion gate" || bad "timer subscriptions missing"
 # Freeze guard — subprocess polling must live on the heavy worker, never in update()
-grep -q 'spawn_heavy_worker' "${ROOT}/shell/src/main.rs" \
-  && grep -q 'HeavySnapshot' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'spawn_heavy_worker' "${APP}" "${MAIN}" \
+  && grep -rq --include='*.rs' 'HeavySnapshot' "${APP}" "${MAIN}" \
   && ok "heavy worker (no subprocess on UI thread)" || bad "heavy worker missing"
 if grep -En 'platform::(bt_list_thin|wifi_list_thin|power_status|mpris_players)\(\)' \
-    "${ROOT}/shell/src/main.rs" | grep -v 'spawn_heavy_worker' | grep -vq 'HeavySnapshot'; then
+    "${APP}" "${MAIN}" | grep -v 'spawn_heavy_worker' | grep -vq 'HeavySnapshot'; then
   # Allowed only inside spawn_heavy_worker; a hit elsewhere means UI-thread polling is back.
-  if awk '/fn spawn_heavy_worker/,/^}/' "${ROOT}/shell/src/main.rs" \
+  if awk '/fn spawn_heavy_worker/,/^}/' "${APP}"/*.rs "${MAIN}" \
       | grep -cq 'platform::power_status'; then
     ok "subprocess polling scoped to worker"
   else
@@ -292,32 +315,32 @@ grep -q 'session_lock_helper\|spawn_protocol_lock\|proteus-session-lock' "${ROOT
 [[ -f "${ROOT}/shell/src/bin/proteus-session-lock.rs" ]] \
   && ok "proteus-session-lock bin source" || bad "session-lock bin missing"
 grep -q 'Games.*Media.*Apps.*Search.*Settings\|"Games".*"Media".*"Apps"' \
-  "${ROOT}/shell/src/faces/console.rs" \
+  "${ROOT}/shell/src/faces/console/mod.rs" \
   && ok "console face list IA" || bad "console face IA missing"
-grep -q 'OpenMediaPath\|console_apps_thin\|Beacon .desktop' \
-  "${ROOT}/shell/src/faces/console.rs" "${ROOT}/shell/src/platform.rs" "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'OpenMediaPath\|console_apps_thin\|Beacon .desktop' \
+  "${ROOT}/shell/src/faces/console/mod.rs" "${PLATFORM}" "${APP}" "${MAIN}" \
   && ok "console Media/Apps thin" || bad "console Media/Apps missing"
 grep -q 'Console Settings\|OpenConsoleSettingsPage\|network-wifi' \
-  "${ROOT}/shell/src/faces/console.rs" \
+  "${ROOT}/shell/src/faces/console/mod.rs" \
   && ok "console Settings face thin" || bad "console Settings face missing"
-grep -q 'host_glance\|HostGlance\|proteus-host-metrics' \
-  "${ROOT}/shell/src/faces/host.rs" "${ROOT}/shell/src/platform.rs" \
+grep -rq --include='*.rs' 'host_glance\|HostGlance\|proteus-host-metrics' \
+  "${ROOT}/shell/src/faces/host/mod.rs" "${PLATFORM}" \
   && ok "host Glance metrics" || bad "host Glance missing"
-grep -q 'HexOS-style cards\|glance.cards' \
-  "${ROOT}/shell/src/faces/host.rs" "${ROOT}/shell/src/platform.rs" \
+grep -rq --include='*.rs' 'HexOS-style cards\|glance.cards' \
+  "${ROOT}/shell/src/faces/host/mod.rs" "${PLATFORM}" \
   && ok "host Glance HexOS cards" || bad "host Glance cards missing"
-grep -q 'gamescope console-home not swapped' "${ROOT}/shell/src/faces/console.rs" \
+grep -q 'gamescope console-home not swapped' "${ROOT}/shell/src/faces/console/mod.rs" \
   && ok "gamescope Home not swapped note" || bad "gamescope honesty missing"
 grep -q 'consoleTab' "${ROOT}/shell/src/ctl.rs" \
   && ok "consoleTab ctl" || bad "consoleTab ctl missing"
-grep -q 'console_games_list\|LaunchGame\|proteus-console-games' \
-  "${ROOT}/shell/src/platform.rs" "${ROOT}/shell/src/faces/console.rs" \
+grep -rq --include='*.rs' 'console_games_list\|LaunchGame\|proteus-console-games' \
+  "${PLATFORM}" "${ROOT}/shell/src/faces/console/mod.rs" \
   && ok "console Games scan/launch" || bad "console Games missing"
-grep -q 'HostTab\|host_face_view' \
-  "${ROOT}/shell/src/faces/host.rs" "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'HostTab\|host_face_view' \
+  "${ROOT}/shell/src/faces/host/mod.rs" "${APP}" "${MAIN}" \
   && ok "host face Workloads tabs" || bad "host face missing"
 grep -q 'gamescope console-home not swapped' \
-  "${ROOT}/docs/proteus/OWNED-STACK.md" "${ROOT}/shell/src/faces/console.rs" \
+  "${ROOT}/docs/proteus/OWNED-STACK.md" "${ROOT}/shell/src/faces/console/mod.rs" \
   && ok "gamescope Home not swapped honesty" || bad "gamescope honesty missing"
 grep -q 'resolve_compositor_engine\|compositor-engine' "${ROOT}/shell/src/engine.rs" \
   && ok "compositor-engine fallthrough" || bad "compositor-engine missing"
@@ -325,32 +348,32 @@ grep -qE '"" \| "smithay"|Hyprland purged|smithay only' "${ROOT}/shell/src/engin
   && ok "smithay engine shipping default" || bad "smithay default missing"
 [[ -f "${ROOT}/docs/proteus/COMPOSITOR-SPIKE.md" ]] \
   && ok "COMPOSITOR-SPIKE.md" || bad "COMPOSITOR-SPIKE.md missing"
-grep -q 'BOOT_LAYERS\|boot_extra_layers' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'BOOT_LAYERS\|boot_extra_layers' "${APP}" "${MAIN}" \
   && ok "boot_extra_layers" || bad "boot_extra_layers missing"
-grep -q 'brightness_set\|BrightnessStep\|BrightnessSet' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'brightness_set\|BrightnessStep\|BrightnessSet' "${APP}" "${MAIN}" \
   && ok "brightness wired" || bad "brightness not wired"
 grep -q 'ChromeEpoch\|AtomicU64' "${ROOT}/shell/src/ctl.rs" \
   && ok "ctl chrome epoch" || bad "ctl chrome epoch missing"
 
 # Layer geometry protocol gate — invalid anchor/size kills the client at boot
-grep -q 'layer_sizes_respect_anchor_protocol' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'layer_sizes_respect_anchor_protocol' "${APP}" "${MAIN}" \
   && ok "layer geometry test present" || bad "layer geometry test missing"
-grep -q 'reconcile_layer_input\|SetInputRegion' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'reconcile_layer_input\|SetInputRegion' "${APP}" "${MAIN}" \
   && ok "idle overlay input regions" || bad "overlay input regions missing"
 grep -q 'respawn\|systemd-cat' "${ROOT}/shell/scripts/proteus-chrome" \
   && ok "chrome respawn watchdog" || bad "chrome respawn watchdog missing"
-grep -q 'wallpaper_state\|WallpaperState' "${ROOT}/shell/src/platform.rs" \
-  && grep -q 'wallpaper_view' "${ROOT}/shell/src/surfaces.rs" \
-  && grep -q 'ContentFit' "${ROOT}/shell/src/surfaces.rs" \
+grep -rq --include='*.rs' 'wallpaper_state\|WallpaperState' "${PLATFORM}" \
+  && grep -rq --include='*.rs' 'wallpaper_view' "${SURFACES}" \
+  && grep -rq --include='*.rs' 'ContentFit' "${SURFACES}" \
   && ok "owned wallpaper image" || bad "owned wallpaper missing"
 grep -q 'pkill -x proteus-bg\|owned shell paints' "${ROOT}/shell/scripts/proteus-chrome" \
   "${ROOT}/shell/scripts/proteus-bg" \
   && ok "owned retires QS wallpaper" || bad "QS wallpaper still primary on owned"
-grep -q 'dock_preview_capture' "${ROOT}/shell/src/platform.rs" \
-  && grep -q 'proteus/previews' "${ROOT}/shell/src/platform.rs" \
-  && grep -q 'grim' "${ROOT}/shell/src/platform.rs" \
+grep -rq --include='*.rs' 'dock_preview_capture' "${PLATFORM}" \
+  && grep -rq --include='*.rs' 'proteus/previews' "${PLATFORM}" \
+  && grep -rq --include='*.rs' 'grim' "${PLATFORM}" \
   && ok "dock preview capture (grim)" || bad "dock preview capture missing"
-grep -q 'DockHover\|dock_preview' "${ROOT}/shell/src/main.rs" \
+grep -rq --include='*.rs' 'DockHover\|dock_preview' "${APP}" "${MAIN}" \
   && ok "dock hover previews wired" || bad "dock previews not wired"
 grep -q 'read_lock_widgets\|strip_view\|LOCK_WIDGET_CATALOG' "${ROOT}/shell/src/lock_ui.rs" \
   && grep -q 'customize_view\|CustomizeAdd' "${ROOT}/shell/src/lock_ui.rs" \
@@ -361,17 +384,17 @@ grep -q 'persist_lock_widgets' "${ROOT}/shell/src/lock_ui.rs" \
   && ok "lockWidgets persistence" || bad "lockWidgets persistence missing"
 
 # Smithay rung-2 spike (nested, opt-in) — crate + engine opt-in + dated doc
-[[ -f "${ROOT}/compositor-next/Cargo.toml" ]] \
-  && ok "compositor-next crate" || bad "compositor-next crate missing"
-grep -q '"smithay" | "compositor-next" => "smithay"' "${ROOT}/shell/src/engine.rs" \
+[[ -f "${ROOT}/compositor/Cargo.toml" ]] \
+  && ok "compositor crate" || bad "compositor crate missing"
+grep -q '"smithay" | "compositor" | "compositor-next" => "smithay"' "${ROOT}/shell/src/engine.rs" \
   && ok "smithay engine opt-in" || bad "smithay opt-in missing"
 grep -qE '^## Prove \(20[0-9]{2}-' "${ROOT}/docs/proteus/COMPOSITOR-SPIKE.md" \
   && ok "spike doc dated" || bad "COMPOSITOR-SPIKE.md undated"
 if command -v cargo >/dev/null 2>&1; then
-  if (cd "${ROOT}" && cargo build -p compositor-next -q 2>/dev/null); then
-    ok "compositor-next builds"
+  if (cd "${ROOT}" && cargo build -p compositor -q 2>/dev/null); then
+    ok "compositor builds"
   else
-    bad "compositor-next build"
+    bad "compositor build"
   fi
 fi
 

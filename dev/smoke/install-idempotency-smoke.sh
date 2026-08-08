@@ -2,11 +2,9 @@
 # install-idempotency-smoke — running a stage twice must change nothing.
 #
 # `bootstrap.sh repair` is the documented fix for almost every install problem,
-# and post-install runs re-execute stages by design. config.sh appends to
-# hyprland.conf in ~8 places behind `grep -q` guards; if any guard does not
-# match the text it just wrote, the second run silently duplicates a line —
-# duplicate exec-once entries mean two Quickshell instances, two cliphist
-# watchers, two polkit agents.
+# and post-install runs re-execute stages by design. config.sh writes Facts under
+# ~/.config/proteus/; if any writer is not idempotent, a second run silently
+# drifts fingerprints.
 #
 # Executable, not a grep assertion: it actually runs the stage twice against a
 # throwaway HOME and diffs the result.
@@ -37,7 +35,7 @@ EOF
 # Neutralise anything privileged or live. config.sh only uses proteus_root for
 # systemctl/loginctl; every file write goes through proteus_as_user, which runs
 # in-process when not root.
-for stub in sudo systemctl loginctl hyprctl; do
+for stub in sudo systemctl loginctl; do
   printf '#!/usr/bin/env bash\nexit 0\n' > "${BIN}/${stub}"
 done
 chmod +x "${BIN}"/*
@@ -91,18 +89,26 @@ if [[ "${first}" != "${second}" ]]; then
   exit 1
 fi
 
-# A matching fingerprint is necessary but not sufficient: a duplicated line
-# inside an already-tracked file would change its checksum, but check the
-# highest-consequence file explicitly so the failure message is legible.
-HYPR="${FAKE_HOME}/.config/hypr/hyprland.conf"
-if [[ -f "${HYPR}" ]]; then
-  dupes="$(grep -oE '^(exec-once|source|env) = .*' "${HYPR}" | sort | uniq -d || true)"
-  if [[ -n "${dupes}" ]]; then
-    echo "install-idempotency-smoke: FAIL duplicate hyprland.conf directives after two runs" >&2
-    printf '%s\n' "${dupes}" | sed 's/^/  /' >&2
-    exit 1
+# Highest-consequence Facts — shipping session path (Hyprland conf retired).
+FACT_DIR="${FAKE_HOME}/.config/proteus"
+for fact in compositor-engine shell-engine; do
+  if [[ -f "${FACT_DIR}/${fact}" ]]; then
+    val="$(tr -d '[:space:]' <"${FACT_DIR}/${fact}" || true)"
+    case "${fact}:${val}" in
+      compositor-engine:smithay|compositor-engine:compositor|compositor-engine:compositor-next) ;;
+      shell-engine:owned|shell-engine:iced|shell-engine:proteus-shell) ;;
+      *)
+        echo "install-idempotency-smoke: FAIL unexpected ${fact}=${val:-empty}" >&2
+        exit 1
+        ;;
+    esac
+    echo "install-idempotency-smoke: OK Fact ${fact}=${val}"
   fi
-  echo "install-idempotency-smoke: OK hyprland.conf has no duplicate directives"
+done
+# Must not reintroduce Hyprland seeds
+if [[ -d "${FAKE_HOME}/.config/hypr" ]] && find "${FAKE_HOME}/.config/hypr" -type f 2>/dev/null | grep -q .; then
+  echo "install-idempotency-smoke: FAIL config stage still writes ~/.config/hypr" >&2
+  exit 1
 fi
 
 echo "install-idempotency-smoke: OK '${STAGE}' is idempotent ($(printf '%s\n' "${first}" | wc -l) files stable)"

@@ -13,7 +13,7 @@ echo "hardware/virt: virtualized GPU — ensuring virtio/mesa stack"
 proteus_root pacman -S --noconfirm --needed mesa vulkan-virtio 2>/dev/null || \
   proteus_root pacman -S --noconfirm --needed mesa || true
 
-proteus_hw_hypr_envs "proteus-hw-virt" "# Virtio / QEMU — no NVIDIA proprietary stack
+proteus_hw_session_envs "proteus-hw-virt" "# Virtio / QEMU — no NVIDIA proprietary stack
 # Prefer nested host dogfood if VirGL is painful: PROTEUS_VM_GL=0 or ./dev/run-nested.sh"
 
 echo "hardware/virt: OK (skip nvidia/amd discrete installs on this machine)"

@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
-# proteus-workspace — macOS-adjacent Spaces for Hyprland.
+# proteus-workspace — Spaces band math / fixtures + live compositorctl path.
 #
-# Logical spaces 1–10 map to per-monitor ID bands:
-#   physical = logical + monitorIndex * 10
+# Live path: proteus-compositorctl (Smithay). Per-output boards are logical
+# 1–10 (`workspace N` synced · `workspace N,output:NAME` local). Band math
+# (physical = logical + monitorIndex × 10) is derived for status/fixtures.
+#
 # Mode from ~/.config/proteus/settings.json workspaceMode:
 #   synced     — Super+N / goto switches every display together (default)
 #   perDisplay — switch only the focused (or --monitor) display
 # --local / --synced override the setting for one invocation.
 #
-# Scratchpad (special:scratch) is separate from dock minimize (special:minimized).
-#   scratch-toggle — show/hide scratch
-#   scratch-move   — park focused window on scratch
+# Scratch / specials: compositor maps all special:* → special:minimized park.
+#   scratch-toggle — park/restore focused window
+#   scratch-move   — park focused window
 # Custom specials (settings.json specialWorkspaces; reserved scratch/minimized):
 #   special-toggle|special-move NAME · special-list
 #   special-toggle-index|special-move-index N — 1-based slot (keybinds / strip)
@@ -27,7 +29,7 @@ usage() {
   exit 2
 }
 
-# Band-math gate (no hyprctl). Used by spaces-smoke.
+# Band-math gate (no compositor). Used by spaces-smoke / offline CI.
 selftest() {
   local fail=0
   check() {
@@ -99,7 +101,7 @@ PY
   echo "proteus-workspace selftest: OK"
 }
 
-# Hypr special workspace slug: [a-z][a-z0-9-]{0,23}
+# Special workspace slug: [a-z][a-z0-9-]{0,23}
 valid_special_name() {
   local n="${1:-}"
   [[ "${n}" =~ ^[a-z][a-z0-9-]{0,23}$ ]]
@@ -130,8 +132,7 @@ scratch_toggle() {
     emit_scratch_fixture "scratch-toggle"
     return 0
   fi
-  need_hyprctl
-  hyprctl dispatch togglespecialworkspace "${SCRATCH_NAME}" >/dev/null
+  toggle_special "${SCRATCH_NAME}"
 }
 
 scratch_move() {
@@ -140,8 +141,8 @@ scratch_move() {
     emit_scratch_fixture "scratch-move"
     return 0
   fi
-  need_hyprctl
-  hyprctl dispatch movetoworkspace "special:${SCRATCH_NAME}" >/dev/null
+  need_ctl
+  ctl_dispatch "movetoworkspacesilent special:${SCRATCH_NAME}"
 }
 
 emit_special_fixture() {
@@ -168,8 +169,7 @@ special_toggle() {
     emit_special_fixture "special-toggle" "${name}"
     return 0
   fi
-  need_hyprctl
-  hyprctl dispatch togglespecialworkspace "${name}" >/dev/null
+  toggle_special "${name}"
 }
 
 special_move() {
@@ -182,8 +182,8 @@ special_move() {
     emit_special_fixture "special-move" "${name}"
     return 0
   fi
-  need_hyprctl
-  hyprctl dispatch movetoworkspace "special:${name}" >/dev/null
+  need_ctl
+  ctl_dispatch "movetoworkspacesilent special:${name}"
 }
 
 # Resolve 1-based index into settings.json specialWorkspaces (empty → "").
@@ -314,7 +314,7 @@ print(json.dumps({
          "activeLogical": 1, "activePhysical": 11, "bandStart": 11, "bandEnd": 20},
     ],
     "summary": "2 displays · synced · bands ×10",
-    "hint": "Fixture — plug a second display or use live hyprctl for real status",
+    "hint": "Fixture — plug a second display or use live proteus-compositorctl for real status",
 }, separators=(",", ":")))
 PY
 }
@@ -322,41 +322,59 @@ PY
 emit_status() {
   local mode
   mode="$(read_mode)"
-  STRIDE="${STRIDE}" MAX_LOGICAL="${MAX_LOGICAL}" MODE="${mode}" python3 - <<'PY'
+  need_ctl
+  STRIDE="${STRIDE}" MAX_LOGICAL="${MAX_LOGICAL}" MODE="${mode}" CTL="${CTL}" python3 - <<'PY'
 import json, os, subprocess, sys
 stride = int(os.environ.get("STRIDE", "10"))
 mode = os.environ.get("MODE", "synced")
+ctl = os.environ.get("CTL", "proteus-compositorctl")
 try:
-    raw = subprocess.check_output(["hyprctl", "-j", "monitors"], text=True)
-    mons = json.loads(raw)
+    mons = json.loads(subprocess.check_output([ctl, "monitors"], text=True))
+    aw = json.loads(subprocess.check_output([ctl, "activeworkspace"], text=True))
 except Exception as e:
-    print(json.dumps({"ok": False, "error": f"monitors: {e}"}))
+    print(json.dumps({"ok": False, "error": f"ctl: {e}"}))
     sys.exit(0)
-mons.sort(key=lambda m: int(m.get("id", 0)))
+if not isinstance(mons, list):
+    mons = []
+# Stable order: focused first, then name.
+mons = sorted(
+    mons,
+    key=lambda m: (0 if m.get("focused") else 1, str(m.get("name") or "")),
+)
+try:
+    seat_aw = int(aw.get("id") or 1)
+except (TypeError, ValueError):
+    seat_aw = 1
 out = []
 for i, m in enumerate(mons):
-    aw = m.get("activeWorkspace") or {}
-    wid = int(aw.get("id") or 1)
-    logical = ((wid - 1) % stride) + 1 if wid >= 1 else 1
+    maw = m.get("activeWorkspace") or {}
+    try:
+        logical = int(maw.get("id") or seat_aw or 1)
+    except (TypeError, ValueError):
+        logical = seat_aw if seat_aw >= 1 else 1
+    if logical < 1:
+        logical = 1
+    logical = ((logical - 1) % stride) + 1
+    physical = logical + i * stride
     out.append({
         "index": i,
         "name": str(m.get("name") or ""),
         "focused": bool(m.get("focused")),
         "activeLogical": logical,
-        "activePhysical": wid,
+        "activePhysical": physical,
         "bandStart": 1 + i * stride,
         "bandEnd": (i + 1) * stride,
     })
 n = len(out)
 if n <= 0:
     summary = "No displays"
-    hint = "Waiting for Hyprland monitors"
+    hint = "Waiting for compositor monitors"
 elif n == 1:
-    summary = f"1 display · {mode} · single-head (bands ready for 2nd)"
-    hint = "Add a second display to dogfood synced / per-display Spaces"
+    summary = f"1 display · {mode} · Spaces 1–10"
+    hint = "Spaces overview is primary UI; proteus-workspace for scripts/keybinds"
 else:
-    summary = f"{n} displays · {mode} · bands ×{stride}"
-    hint = "Hotplug: ensure migrates orphan-band windows then rebinds logical bands"
+    summary = f"{n} displays · {mode} · per-output boards (bands ×{stride})"
+    hint = "synced = all heads · perDisplay/--local = focused (or --monitor) head"
 print(json.dumps({
     "ok": True,
     "fixture": False,
@@ -390,43 +408,39 @@ print("\n".join(names))
 PY
 }
 
-# Push settings.json labels onto every monitor band via renameworkspace.
-# Empty label → numeric logical id (Hyprland default-adjacent).
+# Push settings.json labels onto workspaces.
+# Smithay has no renameworkspace yet — iced Spaces overview owns labels via
+# workspaceNames Fact. Keep command for Settings/ensure callers (no-op OK).
 apply_names() {
-  local names=()
-  mapfile -t names < <(read_names)
-  local i=0 name focused aw logical wid label
-  while IFS=$'\t' read -r _id name focused aw; do
+  need_ctl
+  local n=0
+  while IFS=$'\t' read -r _id name _focused _aw; do
     [[ -n "${name}" ]] || continue
-    for logical in $(seq 1 "${MAX_LOGICAL}"); do
-      wid="$(physical_of "${logical}" "${i}")"
-      label="${names[$((logical - 1))]:-}"
-      if [[ -z "${label}" ]]; then
-        label="${logical}"
-      fi
-      label="${label//$'\n'/ }"
-      label="${label//;/_}"
-      # Per-call (not --batch) so names may contain spaces.
-      hyprctl dispatch renameworkspace "${wid}" "${label}" >/dev/null 2>&1 || true
-    done
-    i=$((i + 1))
+    n=$((n + 1))
   done < <(monitor_rows)
-  if [[ "${i}" -eq 0 ]]; then
+  if [[ "${n}" -eq 0 ]]; then
     echo "proteus-workspace: apply-names — no monitors" >&2
     return 1
   fi
+  # Labels live in settings.json → shell Spaces overview; compositor rename Out.
+  return 0
 }
 
 # Move clients on orphan bands (index ≥ live monitor count) to the matching
 # logical Space on band 0 (primary). Idempotent when no orphans. Special /
-# negative workspace ids skipped. --fixture → plan JSON only (no hyprctl writes).
+# negative workspace ids skipped. --fixture → plan JSON only (no ctl writes).
 migrate_disconnect() {
   local fixture="${1:-0}"
-  STRIDE="${STRIDE}" MAX_LOGICAL="${MAX_LOGICAL}" FIXTURE="${fixture}" python3 - <<'PY'
+  if [[ "${fixture}" -ne 1 ]]; then
+    need_ctl
+  fi
+  STRIDE="${STRIDE}" MAX_LOGICAL="${MAX_LOGICAL}" FIXTURE="${fixture}" \
+    CTL="${CTL:-proteus-compositorctl}" python3 - <<'PY'
 import json, os, subprocess, sys
 
 stride = int(os.environ.get("STRIDE", "10"))
 fixture = os.environ.get("FIXTURE", "0") == "1"
+ctl = os.environ.get("CTL", "proteus-compositorctl")
 
 def plan_moves(mons, clients):
     n = len(mons)
@@ -474,23 +488,31 @@ if fixture:
     sys.exit(0)
 
 try:
-    mons = json.loads(subprocess.check_output(["hyprctl", "-j", "monitors"], text=True))
-    clients = json.loads(subprocess.check_output(["hyprctl", "-j", "clients"], text=True))
+    mons = json.loads(subprocess.check_output([ctl, "monitors"], text=True))
+    clients = json.loads(subprocess.check_output([ctl, "clients"], text=True))
 except Exception as e:
     print(json.dumps({"ok": False, "error": str(e)}), file=sys.stderr)
     sys.exit(1)
 
-mons = sorted(mons, key=lambda m: int(m.get("id", 0)))
+if not isinstance(mons, list):
+    mons = []
+if not isinstance(clients, list):
+    clients = []
+mons = sorted(
+    mons,
+    key=lambda m: (0 if m.get("focused") else 1, str(m.get("name") or "")),
+)
 n, moves = plan_moves(mons, clients)
-batch = ""
 for m in moves:
     addr = m["address"]
     if not addr.startswith("address:"):
         addr = f"address:{addr}"
-    batch += f"dispatch movetoworkspacesilent {m['to']},{addr};"
-if batch:
-    subprocess.run(["hyprctl", "--batch", batch], check=False,
-                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(
+        [ctl, "dispatch", f"movetoworkspacesilent {m['to']},{addr}"],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 print(json.dumps({
     "ok": True,
     "fixture": False,
@@ -501,38 +523,105 @@ print(json.dumps({
 PY
 }
 
-# Rebind each monitor onto its band's physical workspace for the current logical.
-# Hotplug helper — migrates orphan-band windows first, then rebinds.
+# Hotplug helper — migrate orphans, then rebind each head to its logical board.
 ensure_bands() {
   migrate_disconnect 0 >/dev/null || true
-  local rows restore="" batch="" i=0 name focused aw logical wid
+  local i=0 name focused aw logical restore="" batch=""
   while IFS=$'\t' read -r _id name focused aw; do
     [[ -n "${name}" ]] || continue
     if [[ "${focused}" == "1" ]]; then
       restore="${name}"
     fi
     logical="$(logical_of "${aw}")"
-    wid="$(physical_of "${logical}" "${i}")"
-    batch+="dispatch moveworkspacetomonitor ${wid} ${name};"
-    batch+="dispatch focusmonitor ${name};"
-    batch+="dispatch workspace ${wid};"
+    logical="$(clamp_logical "${logical}")"
+    batch+="dispatch workspace ${logical},output:${name};"
     i=$((i + 1))
   done < <(monitor_rows)
-  if [[ -n "${restore}" ]]; then
-    batch+="dispatch focusmonitor ${restore};"
-  fi
   if [[ "${i}" -eq 0 ]]; then
     echo "proteus-workspace: ensure — no monitors" >&2
     return 1
   fi
+  if [[ -n "${restore}" ]]; then
+    batch+="dispatch focusoutput ${restore};"
+  fi
   dispatch_batch "${batch}"
 }
 
-need_hyprctl() {
-  command -v hyprctl >/dev/null 2>&1 || {
-    echo "proteus-workspace: hyprctl not found" >&2
-    exit 1
-  }
+need_ctl() {
+  if [[ -n "${CTL:-}" ]]; then
+    return 0
+  fi
+  if command -v proteus-compositorctl >/dev/null 2>&1; then
+    CTL="proteus-compositorctl"
+    return 0
+  fi
+  echo "proteus-workspace: proteus-compositorctl not found" >&2
+  exit 1
+}
+
+# Normalize + dispatch one compositor verb (hypr-shaped aliases accepted).
+ctl_dispatch() {
+  local verb="${1:-}"
+  need_ctl
+  verb="${verb#"${verb%%[![:space:]]*}"}"
+  verb="${verb%"${verb##*[![:space:]]}"}"
+  [[ -n "${verb}" ]] || return 0
+  case "${verb}" in
+    dispatch\ *)
+      verb="${verb#dispatch }"
+      ;;
+  esac
+  case "${verb}" in
+    focusmonitor\ *)
+      verb="focusoutput ${verb#focusmonitor }"
+      ;;
+    movetoworkspace\ *)
+      verb="movetoworkspacesilent ${verb#movetoworkspace }"
+      ;;
+    moveworkspacetomonitor\ *|renameworkspace\ *|togglespecialworkspace\ *)
+      # Not implemented on Smithay spike — silently skip.
+      return 0
+      ;;
+  esac
+  "${CTL}" dispatch "${verb}" >/dev/null
+}
+
+# Park/restore focused window via special:* (all specials → minimized park).
+toggle_special() {
+  local name="${1:-}"
+  need_ctl
+  CTL="${CTL}" SPECIAL="${name}" python3 - <<'PY'
+import json, os, subprocess, sys
+ctl = os.environ["CTL"]
+name = os.environ.get("SPECIAL", "scratch")
+try:
+    win = json.loads(subprocess.check_output([ctl, "activewindow"], text=True))
+    aw = json.loads(subprocess.check_output([ctl, "activeworkspace"], text=True))
+except Exception as e:
+    print(f"proteus-workspace: toggle special: {e}", file=sys.stderr)
+    sys.exit(1)
+ws = win.get("workspace") or {}
+try:
+    wid = int(ws.get("id") or 0)
+except (TypeError, ValueError):
+    wid = 0
+try:
+    restore = int(aw.get("id") or 1)
+except (TypeError, ValueError):
+    restore = 1
+if restore < 1:
+    restore = 1
+if wid < 0:
+    verb = f"movetoworkspacesilent {restore}"
+else:
+    verb = f"movetoworkspacesilent special:{name}"
+subprocess.run(
+    [ctl, "dispatch", verb],
+    check=False,
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL,
+)
+PY
 }
 
 read_mode() {
@@ -553,21 +642,40 @@ PY
 }
 
 # Sorted monitor rows: "id\tname\tfocused\tactiveWorkspaceId"
+# id is enumerate index; active id is per-output when compositor reports it.
 monitor_rows() {
-  python3 - <<'PY'
-import json, subprocess, sys
+  need_ctl
+  CTL="${CTL}" python3 - <<'PY'
+import json, os, subprocess, sys
+ctl = os.environ.get("CTL", "proteus-compositorctl")
 try:
-    raw = subprocess.check_output(["hyprctl", "-j", "monitors"], text=True)
-    mons = json.loads(raw)
+    mons = json.loads(subprocess.check_output([ctl, "monitors"], text=True))
+    aw = json.loads(subprocess.check_output([ctl, "activeworkspace"], text=True))
 except Exception as e:
     print(f"proteus-workspace: monitors: {e}", file=sys.stderr)
     sys.exit(1)
-mons.sort(key=lambda m: int(m.get("id", 0)))
-for m in mons:
-    aw = m.get("activeWorkspace") or {}
-    wid = aw.get("id", 1)
+if not isinstance(mons, list):
+    mons = []
+try:
+    seat_wid = int(aw.get("id") or 1)
+except (TypeError, ValueError):
+    seat_wid = 1
+if seat_wid < 1:
+    seat_wid = 1
+mons = sorted(
+    mons,
+    key=lambda m: (0 if m.get("focused") else 1, str(m.get("name") or "")),
+)
+for i, m in enumerate(mons):
+    maw = m.get("activeWorkspace") or {}
+    try:
+        wid = int(maw.get("id") or seat_wid)
+    except (TypeError, ValueError):
+        wid = seat_wid
+    if wid < 1:
+        wid = seat_wid
     focused = 1 if m.get("focused") else 0
-    print(f"{m.get('id', 0)}\t{m.get('name', '')}\t{focused}\t{wid}")
+    print(f"{i}\t{m.get('name', '')}\t{focused}\t{wid}")
 PY
 }
 
@@ -598,72 +706,46 @@ clamp_logical() {
 }
 
 dispatch_batch() {
-  # Join with ; for hyprctl --batch
+  # Semicolon-separated hypr-shaped "dispatch …" verbs → sequential ctl_dispatch.
   local cmds="$1"
   if [[ -z "${cmds}" ]]; then
     return 0
   fi
-  hyprctl --batch "${cmds}" >/dev/null
+  local IFS=';'
+  local part
+  for part in ${cmds}; do
+    part="${part#"${part%%[![:space:]]*}"}"
+    part="${part%"${part##*[![:space:]]}"}"
+    [[ -n "${part}" ]] || continue
+    ctl_dispatch "${part}"
+  done
 }
 
+# Synced: every head → logical N.
 goto_synced() {
   local logical
   logical="$(clamp_logical "$1")"
-  local rows restore="" batch="" i=0 name focused wid
-  while IFS=$'\t' read -r _id name focused _aw; do
-    [[ -n "${name}" ]] || continue
-    if [[ "${focused}" == "1" ]]; then
-      restore="${name}"
-    fi
-    wid="$(physical_of "${logical}" "${i}")"
-    batch+="dispatch moveworkspacetomonitor ${wid} ${name};"
-    batch+="dispatch focusmonitor ${name};"
-    batch+="dispatch workspace ${wid};"
-    i=$((i + 1))
-  done < <(monitor_rows)
-  if [[ -n "${restore}" ]]; then
-    batch+="dispatch focusmonitor ${restore};"
-  fi
-  dispatch_batch "${batch}"
+  ctl_dispatch "workspace ${logical}"
 }
 
+# Local: focused (or --monitor) head only.
 goto_local() {
-  local logical
+  local logical want_mon="${2:-}" name focused
   logical="$(clamp_logical "$1")"
-  local want_mon="${2:-}"
-  local rows i=0 name focused aw target_index=-1 target_name="" restore=""
-  while IFS=$'\t' read -r _id name focused aw; do
-    [[ -n "${name}" ]] || continue
-    if [[ "${focused}" == "1" ]]; then
-      restore="${name}"
-      if [[ -z "${want_mon}" ]]; then
-        target_index="${i}"
-        target_name="${name}"
+  if [[ -z "${want_mon}" ]]; then
+    while IFS=$'\t' read -r _id name focused _aw; do
+      [[ -n "${name}" ]] || continue
+      if [[ "${focused}" == "1" ]]; then
+        want_mon="${name}"
+        break
       fi
-    fi
-    if [[ -n "${want_mon}" && "${name}" == "${want_mon}" ]]; then
-      target_index="${i}"
-      target_name="${name}"
-    fi
-    i=$((i + 1))
-  done < <(monitor_rows)
-
-  if [[ "${target_index}" -lt 0 || -z "${target_name}" ]]; then
-    # Fallback: focused monitor via relative workspace
-    hyprctl dispatch workspace "$(physical_of "${logical}" 0)" >/dev/null
-    return 0
+    done < <(monitor_rows)
   fi
-
-  local wid
-  wid="$(physical_of "${logical}" "${target_index}")"
-  local batch=""
-  batch+="dispatch moveworkspacetomonitor ${wid} ${target_name};"
-  batch+="dispatch focusmonitor ${target_name};"
-  batch+="dispatch workspace ${wid};"
-  if [[ -n "${restore}" && "${restore}" != "${target_name}" && -z "${want_mon}" ]]; then
-    batch+="dispatch focusmonitor ${restore};"
+  if [[ -n "${want_mon}" ]]; then
+    ctl_dispatch "workspace ${logical},output:${want_mon}"
+  else
+    ctl_dispatch "workspace ${logical}"
   fi
-  dispatch_batch "${batch}"
 }
 
 current_logical_on() {
@@ -688,18 +770,7 @@ current_logical_on() {
 move_to_logical() {
   local logical
   logical="$(clamp_logical "$1")"
-  local i=0 name focused
-  while IFS=$'\t' read -r _id name focused _aw; do
-    [[ -n "${name}" ]] || continue
-    if [[ "${focused}" == "1" ]]; then
-      local wid
-      wid="$(physical_of "${logical}" "${i}")"
-      hyprctl dispatch movetoworkspace "${wid}" >/dev/null
-      return 0
-    fi
-    i=$((i + 1))
-  done < <(monitor_rows)
-  hyprctl dispatch movetoworkspace "$(physical_of "${logical}" 0)" >/dev/null
+  ctl_dispatch "movetoworkspacesilent ${logical}"
 }
 
 main() {
@@ -761,7 +832,6 @@ main() {
     if [[ "${fixture}" -eq 1 ]]; then
       emit_status_fixture
     else
-      need_hyprctl
       emit_status
     fi
     return 0
@@ -771,7 +841,6 @@ main() {
     if [[ "${fixture}" -eq 1 ]]; then
       migrate_disconnect 1
     else
-      need_hyprctl
       migrate_disconnect 0
     fi
     return 0
@@ -816,7 +885,7 @@ main() {
     return 0
   fi
 
-  need_hyprctl
+  need_ctl
 
   if [[ "${cmd}" == "ensure" ]]; then
     ensure_bands

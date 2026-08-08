@@ -202,7 +202,7 @@ grep -q 'privacy-flatpak\|FlatpakSet\|privacy-diagnostics' "${ST_ROOT}/src/panes
   && ok "privacy-flatpak leaf" || bad "privacy-flatpak missing"
 grep -q 'fn privacy_flatpak_list\|fn privacy_flatpak_set\|fn privacy_diagnostics' "${ST_ROOT}/src/backend.rs" \
   && ok "privacy flatpak/diagnostics backends" || bad "privacy Phase D backends missing"
-grep -q 'peripherals-keyboard\|keybinds.json\|compositor-next' "${ST_ROOT}/src/panes/peripherals.rs" \
+grep -q 'peripherals-keyboard\|keybinds.json\|compositor' "${ST_ROOT}/src/panes/peripherals.rs" \
   && ok "keyboard leaf (compositor binds honesty)" || bad "keyboard leaf missing"
 
 # Phase 2 megas — canvas / grid / glances / headscale policy
