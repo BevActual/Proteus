@@ -111,7 +111,7 @@ Hypr fragment tree (`env/hypr/`) **deleted**. Soft `set-hypr-profile.sh` is a
 retired stub.
 
 ```
-~/.config/proteus/displays.json     # outputs / scale / pos / mode
+~/.config/proteus/displays.json     # outputs / scale / pos / mode / transform
 ~/.config/proteus/keybinds.json     # session chords
 ~/.config/proteus/settings.json     # chrome + desktop Facts
 ~/.config/proteus/compositor-engine # smithay
@@ -163,4 +163,4 @@ compositor chrome for that unit.
 | Host hard switch | `partial` — headless default + seat attach |
 | Owned compositor depth | `shipped` (thin) — per-output Spaces boards + see [COMPOSITOR-SPIKE.md](./COMPOSITOR-SPIKE.md) |
 | Capability resolver | `planned` |
-| Lock | `partial` — iced **overlay** lock + PAM is the shipping default (`session-lock` Fact / `PROTEUS_SESSION_LOCK`; unset → overlay); `ext-session-lock-v1` thin on compositor + opt-in `proteus-session-lock` helper; ctl `session-lock` probe; greetd/tuigreet still login |
+| Lock | `partial` — iced **overlay** lock + PAM is the shipping default (`session-lock` Fact / `PROTEUS_SESSION_LOCK`; unset → overlay); `ext-session-lock-v1` thin on compositor + opt-in `proteus-session-lock` helper; ctl `session-lock` (`supported`/`pending`/`locked`/`active`); nested dogfood `dev/smoke/compositor-session-lock.sh`; greetd/tuigreet still login |

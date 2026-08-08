@@ -139,7 +139,7 @@ Examples:
 | Keyboard shortcuts | `~/.config/proteus/keybinds.json` + compositor defaults (`binds.rs`) |
 | Mouse sensitivity / accel | `settings.json` + `proteus-settings-apply input` → compositor `input-reload` |
 | Displays (list) | compositorctl / `displays.json` (name-merge on refresh) |
-| Displays scale / mode / orientation / layout | `proteus-compositorctl` `output` scale/pos/mode + `~/.config/proteus/displays.json`; Identify flash; 10s full-snapshot Revert (Settings); transform UI Out |
+| Displays scale / mode / orientation / layout | `proteus-compositorctl` `output` scale/pos/mode/transform + `~/.config/proteus/displays.json`; Identify flash; 10s full-snapshot Revert (Settings); compositor/Fact transform **In**; Settings transform **UI** Out |
 | Volume / mute / default sink | `pactl` |
 | Input volume / mute / default source | `pactl` |
 | Audio matrix (node routing) | `pw-link` via `shell/scripts/audio-matrix.py` (Omnibus-style grid) |
@@ -188,7 +188,7 @@ Left-nav + content pane (macOS System Settings style).
 |----------|-------|---------|--------|
 | **Appearance** (`style`) | Category → Accent, Background, Lock screen, Icons (style compare + dock pins), Font (searchable + Add) | `settings.json`, Theme, `proteus-bg`; shared Kind/color/font/icon kit | `shipped` |
 | **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Spaces, Default apps, **Focus**, **Control Center** layout, Beacon | `settings.json` + `proteus-settings-apply` · Focus · CC layout · `proteus-defaults.py` · launcher* | `shipped` |
-| **Displays** (`displays`) | Layout canvas + per-monitor scale; Identify; 10s Revert; Refresh/topology honesty; Fact `displays.json` | compositorctl + `displays.json` | `shipped` (thin; transform Out) |
+| **Displays** (`displays`) | Layout canvas + per-monitor scale; Identify; 10s Revert; Refresh/topology honesty; Fact `displays.json` (incl. transform) | compositorctl + `displays.json` | `shipped` (thin; transform live In · UI Out) |
 | **Sound** (`sound`) | Category → Output / Input / Applications / Mixer / Latency | pactl + `proteus-audio-mix` / `audio-peak.py` + `pw-metadata` + `pw-link` | `shipped` |
 | **Network** (`network`) | Category → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN / Headscale — password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG/OpenVPN import · Headscale admin thin (nodes · users · policy text) | hostnamectl / nmcli / bluetoothctl / localsend / tailscale / `proteus-headscale.py` | `shipped` |
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse, Touchpad, Tablet, Gamepads (Guide Facts) | keybinds + `proteus-settings-apply input` (`mouse*` · `touchpad*`); tablet/gamepad Facts; `inputDeviceOverrides` Out | `shipped` (thin) |
@@ -307,7 +307,8 @@ mega-inline pane body.
 ### Displays
 
 Displays: iced sibling pane (`ProteusSettings` `panes/displays.rs`) — layout
-canvas + per-monitor scale + Identify + 10s Revert. Transform/orientation UI
+canvas + per-monitor scale + Identify + 10s Revert. Compositor/Fact/apply
+transform is live (`dispatch output … transform`); Settings orientation UI
 still Out. Not a leaf-split hub.
 
 | Concern | Role |

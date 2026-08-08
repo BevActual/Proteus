@@ -36,9 +36,9 @@
 | Multi-GPU enumerate | `thin` — DRM lists GPUs; prefers **card** (Primary) node; `PROTEUS_DRM_DEVICE` override |
 | Soft cursor | `works` (thin) — default arrow MemoryRenderBuffer; `cursor_image` tracked; client surface → default |
 | VirGL / virtio transform | `thin` — prefers **card** node; `PROTEUS_DRM_TRANSFORM` (`normal`/`180`/`flipped`/…) for host-GL orientation quirks (no auto flip — VirGL hosts differ) |
-| Displays Fact + modeset | `works` (thin) — load `displays.json`; `dispatch output` scale/pos/mode; **Identify** flash; Settings **10s Revert** |
+| Displays Fact + modeset | `works` (thin) — load `displays.json`; `dispatch output` scale/pos/mode/**transform**; monitors JSON live transform; **Identify** flash; Settings **10s Revert**; Settings orientation UI still Out |
 | Session keybinds | `works` (thin) — Super chords in compositor (`binds.rs`); Fact `keybinds.json`; `reloadbinds` |
-| `ext-session-lock-v1` | `partial` (thin) — `session_lock.rs` tracked; global advertised; blank xdg windows while locked; LockSurfaces drawn; ctl `session-lock` probe (`supported`); **Overlay remains default** shell Fact — protocol is opt-in only |
+| `ext-session-lock-v1` | `partial` (thin) — `session_lock.rs` tracked; global advertised; blank xdg windows while locked; LockSurfaces drawn; ctl `session-lock` (`supported`/`pending`/`locked`/`active`); **Overlay remains default** shell Fact; protocol opt-in dogfood via `compositor-session-lock.sh` + `proteus-session-lock` |
 
 ### Supported ctl dispatches
 
@@ -47,12 +47,14 @@
 `movetoworkspacesilent N|special:minimized` · `fullscreen 1` · `togglefloating` ·
 `layout equal|dwindle|master` · `gapsout N` · `gapsin N` · `smartgaps on|off|toggle` · `masterfactor F` ·
 `output <name> scale <f>` · `output <name> pos <x> <y>` · `output <name> mode <WxH[@Hz]>` ·
+`output <name> transform <0-7|normal|90|180|…>` ·
 `identify [secs]` · `reloadbinds` · `input-reload` ·
 `movewindow output:<name>` · `focusoutput <name>`
 
 Queries (hypr-shaped JSON fields): `workspaces` · `activeworkspace` ·
 `clients` (incl. `at`/`size`/`output`) · `activewindow` · `monitors`
-(incl. `focused` · `activeWorkspace`) · `session-lock` (`{"ok":true,"supported":true}`).
+(incl. `focused` · `activeWorkspace` · `transform`) · `session-lock`
+(`supported`/`pending`/`locked`/`active`).
 Helper: `proteus-compositorctl`.
 
 ## Prove (2026-08-06)
@@ -167,13 +169,13 @@ proteus-compositor: layer mapped: proteus-bar
 
 - Fact: `~/.config/proteus/displays.json` (Settings write).
 - Load at DRM/winit start ([`displays.rs`](../../compositor/src/displays.rs)):
-  scale + position; DRM mode match via connector modes + `use_mode`.
-- Live: `dispatch output <name> scale|pos|mode`; helper
+  scale + position + transform; DRM mode match via connector modes + `use_mode`.
+- Live: `dispatch output <name> scale|pos|mode|transform`; helper
   `proteus-settings-apply apply-displays`.
 - Identify: `dispatch identify [secs]` (default 3) — centered connector-name
   badge per output ([`identify.rs`](../../compositor/src/identify.rs)).
 - Settings: 10s snapshot Revert after Apply (Settings-owned; restore Fact + live).
-- Out: transform/orientation UI.
+- Out: Settings transform/orientation **UI** (compositor/Fact path is In).
 
 ### Session-wire (2026-08-06)
 
@@ -218,5 +220,6 @@ backdrop shaders, pop-launcher. Proteus chrome stays in `proteus-shell`.
 
 ## Out
 
-Orientation/transform UI, deeper multi-GPU policy,
-console-home gamescope swap, Settings keybind rebind editor, mouse bindm.
+Settings orientation/transform UI, deeper multi-GPU policy,
+console-home gamescope swap, Settings keybind rebind editor, mouse bindm,
+blur/anim polish, flip shell lock default to protocol.

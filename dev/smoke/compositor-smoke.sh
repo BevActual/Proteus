@@ -107,6 +107,15 @@ grep -q 'PROTEUS_SESSION_LOCK_DOGFOOD\|proteus-session-lock' \
 grep -q 'SessionLockMode::Overlay' "${ROOT}/shell/src/engine.rs" \
   && grep -q 'PROTEUS_SESSION_LOCK' "${ROOT}/shell/src/engine.rs" \
   || die "shell session-lock overlay default / env opt-in missing"
+# Docs honesty: transform live In (UI Out); protocol dogfood In.
+grep -qE 'transform.*live|output.*transform|transform live In' \
+  "${ROOT}/docs/proteus/CURRENT.md" "${ROOT}/docs/proteus/COMPOSITOR-SPIKE.md" \
+  "${ROOT}/docs/proteus/SETTINGS-IA.md" \
+  || die "docs missing transform live honesty"
+grep -q 'compositor-session-lock\|protocol opt-in dogfood\|protocol.*dogfood' \
+  "${ROOT}/docs/proteus/CURRENT.md" "${ROOT}/docs/proteus/COMPOSITOR-SPIKE.md" \
+  "${ROOT}/docs/proteus/COMPOSITOR.md" \
+  || die "docs missing protocol lock dogfood honesty"
 grep -q 'beacon\|workspace_1\|FilterResult::Intercept' "${CRATE}/src/binds.rs" "${CRATE}/src/input.rs" \
   || die "beacon/workspace intercept missing"
 [[ -f "${ROOT}/env/settings/keybinds.defaults.json" ]] \
