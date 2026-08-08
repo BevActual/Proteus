@@ -182,15 +182,15 @@ QML Settings is **retired** (no escape). Legacy Tauri `app/` is frozen.
 compact Shrink CTAs / `button_cluster`, trailing form rows, `large_title`,
 sidebar `accent_soft` selection (true blur Out).
 Ported thin: Appearance · Software · Sound (Mixer grid thin — route/volume/ensure
-In; peaks + drag-reorder Out) · Notifications · Users · Privacy (activity +
++ row peaks on Refresh In; drag-reorder Out) · Notifications · Users · Privacy (activity +
 categories + per-app grants + Flatpak/Diagnostics thin) · Network
 (machine/wifi/BT/Devices/Diagnostics/LocalSend · VPN import thin · Tailscale thin usable ·
 Headscale HuJSON + structured ACL groups thin) · Desktop (gaps live-apply ·
 defaults/focus CRUD thin/beacon) · Power · Date/Time · About · Virtualization ·
 Peripherals (mouse/touchpad/tablet → `proteus-settings-apply input` · gamepads Guide
 Facts) · Accounts (multi-seat glances thin) · Displays. Holdouts: Mixer
-peaks/drag-reorder, Tailscale deep ACL, Headscale ACL visual graph, Focus
-critical/auto-apply/RRULE.
+drag-reorder, Tailscale deep ACL, Headscale ACL visual graph, Focus
+critical/RRULE.
 ([STACK.md](./STACK.md) §6).
 
 | Pane | Status |
@@ -200,7 +200,7 @@ critical/auto-apply/RRULE.
 | Displays (scale / mode / orientation, Identify; layout canvas) | `shipped` (thin) — iced list + layout canvas; Apply writes `~/.config/proteus/displays.json` + live `proteus-settings-apply apply-displays` (`output` scale/pos/mode/**transform**); Fact loads transform at compositor start; monitors JSON reports live wl transform; **Identify** (`dispatch identify`); **10s snapshot Revert** (Keep / timeout / Refresh / leave / topology); Settings orientation UI **In** (Normal/90/180/270 · flipped Out) |
 | Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) / Touchpad / Tablet / Gamepads | `shipped` (thin) — mouse/touchpad/tablet Facts → `proteus-settings-apply input` → compositor `dispatch input-reload` (sensitivity scale · natural scroll · scroll factor; tip/eraser piecewise-linear pressure curves + linear min/max on `TabletToolAxis`; **active-area mm crop** · **eraser-as-button** mode; tap/accel/DWT held on InputConfig); keyboard thin rebind UI → `keybinds.json` + `reloadbinds`; tablet gestures · monitor region Out; **Gamepads** Guide Facts (`gamepadsGuideSingle` / `gamepadsGuideDouble` nav\|cc\|off → `proteus-guide` re-read); device list Out; **per-device** `inputDeviceOverrides` Out |
 | Software → Updates / Repos / AUR / Flathub / AppImages / Web apps / Orphans (`packages`) | `shipped` — iced hub + leaves; Install\|Installed mode-safe loads; sticky action bar; live `$` op + Cancel + last error; empty Installed / orphans / AppImages honesty; **Web apps** (`proteus-webapp` → user `.desktop`, no polkit); hub Needs yay/paru · flatpak; AppImages user-only; escape **Install…** → seeded Software leaf; gated via `settings-next-smoke` (guest `software-guest-smoke` deferred); dep graphs / Snap Out |
-| Sound → Output / Input / Applications / Mixer / Latency (`sound`) | `shipped` — iced hub + leaves; **Mixer** Wave Link–style grid thin (channels/inputs × mixes · route · volume · Ensure In); Speakers/mix listen + rename when dump provides them; honest setup CTA; graph editor escape (`qpwgraph` Install… → Repos); resident `proteus-audio-mix serve` (Python mutations + fallback); Output/Input/Apps/Latency; pactl + `pw-metadata`. **Out:** row peaks · drag-reorder |
+| Sound → Output / Input / Applications / Mixer / Latency (`sound`) | `shipped` — iced hub + leaves; **Mixer** Wave Link–style grid thin (channels/inputs × mixes · route · volume · Ensure In · **row peaks** via `audio-mix-peaks.py` on Refresh); Speakers/mix listen + rename when dump provides them; honest setup CTA; graph editor escape (`qpwgraph` Install… → Repos); resident `proteus-audio-mix serve` (Python mutations + fallback); Output/Input/Apps/Latency; pactl + `pw-metadata`. **Out:** drag-reorder · live peak stream while Mixer open |
 | Network → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN / Headscale (`network`) | `shipped` (thin iced) — machine/wifi/BT; **Devices** link+IPv4; **Diagnostics** route/DNS/`ss`/ping; LocalSend detect/open; **Tailscale thin usable** (login-server Fact · peers · exit-node · up/down); VPN nmcli up/down + **WG/OpenVPN import thin** (`nmcli connection import`); Headscale users + HuJSON check/save + **structured ACL groups thin** (JSON-compatible subset · add/remove members → draft → Check/Save). Out: cert path / user-pass / PKCS#11 · Wireshark · Tailscale deep ACL · Headscale ACL visual graph |
 | Power (PPD mode + battery + idle/lid + charge limits) | `shipped` — Performance/Balanced/Eco via `powerprofilesctl`; battery via UPower; `pkexec proteus-logind` drop-in + reload (not restart); CC Power tile; **Charge limits** when sysfs `charge_control_*` present (`pkexec proteus-battery-threshold` · fail-closed otherwise); TLP Out |
 | Date, time & weather (clock, timezone search, NTP, locale, **Location**) | `shipped` — timezone/NTP/`localectl set-locale` polkit-gated; searchable locale picker + locale.conf escape; Location explicit place search (never IP); Open-Meteo current + **5-day forecast** + Conditions H/L/sunrise; Match time zone to place when TZ differs; desktop/lock weather widget; manual time / RTC writers Out |
