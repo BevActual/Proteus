@@ -131,14 +131,12 @@ pub fn bar_view<'a>(
         })
         .into();
 
-    // Scratchpad ◇ — park/restore focused window (`special:scratch`).
-    // Occupied/active share the Smithay minimized park bucket (honest thin).
+    // Scratchpad ◇ — park/restore focused window (`special:scratch` · id -98).
     let scratch_active = !wm.active_address.is_empty()
-        && wm
-            .toplevels
-            .iter()
-            .any(|t| t.address == wm.active_address && t.workspace < 0);
-    let scratch_occupied = wm.toplevels.iter().any(|t| t.workspace < 0);
+        && wm.toplevels.iter().any(|t| {
+            t.address == wm.active_address && crate::wm_ipc::toplevel_on_scratch(t)
+        });
+    let scratch_occupied = wm.toplevels.iter().any(crate::wm_ipc::toplevel_on_scratch);
     let scratch_color = if scratch_active {
         accent
     } else if scratch_occupied {

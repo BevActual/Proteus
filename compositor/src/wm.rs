@@ -11,8 +11,31 @@ use std::collections::HashMap;
 
 use serde_json::{json, Value};
 
-/// Parking workspace id for `special:minimized` (shell treats `< 0` as minimized).
+/// Parking workspace id for `special:minimized` (dock / SSD minimize).
 pub const MINIMIZED_WORKSPACE: i64 = -99;
+/// Scratchpad workspace id for `special:scratch` (◇ / scratch-toggle) — distinct from minimize.
+pub const SCRATCH_WORKSPACE: i64 = -98;
+
+/// Map `special:…` token → park id.
+pub fn workspace_for_special_token(tok: &str) -> Result<i64, String> {
+    let t = tok.trim();
+    match t {
+        "special:minimized" => Ok(MINIMIZED_WORKSPACE),
+        "special:scratch" => Ok(SCRATCH_WORKSPACE),
+        other if other.starts_with("special:") => Ok(MINIMIZED_WORKSPACE),
+        other => Err(format!("not a special workspace token: {other}")),
+    }
+}
+
+/// Hypr-shaped workspace name for a park / normal id.
+pub fn workspace_name_for_id(id: i64) -> String {
+    match id {
+        SCRATCH_WORKSPACE => "special:scratch".into(),
+        MINIMIZED_WORKSPACE => "special:minimized".into(),
+        n if n < 0 => "special:minimized".into(),
+        n => n.to_string(),
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct ToplevelRecord {
@@ -418,11 +441,25 @@ impl Wm {
                 "name": self.workspace_label(id),
             }));
         }
-        // Include minimized pseudo-workspace if any parked clients.
-        if self.toplevels.iter().any(|t| t.workspace < 0) {
+        // Include park pseudo-workspaces when occupied.
+        if self
+            .toplevels
+            .iter()
+            .any(|t| t.workspace == MINIMIZED_WORKSPACE)
+        {
             out.push(json!({
                 "id": MINIMIZED_WORKSPACE,
                 "name": "special:minimized",
+            }));
+        }
+        if self
+            .toplevels
+            .iter()
+            .any(|t| t.workspace == SCRATCH_WORKSPACE)
+        {
+            out.push(json!({
+                "id": SCRATCH_WORKSPACE,
+                "name": "special:scratch",
             }));
         }
         Value::Array(out)
@@ -440,18 +477,13 @@ impl Wm {
             .toplevels
             .iter()
             .map(|t| {
-                let (ws_id, ws_name) = if t.workspace < 0 {
-                    (t.workspace, "special:minimized".to_string())
-                } else {
-                    (t.workspace, t.workspace.to_string())
-                };
                 json!({
                     "address": t.address,
                     "class": t.class,
                     "title": t.title,
                     "workspace": {
-                        "id": ws_id,
-                        "name": ws_name,
+                        "id": t.workspace,
+                        "name": workspace_name_for_id(t.workspace),
                     },
                     "output": t.output,
                     "at": [t.loc_x, t.loc_y],
@@ -471,11 +503,7 @@ impl Wm {
                     "title": t.title,
                     "workspace": {
                         "id": t.workspace,
-                        "name": if t.workspace < 0 {
-                            "special:minimized".to_string()
-                        } else {
-                            t.workspace.to_string()
-                        },
+                        "name": workspace_name_for_id(t.workspace),
                     },
                 });
             }
@@ -631,8 +659,8 @@ impl Wm {
                 Some(a) => a,
                 None => return Ok(vec![]),
             };
-            let ws = if ws_tok == "special:minimized" || ws_tok.starts_with("special:") {
-                MINIMIZED_WORKSPACE
+            let ws = if ws_tok.starts_with("special:") {
+                workspace_for_special_token(ws_tok)?
             } else {
                 ws_tok
                     .parse::<i64>()
@@ -937,6 +965,16 @@ mod tests {
             .contains("minimized"));
         assert!(clients[0].get("at").is_some());
         assert!(clients[0].get("size").is_some());
+
+        wm.dispatch("movetoworkspacesilent special:scratch")
+            .unwrap();
+        assert_eq!(wm.find(&addr).unwrap().workspace, SCRATCH_WORKSPACE);
+        let clients = wm.clients_json();
+        assert_eq!(
+            clients[0]["workspace"]["name"].as_str().unwrap(),
+            "special:scratch"
+        );
+        assert_ne!(SCRATCH_WORKSPACE, MINIMIZED_WORKSPACE);
     }
 
     #[test]

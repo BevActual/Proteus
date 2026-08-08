@@ -309,11 +309,8 @@ impl CompositorNext {
             .toplevels
             .iter()
             .map(|t| {
-                let (ws_id, ws_name) = if t.workspace < 0 {
-                    (t.workspace, "special:minimized".to_string())
-                } else {
-                    (t.workspace, t.workspace.to_string())
-                };
+                let ws_id = t.workspace;
+                let ws_name = crate::wm::workspace_name_for_id(t.workspace);
                 let (at_x, at_y, w, h, bbox) = if let Some(win) = self.windows.get(&t.address)
                 {
                     let loc = self

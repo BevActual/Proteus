@@ -64,6 +64,9 @@ grep -rq --include='*.rs' 'ScratchToggle\|scratch_toggle\|special:scratch' \
   "${SURFACES}" "${APP}" "${ROOT}/shell/src/wm_ipc.rs" \
   && grep -q '◇' "${SURFACES}/bar.rs" \
   && ok "Scratchpad ◇ strip pill" || bad "Scratchpad ◇ strip missing"
+grep -q 'SCRATCH_WORKSPACE\|special:scratch' "${ROOT}/compositor/src/wm.rs" \
+  && grep -q 'SCRATCH_WORKSPACE\|toplevel_on_scratch' "${ROOT}/shell/src/wm_ipc.rs" \
+  && ok "Scratchpad distinct workspace id" || bad "Scratchpad distinct id missing"
 for t in lock chrome widgets hud; do
   grep -q "\"${t}\"" "${ROOT}/shell/src/lib.rs" \
     && ok "ipc target ${t}" || bad "ipc target ${t}"

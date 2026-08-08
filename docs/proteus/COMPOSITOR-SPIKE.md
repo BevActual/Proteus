@@ -27,7 +27,7 @@
 | Gamescope nesting (client under compositor) | `partial` — smoke nests `gamescope` under compositor `WAYLAND_DISPLAY`, asserts ctl `clients` growth; SKIP if binary missing or backends exit (no Vulkan / VirGL). **Desktop nest helper** `proteus-gamescope` (Steam `%command%` / CLI; flags Fact `gamescope-flags`). Console-home **not** swapped. |
 | PipeWire Screencast | `partial` — compositor `copy_with_damage` ready for xdp-wlr/wf-recorder; smoke via `wf-recorder` when installed (SKIP otherwise). PipeWire stays never-own. |
 | Input routing (pointer/keyboard, layers above windows) | `thin` |
-| Workspace roster `1..=10` + `special:minimized` parking | `works` — **per-output boards** (synced `workspace N` · local `workspace N,output:NAME`); monitors JSON `activeWorkspace` + focused |
+| Workspace roster `1..=10` + `special:minimized` (`-99`) + `special:scratch` (`-98`) parking | `works` — **per-output boards** (synced `workspace N` · local `workspace N,output:NAME`); monitors JSON `activeWorkspace` + focused |
 | Control socket (`PROTEUS_COMPOSITOR_SOCK`) query + dispatch + subscribe | `works` |
 | Shell engine-aware IPC (`shell/src/wm_ipc.rs`) | `works` |
 | Clients JSON hypr-shaped `at` / `size` | `works` — live Space/Window geometry |
