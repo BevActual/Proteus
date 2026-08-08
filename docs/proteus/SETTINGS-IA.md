@@ -143,7 +143,7 @@ Examples:
 | Volume / mute / default sink | `pactl` |
 | Input volume / mute / default source | `pactl` |
 | Audio matrix (node routing) | `pw-link` via `shell/scripts/audio-matrix.py` (Omnibus-style grid) |
-| App mixer (Wave Link–style) | Channels (default Apps/…) + mic/line inputs × mixes; Speakers/mix listen; rename; route/volume/Ensure In; **row peaks** (`audio-mix-peaks.py` on Refresh); × confirm; graph escape (`qpwgraph`, Install… → Repos); `~/.config/proteus/audio-mix.json`; resident `proteus-audio-mix serve`; mutations `audio-mix.py`; **CC Sound plate**. **Out:** drag-reorder · live peak stream while Mixer open |
+| App mixer (Wave Link–style) | Channels (default Apps/…) + mic/line inputs × mixes; Speakers/mix listen; rename; route/volume/Ensure In; **row peaks** (`audio-mix-peaks.py` on Refresh + live tick while Mixer open); × confirm; graph escape (`qpwgraph`, Install… → Repos); `~/.config/proteus/audio-mix.json`; resident `proteus-audio-mix serve`; mutations `audio-mix.py`; **CC Sound plate**. **Out:** drag-reorder |
 | Input level meter | streaming `audio-peak.py` on default source (Settings Input leaf) |
 | Per-app volume / mute | `pactl list/set-sink-input-*` |
 | Sound latency / buffer | `settings.json` `audioLatency` → `pw-metadata -n settings 0 clock.force-quantum` (256 / 512 / 1024) |
@@ -336,12 +336,12 @@ Sound pane modules (`../ProteusSettings`).
 | Output | Volume/mute + live hints; test tone; sink list with device hints |
 | Input | Level/mute; peak meter; source list with device hints |
 | Applications | Per-app volume + mute; empty Playing now honesty |
-| Mixer | Wave Link–style grid thin: channels/inputs × mixes; Speakers vs mix listen; Level; rename; expand/listen; route · volume · Ensure In · **row peaks on Refresh**; add channel/input/mix when dump supports; graph editor escape (`qpwgraph`, Install… → Repos). Quick per-source adjust also in Control Center Sources ▾. **Out:** drag-reorder · live peak stream while Mixer open |
+| Mixer | Wave Link–style grid thin: channels/inputs × mixes; Speakers vs mix listen; Level; rename; expand/listen; route · volume · Ensure In · **row peaks live while open**; add channel/input/mix when dump supports; graph editor escape (`qpwgraph`, Install… → Repos). Quick per-source adjust also in Control Center Sources ▾. **Out:** drag-reorder |
 | Latency & buffer | Profile segmented + quantum frames; PipeWire clock summary when known |
 
 | Pane | Live apply | On-disk / helper |
 |------|------------|------------------|
-| Sound | `pactl` volume/mute/default sink·source · sink-input volume/mute · test tone · matrix link/unlink · mixer routes | `settings.json` `audioLatency` → `pw-metadata`; Mixer dump via resident `proteus-audio-mix serve` (Python `audio-mix.py` fallback); **row peaks** via `audio-mix-peaks.py` on Refresh; matrix via `audio-matrix.py` → `pw-link`; mutations via `audio-mix.py` |
+| Sound | `pactl` volume/mute/default sink·source · sink-input volume/mute · test tone · matrix link/unlink · mixer routes | `settings.json` `audioLatency` → `pw-metadata`; Mixer dump via resident `proteus-audio-mix serve` (Python `audio-mix.py` fallback); **row peaks** via `audio-mix-peaks.py` (Refresh + live tick while Mixer open); matrix via `audio-matrix.py` → `pw-link`; mutations via `audio-mix.py` |
 
 **Module rule:** Sound leaf helpers stay in ProteusSettings Sound modules +
 `proteus-ui` — not a single mega-inline pane body.
@@ -432,7 +432,7 @@ Depth order for what’s left:
 *(Network hub + FormRow polish shipped — depth wizards stay on the list.)*
 *(Network Diagnostics · Wireshark escape shipped — in-pane capture Out.)*
 *(Network depth: password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG + OpenVPN import thin · Headscale admin thin + users list/create + policy HuJSON + structured ACL groups thin shipped — cert path / user-pass · OpenVPN PKI/PKCS#11 · Headscale preauth / ACL visual graph Out.)*
-*(Sound Mixer honesty: grid route/volume/Ensure + row peaks on Refresh In — drag-reorder · live peak stream Out.)*
+*(Sound Mixer honesty: grid route/volume/Ensure + row peaks live while open In — drag-reorder Out.)*
 *(Accounts multi-seat glances thin In — upsert per seat; provider-wide clobber Out.)*
 *(Control Center notifications + shell depth shipped — Settings Notifications prefs pane shipped; live list stays CC.)*
 *(Users session + greetd status shipped — writing greeter prefs / useradd stay Out.)*

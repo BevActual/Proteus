@@ -258,6 +258,9 @@ grep -q 'Wave Link grid\|MixRoute\|MixVolume' "${ST_ROOT}/src/panes/sound.rs" \
 grep -q 'row peaks\|ch.peak\|audio_mix_peaks' "${ST_ROOT}/src/panes/sound.rs" "${ST_ROOT}/src/backend.rs" \
   && grep -q 'drag-reorder stay Out\|drag-reorder.*Out' "${ST_ROOT}/src/panes/sound.rs" \
   && ok "Mixer peaks In · drag-reorder honesty Out" || bad "Mixer peaks/reorder honesty wrong"
+grep -q 'audio_mix_peaks_tick\|AudioMixPeaks\|live while open\|peaks live' \
+  "${ST_ROOT}/src/main.rs" "${ST_ROOT}/src/backend.rs" "${ST_ROOT}/src/panes/sound.rs" \
+  && ok "Mixer live peak stream" || bad "Mixer live peaks missing"
 grep -q 'MixEnsure\|MixVolume\|MixRoute' "${ST_ROOT}/src/panes/sound.rs" \
   && ok "Mixer route/volume/ensure In" || bad "Mixer route/volume/ensure missing"
 grep -q 'Glances\|EditSeat\|Connect / Save\|Save seat\|Multi-seat glances thin' "${ST_ROOT}/src/panes/accounts.rs" \
