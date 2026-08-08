@@ -318,7 +318,8 @@ pub(crate) fn apply_settings_if_changed(app: &mut App) {
         .unwrap_or("synced")
         .to_string();
     let pins = surfaces::dock_pins_from_settings(&settings);
-    if pins != app.pins {
+    // Don't clobber in-memory reorder/unpin while Edit Dock is open.
+    if !app.dock_edit && pins != app.pins {
         app.pins = pins;
         warm_icons(app);
     }

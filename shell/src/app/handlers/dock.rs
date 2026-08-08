@@ -83,6 +83,18 @@ pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
             app.settings_mtime = None;
             warm_icons(app);
         }
+        SurfaceMsg::DockUnpin(id) => {
+            if !app.dock_edit {
+                return Task::none();
+            }
+            if surfaces::remove_dock_pin(&mut app.pins, &id) {
+                if app.dock_drag.as_deref() == Some(id.as_str()) {
+                    app.dock_drag = None;
+                    app.dock_drag_target = None;
+                }
+                warm_icons(app);
+            }
+        }
         SurfaceMsg::DockDragHover(idx) => {
             if app.dock_edit && app.dock_drag.is_some() && idx > 0 {
                 app.dock_drag_target = Some(idx);

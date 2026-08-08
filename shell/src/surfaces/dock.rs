@@ -201,6 +201,21 @@ pub fn reorder_dock_pins(pins: &mut Vec<String>, from: usize, to: usize) -> bool
     true
 }
 
+/// Remove a pin in edit mode — Beacon is fixed; returns whether anything changed.
+pub fn remove_dock_pin(pins: &mut Vec<String>, id: &str) -> bool {
+    if is_beacon_pin(id) {
+        return false;
+    }
+    let before = pins.len();
+    pins.retain(|p| p != id);
+    if pins.is_empty() {
+        pins.push("proteus-launcher".into());
+    } else if !pins.iter().any(|p| is_beacon_pin(p)) {
+        pins.insert(0, "proteus-launcher".into());
+    }
+    pins.len() != before
+}
+
 /// Persist pinned ids to settings.json `dockPins` (comma-joined).
 pub fn persist_dock_pins(pins: &[String]) -> Result<(), String> {
     let raw = pins.join(",");
@@ -358,10 +373,41 @@ fn dock_cell<'a>(
         if can_drag {
             area = area
                 .on_press(Message::DockPress(press_id))
-                .on_release(Message::DockRelease(id))
+                .on_release(Message::DockRelease(id.clone()))
                 .on_enter(Message::DockDragHover(idx));
         }
-        return area.into();
+        if !can_drag {
+            return area.into();
+        }
+        // (−) sits above the drag mouse_area so remove doesn't start a reorder.
+        let unpin_id = id;
+        let badge = button(text("−").size(14).font(semibold()).color(theme.text))
+            .padding(Padding::new(0.0).left(6.0).right(6.0).top(1.0).bottom(2.0))
+            .style(move |_t, status| {
+                let bg = match status {
+                    iced::widget::button::Status::Hovered => theme.danger.scale_alpha(0.85),
+                    _ => theme.danger.scale_alpha(0.72),
+                };
+                iced::widget::button::Style {
+                    background: Some(Background::Color(bg)),
+                    text_color: theme.text,
+                    border: Border {
+                        radius: 10.0.into(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }
+            })
+            .on_press(Message::DockUnpin(unpin_id));
+        return iced::widget::stack![
+            area,
+            container(badge)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .align_x(Alignment::End)
+                .align_y(Alignment::Start),
+        ]
+        .into();
     }
 
     // Normal mode — short tap launch, long-press arms edit (handled in update tick).
@@ -507,7 +553,7 @@ pub fn dock_view<'a>(
     let preview_card: Element<'a, Message> = if edit_mode {
         let bar = container(
             row![
-                text("Edit Dock")
+                text("Edit Dock — drag to reorder · (−) to remove")
                     .size(13)
                     .font(semibold())
                     .color(theme.text)
@@ -822,6 +868,19 @@ mod dock_tests {
         assert!(reorder_dock_pins(&mut pins, 1, 3));
         assert_eq!(pins[0], "proteus-launcher");
         assert_eq!(pins, vec!["proteus-launcher", "b", "c", "a"]);
+    }
+
+    #[test]
+    fn remove_dock_pin_skips_beacon() {
+        let mut pins = vec![
+            "proteus-launcher".into(),
+            "a".into(),
+            "b".into(),
+        ];
+        assert!(!remove_dock_pin(&mut pins, "proteus-launcher"));
+        assert!(remove_dock_pin(&mut pins, "a"));
+        assert_eq!(pins, vec!["proteus-launcher", "b"]);
+        assert!(!remove_dock_pin(&mut pins, "missing"));
     }
 
     #[test]

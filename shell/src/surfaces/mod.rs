@@ -19,7 +19,7 @@ pub use control_center::control_center_view;
 pub use dock::{
     dock_active_dot_index, dock_dot_count, dock_icon_hover_size, dock_pins_from_settings,
     dock_plate_h, dock_running_windows, dock_strip_h, dock_transients, dock_view, persist_dock_pins,
-    reorder_dock_pins, DockLayout,
+    remove_dock_pin, reorder_dock_pins, DockLayout,
     DOCK_BOUNCE_SCALE, DOCK_BOUNCE_TIMEOUT_MS, DOCK_CELL_SPACING, DOCK_HOVER_SCALE, DOCK_ICON_REST,
     DOCK_LAYER_H, DOCK_LEAVE_DELAY_MS, DOCK_PEEK_SLIDE, DOCK_PREVIEW_DWELL_MS, DOCK_STRIP_H,
 };
@@ -162,6 +162,8 @@ pub enum Message {
     DockRelease(String),
     /// Exit dock edit mode and persist `dockPins`.
     DockEditDone,
+    /// Remove a pin while in dock edit mode (persists on Done).
+    DockUnpin(String),
     /// Hover a pin slot while dragging (pinned index only).
     DockDragHover(usize),
 }

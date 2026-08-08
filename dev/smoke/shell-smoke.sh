@@ -148,7 +148,7 @@ grep -rq --include='*.rs' 'start_tray_watcher\|tray_poll' "${PLATFORM}" \
   && ok "SNI tray watcher" || bad "SNI tray missing"
 grep -rq --include='*.rs' 'load_dock_pins\|dockPins' "${APP}" "${MAIN}" \
   && ok "dock pins from facts" || bad "dock pins missing"
-grep -rq --include='*.rs' 'DockEditDone\|persist_dock_pins' "${APP}" "${SURFACES}" \
+grep -rq --include='*.rs' 'DockEditDone\|persist_dock_pins\|DockUnpin\|remove_dock_pin' "${APP}" "${SURFACES}" \
   && ok "dock edit + dockPins persist" || bad "dock edit reorder missing"
 grep -rq --include='*.rs' 'proteus-launcher\|is_beacon_pin' "${APP}" "${MAIN}" "${SURFACES}" \
   && ok "Beacon dock pin" || bad "Beacon dock pin missing"
