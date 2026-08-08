@@ -126,87 +126,138 @@ pub fn list_desktop_apps() -> Vec<DesktopApp> {
 }
 
 pub fn filter_desktop_hits(q: &str, limit: usize) -> Vec<String> {
-    filter_beacon_hits(q, limit, &[])
+    filter_beacon_hits(q, limit, &[], BeaconMode::Apps)
 }
 
-/// Beacon hits: calc · clipboard · builtins · Settings · Windows · files · apps.
-pub fn filter_beacon_hits(q: &str, limit: usize, windows: &[crate::wm_ipc::Toplevel]) -> Vec<String> {
+/// Beacon mode strip (Ctrl+1–4) — filters hit categories.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum BeaconMode {
+    #[default]
+    Apps = 0,
+    Settings = 1,
+    Windows = 2,
+    Files = 3,
+}
+
+impl BeaconMode {
+    pub const LABELS: [&'static str; 4] = ["Apps", "Settings", "Windows", "Files"];
+
+    pub fn from_index(i: usize) -> Self {
+        match i {
+            1 => Self::Settings,
+            2 => Self::Windows,
+            3 => Self::Files,
+            _ => Self::Apps,
+        }
+    }
+
+    pub fn index(self) -> usize {
+        self as usize
+    }
+}
+
+/// Beacon hits filtered by mode: calc/clipboard/apps · Settings · Windows · files.
+pub fn filter_beacon_hits(
+    q: &str,
+    limit: usize,
+    windows: &[crate::wm_ipc::Toplevel],
+    mode: BeaconMode,
+) -> Vec<String> {
     let raw_q = q.trim();
     let q = raw_q.to_lowercase();
     let mut hits: Vec<String> = Vec::new();
-    if let Some(label) = calc_hit(raw_q) {
-        hits.push(label);
-    }
-    for label in clipboard_hits(&q, 8) {
-        if hits.len() >= limit {
-            break;
-        }
-        if !hits.iter().any(|h| h == &label) {
+    let want_apps = matches!(mode, BeaconMode::Apps);
+    let want_settings = matches!(mode, BeaconMode::Settings);
+    let want_windows = matches!(mode, BeaconMode::Windows);
+    let want_files = matches!(mode, BeaconMode::Files);
+
+    if want_apps {
+        if let Some(label) = calc_hit(raw_q) {
             hits.push(label);
         }
-    }
-    for builtin in [
-        "Settings",
-        "Workloads",
-        "Settings · Style",
-        "Settings · Sound",
-        "Settings · Packages",
-        "Lock screen",
-    ] {
-        if hits.len() >= limit {
-            break;
-        }
-        if q.is_empty() || builtin.to_lowercase().contains(&q) {
-            hits.push(builtin.into());
-        }
-    }
-    for leaf in settings_catalog_hits(&q) {
-        if hits.len() >= limit {
-            break;
-        }
-        if !hits.iter().any(|h| h == &leaf) {
-            hits.push(leaf);
-        }
-    }
-    for w in windows {
-        if hits.len() >= limit {
-            break;
-        }
-        let title = if w.title.is_empty() {
-            w.class.clone()
-        } else {
-            w.title.clone()
-        };
-        if title.is_empty() {
-            continue;
-        }
-        if q.is_empty()
-            || title.to_lowercase().contains(&q)
-            || w.class.to_lowercase().contains(&q)
-        {
-            let label = format!("Window · {title} · {}", w.address);
+        for label in clipboard_hits(&q, 8) {
+            if hits.len() >= limit {
+                break;
+            }
             if !hits.iter().any(|h| h == &label) {
                 hits.push(label);
             }
         }
+        for builtin in ["Workloads", "Lock screen"] {
+            if hits.len() >= limit {
+                break;
+            }
+            if q.is_empty() || builtin.to_lowercase().contains(&q) {
+                hits.push(builtin.into());
+            }
+        }
+        for app in list_desktop_apps() {
+            if hits.len() >= limit {
+                break;
+            }
+            if q.is_empty()
+                || app.name.to_lowercase().contains(&q)
+                || app.id.to_lowercase().contains(&q)
+            {
+                let label = format!("{} · {}", app.name, app.desktop_id);
+                if !hits.iter().any(|h| h == &label) {
+                    hits.push(label);
+                }
+            }
+        }
     }
-    for label in file_hits(&q, 8) {
-        if hits.len() >= limit {
-            break;
+    if want_settings {
+        for builtin in [
+            "Settings",
+            "Settings · Style",
+            "Settings · Sound",
+            "Settings · Packages",
+        ] {
+            if hits.len() >= limit {
+                break;
+            }
+            if q.is_empty() || builtin.to_lowercase().contains(&q) {
+                hits.push(builtin.into());
+            }
         }
-        if !hits.iter().any(|h| h == &label) {
-            hits.push(label);
+        for leaf in settings_catalog_hits(&q) {
+            if hits.len() >= limit {
+                break;
+            }
+            if !hits.iter().any(|h| h == &leaf) {
+                hits.push(leaf);
+            }
         }
     }
-    for app in list_desktop_apps() {
-        if hits.len() >= limit {
-            break;
+    if want_windows {
+        for w in windows {
+            if hits.len() >= limit {
+                break;
+            }
+            let title = if w.title.is_empty() {
+                w.class.clone()
+            } else {
+                w.title.clone()
+            };
+            if title.is_empty() {
+                continue;
+            }
+            if q.is_empty()
+                || title.to_lowercase().contains(&q)
+                || w.class.to_lowercase().contains(&q)
+            {
+                let label = format!("Window · {title} · {}", w.address);
+                if !hits.iter().any(|h| h == &label) {
+                    hits.push(label);
+                }
+            }
         }
-        if q.is_empty()
-            || app.name.to_lowercase().contains(&q)
-            || app.id.to_lowercase().contains(&q)
-        {
-            let label = format!("{} · {}", app.name, app.desktop_id);
+    }
+    if want_files {
+        for label in file_hits(&q, 8) {
+            if hits.len() >= limit {
+                break;
+            }
             if !hits.iter().any(|h| h == &label) {
                 hits.push(label);
             }
@@ -886,5 +937,34 @@ mod tests {
             Some("12\thello")
         );
         assert_eq!(calc_result_from_hit("Calc · 2+2 = 4"), Some("4".into()));
+    }
+
+    #[test]
+    fn mode_filters_categories() {
+        let settings = filter_beacon_hits("sound", 24, &[], BeaconMode::Settings);
+        assert!(
+            settings.iter().any(|h| h.contains("Settings")),
+            "{settings:?}"
+        );
+        assert!(
+            !settings.iter().any(|h| h.ends_with(".desktop")),
+            "apps leaked into Settings: {settings:?}"
+        );
+        let apps = filter_beacon_hits("2+2", 8, &[], BeaconMode::Apps);
+        assert!(
+            apps.iter().any(|h| h.starts_with("Calc ·")),
+            "{apps:?}"
+        );
+        let files = filter_beacon_hits("", 8, &[], BeaconMode::Files);
+        assert!(
+            files
+                .iter()
+                .all(|h| h.starts_with("File · ")
+                    || h.starts_with("Place · ")
+                    || h.starts_with("Recent · ")),
+            "{files:?}"
+        );
+        assert_eq!(BeaconMode::from_index(2), BeaconMode::Windows);
+        assert_eq!(BeaconMode::Settings.index(), 1);
     }
 }

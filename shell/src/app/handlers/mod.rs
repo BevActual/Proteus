@@ -31,6 +31,7 @@ pub(crate) fn handle_surface(app: &mut App, m: SurfaceMsg) -> Task<Message> {
             | SurfaceMsg::BeaconNav(_)
             | SurfaceMsg::BeaconSubmit
             | SurfaceMsg::BeaconEscape
+            | SurfaceMsg::BeaconSetMode(_)
             | SurfaceMsg::HudDismiss
             | SurfaceMsg::ToastDismiss(_)
             | SurfaceMsg::PrivacyAllow

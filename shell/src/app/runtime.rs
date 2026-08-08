@@ -99,7 +99,14 @@ pub(crate) fn sync_snapshots(app: &mut App) {
             Easing::OutCubic,
         );
         if app.launcher_open {
+            app.beacon_mode = proteus_shell::beacon::BeaconMode::Apps;
             app.beacon_selected = 0;
+            app.beacon_hits = proteus_shell::beacon::filter_beacon_hits(
+                &app.beacon_query,
+                24,
+                &app.wm.toplevels,
+                app.beacon_mode,
+            );
             app.beacon_focus_pending = true;
         }
     }

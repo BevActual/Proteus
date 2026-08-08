@@ -133,6 +133,7 @@ pub(crate) fn view_real(app: &App, id: window::Id) -> Element<'_, Message> {
                     &app.chrome_snap,
                     &app.beacon_hits,
                     app.beacon_selected,
+                    app.beacon_mode,
                     &app.icon_cache,
                     app.anims.beacon.value(),
                 )

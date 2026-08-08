@@ -306,6 +306,7 @@ fn main() -> Result<(), iced_layershell::Error> {
                 dock_geom_dirty: false,
                 settings_mtime: None,
                 beacon_selected: 0,
+                beacon_mode: proteus_shell::beacon::BeaconMode::Apps,
                 hud_deadline: None,
                 toast_deadline: None,
                 toast_hidden_id: None,

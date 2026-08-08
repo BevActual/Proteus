@@ -273,6 +273,10 @@ grep -q 'filter_beacon_hits\|Window ·\|File ·\|Place ·\|Recent ·\|launcherFi
   && ok "Beacon Windows/files thin" || bad "Beacon Windows/files missing"
 grep -q 'clipboard_hits\|Clipboard ·\|cliphist\|calc_hit\|eval_calc\|wl-copy\|wtype' "${ROOT}/shell/src/beacon.rs" \
   && ok "Beacon clipboard/calc thin" || bad "Beacon clipboard/calc missing"
+grep -q 'BeaconMode\|BeaconSetMode\|Ctrl+1' \
+  "${ROOT}/shell/src/beacon.rs" "${ROOT}/shell/src/surfaces/beacon.rs" \
+  "${ROOT}/shell/src/surfaces/mod.rs" "${ROOT}/shell/src/app/subscription.rs" \
+  && ok "Beacon mode chrome Ctrl+1–4" || bad "Beacon mode chrome missing"
 grep -rq --include='*.rs' 'ToggleDnd\|wifi_list_thin\|bt_list_thin' "${SURFACES}" "${PLATFORM}" \
   && ok "CC DND/WiFi/BT" || bad "CC tiles missing"
 grep -rq --include='*.rs' 'ToggleFocus\|focus_profiles\|Focus Mode' "${SURFACES}" "${PLATFORM}" \

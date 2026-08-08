@@ -19,7 +19,12 @@ pub(crate) fn load_dock_pins() -> Vec<String> {
 }
 
 pub(crate) fn default_beacon_hits() -> Vec<String> {
-    proteus_shell::beacon::filter_beacon_hits("", 24, &[])
+    proteus_shell::beacon::filter_beacon_hits(
+        "",
+        24,
+        &[],
+        proteus_shell::beacon::BeaconMode::Apps,
+    )
 }
 
 pub(crate) fn dock_layer_geom(layout: surfaces::DockLayout) -> (Anchor, (u32, u32)) {

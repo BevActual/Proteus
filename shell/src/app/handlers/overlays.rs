@@ -144,7 +144,29 @@ pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
                 s.beacon_query = q.clone();
             }
             app.chrome_epoch.fetch_add(1, Ordering::Relaxed);
-            app.beacon_hits = proteus_shell::beacon::filter_beacon_hits(&q, 24, &app.wm.toplevels);
+            app.beacon_hits = proteus_shell::beacon::filter_beacon_hits(
+                &q,
+                24,
+                &app.wm.toplevels,
+                app.beacon_mode,
+            );
+            app.beacon_selected = 0;
+            warm_icons(app);
+        }
+        SurfaceMsg::BeaconSetMode(i) => {
+            app.beacon_mode = proteus_shell::beacon::BeaconMode::from_index(i);
+            let q = app
+                .chrome
+                .lock()
+                .ok()
+                .map(|s| s.beacon_query.clone())
+                .unwrap_or_else(|| app.beacon_query.clone());
+            app.beacon_hits = proteus_shell::beacon::filter_beacon_hits(
+                &q,
+                24,
+                &app.wm.toplevels,
+                app.beacon_mode,
+            );
             app.beacon_selected = 0;
             warm_icons(app);
         }
@@ -184,7 +206,12 @@ pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
             }
             app.chrome_epoch.fetch_add(1, Ordering::Relaxed);
             if clear_query {
-                app.beacon_hits = default_beacon_hits();
+                app.beacon_hits = proteus_shell::beacon::filter_beacon_hits(
+                    "",
+                    24,
+                    &app.wm.toplevels,
+                    app.beacon_mode,
+                );
                 app.beacon_selected = 0;
             }
         }

@@ -292,6 +292,8 @@ pub(crate) struct App {
     pub(crate) settings_mtime: Option<SystemTime>,
     /// Keyboard-selected Beacon hit index.
     pub(crate) beacon_selected: usize,
+    /// Beacon mode strip (Ctrl+1–4 / segmented control).
+    pub(crate) beacon_mode: proteus_shell::beacon::BeaconMode,
     pub(crate) hud_deadline: Option<anim::Deadline>,
     /// (notification id, deadline) for toast auto-dismiss.
     pub(crate) toast_deadline: Option<(u32, anim::Deadline)>,

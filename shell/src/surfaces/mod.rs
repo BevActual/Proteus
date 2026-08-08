@@ -73,6 +73,8 @@ pub enum Message {
     BeaconSubmit,
     /// Esc — clear query first, close when already empty.
     BeaconEscape,
+    /// Mode strip / Ctrl+1–4 — Apps · Settings · Windows · Files.
+    BeaconSetMode(usize),
     Workspace(i64),
     DockLaunch(String),
     HudDismiss,

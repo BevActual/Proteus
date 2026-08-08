@@ -35,14 +35,13 @@ pub(crate) fn subscription(app: &App) -> iced::Subscription<Message> {
             subs.push(iced::time::every(Duration::from_millis(33)).map(|_| Message::AnimTick));
         }
         // Beacon keyboard nav — ↑↓ move, Esc clears then closes (QML parity).
+        // Ctrl+1–4 mode strip (honor even when the search field Captured the key).
         // Enter is handled by the input's on_submit.
         if app.launcher_open && !app.locked {
             subs.push(iced::event::listen_with(|event, status, _id| {
-                if matches!(status, iced::event::Status::Captured) {
-                    return None;
-                }
                 let iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
                     key,
+                    modifiers,
                     repeat,
                     ..
                 }) = event
@@ -50,6 +49,23 @@ pub(crate) fn subscription(app: &App) -> iced::Subscription<Message> {
                     return None;
                 };
                 if repeat {
+                    return None;
+                }
+                if modifiers.control() {
+                    if let iced::keyboard::Key::Character(c) = key.as_ref() {
+                        let mode = match c.as_ref() {
+                            "1" => Some(0usize),
+                            "2" => Some(1),
+                            "3" => Some(2),
+                            "4" => Some(3),
+                            _ => None,
+                        };
+                        if let Some(i) = mode {
+                            return Some(Message::Surface(SurfaceMsg::BeaconSetMode(i)));
+                        }
+                    }
+                }
+                if matches!(status, iced::event::Status::Captured) {
                     return None;
                 }
                 match key.as_ref() {

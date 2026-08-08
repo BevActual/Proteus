@@ -81,6 +81,7 @@ pub fn beacon_view<'a>(
     chrome: &'a ChromeState,
     hits: &'a [String],
     selected: usize,
+    mode: crate::beacon::BeaconMode,
     icons: &'a crate::icons::IconCache,
     open_t: f32,
 ) -> Element<'a, Message> {
@@ -88,7 +89,13 @@ pub fn beacon_view<'a>(
     let value_c = theme.text;
     let mute_c = theme.text_mute;
     let selection_c = theme.accent_soft;
-    let query_input = text_input("Search apps, settings, files, clipboard…", &chrome.beacon_query)
+    let placeholder = match mode {
+        crate::beacon::BeaconMode::Apps => "Search apps, clipboard, calc…",
+        crate::beacon::BeaconMode::Settings => "Search Settings…",
+        crate::beacon::BeaconMode::Windows => "Search windows…",
+        crate::beacon::BeaconMode::Files => "Search files…",
+    };
+    let query_input = text_input(placeholder, &chrome.beacon_query)
         .id("beacon-input")
         .on_input(Message::BeaconInput)
         .on_submit(Message::BeaconSubmit)
@@ -109,6 +116,15 @@ pub fn beacon_view<'a>(
     .spacing(8)
     .align_y(Alignment::Center)
     .padding(Padding::new(0.0).left(18.0).right(14.0));
+
+    let mode_strip = container(segmented_control(
+        theme,
+        &crate::beacon::BeaconMode::LABELS,
+        mode.index(),
+        Message::BeaconSetMode,
+    ))
+    .width(Length::Fill)
+    .padding(Padding::new(0.0).left(14.0).right(14.0).top(8.0).bottom(4.0));
 
     let hairline = theme.hairline;
     let divider = container(Space::new().width(Length::Fill).height(1))
@@ -208,7 +224,7 @@ pub fn beacon_view<'a>(
     };
     let card_border = theme.hairline;
     let card_radius = theme.radius_xl;
-    let card = container(column![search_row, divider, body].spacing(0))
+    let card = container(column![search_row, mode_strip, divider, body].spacing(0))
         .width(Length::Fixed(680.0))
         .style(move |_t| container::Style {
             background: Some(Background::Color(card_fill)),
