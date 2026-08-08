@@ -15,6 +15,7 @@ pub(crate) fn enter_dock_edit(app: &mut App) {
     app.dock_hold_at = None;
     app.dock_drag = None;
     app.dock_drag_target = None;
+    app.dock_drag_off = false;
     app.dock_preview = None;
     app.dock_dwell = None;
     cancel_dock_leave(app);
@@ -63,7 +64,10 @@ pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
             if app.dock_edit {
                 if let Some(drag) = app.dock_drag.take() {
                     if drag == pin {
-                        if let Some(from) = app.pins.iter().position(|p| p == &pin) {
+                        if app.dock_drag_off {
+                            let _ = surfaces::remove_dock_pin(&mut app.pins, &pin);
+                            warm_icons(app);
+                        } else if let Some(from) = app.pins.iter().position(|p| p == &pin) {
                             if let Some(to) = app.dock_drag_target {
                                 surfaces::reorder_dock_pins(&mut app.pins, from, to);
                             }
@@ -71,6 +75,7 @@ pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
                     }
                 }
                 app.dock_drag_target = None;
+                app.dock_drag_off = false;
                 return Task::none();
             }
             let short_tap = app
@@ -87,6 +92,7 @@ pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
             app.dock_edit = false;
             app.dock_drag = None;
             app.dock_drag_target = None;
+            app.dock_drag_off = false;
             app.settings_mtime = None;
             warm_icons(app);
         }
@@ -99,13 +105,34 @@ pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
                     app.dock_drag = None;
                     app.dock_drag_target = None;
                 }
+                app.dock_drag_off = false;
                 warm_icons(app);
             }
         }
         SurfaceMsg::DockDragHover(idx) => {
             if app.dock_edit && app.dock_drag.is_some() && idx > 0 {
                 app.dock_drag_target = Some(idx);
+                app.dock_drag_off = false;
             }
+        }
+        SurfaceMsg::DockDragOffHover(on) => {
+            if app.dock_edit && app.dock_drag.is_some() {
+                app.dock_drag_off = on;
+                if on {
+                    app.dock_drag_target = None;
+                }
+            }
+        }
+        SurfaceMsg::DockDragOffDrop => {
+            if !app.dock_edit {
+                return Task::none();
+            }
+            if let Some(drag) = app.dock_drag.take() {
+                let _ = surfaces::remove_dock_pin(&mut app.pins, &drag);
+                warm_icons(app);
+            }
+            app.dock_drag_target = None;
+            app.dock_drag_off = false;
         }
         SurfaceMsg::DockHover(pin) => {
             if app.dock_edit {

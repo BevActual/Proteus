@@ -287,6 +287,7 @@ fn main() -> Result<(), iced_layershell::Error> {
                 dock_hold_at: None,
                 dock_drag: None,
                 dock_drag_target: None,
+                dock_drag_off: false,
                 dock_bounce: HashMap::new(),
                 dock_bounce_strengths: Vec::new(),
                 dock_icon_size,

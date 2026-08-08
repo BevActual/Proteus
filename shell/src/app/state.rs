@@ -263,6 +263,8 @@ pub(crate) struct App {
     pub(crate) dock_drag: Option<String>,
     /// Drop target index among pinned cells.
     pub(crate) dock_drag_target: Option<usize>,
+    /// Pointer over the drag-off strip while dragging in edit mode.
+    pub(crate) dock_drag_off: bool,
     /// Launch bounce until matching window / timeout (`pin → start`).
     pub(crate) dock_bounce: HashMap<String, Instant>,
     /// Cached bounce strengths for the dock view (updated on AnimTick).

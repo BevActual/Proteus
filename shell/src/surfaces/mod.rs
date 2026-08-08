@@ -168,6 +168,10 @@ pub enum Message {
     DockUnpin(String),
     /// Hover a pin slot while dragging (pinned index only).
     DockDragHover(usize),
+    /// Hover the edit-mode drag-off strip below the shelf.
+    DockDragOffHover(bool),
+    /// Release over the drag-off strip — unpin the dragged pin.
+    DockDragOffDrop,
 }
 
 /// One window row in the dock hover preview card.

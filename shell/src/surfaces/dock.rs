@@ -553,7 +553,7 @@ pub fn dock_view<'a>(
     let preview_card: Element<'a, Message> = if edit_mode {
         let bar = container(
             row![
-                text("Edit Dock — drag to reorder · (−) to remove")
+                text("Edit Dock — drag to reorder · drop below to remove · (−)")
                     .size(13)
                     .font(semibold())
                     .color(theme.text)
@@ -728,9 +728,58 @@ pub fn dock_view<'a>(
             } else {
                 Alignment::Center
             });
+        let drag_off: Element<'a, Message> = if edit_mode {
+            let dragging = dock_drag.is_some();
+            let label = if dragging {
+                "Drop here to remove"
+            } else {
+                "Drag a pin down to remove"
+            };
+            let accent = theme.accent;
+            let danger = theme.danger;
+            iced::widget::mouse_area(
+                container(
+                    text(label)
+                        .size(12)
+                        .font(semibold())
+                        .color(if dragging {
+                            theme.text
+                        } else {
+                            theme.text_dim
+                        }),
+                )
+                .width(Length::Fill)
+                .padding(Padding::new(8.0).left(16.0).right(16.0))
+                .center_x(Length::Fill)
+                .style(move |_t| container::Style {
+                    background: Some(Background::Color(if dragging {
+                        danger.scale_alpha(0.35)
+                    } else {
+                        accent.scale_alpha(0.12)
+                    })),
+                    border: Border {
+                        radius: 10.0.into(),
+                        width: 1.0,
+                        color: if dragging {
+                            danger.scale_alpha(0.7)
+                        } else {
+                            accent.scale_alpha(0.35)
+                        },
+                    },
+                    ..Default::default()
+                }),
+            )
+            .on_enter(Message::DockDragOffHover(true))
+            .on_exit(Message::DockDragOffHover(false))
+            .on_release(Message::DockDragOffDrop)
+            .into()
+        } else {
+            Space::new().height(Length::Fixed(0.0)).into()
+        };
         let stack = column![
             preview_card,
             shelf,
+            drag_off,
             Space::new().height(Length::Fixed(hide)),
         ]
         .spacing(8)

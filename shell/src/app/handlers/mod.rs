@@ -64,6 +64,8 @@ pub(crate) fn handle_surface(app: &mut App, m: SurfaceMsg) -> Task<Message> {
             | SurfaceMsg::DockEditDone
             | SurfaceMsg::DockUnpin(_)
             | SurfaceMsg::DockDragHover(_)
+            | SurfaceMsg::DockDragOffHover(_)
+            | SurfaceMsg::DockDragOffDrop
             | SurfaceMsg::DockHover(_)
             | SurfaceMsg::DockEdgeEnter
             | SurfaceMsg::BarEdgeEnter
