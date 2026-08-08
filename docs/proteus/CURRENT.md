@@ -183,13 +183,12 @@ compact Shrink CTAs / `button_cluster`, trailing form rows, `large_title`,
 sidebar `accent_soft` selection (true blur Out).
 Ported thin: Appearance · Software · Sound (Mixer grid thin) · Notifications ·
 Users · Privacy (activity + categories + per-app grants + Flatpak/Diagnostics thin) · Network
-(machine/wifi/BT/Devices/Diagnostics/LocalSend · VPN · Tailscale thin usable ·
+(machine/wifi/BT/Devices/Diagnostics/LocalSend · VPN import thin · Tailscale thin usable ·
 Headscale HuJSON) · Desktop (gaps live-apply · defaults/focus CRUD thin/beacon) ·
 Power · Date/Time · About · Virtualization · Peripherals (mouse/touchpad/tablet →
-`proteus-settings-apply input`) · Accounts · Displays. Holdouts: Mixer
+`proteus-settings-apply input` · gamepads Guide Facts) · Accounts · Displays. Holdouts: Mixer
 peaks/drag-reorder polish, Tailscale deep ACL, Headscale structured ACL editor,
-Accounts multi-seat glance megas, peripherals gamepads, Focus schedules/app
-allowlist.
+Accounts multi-seat glance megas, Focus schedules/app allowlist.
 ([STACK.md](./STACK.md) §6).
 
 | Pane | Status |
@@ -197,10 +196,10 @@ allowlist.
 | Appearance → Accent / Background / Lock / Icons / Font (`style`) | `shipped` (iced) — Accent/mode/font; lock wallpaper/dim; daily/slideshow/`proteus-bg`; Font picker + userFonts; Icons; chrome apply via tokens / settings-apply |
 | Desktop → Gaps / Borders / Motion / Dock & menu bar / Spaces / Default apps / Focus / Control Center / Beacon | `shipped` (thin iced) — Gaps live via `proteus-settings-apply`; Spaces `workspaceMode` Fact; **Default apps** picker (`proteus-defaults.py`); **Focus** enable + active picker + **profile CRUD** (add/rename/delete · keywordAllow/Deny; schedules/app allowlist Out); CC columns 2|3; Beacon blurb + Clear recents; **Dock & menu bar** layout/size/rounding/autohide Facts → shell mtime reload |
 | Displays (scale / mode / orientation, Identify; layout canvas) | `shipped` (thin) — iced list + layout canvas; Apply writes `~/.config/proteus/displays.json` + live `proteus-settings-apply apply-displays` (`output` scale/pos/mode/**transform**); Fact loads transform at compositor start; monitors JSON reports live wl transform; **Identify** (`dispatch identify`); **10s snapshot Revert** (Keep / timeout / Refresh / leave / topology); Settings orientation UI **In** (Normal/90/180/270 · flipped Out) |
-| Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) / Touchpad / Tablet / Gamepads | `shipped` (thin) — mouse/touchpad/tablet Facts → `proteus-settings-apply input` → compositor `dispatch input-reload` (sensitivity scale · natural scroll · scroll factor; tip/eraser piecewise-linear pressure curves + linear min/max on `TabletToolAxis`; tap/accel/DWT held on InputConfig); keyboard thin rebind UI → `keybinds.json` + `reloadbinds`; tablet gestures Out; gamepads Facts only; **per-device** `inputDeviceOverrides` Out |
+| Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) / Touchpad / Tablet / Gamepads | `shipped` (thin) — mouse/touchpad/tablet Facts → `proteus-settings-apply input` → compositor `dispatch input-reload` (sensitivity scale · natural scroll · scroll factor; tip/eraser piecewise-linear pressure curves + linear min/max on `TabletToolAxis`; tap/accel/DWT held on InputConfig); keyboard thin rebind UI → `keybinds.json` + `reloadbinds`; tablet gestures Out; **Gamepads** Guide Facts (`gamepadsGuideSingle` / `gamepadsGuideDouble` nav\|cc\|off → `proteus-guide` re-read); device list Out; **per-device** `inputDeviceOverrides` Out |
 | Software → Updates / Repos / AUR / Flathub / AppImages / Web apps / Orphans (`packages`) | `shipped` — iced hub + leaves; Install\|Installed mode-safe loads; sticky action bar; live `$` op + Cancel + last error; empty Installed / orphans / AppImages honesty; **Web apps** (`proteus-webapp` → user `.desktop`, no polkit); hub Needs yay/paru · flatpak; AppImages user-only; escape **Install…** → seeded Software leaf; gated via `settings-next-smoke` (guest `software-guest-smoke` deferred); dep graphs / Snap Out |
 | Sound → Output / Input / Applications / Mixer / Latency (`sound`) | `shipped` — iced hub + leaves; **Mixer** Wave Link–style grid (channels/inputs × mixes; Speakers/mix listen; rename; peaks; drag-reorder); expand/listen; dump-pause while dragging levels; honest setup CTA; graph editor escape (`qpwgraph` Install… → Repos); resident `proteus-audio-mix serve` (Python mutations + fallback); Output/Input/Apps/Latency; pactl + `pw-metadata` |
-| Network → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN / Headscale (`network`) | `shipped` (thin iced) — machine/wifi/BT; **Devices** link+IPv4; **Diagnostics** route/DNS/`ss`/ping; LocalSend detect/open; **Tailscale thin usable** (login-server Fact · peers · exit-node · up/down); VPN nmcli up/down; Headscale users + HuJSON check/save. Out: WireGuard import polish · Wireshark · Tailscale deep ACL · Headscale structured ACL editor |
+| Network → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN / Headscale (`network`) | `shipped` (thin iced) — machine/wifi/BT; **Devices** link+IPv4; **Diagnostics** route/DNS/`ss`/ping; LocalSend detect/open; **Tailscale thin usable** (login-server Fact · peers · exit-node · up/down); VPN nmcli up/down + **WG/OpenVPN import thin** (`nmcli connection import`); Headscale users + HuJSON check/save. Out: cert path / user-pass / PKCS#11 · Wireshark · Tailscale deep ACL · Headscale structured ACL editor |
 | Power (PPD mode + battery + idle/lid + charge limits) | `shipped` — Performance/Balanced/Eco via `powerprofilesctl`; battery via UPower; `pkexec proteus-logind` drop-in + reload (not restart); CC Power tile; **Charge limits** when sysfs `charge_control_*` present (`pkexec proteus-battery-threshold` · fail-closed otherwise); TLP Out |
 | Date, time & weather (clock, timezone search, NTP, locale, **Location**) | `shipped` — timezone/NTP/`localectl set-locale` polkit-gated; searchable locale picker + locale.conf escape; Location explicit place search (never IP); Open-Meteo current + **5-day forecast** + Conditions H/L/sunrise; Match time zone to place when TZ differs; desktop/lock weather widget; manual time / RTC writers Out |
 | Users (session actions + read-only local users · greetd autologin) | `shipped` — Session Lock/Logout; Reboot/Shutdown confirm strip; **lock screen PIN** set/change/clear (`proteus-pin.py`, PAM password gate; hash not in settings.json); current user GECOS/home/UID/groups; other users read-only; Online accounts jump; greetd status + **autologin toggle** via `proteus-greetd` (pkexec `[initial_session]`; no greetd restart); conf escape; no add/remove |
@@ -223,13 +222,15 @@ friendly blurbs: Google · Microsoft · **Exchange** · Nextcloud · IMAP · Cal
 CardDAV · Apple. Status and seats merge from `proteus-accounts`, so a stale
 catalog cannot inject Coming-later rows.
 
-**Auth** — OAuth Connect inline once a client id is ready; multi-seat Disconnect
-and OAuth Reconnect; tokens live in the vault, never `settings.json`.
+**Auth** — OAuth Connect inline once a client id is ready; **multi-seat**
+Disconnect and OAuth Reconnect per seat id (connect upserts by identity /
+explicit edit seat — does not wipe sibling seats for the provider); tokens live
+in the vault, never `settings.json`.
 
 **Glances** — calendar + mail + contacts (CalendarPanel · `CalendarEvents` /
 `MailGlance` / `ContactsGlance` · fetch scripts) over IMAP/CalDAV/CardDAV/Apple
-plus Google/MS/Exchange Graph. Older Google/MS seats must reconnect to pick up
-write/send/contacts scopes.
+plus Google/MS/Exchange Graph; Settings lists every seat per provider. Older
+Google/MS seats must reconnect to pick up write/send/contacts scopes.
 
 **Thin write paths**
 

@@ -143,7 +143,7 @@ Examples:
 | Volume / mute / default sink | `pactl` |
 | Input volume / mute / default source | `pactl` |
 | Audio matrix (node routing) | `pw-link` via `shell/scripts/audio-matrix.py` (Omnibus-style grid) |
-| App mixer (Wave Link–style) | Channels (default Apps/…) + mic/line inputs × mixes; Speakers/mix listen; rename; peaks; drag-reorder; × confirm; graph escape (`qpwgraph`, Install… → Repos); `~/.config/proteus/audio-mix.json`; resident `proteus-audio-mix serve`; mutations `audio-mix.py`; **CC Sound plate** |
+| App mixer (Wave Link–style) | Channels (default Apps/…) + mic/line inputs × mixes; Speakers/mix listen; rename; route/volume/Ensure In; × confirm; graph escape (`qpwgraph`, Install… → Repos); `~/.config/proteus/audio-mix.json`; resident `proteus-audio-mix serve`; mutations `audio-mix.py`; **CC Sound plate**. **Out:** row peaks · drag-reorder |
 | Input level meter | streaming `audio-peak.py` on default source (Settings Input leaf) |
 | Per-app volume / mute | `pactl list/set-sink-input-*` |
 | Sound latency / buffer | `settings.json` `audioLatency` → `pw-metadata -n settings 0 clock.force-quantum` (256 / 512 / 1024) |
@@ -151,7 +151,7 @@ Examples:
 | Wi‑Fi connect / disconnect / password | `nmcli device wifi` (secured SSIDs prompt in Settings; password never in settings.json) |
 | Hostname | `hostnamectl` (polkit-gated set) |
 | Bluetooth (power · scan · pair/connect) | `bluetoothctl` · blueman escape for advanced |
-| VPN profiles (list · up/down · WG / OpenVPN import · cert path attach) | `nmcli connection` up/down · `import type wireguard|openvpn` · optional user/pass + CA/cert/key `+vpn.data` (session-only) |
+| VPN profiles (list · up/down · WG / OpenVPN import thin) | `nmcli connection` up/down · `import type wireguard\|openvpn file <path>` — cert path / user-pass / PKCS#11 Out |
 | LocalSend (status + open / start / stop) | `localsend` · port 53317 |
 | Tailscale thin usable (status · peers · exit-node · login-server · up/down) | `tailscale status --json` · `exit-node list` · `up --login-server=` / `--exit-node=` · Fact `tailscaleLoginServer` — deep ACL Out |
 | Network diagnostics (iface rates · ss · firewall · route · DNS · ping) | `/proc/net/dev` · `ss -tun/-tln` · firewalld/ufw/`nft` · `/proc/net/route` · `resolv.conf` · `ping` |
@@ -190,11 +190,11 @@ Left-nav + content pane (macOS System Settings style).
 | **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Spaces, Default apps, **Focus**, **Control Center** layout, Beacon | `settings.json` + `proteus-settings-apply` · Focus · CC layout · `proteus-defaults.py` · launcher* | `shipped` |
 | **Displays** (`displays`) | Layout canvas + per-monitor scale/orientation; Identify; 10s Revert; Refresh/topology honesty; Fact `displays.json` (incl. transform) | compositorctl + `displays.json` | `shipped` (thin; orientation UI In · flipped Out) |
 | **Sound** (`sound`) | Category → Output / Input / Applications / Mixer / Latency | pactl + `proteus-audio-mix` / `audio-peak.py` + `pw-metadata` + `pw-link` | `shipped` |
-| **Network** (`network`) | Category → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN / Headscale — password Wi‑Fi · BT pair · **TS thin usable** (peers · exit-node · login-server · up/down; deep ACL Out) · VPN up/down · WG/OpenVPN import · Headscale admin thin (nodes · users · policy text) | hostnamectl / nmcli / bluetoothctl / localsend / tailscale / `proteus-headscale.py` | `shipped` |
-| **Peripherals** (`peripherals`) | Category → Keyboard, Mouse, Touchpad, Tablet, Gamepads (Guide Facts) | keybinds thin rebind + `proteus-settings-apply input` (`mouse*` · `touchpad*` · `tabletPressure*` · tip/eraser curves); gamepad Facts; gestures / `inputDeviceOverrides` Out | `shipped` (thin) |
+| **Network** (`network`) | Category → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN / Headscale — password Wi‑Fi · BT pair · **TS thin usable** (peers · exit-node · login-server · up/down; deep ACL Out) · VPN up/down · **WG/OpenVPN import thin** · Headscale admin thin (nodes · users · policy text) | hostnamectl / nmcli / bluetoothctl / localsend / tailscale / `proteus-headscale.py` | `shipped` |
+| **Peripherals** (`peripherals`) | Category → Keyboard, Mouse, Touchpad, Tablet, Gamepads (Guide Facts In · device list Out) | keybinds thin rebind + `proteus-settings-apply input` (`mouse*` · `touchpad*` · `tabletPressure*` · tip/eraser curves); `gamepadsGuideSingle`/`Double` Facts (`proteus-guide`); gestures / `inputDeviceOverrides` Out | `shipped` (thin) |
 | **Power** (`power`) | Power mode segmented (PPD); battery (UPower); **Charge limits** (sysfs `charge_control_*` when present); idle / lid via `proteus-logind` drop-in + conf escape | `powerprofilesctl` / UPower / `proteus-logind` / `proteus-battery-threshold` | `shipped` |
 | **Users** (`users`) | Session Lock/Logout + confirm Reboot/Shutdown; lock screen PIN set/change/clear; current user (GECOS/home) + other local users read-only; Online accounts jump; greetd status + autologin write + conf escape | session Facts · `proteus-pin.py` · id/getent · `proteus-greetd` (pkexec `[initial_session]`) | `shipped` |
-| **Online accounts** (`accounts`) | Hub → per-provider leaves (Google / Microsoft / Exchange / Nextcloud / IMAP / CalDAV / CardDAV / Apple); PKCE + app-password seats (`proteus-accounts` vault); calendar + mail + contacts glances; **calendar event create/edit/delete**; **recurrence thin**; **mail compose thin**; **contacts create/edit/delete thin** | `proteus-accounts` + iced Accounts panes + calendar/mail/contacts helpers (HTML/drafts/multi-file · photos/groups/apps Out) | `partial` |
+| **Online accounts** (`accounts`) | Hub → per-provider leaves (Google / Microsoft / Exchange / Nextcloud / IMAP / CalDAV / CardDAV / Apple); PKCE + app-password seats (`proteus-accounts` vault); **multi-seat glances thin**; calendar + mail + contacts glances; **calendar event create/edit/delete**; **recurrence thin**; **mail compose thin**; **contacts create/edit/delete thin** | `proteus-accounts` + iced Accounts panes + calendar/mail/contacts helpers (HTML/drafts/multi-file · photos/groups/apps Out) | `partial` |
 | **Date, time & weather** (`datetime`) | Live clock, searchable timezone + locale pickers, NTP, **Location** (place + units + 5-day forecast + Match TZ) | `timedatectl` / `localectl set-locale` / Open-Meteo | `shipped` |
 | **Notifications** (`notifications`) | Prefs: hard DND · jump to Focus · live list stays Control Center | `notificationsDnd` · Focus | `shipped` |
 | **Privacy & security** (`privacy`) | Hub → What leaves + weather mute + session; **In use now**; category leaves (Allow/Ask/Deny + **per-app grants thin** Allow/Ask/Deny via `store-set-app`); Flatpak overrides; portal PermissionStore sync; capture enforce (Deny + Ask mute/destroy mic/camera/**screen**); **portal Session.Close** best-effort; **Ask launch + mid-session mic/camera/screen**. Out: AppArmor | `permissions.json` · `proteus-permissions.py` · PrivacyAsk · PrivacyIndicators · shell-core gate · portal Session.Close + pactl/PW enforce | `partial` |
@@ -267,7 +267,9 @@ Reference hybrid leaf under **Peripherals → Keyboard**:
 Touchpad · Tablet · Gamepads. Headphones/speakers stay under **Sound**, not
 Peripherals. Mouse/touchpad/tablet Facts live in `settings.json` and live-apply
 via `proteus-settings-apply input` → `dispatch input-reload` (sensitivity ·
-natural scroll · scroll factor · tip/eraser pressure curves + min/max). Tablet
+natural scroll · scroll factor · tip/eraser pressure curves + min/max). **Gamepads**
+Guide Facts (`gamepadsGuideSingle` / `gamepadsGuideDouble` → nav\|cc\|off) patch
+`settings.json` only — `proteus-guide` re-reads; device list Out. Tablet
 gestures Out; per-device overrides Out.
 
 Defaults include Beacon (`Super+Space` / `Super+D`), Settings (`Super+,`),
@@ -334,7 +336,7 @@ Sound pane modules (`../ProteusSettings`).
 | Output | Volume/mute + live hints; test tone; sink list with device hints |
 | Input | Level/mute; peak meter; source list with device hints |
 | Applications | Per-app volume + mute; empty Playing now honesty |
-| Mixer | Wave Link–style grid: channels/inputs × mixes; Speakers vs mix listen; Level; rename; expand/listen; drag volume; row peaks; reorder; add channel/input/mix; graph editor escape (`qpwgraph`, Install… → Repos). Quick per-source adjust also in Control Center Sources ▾ |
+| Mixer | Wave Link–style grid thin: channels/inputs × mixes; Speakers vs mix listen; Level; rename; expand/listen; route · volume · Ensure In; add channel/input/mix when dump supports; graph editor escape (`qpwgraph`, Install… → Repos). Quick per-source adjust also in Control Center Sources ▾. **Out:** row peaks · drag-reorder |
 | Latency & buffer | Profile segmented + quantum frames; PipeWire clock summary when known |
 
 | Pane | Live apply | On-disk / helper |
@@ -359,12 +361,12 @@ Tailscale · VPN · Headscale). Hub state lives in iced Network pane modules.
 | Bluetooth | Power · Scan · pair/connect/disconnect/forget; Install… → Repos seeded `blueman` when missing; blueman escape |
 | LocalSend | Install… → AUR seeded `localsend-bin`; Start/Stop / Open / copy address; CC menu + Beacon |
 | Tailscale | Thin usable In: status / peers / exit-node picker / login-server Fact · up·down; Install… → Repos seeded `tailscale`; deep ACL Out |
-| VPN | Profile Connect/Disconnect; WireGuard + OpenVPN `.ovpn` import; optional user/pass + cert path attach; NetworkManager escape for PKCS#11 / advanced |
+| VPN | Profile Connect/Disconnect; WireGuard + OpenVPN import thin (`nmcli connection import`); cert path / user-pass / PKCS#11 Out (NetworkManager escape) |
 | Headscale | Remote admin URL + vault API key; node list; expire/enable; users list/create; policy HuJSON check/save (db mode); Open admin UI; does not run Headscale locally |
 
 | Pane | Live apply | On-disk / helper |
 |------|------------|------------------|
-| Network | `hostnamectl` · `nmcli` wifi/VPN/WG/OpenVPN · `bluetoothctl` · `tailscale` up/down/`--login-server=`/`--exit-node=` · `proteus-headscale.py` · clipboard IP | Escape: blueman / NetworkManager / Wireshark / browser admin — OpenVPN PKI/PKCS#11 · Tailscale deep ACL · Headscale preauth/structured ACL · in-pane capture Out |
+| Network | `hostnamectl` · `nmcli` wifi/VPN up·down · WG/OpenVPN `connection import` · `bluetoothctl` · `tailscale` up/down/`--login-server=`/`--exit-node=` · `proteus-headscale.py` · clipboard IP | Escape: blueman / NetworkManager / Wireshark / browser admin — cert path / user-pass · OpenVPN PKI/PKCS#11 · Tailscale deep ACL · Headscale preauth/structured ACL · in-pane capture Out |
 
 **Module rule:** Network leaf helpers stay in ProteusSettings Network modules +
 `proteus-ui` — not a single mega-inline pane body.
@@ -419,15 +421,15 @@ Depth order for what’s left:
 1. ~~Users depth~~ — greetd autologin write via `proteus-greetd` shipped; add-remove stays Out of Settings  
 2. ~~Online accounts depth~~ — hub → provider leaves + Microsoft / Exchange / Nextcloud / IMAP / CalDAV / CardDAV / Apple (app-specific password) connect shipped; ~~calendar + mail + contacts glances~~ + ~~CalDAV + Google/MS/Exchange create/edit/delete~~ + ~~mail compose thin~~ + ~~one-file attach~~ + ~~recurrence thin create+edit + COUNT end~~ + ~~CardDAV + Google/MS/Exchange contacts write thin~~ shipped; HTML/drafts/reply/multi-file · UNTIL date · this-vs-all · photos/groups · EWS/NTLM + Sign in with Apple OAuth + mail/contacts apps Out  
 3. ~~**Privacy native enforcement**~~ — portal PermissionStore sync + capture enforce (Deny + Ask) mic/camera/**screen** shipped; ~~**Ask UI**~~ launch + mid-session mic/camera/screen prompt shipped; ~~**fail-closed until ready**~~ shipped; ~~**kill screencast streams**~~ best-effort PW destroy shipped; ~~**portal Session.Close**~~ best-effort shipped; full OS sandbox / v4l2 ACL / perfect screencast attribution Out  
-4. ~~**Network polish**~~ — largely shipped (IPv4 on Devices · Diagnostics ss/firewall · OpenVPN `.ovpn` import + cert path attach · Headscale admin thin + users/policy text); OpenVPN PKI/PKCS#11 · Headscale preauth/structured ACL stay Out  
-5. ~~**Peripherals** — touchpad / tablet / per-device `device {}` / active-area / pressure / region / eraser~~ — Touchpad + Tablet tip/eraser pressure curves (piecewise-linear thin) + pressure min/max + Mouse per-device sensitivity/accel + active-area mm + eraser-as-button + monitor region Facts shipped; gestures / full per-device matrix Out  
+4. ~~**Network polish**~~ — largely shipped (IPv4 on Devices · Diagnostics ss/firewall · WG/OpenVPN import thin · Headscale admin thin + users/policy text); cert path / user-pass · OpenVPN PKI/PKCS#11 · Headscale preauth/structured ACL stay Out  
+5. ~~**Peripherals** — touchpad / tablet / per-device `device {}` / active-area / pressure / region / eraser / gamepads Guide~~ — Touchpad + Tablet tip/eraser pressure curves (piecewise-linear thin) + pressure min/max + Mouse per-device sensitivity/accel + active-area mm + eraser-as-button + monitor region Facts + Gamepads Guide Facts shipped; device list / gestures / full per-device matrix Out  
 6. **Software depth** — dependency graphs later; Snap stays Out (hub + six leaves + smoke matrix shipped)  
 7. ~~Settings Notifications pane~~ — shipped (prefs-only; CC remains live list)  
 
 *(Displays layout + Revert follow-ups shipped — removed from growth depth.)*
 *(Network hub + FormRow polish shipped — depth wizards stay on the list.)*
 *(Network Diagnostics · Wireshark escape shipped — in-pane capture Out.)*
-*(Network depth: password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG + OpenVPN import + cert path attach · Headscale admin thin + users list/create + policy HuJSON shipped — OpenVPN PKI/PKCS#11 · Headscale preauth/structured ACL Out.)*
+*(Network depth: password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG + OpenVPN import thin · Headscale admin thin + users list/create + policy HuJSON shipped — cert path / user-pass · OpenVPN PKI/PKCS#11 · Headscale preauth/structured ACL Out.)*
 *(Control Center notifications + shell depth shipped — Settings Notifications prefs pane shipped; live list stays CC.)*
 *(Users session + greetd status shipped — writing greeter prefs / useradd stay Out.)*
 *(Users depth: proteus-greetd pkexec `[initial_session]` autologin toggle + users-smoke

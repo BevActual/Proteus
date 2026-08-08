@@ -228,6 +228,12 @@ grep -q 'fn keybinds_list\|fn keybinds_set_chord\|fn keybinds_clear_override\|re
   && ok "keybinds backend + reloadbinds" || bad "keybinds backend missing"
 grep -q 'KeybindsLoaded\|KeybindApply\|keybinds_set_chord' "${ST_ROOT}/src/main.rs" \
   && ok "keyboard rebind main wire" || bad "keyboard rebind main wire missing"
+grep -q 'peripherals-gamepads\|gamepadsGuideSingle\|SetGamepadsGuide' \
+  "${ST_ROOT}/src/panes/peripherals.rs" "${ST_ROOT}/src/main.rs" \
+  && ok "gamepads Guide Facts leaf" || bad "gamepads Guide Facts leaf missing"
+grep -q 'vpn_import\|VpnImport\|WireGuard\|OpenVPN' \
+  "${ST_ROOT}/src/panes/network.rs" "${ST_ROOT}/src/backend.rs" "${ST_ROOT}/src/main.rs" \
+  && ok "VPN import thin" || bad "VPN import thin missing"
 
 # Phase 2 megas — canvas / grid / glances / headscale policy
 grep -q 'Layout canvas\|SetPosition\|NudgeX\|canvas::Program\|Canvas::new' "${ST_ROOT}/src/panes/displays.rs" \
