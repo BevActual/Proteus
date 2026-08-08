@@ -70,6 +70,12 @@ keys = {
     "tabletPressureMax": -1,
     "tabletTipPressureCurve": [],
     "tabletEraserPressureCurve": [],
+    "tabletActiveAreaPosX": 0,
+    "tabletActiveAreaPosY": 0,
+    "tabletActiveAreaSizeX": 0,
+    "tabletActiveAreaSizeY": 0,
+    "tabletEraserButtonMode": 0,
+    "tabletEraserButtonOverride": 0,
 }
 data = {}
 if os.path.isfile(path):

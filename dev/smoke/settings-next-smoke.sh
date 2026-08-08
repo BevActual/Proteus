@@ -113,6 +113,10 @@ grep -q 'peripherals-touchpad\|SetTouchpadNatural' "${ST_ROOT}/src/panes/periphe
 grep -q 'peripherals-tablet\|SetTipCurvePreset\|tabletTipPressureCurve' \
   "${ST_ROOT}/src/panes/peripherals.rs" \
   && ok "peripherals-tablet leaf" || bad "peripherals-tablet missing"
+grep -q 'SetTabletActiveArea\|ClearTabletActiveArea\|SetEraserButtonMode\|tabletActiveAreaSizeX\|tabletEraserButtonMode' \
+  "${ST_ROOT}/src/panes/peripherals.rs" "${ST_ROOT}/src/main.rs" \
+  && ok "peripherals-tablet active-area/eraser UI" \
+  || bad "peripherals-tablet active-area/eraser UI missing"
 grep -q 'hypr_apply_pointer\|hypr_apply_touchpad\|hypr_apply_tablet' "${ST_ROOT}/src/backend.rs" \
   && ok "pointer/touchpad/tablet apply helpers" || bad "pointer/touchpad/tablet apply helpers missing"
 if grep -q 'proteus-settings-apply' "${ST_ROOT}/src/backend.rs" \

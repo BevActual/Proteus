@@ -403,7 +403,16 @@ impl CompositorNext {
     ) -> Option<Point<f64, Logical>> {
         let output = self.space.outputs().next()?;
         let output_geo = self.space.output_geometry(output)?;
-        Some(event.position_transformed(output_geo.size) + output_geo.loc.to_f64())
+        let w = output_geo.size.w.max(1) as f64;
+        let h = output_geo.size.h.max(1) as f64;
+        // Full-pad normalized coords, then optional active-area crop (mm Facts).
+        let fx = event.x_transformed(output_geo.size.w) / w;
+        let fy = event.y_transformed(output_geo.size.h) / h;
+        let (nx, ny) = self.input_config.apply_active_area_norm(fx, fy);
+        Some(Point::from((
+            output_geo.loc.x as f64 + nx * w,
+            output_geo.loc.y as f64 + ny * h,
+        )))
     }
 
     fn on_tablet_tool_proximity<I: InputBackend>(
@@ -442,6 +451,21 @@ impl CompositorNext {
         let Some(tool) = self.seat.tablet_seat().get_tool(&event.tool()) else {
             return;
         };
+        let eraser = matches!(event.tool().tool_type, TabletToolType::Eraser);
+        if eraser && self.input_config.eraser_as_button() {
+            let code = self.input_config.eraser_button_code();
+            let state = match event.tip_state() {
+                TabletToolTipState::Down => ButtonState::Pressed,
+                TabletToolTipState::Up => ButtonState::Released,
+            };
+            tool.button(
+                code,
+                state,
+                SERIAL_COUNTER.next_serial(),
+                event.time_msec(),
+            );
+            return;
+        }
         match event.tip_state() {
             TabletToolTipState::Down => {
                 tool.tip_down(SERIAL_COUNTER.next_serial(), event.time_msec());

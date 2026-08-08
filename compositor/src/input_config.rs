@@ -39,6 +39,15 @@ pub struct InputConfig {
     pub tip_pressure_curve: Vec<CurvePoint>,
     /// `tabletEraserPressureCurve` — empty = identity.
     pub eraser_pressure_curve: Vec<CurvePoint>,
+    /// Active-area crop origin (mm). Size 0×0 = unset.
+    pub tablet_active_area_pos_x: f64,
+    pub tablet_active_area_pos_y: f64,
+    pub tablet_active_area_size_x: f64,
+    pub tablet_active_area_size_y: f64,
+    /// `0` = hardware eraser tip; `1` = map eraser tip → button.
+    pub tablet_eraser_button_mode: i64,
+    /// Button code when mode=1 (`0` → BTN_STYLUS2 / 331).
+    pub tablet_eraser_button_override: u32,
 }
 
 impl Default for InputConfig {
@@ -55,6 +64,12 @@ impl Default for InputConfig {
             tablet_pressure_max: -1.0,
             tip_pressure_curve: Vec::new(),
             eraser_pressure_curve: Vec::new(),
+            tablet_active_area_pos_x: 0.0,
+            tablet_active_area_pos_y: 0.0,
+            tablet_active_area_size_x: 0.0,
+            tablet_active_area_size_y: 0.0,
+            tablet_eraser_button_mode: 0,
+            tablet_eraser_button_override: 0,
         }
     }
 }
@@ -166,7 +181,62 @@ impl InputConfig {
         }
         cfg.tip_pressure_curve = parse_curve(v.get("tabletTipPressureCurve"));
         cfg.eraser_pressure_curve = parse_curve(v.get("tabletEraserPressureCurve"));
+        if let Some(s) = real_field(v, "tabletActiveAreaPosX") {
+            cfg.tablet_active_area_pos_x = s.max(0.0);
+        }
+        if let Some(s) = real_field(v, "tabletActiveAreaPosY") {
+            cfg.tablet_active_area_pos_y = s.max(0.0);
+        }
+        if let Some(s) = real_field(v, "tabletActiveAreaSizeX") {
+            cfg.tablet_active_area_size_x = s.max(0.0);
+        }
+        if let Some(s) = real_field(v, "tabletActiveAreaSizeY") {
+            cfg.tablet_active_area_size_y = s.max(0.0);
+        }
+        if let Some(i) = v.get("tabletEraserButtonMode").and_then(|x| x.as_i64()) {
+            cfg.tablet_eraser_button_mode = i.clamp(0, 1);
+        }
+        if let Some(i) = v
+            .get("tabletEraserButtonOverride")
+            .and_then(|x| x.as_i64().or_else(|| x.as_u64().map(|u| u as i64)))
+        {
+            cfg.tablet_eraser_button_override = i.max(0) as u32;
+        }
         cfg
+    }
+
+    pub fn active_area_set(&self) -> bool {
+        self.tablet_active_area_size_x > 0.0 && self.tablet_active_area_size_y > 0.0
+    }
+
+    /// Map full-pad normalized (0‥1) coords through the active-area crop.
+    pub fn apply_active_area_norm(&self, fx: f64, fy: f64) -> (f64, f64) {
+        if !self.active_area_set() {
+            return (fx.clamp(0.0, 1.0), fy.clamp(0.0, 1.0));
+        }
+        let px = self.tablet_active_area_pos_x.max(0.0);
+        let py = self.tablet_active_area_pos_y.max(0.0);
+        let sx = self.tablet_active_area_size_x;
+        let sy = self.tablet_active_area_size_y;
+        let pad_w = (px + sx).max(sx);
+        let pad_h = (py + sy).max(sy);
+        let x_mm = fx.clamp(0.0, 1.0) * pad_w;
+        let y_mm = fy.clamp(0.0, 1.0) * pad_h;
+        let nx = ((x_mm - px) / sx).clamp(0.0, 1.0);
+        let ny = ((y_mm - py) / sy).clamp(0.0, 1.0);
+        (nx, ny)
+    }
+
+    pub fn eraser_as_button(&self) -> bool {
+        self.tablet_eraser_button_mode != 0
+    }
+
+    pub fn eraser_button_code(&self) -> u32 {
+        if self.tablet_eraser_button_override > 0 {
+            self.tablet_eraser_button_override
+        } else {
+            331 // BTN_STYLUS2
+        }
     }
 }
 
@@ -267,6 +337,23 @@ mod tests {
     fn sensitivity_scale_default() {
         let c = InputConfig::default();
         assert!((c.sensitivity_scale() - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn active_area_crop_and_eraser_button() {
+        let mut c = InputConfig::default();
+        assert!(!c.active_area_set());
+        assert!(!c.eraser_as_button());
+        c.tablet_active_area_pos_x = 10.0;
+        c.tablet_active_area_size_x = 90.0;
+        c.tablet_active_area_size_y = 50.0;
+        // pad = 100×50; mid of crop → ~0.5
+        let (nx, ny) = c.apply_active_area_norm(0.55, 0.5);
+        assert!((nx - 0.5).abs() < 1e-9);
+        assert!((ny - 0.5).abs() < 1e-9);
+        c.tablet_eraser_button_mode = 1;
+        assert!(c.eraser_as_button());
+        assert_eq!(c.eraser_button_code(), 331);
     }
 
     #[test]
