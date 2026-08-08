@@ -59,6 +59,15 @@ impl BindMods {
         }
     }
 
+    pub const fn logo_alt() -> Self {
+        Self {
+            logo: true,
+            shift: false,
+            ctrl: false,
+            alt: true,
+        }
+    }
+
     pub fn matches(&self, m: &ModifiersState) -> bool {
         m.logo == self.logo
             && m.shift == self.shift
@@ -403,6 +412,18 @@ pub fn default_binds() -> Vec<BindEntry> {
             action: BindAction::Exec(vec!["proteus-screenshot".into()]),
         },
         BindEntry {
+            id: "scratch_toggle".into(),
+            mods: BindMods::logo_only(),
+            key: "s".into(),
+            action: BindAction::Exec(vec!["proteus-workspace".into(), "scratch-toggle".into()]),
+        },
+        BindEntry {
+            id: "scratch_move".into(),
+            mods: BindMods::logo_alt(),
+            key: "s".into(),
+            action: BindAction::Exec(vec!["proteus-workspace".into(), "scratch-move".into()]),
+        },
+        BindEntry {
             id: "files".into(),
             mods: BindMods::logo_only(),
             key: "e".into(),
@@ -666,6 +687,14 @@ mod tests {
         assert!(d.iter().any(|e| e.id == "brightness_down"));
         assert!(d.iter().any(|e| e.id == "workspace_1"));
         assert!(d.iter().any(|e| e.id == "workspace_10"));
+        assert!(d.iter().any(|e| {
+            e.id == "scratch_toggle"
+                && e.mods == BindMods::logo_only()
+                && e.key == "s"
+        }));
+        assert!(d.iter().any(|e| {
+            e.id == "scratch_move" && e.mods == BindMods::logo_alt() && e.key == "s"
+        }));
         assert!(d.iter().any(|e| {
             e.id == "workspace_local_1"
                 && e.mods == BindMods::logo_ctrl()

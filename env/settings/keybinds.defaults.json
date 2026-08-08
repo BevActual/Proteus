@@ -4,5 +4,5 @@
     { "id": "move", "mods": ["super"], "button": "left", "action": "move" },
     { "id": "resize", "mods": ["super"], "button": "right", "action": "resize" }
   ],
-  "_comment": "Optional overrides for compositor session binds + bindm. Keyboard defaults are baked in compositor/src/binds.rs. bindm defaults: Super+LMB move · Super+RMB resize (empty bindm[] disables). Each keyboard override: { \"id\", \"mods\": [\"super\"], \"key\", \"action\": { \"shell\": [\"chrome\",\"beacon\"] } | { \"dispatch\": \"workspace 2\" } | { \"exec\": [\"proteus-terminal\"] } }. Copy to ~/.config/proteus/keybinds.json; then: proteus-compositorctl dispatch reloadbinds"
+  "_comment": "Optional overrides for compositor session binds + bindm. Keyboard defaults are baked in compositor/src/binds.rs (incl. Super+S scratch-toggle · Super+Alt+S scratch-move · Super+Shift+S screenshot). bindm defaults: Super+LMB move · Super+RMB resize (empty bindm[] disables). Each keyboard override: { \"id\", \"mods\": [\"super\"], \"key\", \"action\": { \"shell\": [\"chrome\",\"beacon\"] } | { \"dispatch\": \"workspace 2\" } | { \"exec\": [\"proteus-terminal\"] } }. Copy to ~/.config/proteus/keybinds.json; then: proteus-compositorctl dispatch reloadbinds"
 }

@@ -91,6 +91,10 @@ grep -q 'identify_render_elements' "${CRATE}/src/winit.rs" "${CRATE}/src/drm.rs"
 [[ -f "${CRATE}/src/binds.rs" ]] || die "missing binds.rs (session keybinds)"
 grep -q 'reloadbinds\|BindsState\|default_binds' "${CRATE}/src/binds.rs" "${CRATE}/src/ctl.rs" "${CRATE}/src/input.rs" \
   || die "keybinds SoT / reloadbinds missing"
+grep -q 'scratch_toggle\|scratch-toggle' "${CRATE}/src/binds.rs" \
+  && grep -q 'scratch_move\|scratch-move' "${CRATE}/src/binds.rs" \
+  && grep -q 'logo_alt' "${CRATE}/src/binds.rs" \
+  || die "Scratchpad Super+S / Super+Alt+S binds missing"
 grep -q 'id: "files"' "${CRATE}/src/binds.rs" \
   && grep -q 'xf86audioraisevolume\|xf86monbrightnessdown' "${CRATE}/src/binds.rs" \
   || die "files / XF86 media default binds missing"
