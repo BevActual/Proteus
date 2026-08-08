@@ -207,9 +207,24 @@ fn active_focus_profile(settings: &Value) -> Option<&Value> {
         })
 }
 
+/// Settings / escape apps — allowed when profile `breakCritical` is true (default).
+fn is_critical_escape(desktop_id: &str) -> bool {
+    desktop_id.contains("proteus-settings")
+        || desktop_id == "org.proteus.settings"
+        || desktop_id.contains("proteussettings")
+}
+
+fn profile_break_critical(profile: &Value) -> bool {
+    profile
+        .get("breakCritical")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true)
+}
+
 /// Whether a Beacon/Dock launch target is permitted under the active Focus profile.
 ///
 /// When Focus is off → always allow. When on:
+/// - `breakCritical` (default true) always allows Settings escape apps
 /// - `keywordDeny` substrings block the desktop id
 /// - non-empty `allowedApps` is a whitelist (desktop id / basename match)
 /// - else non-empty `keywordAllow` requires a substring match
@@ -230,6 +245,9 @@ pub fn focus_launch_allowed(desktop_id: &str) -> bool {
     let Some(profile) = active_focus_profile(&settings) else {
         return true;
     };
+    if profile_break_critical(profile) && is_critical_escape(&id) {
+        return true;
+    }
     let deny = string_list(profile.get("keywordDeny"));
     if deny.iter().any(|k| id.contains(k.as_str())) {
         return false;
@@ -258,6 +276,9 @@ pub fn focus_launch_allowed_for_profile(desktop_id: &str, profile: &Value, focus
         .trim_end_matches(".desktop")
         .to_lowercase();
     if id.is_empty() {
+        return true;
+    }
+    if profile_break_critical(profile) && is_critical_escape(&id) {
         return true;
     }
     let deny = string_list(profile.get("keywordDeny"));
@@ -347,6 +368,22 @@ mod tests {
         assert!(focus_launch_allowed_for_profile("proteus-terminal", &kw, true));
         assert!(!focus_launch_allowed_for_profile("game-store", &kw, true));
         assert!(!focus_launch_allowed_for_profile("firefox", &kw, true));
+
+        let locked = json!({
+            "breakCritical": true,
+            "allowedApps": ["ghostty"],
+            "keywordAllow": [],
+            "keywordDeny": []
+        });
+        assert!(focus_launch_allowed_for_profile("proteus-settings", &locked, true));
+        assert!(!focus_launch_allowed_for_profile("firefox", &locked, true));
+        let no_escape = json!({
+            "breakCritical": false,
+            "allowedApps": ["ghostty"],
+            "keywordAllow": [],
+            "keywordDeny": []
+        });
+        assert!(!focus_launch_allowed_for_profile("proteus-settings", &no_escape, true));
     }
 }
 

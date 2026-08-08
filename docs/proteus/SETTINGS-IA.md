@@ -292,7 +292,7 @@ pages via lazy leaf loaders (`DesktopGapsLeaf`, `DesktopChromeLeaf`,
 | Dock & menu bar | Show; layout Center/Span/Left/Right; icon size; rounding; autohide; menu bar height/rounding/autohide → `settings.json` (shell mtime). Monitor Facts Out |
 | Spaces | Displays share Spaces (`workspaceMode` synced \| perDisplay); **Named Spaces** (`workspaceNames` + compositor `renameworkspace`); Super+**1–10** synced · **Super+Ctrl+1–10** local (`workspace N,local`); Super+Shift move still Out; strip drag `workspaceOrder` + wheel; **Scratchpad ◇** menu-bar pill → `special:scratch` park/restore In (compositor id `-98` · ≠ dock `special:minimized` `-99`) · **Super+S** toggle / **Super+Alt+S** move (`proteus-workspace`); overview Scratchpad Out; **custom specials** (`specialWorkspaces` CRUD · strip pills ≤8 · Super+Alt+1–8 / Super+Alt+Shift+1–8 index + optional per-slug toggle + move chords); bands via `proteus-workspace`; multi-head `status`/`ensure` + disconnect `migrate-disconnect`; shell-smoke ◇ gate |
 | Default apps | Browser / Files / Images / Music / Video / PDF / Text / Archives / Mail / Calendar via `proteus-defaults.py` + `xdg-mime`; mimeapps.list escape |
-| Focus | Soft quiet profiles (seed Work/Personal + **add/rename/delete** In thin); keywordAllow/Deny CSV In; **allowedApps** CSV In; **schedule** `{enabled, days[1–7], start, end}` In + shell edge auto-apply; **shell Beacon/Dock launch enforce** when Focus on (allowedApps whitelist · keywordDeny · keywordAllow); critical · RRULE Out; active chips + enable; CC menu + Desktop → Focus leaf |
+| Focus | Soft quiet profiles (seed Work/Personal + **add/rename/delete** In thin); keywordAllow/Deny CSV In; **allowedApps** CSV In; **schedule** `{enabled, days[1–7], start, end}` In + shell edge auto-apply; **shell Beacon/Dock launch enforce** when Focus on (allowedApps whitelist · keywordDeny · keywordAllow); **critical break** (`breakCritical` · Settings escape) In; RRULE Out; active chips + enable; CC menu + Desktop → Focus leaf |
 | Control Center | Plates + tile visibility/size/span/order + **columns 2\|3** + reset (`ControlCenterLayout`); Settings → Desktop → Control Center |
 | Beacon | Universal search: Apps · Settings · Windows · Files index (`beacon-file-index`) · **Clipboard** (`cliphist` + `wl-copy`, optional `wtype`) · **Calc** thin arithmetic; tags/mode chrome / unit convert Out; clear recents In |
 
@@ -467,7 +467,7 @@ Super+1–10 logical SoT + Scratchpad ◇ · Super+S/Alt+S + custom special CRUD
 *(Focus profile CRUD thin In: Desktop → Focus add/rename/delete · keyword
 Allow/Deny · allowedApps · schedule window · enable + active picker ·
 settings.json `focusProfiles` — shell schedule auto-apply + launch enforce In;
-critical UI · RRULE · duplicate/reorder · CC inline CRUD Out.)*
+critical break UI In · RRULE · duplicate/reorder · CC inline CRUD Out.)*
 *(CC columns UI: ControlCenterLayout.setColumns · Settings Layout segmented 2|3 ·
 control-center-smoke · roundtrip columns shipped — panel width scaling · CC
 inline Customize · per-monitor columns Out.)*

@@ -277,6 +277,9 @@ grep -q 'apply_focus_schedule\|schedule_window_active\|focus_schedule_last' \
 grep -q 'focus_launch_allowed\|gate_launch_for_focus' \
   "${PLATFORM}/focus.rs" "${APP}/handlers/overlays.rs" "${APP}/handlers/dock.rs" \
   && ok "Focus launch enforce thin" || bad "Focus launch enforce missing"
+grep -q 'breakCritical\|is_critical_escape\|profile_break_critical' \
+  "${PLATFORM}/focus.rs" \
+  && ok "Focus critical-break honor thin" || bad "Focus critical-break honor missing"
 grep -rq --include='*.rs' 'DOCK_MAG_CELLS\|dock_mag_falloff\|dock_mag_strength' \
   "${SURFACES}" "${APP}" "${MAIN}" \
   && bad "dock magnify helpers must be removed" \

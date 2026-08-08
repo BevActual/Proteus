@@ -196,6 +196,9 @@ grep -q 'FocusAdd\|FocusRename\|FocusDelete\|focus_profile_add\|focus_profile_de
 grep -q 'FocusAllowedAppsCommit\|FocusScheduleCommit\|focus_profile_set_allowed_apps\|focus_profile_set_schedule' \
   "${ST_ROOT}/src/panes/desktop.rs" "${ST_ROOT}/src/backend.rs" "${ST_ROOT}/src/main.rs" \
   && ok "desktop Focus schedule/allowlist thin" || bad "Focus schedule/allowlist missing"
+grep -q 'FocusBreakCritical\|focus_profile_set_break_critical\|breakCritical' \
+  "${ST_ROOT}/src/panes/desktop.rs" "${ST_ROOT}/src/backend.rs" "${ST_ROOT}/src/main.rs" \
+  && ok "desktop Focus critical-break thin" || bad "Focus critical-break missing"
 grep -q 'ConnectOAuth\|accounts_connect_oauth' "${ST_ROOT}/src/panes/accounts.rs" "${ST_ROOT}/src/backend.rs" \
   && ok "Accounts OAuth PKCE wire" || bad "Accounts OAuth missing"
 [[ -f "${ST_ROOT}/src/panes/displays.rs" ]] \
