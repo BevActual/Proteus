@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# compositor-next-portal-screenshot.sh — isolated dbus + xdp-wlr Screenshot.
+# compositor-portal-screenshot.sh — isolated dbus + xdp-wlr Screenshot.
 #
-# Usage: WAYLAND_DISPLAY=wayland-N ./dev/smoke/compositor-next-portal-screenshot.sh OUT.png
+# Usage: WAYLAND_DISPLAY=wayland-N ./dev/smoke/compositor-portal-screenshot.sh OUT.png
 # Exit 0 on non-empty OUT.png; exit 2 if xdp-wlr / deps missing; exit 1 on hard failure.
 set -euo pipefail
 
@@ -16,23 +16,23 @@ for cand in /usr/lib/xdg-desktop-portal-wlr /usr/libexec/xdg-desktop-portal-wlr;
   fi
 done
 if [[ -z "${XDP_WLR}" ]]; then
-  echo "compositor-next-portal-screenshot: xdg-desktop-portal-wlr missing" >&2
+  echo "compositor-portal-screenshot: xdg-desktop-portal-wlr missing" >&2
   exit 2
 fi
 if [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
-  echo "compositor-next-portal-screenshot: WAYLAND_DISPLAY unset" >&2
+  echo "compositor-portal-screenshot: WAYLAND_DISPLAY unset" >&2
   exit 1
 fi
 if [[ ! -x /usr/lib/xdg-desktop-portal ]]; then
-  echo "compositor-next-portal-screenshot: xdg-desktop-portal missing" >&2
+  echo "compositor-portal-screenshot: xdg-desktop-portal missing" >&2
   exit 2
 fi
 command -v dbus-run-session >/dev/null 2>&1 || {
-  echo "compositor-next-portal-screenshot: dbus-run-session missing" >&2
+  echo "compositor-portal-screenshot: dbus-run-session missing" >&2
   exit 2
 }
 command -v gdbus >/dev/null 2>&1 || {
-  echo "compositor-next-portal-screenshot: gdbus missing" >&2
+  echo "compositor-portal-screenshot: gdbus missing" >&2
   exit 2
 }
 
@@ -78,7 +78,7 @@ req="$(gdbus call --session \
   | sed -n "s/.*(objectpath '\''\\([^'\'']*\\)'\'').*/\\1/p" || true)"
 
 if [[ -z "${req}" ]]; then
-  echo "compositor-next-portal-screenshot: Screenshot request failed" >&2
+  echo "compositor-portal-screenshot: Screenshot request failed" >&2
   cat "${WLR_LOG}" >&2 || true
   cat "${XDP_LOG}" >&2 || true
   exit 1
@@ -99,7 +99,7 @@ for _ in $(seq 1 50); do
   sleep 0.1
 done
 
-echo "compositor-next-portal-screenshot: no Response uri" >&2
+echo "compositor-portal-screenshot: no Response uri" >&2
 cat "${WLR_LOG}" >&2 || true
 cat "${XDP_LOG}" >&2 || true
 exit 1

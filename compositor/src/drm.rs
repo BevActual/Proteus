@@ -175,7 +175,7 @@ pub fn init_drm(
                     .map(|p| p.display().to_string())
                     .collect();
                 eprintln!(
-                    "proteus-compositor-next: drm enumerate gpus ({}): {}",
+                    "proteus-compositor: drm enumerate gpus ({}): {}",
                     list.len(),
                     if list.is_empty() {
                         "(none)".into()
@@ -184,11 +184,11 @@ pub fn init_drm(
                     }
                 );
             }
-            Err(e) => eprintln!("proteus-compositor-next: drm enumerate gpus failed: {e}"),
+            Err(e) => eprintln!("proteus-compositor: drm enumerate gpus failed: {e}"),
         }
     }
     eprintln!(
-        "proteus-compositor-next: drm primary gpu {}",
+        "proteus-compositor: drm primary gpu {}",
         primary
             .dev_path()
             .map(|p| p.display().to_string())
@@ -260,11 +260,11 @@ pub fn init_drm(
                     let _ = surf.surface.frame_submitted();
                 }
                 if let Err(e) = render_drm_crtc(&runtime_vblank, data, event_crtc) {
-                    eprintln!("proteus-compositor-next: drm render: {e}");
+                    eprintln!("proteus-compositor: drm render: {e}");
                 }
             }
             DrmEvent::Error(err) => {
-                eprintln!("proteus-compositor-next: drm error: {err:?}");
+                eprintln!("proteus-compositor: drm error: {err:?}");
             }
         }
     })?;
@@ -274,17 +274,17 @@ pub fn init_drm(
         .handle()
         .insert_source(notifier, move |event, _, _data| match event {
             SessionEvent::PauseSession => {
-                eprintln!("proteus-compositor-next: drm session pause");
+                eprintln!("proteus-compositor: drm session pause");
                 libinput_context.suspend();
                 runtime_session.borrow_mut().drm.pause();
             }
             SessionEvent::ActivateSession => {
-                eprintln!("proteus-compositor-next: drm session activate");
+                eprintln!("proteus-compositor: drm session activate");
                 if let Err(e) = libinput_context.resume() {
-                    eprintln!("proteus-compositor-next: libinput resume: {e:?}");
+                    eprintln!("proteus-compositor: libinput resume: {e:?}");
                 }
                 if let Err(e) = runtime_session.borrow_mut().drm.activate(false) {
-                    eprintln!("proteus-compositor-next: drm activate: {e:?}");
+                    eprintln!("proteus-compositor: drm activate: {e:?}");
                 }
             }
         })?;
@@ -305,10 +305,10 @@ pub fn init_drm(
             if !relevant {
                 return;
             }
-            eprintln!("proteus-compositor-next: drm udev hotplug {event:?}");
+            eprintln!("proteus-compositor: drm udev hotplug {event:?}");
             let mut rt = runtime_udev.borrow_mut();
             if let Err(e) = sync_connectors(&mut rt, &dh_udev, &mut data.state) {
-                eprintln!("proteus-compositor-next: connector sync: {e}");
+                eprintln!("proteus-compositor: connector sync: {e}");
             }
             data.state.relayout_active();
         })?;
@@ -317,7 +317,7 @@ pub fn init_drm(
     let crtcs: Vec<_> = runtime.borrow().surfaces.keys().copied().collect();
     for crtc in crtcs {
         if let Err(e) = render_drm_crtc(&runtime, data, crtc) {
-            eprintln!("proteus-compositor-next: drm initial render: {e}");
+            eprintln!("proteus-compositor: drm initial render: {e}");
         }
     }
 
@@ -331,7 +331,7 @@ fn resolve_primary_gpu(session: &LibSeatSession) -> Result<DrmNode, Box<dyn std:
         if path.is_empty() {
             return Err("PROTEUS_DRM_DEVICE is set but empty".into());
         }
-        eprintln!("proteus-compositor-next: drm using PROTEUS_DRM_DEVICE={path}");
+        eprintln!("proteus-compositor: drm using PROTEUS_DRM_DEVICE={path}");
         return DrmNode::from_path(path).map_err(|e| {
             format!("PROTEUS_DRM_DEVICE={path} open failed: {e}").into()
         });
@@ -367,7 +367,7 @@ fn resolve_drm_output_transform(node_path: Option<&std::path::Path>) -> Transfor
     if raw.is_empty() {
         if node_path.is_some_and(is_virtio_gpu_node) {
             eprintln!(
-                "proteus-compositor-next: virtio-gpu — transform=Normal (set PROTEUS_DRM_TRANSFORM=180|flipped if upside-down)"
+                "proteus-compositor: virtio-gpu — transform=Normal (set PROTEUS_DRM_TRANSFORM=180|flipped if upside-down)"
             );
         }
         return Transform::Normal;
@@ -383,12 +383,12 @@ fn resolve_drm_output_transform(node_path: Option<&std::path::Path>) -> Transfor
         "flipped270" => Transform::Flipped270,
         other => {
             eprintln!(
-                "proteus-compositor-next: unknown PROTEUS_DRM_TRANSFORM={other} — Normal"
+                "proteus-compositor: unknown PROTEUS_DRM_TRANSFORM={other} — Normal"
             );
             Transform::Normal
         }
     };
-    eprintln!("proteus-compositor-next: drm output transform={t:?} (env)");
+    eprintln!("proteus-compositor: drm output transform={t:?} (env)");
     t
 }
 
@@ -537,7 +537,7 @@ fn sync_connectors(
     for (crtc, conn, output) in existing_conns {
         if !wanted.contains_key(&conn) {
             eprintln!(
-                "proteus-compositor-next: drm disconnect {}",
+                "proteus-compositor: drm disconnect {}",
                 output.name()
             );
             state.space.unmap_output(&output);
@@ -557,12 +557,12 @@ fn sync_connectors(
         match create_output_surface(rt, display_handle, info, *mode, *crtc, *conn) {
             Ok(surf) => {
                 eprintln!(
-                    "proteus-compositor-next: drm connect {}",
+                    "proteus-compositor: drm connect {}",
                     surf.output.name()
                 );
                 rt.surfaces.insert(*crtc, surf);
             }
-            Err(e) => eprintln!("proteus-compositor-next: map connector failed: {e}"),
+            Err(e) => eprintln!("proteus-compositor: map connector failed: {e}"),
         }
     }
 
@@ -598,7 +598,7 @@ fn create_output_surface(
             size: (phys_w as i32, phys_h as i32).into(),
             subpixel: Subpixel::Unknown,
             make: "Proteus".into(),
-            model: "compositor-next-drm".into(),
+            model: "compositor-drm".into(),
         },
     );
     let _global = output.create_global::<CompositorNext>(display_handle);
@@ -657,6 +657,7 @@ fn rearrange_outputs(rt: &mut DrmRuntime, state: &mut CompositorNext) {
                     .map(|f| (f.x, f.y))
                     .unwrap_or((0, 0));
                 state.space.map_output(&surf.output, (x, y));
+                state.wm.ensure_output(&surf.output.name());
                 layer_map_for_output(&surf.output).arrange();
             }
         }
@@ -667,6 +668,7 @@ fn rearrange_outputs(rt: &mut DrmRuntime, state: &mut CompositorNext) {
     for (crtc, _, size) in &entries {
         if let Some(surf) = rt.surfaces.get(crtc) {
             state.space.map_output(&surf.output, (x, 0));
+            state.wm.ensure_output(&surf.output.name());
             layer_map_for_output(&surf.output).arrange();
         }
         x += size.w;
@@ -694,15 +696,28 @@ fn render_drm_crtc(
     };
 
     let output = rt.surfaces.get(&crtc).unwrap().output.clone();
+    let clear = data.state.render_clear_color();
     {
         let DrmRuntime {
             renderer,
             surfaces,
             ..
         } = &mut *rt;
-        let ssd = data.state.ssd_render_elements(renderer, &output);
-        let focus = data.state.focus_ring_render_elements(renderer, &output);
-        let identify = data.state.identify_render_elements(renderer, &output);
+        let ssd = if data.state.session_lock_active() {
+            Vec::new()
+        } else {
+            data.state.ssd_render_elements(renderer, &output)
+        };
+        let focus = if data.state.session_lock_active() {
+            Vec::new()
+        } else {
+            data.state.focus_ring_render_elements(renderer, &output)
+        };
+        let identify = if data.state.session_lock_active() {
+            Vec::new()
+        } else {
+            data.state.identify_render_elements(renderer, &output)
+        };
         let cursor = data.state.cursor_render_elements(renderer, &output);
         let mut custom = ssd;
         custom.extend(focus);
@@ -723,11 +738,14 @@ fn render_drm_crtc(
             &mut fb,
             1.0,
             age as usize,
-            [&data.state.space],
+            data.state.render_space_iter(),
             &custom,
             &mut surf.damage_tracker,
-            [0.06, 0.07, 0.09, 1.0],
+            clear,
         );
+        let _ = data
+            .state
+            .draw_session_lock_surfaces(renderer, &mut fb, &output);
     }
 
     let mode_size: Size<i32, smithay::utils::Physical> = output
@@ -743,6 +761,8 @@ fn render_drm_crtc(
         .queue_buffer(None, Some(damage), ())
         .map_err(|e| format!("queue_buffer: {e:?}"))?;
 
+    data.state.session_lock_after_output_render(&output);
+
     // Offscreen readback for screencopy (same pattern as winit).
     let size = mode_size;
     {
@@ -757,9 +777,15 @@ fn render_drm_crtc(
             Offscreen::<GlesTexture>::create_buffer(renderer, Fourcc::Abgr8888, buf_size)
         {
             if let Ok(mut fb) = renderer.bind(&mut tex) {
-                let mut custom = data.state.ssd_render_elements(renderer, &output);
-                custom.extend(data.state.focus_ring_render_elements(renderer, &output));
-                custom.extend(data.state.identify_render_elements(renderer, &output));
+                let mut custom = if data.state.session_lock_active() {
+                    Vec::new()
+                } else {
+                    data.state.ssd_render_elements(renderer, &output)
+                };
+                if !data.state.session_lock_active() {
+                    custom.extend(data.state.focus_ring_render_elements(renderer, &output));
+                    custom.extend(data.state.identify_render_elements(renderer, &output));
+                }
                 custom.extend(data.state.cursor_render_elements(renderer, &output));
                 let _ = smithay::desktop::space::render_output::<
                     _,
@@ -772,11 +798,14 @@ fn render_drm_crtc(
                     &mut fb,
                     1.0,
                     0,
-                    [&data.state.space],
+                    data.state.render_space_iter(),
                     &custom,
                     &mut surf.capture_damage,
-                    [0.06, 0.07, 0.09, 1.0],
+                    clear,
                 );
+                let _ = data
+                    .state
+                    .draw_session_lock_surfaces(renderer, &mut fb, &output);
                 let rect = Rectangle::from_size(buf_size);
                 if let Ok(mapping) = renderer.copy_framebuffer(&fb, rect, Fourcc::Abgr8888) {
                     if let Ok(pixels) = renderer.map_texture(&mapping) {
@@ -796,24 +825,29 @@ fn render_drm_crtc(
 
     drop(rt);
 
-    data.state.space.elements().for_each(|window| {
-        window.send_frame(
-            &output,
-            data.state.start_time.elapsed(),
-            Some(Duration::ZERO),
-            |_, _| Some(output.clone()),
-        );
-    });
-    let map = layer_map_for_output(&output);
-    for layer in map.layers() {
-        layer.send_frame(
-            &output,
-            data.state.start_time.elapsed(),
-            Some(Duration::ZERO),
-            |_, _| Some(output.clone()),
-        );
+    let frame_time = data.state.start_time.elapsed().as_millis() as u32;
+    data.state.send_lock_surface_frames(&output, frame_time);
+
+    if !data.state.session_lock_active() {
+        data.state.space.elements().for_each(|window| {
+            window.send_frame(
+                &output,
+                data.state.start_time.elapsed(),
+                Some(Duration::ZERO),
+                |_, _| Some(output.clone()),
+            );
+        });
+        let map = layer_map_for_output(&output);
+        for layer in map.layers() {
+            layer.send_frame(
+                &output,
+                data.state.start_time.elapsed(),
+                Some(Duration::ZERO),
+                |_, _| Some(output.clone()),
+            );
+        }
+        drop(map);
     }
-    drop(map);
 
     data.state.space.refresh();
     data.state.popups.cleanup();

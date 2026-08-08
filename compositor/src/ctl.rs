@@ -66,7 +66,7 @@ pub fn init_ctl(
     state.ctl_path = Some(path.clone());
     std::env::set_var("PROTEUS_COMPOSITOR_SOCK", &path);
     eprintln!(
-        "proteus-compositor-next: ctl socket {}",
+        "proteus-compositor: ctl socket {}",
         path.display()
     );
     Ok(path)
@@ -123,7 +123,7 @@ impl CompositorNext {
             if rest == "input-reload" || rest == "reload input" {
                 self.input_config.reload();
                 eprintln!(
-                    "proteus-compositor-next: input-reload sensitivity={} scale={:.3} natural={} tap={} scroll={}",
+                    "proteus-compositor: input-reload sensitivity={} scale={:.3} natural={} tap={} scroll={}",
                     self.input_config.sensitivity,
                     self.input_config.sensitivity_scale(),
                     self.input_config.natural_scroll,
@@ -150,16 +150,29 @@ impl CompositorNext {
                     self.apply_wm_ops(ops);
                     self.broadcast_event(&format!("dispatch>>{rest}"));
                     if rest.starts_with("workspace ") {
+                        let out = self
+                            .wm
+                            .focused_output
+                            .clone()
+                            .unwrap_or_else(|| self.primary_output_name());
+                        self.broadcast_event(&format!(
+                            "workspace>>{}>>{}",
+                            self.wm.active_workspace, out
+                        ));
+                        // Compat: shell may still parse bare id form.
                         self.broadcast_event(&format!("workspace>>{}", self.wm.active_workspace));
                     }
                     serde_json::json!({"ok": true}).to_string()
                 }
                 Err(e) => serde_json::json!({"ok": false, "error": e}).to_string(),
             }
+        } else if line == "session-lock" {
+            serde_json::json!({"ok": true, "supported": true}).to_string()
         } else if line == "clients" {
             // Prefer live Space / Window geometry for hypr-shaped at/size.
             self.clients_json_live().to_string()
         } else if line == "monitors" {
+            // Registers outputs into per-monitor board state.
             self.monitors_json_live().to_string()
         } else {
             match self.wm.query(line) {
@@ -170,9 +183,17 @@ impl CompositorNext {
     }
 
     /// Hypr-shaped monitors list from Space outputs.
-    pub fn monitors_json_live(&self) -> serde_json::Value {
+    pub fn monitors_json_live(&mut self) -> serde_json::Value {
         use serde_json::{json, Value};
-        let focused_name = self.space.outputs().next().map(|o| o.name());
+        let names: Vec<String> = self.space.outputs().map(|o| o.name()).collect();
+        for name in &names {
+            self.wm.ensure_output(name);
+        }
+        let focused_name = self
+            .wm
+            .focused_output
+            .clone()
+            .or_else(|| names.first().cloned());
         let arr: Vec<Value> = self
             .space
             .outputs()
@@ -191,8 +212,10 @@ impl CompositorNext {
                     })
                     .unwrap_or((geo.size.w.max(0) as u64, geo.size.h.max(0) as u64, 60.0));
                 let scale = output.current_scale().fractional_scale();
+                let name = output.name();
+                let aw = self.wm.active_for_output(&name);
                 json!({
-                    "name": output.name(),
+                    "name": name,
                     "width": w,
                     "height": h,
                     "refreshRate": refresh,
@@ -200,7 +223,11 @@ impl CompositorNext {
                     "y": geo.loc.y,
                     "scale": scale,
                     "transform": 0,
-                    "focused": focused_name.as_deref() == Some(output.name().as_str()),
+                    "focused": focused_name.as_deref() == Some(name.as_str()),
+                    "activeWorkspace": {
+                        "id": aw,
+                        "name": aw.to_string(),
+                    },
                 })
             })
             .collect();
@@ -302,19 +329,33 @@ impl CompositorNext {
     }
 
     pub fn refresh_workspace_visibility(&mut self) {
-        let active = self.wm.active_workspace;
-        let snapshot: Vec<(String, i64, i32, i32)> = self
+        for name in self
+            .space
+            .outputs()
+            .map(|o| o.name())
+            .collect::<Vec<_>>()
+        {
+            self.wm.ensure_output(&name);
+        }
+        let primary = self.primary_output_name();
+        let snapshot: Vec<(String, bool, i32, i32)> = self
             .wm
             .toplevels
             .iter()
-            .map(|t| (t.address.clone(), t.workspace, t.loc_x, t.loc_y))
+            .map(|t| {
+                (
+                    t.address.clone(),
+                    self.wm.window_on_active_board(t, &primary),
+                    t.loc_x,
+                    t.loc_y,
+                )
+            })
             .collect();
 
-        for (addr, ws, x, y) in snapshot {
+        for (addr, on_active, x, y) in snapshot {
             let Some(window) = self.windows.get(&addr).cloned() else {
                 continue;
             };
-            let on_active = ws == active && ws > 0;
             let mapped = self.space.elements().any(|w| w == &window);
             if on_active && !mapped {
                 self.space.map_element(window, (x, y), false);
@@ -325,15 +366,17 @@ impl CompositorNext {
         self.relayout_active();
     }
 
-    /// Tile per output for non-floating, non-fullscreen windows on the active
-    /// workspace using `wm.layout` (dwindle default; equal / master via dispatch).
+    /// Tile per output for non-floating, non-fullscreen windows on each
+    /// output's active board using `wm.layout`.
     pub fn relayout_active(&mut self) {
         let outputs: Vec<_> = self.space.outputs().cloned().collect();
         if outputs.is_empty() {
             return;
         }
         let primary_name = outputs[0].name();
-        let active = self.wm.active_workspace;
+        for o in &outputs {
+            self.wm.ensure_output(&o.name());
+        }
         let layout = self.wm.layout;
         let gaps_out_cfg = self.wm.gaps_out;
         let gaps_in_cfg = self.wm.gaps_in;
@@ -347,6 +390,7 @@ impl CompositorNext {
             let zone = layer_map_for_output(&output).non_exclusive_zone();
             let work_area = work_area_with_exclusive(output_geo, zone);
             let out_name = output.name();
+            let active = self.wm.active_for_output(&out_name);
 
             let tiled: Vec<String> = self
                 .wm
@@ -394,6 +438,9 @@ impl CompositorNext {
     }
 
     pub fn focus_output_named(&mut self, name: &str) {
+        self.wm.ensure_output(name);
+        self.wm.focused_output = Some(name.to_string());
+        self.wm.sync_active_workspace();
         let Some(output) = self.space.outputs().find(|o| o.name() == name).cloned() else {
             return;
         };
@@ -437,12 +484,17 @@ impl CompositorNext {
         let Some(window) = self.windows.get(addr).cloned() else {
             return;
         };
+        let primary = self.primary_output_name();
         if let Some(t) = self.wm.find(addr) {
-            if t.workspace == self.wm.active_workspace && t.workspace > 0 {
+            if self.wm.window_on_active_board(t, &primary) {
                 let mapped = self.space.elements().any(|w| w == &window);
                 if !mapped {
                     self.space
                         .map_element(window.clone(), (t.loc_x, t.loc_y), false);
+                }
+                if !t.output.is_empty() {
+                    self.wm.focused_output = Some(t.output.clone());
+                    self.wm.sync_active_workspace();
                 }
             }
         }
@@ -481,7 +533,7 @@ impl CompositorNext {
                 self.broadcast_event(&format!("dispatch>>{verb}"));
                 self.broadcast_event("activewindow>>");
             }
-            Err(e) => eprintln!("proteus-compositor-next: minimize: {e}"),
+            Err(e) => eprintln!("proteus-compositor: minimize: {e}"),
         }
     }
 
@@ -509,7 +561,7 @@ impl CompositorNext {
             return;
         }
         eprintln!(
-            "proteus-compositor-next: applying displays.json ({} entries)",
+            "proteus-compositor: applying displays.json ({} entries)",
             facts.len()
         );
         for f in &facts {
@@ -525,7 +577,7 @@ impl CompositorNext {
         use smithay::output::Scale;
         let scale = crate::displays::clamp_scale(scale);
         let Some(output) = self.space.outputs().find(|o| o.name() == name).cloned() else {
-            eprintln!("proteus-compositor-next: output scale: unknown {name}");
+            eprintln!("proteus-compositor: output scale: unknown {name}");
             return;
         };
         output.change_current_state(None, None, Some(Scale::Fractional(scale)), None);
@@ -535,7 +587,7 @@ impl CompositorNext {
 
     pub fn set_output_pos(&mut self, name: &str, x: i32, y: i32) {
         let Some(output) = self.space.outputs().find(|o| o.name() == name).cloned() else {
-            eprintln!("proteus-compositor-next: output pos: unknown {name}");
+            eprintln!("proteus-compositor: output pos: unknown {name}");
             return;
         };
         self.space.map_output(&output, (x, y));
@@ -548,12 +600,12 @@ impl CompositorNext {
         if let Some(rt) = self.drm_runtime.clone() {
             match crate::drm::apply_output_mode(&rt, self, name, width, height, refresh_hz) {
                 Ok(()) => return,
-                Err(e) => eprintln!("proteus-compositor-next: drm mode {name}: {e}"),
+                Err(e) => eprintln!("proteus-compositor: drm mode {name}: {e}"),
             }
         }
         // Winit / fallback: update Wayland Mode only (no DRM modeset).
         let Some(output) = self.space.outputs().find(|o| o.name() == name).cloned() else {
-            eprintln!("proteus-compositor-next: output mode: unknown {name}");
+            eprintln!("proteus-compositor: output mode: unknown {name}");
             return;
         };
         let refresh = refresh_hz
@@ -574,7 +626,7 @@ impl CompositorNext {
         self.relayout_active();
         if self.drm_runtime.is_none() {
             eprintln!(
-                "proteus-compositor-next: output mode {name} {width}x{height}: wl-only (no DRM runtime)"
+                "proteus-compositor: output mode {name} {width}x{height}: wl-only (no DRM runtime)"
             );
         }
     }

@@ -690,7 +690,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "compositor-next"
+name = "compositor"
 version = "0.1.0"
 dependencies = [
  "cosmic-text",

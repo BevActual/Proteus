@@ -1,11 +1,13 @@
 //! Compositor state — smallvil-derived (smithay 0.7) + wlr-layer-shell.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     ffi::OsString,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
+
+use smithay::wayland::session_lock::{LockSurface, SessionLocker};
 
 use smithay::{
     desktop::{PopupManager, Space, Window, WindowSurfaceType},
@@ -29,6 +31,7 @@ use smithay::{
             wlr_layer::WlrLayerShellState,
             xdg::{decoration::XdgDecorationState, XdgShellState},
         },
+        session_lock::SessionLockManagerState,
         shm::ShmState,
         socket::ListeningSocketSource,
         viewporter::ViewporterState,
@@ -95,6 +98,17 @@ pub struct CompositorNext {
     pub binds: crate::binds::BindsState,
     /// Pointer / touchpad Facts (`settings.json`); live via `input-reload`.
     pub input_config: crate::input_config::InputConfig,
+
+    /// ext-session-lock-v1 global + locked output list (Smithay).
+    pub session_lock_state: SessionLockManagerState,
+    /// Lock surfaces per output (shell / proteus-session-lock).
+    pub lock_surfaces: Vec<(smithay::output::Output, LockSurface)>,
+    /// Session lock confirmed by the client.
+    pub session_locked: bool,
+    /// Waiting for a blank frame before `SessionLocker::lock()`.
+    pub session_lock_pending: bool,
+    pub pending_locker: Option<SessionLocker>,
+    pub pending_lock_blank_outputs: HashSet<String>,
 }
 
 impl CompositorNext {
@@ -120,6 +134,7 @@ impl CompositorNext {
         let data_device_state = DataDeviceState::new::<Self>(&dh);
         let popups = PopupManager::default();
         let xwayland_shell_state = XWaylandShellState::new::<Self>(&dh);
+        let session_lock_state = SessionLockManagerState::new::<Self, _>(&dh, |_| true);
 
         let mut seat: Seat<Self> = seat_state.new_wl_seat(&dh, seat_name);
         // Repeat delay/rate — slightly conservative so iced text fields and
@@ -168,6 +183,12 @@ impl CompositorNext {
             drm_runtime: None,
             binds: crate::binds::BindsState::load(),
             input_config: crate::input_config::InputConfig::load(),
+            session_lock_state,
+            lock_surfaces: Vec::new(),
+            session_locked: false,
+            session_lock_pending: false,
+            pending_locker: None,
+            pending_lock_blank_outputs: HashSet::new(),
         }
     }
 
@@ -210,6 +231,13 @@ impl CompositorNext {
         &self,
         pos: Point<f64, Logical>,
     ) -> Option<(WlSurface, Point<f64, Logical>)> {
+        if let Some(hit) = self.lock_surface_under(pos) {
+            return Some(hit);
+        }
+        if self.session_lock_active() {
+            return None;
+        }
+
         use smithay::desktop::layer_map_for_output;
         use smithay::wayland::shell::wlr_layer::Layer;
 

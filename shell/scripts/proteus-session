@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # System session wrapper installed to /usr/local/bin/proteus-session
 #
-# Contract (Hyprland purge · OWNED-STACK):
+# Contract (OWNED-STACK · smithay session):
 #   - Best-effort mount /mnt/proteus when that is the product root
-#   - Export PROTEUS_SURFACE, PROTEUS_ROOT, QS_ICON_THEME, PATH for chrome/scripts
+#   - Export PROTEUS_SURFACE, PROTEUS_ROOT, PROTEUS_ICON_THEME, PATH for chrome/scripts
 #   - ENGINE SWITCH — the only place a session compositor is chosen:
 #       posture console + session Fact `session` + usable Gamescope
 #         → proteus-console-gs-session (Gamescope owns the session)
-#       compositor-engine empty|smithay|compositor-next (only shipping engine)
-#         + bare seat → proteus-compositor-next --backend drm -c proteus-chrome
+#       compositor-engine empty|smithay|compositor(|-next) (only shipping engine)
+#         + bare seat → proteus-compositor --backend drm -c proteus-chrome
 #       Fact=hyprland / nested display / missing binary / DRM fail → exit 1
-#         (greeter returns; Hyprland is retired — use ./dev/run-nested.sh for nested)
+#         (greeter returns; use ./dev/run-nested.sh for nested)
 #   - Never exec-once a terminal from this wrapper (Dock / Super+Return only)
 set -euo pipefail
 
@@ -77,21 +77,27 @@ export PROTEUS_SURFACE
 export PROTEUS_SESSION=1
 # Dock / Super+Return → proteus-terminal (Ghostty + VM GL workaround)
 export PATH="/usr/local/bin:${PROTEUS_ROOT}/shell/scripts:${PATH}"
-# Quickshell chrome icons (Papirus); avoids Adwaita-only / missing glyphs
-export QS_ICON_THEME="${QS_ICON_THEME:-Papirus-Dark}"
+# Icon theme for clients (Papirus); avoids Adwaita-only / missing glyphs.
+# QS_ICON_THEME kept as a one-release alias for older helpers.
+export PROTEUS_ICON_THEME="${PROTEUS_ICON_THEME:-${QS_ICON_THEME:-Papirus-Dark}}"
+export QS_ICON_THEME="${QS_ICON_THEME:-${PROTEUS_ICON_THEME}}"
 export QT_QPA_PLATFORMTHEME="${QT_QPA_PLATFORMTHEME:-gtk3}"
 
-# Optional session overrides (`~/.config/proteus/session.env`). Only set
-# PROTEUS_DRM_TRANSFORM here when the *physical* panel is wrong — never from
-# grim/screencopy orientation alone (capture can disagree with the seat).
-_session_env="${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/session.env"
-if [[ -r "${_session_env}" ]]; then
-  # shellcheck disable=SC1090
-  set -a
-  # shellcheck source=/dev/null
-  source "${_session_env}"
-  set +a
-fi
+# Optional session overrides. Only set PROTEUS_DRM_TRANSFORM in session.env
+# when the *physical* panel is wrong — never from grim/screencopy orientation
+# alone (capture can disagree with the seat).
+# hw.env — GPU envs from install/hardware (NVD_BACKEND, LIBVA_*, …).
+for _session_env in \
+  "${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/hw.env" \
+  "${XDG_CONFIG_HOME:-${HOME}/.config}/proteus/session.env"; do
+  if [[ -r "${_session_env}" ]]; then
+    # shellcheck disable=SC1090
+    set -a
+    # shellcheck source=/dev/null
+    source "${_session_env}"
+    set +a
+  fi
+done
 unset _session_env
 
 # --- Phase 3 engine switch: Gamescope-owned console session -----------------
@@ -163,7 +169,7 @@ resolve_compositor_engine() {
       echo "proteus-session: compositor-engine=${raw} refused — Hyprland purged (use smithay)" >&2
       return 1
       ;;
-    ""|smithay|compositor-next)
+    ""|smithay|compositor|compositor-next)
       printf 'smithay'
       return 0
       ;;
@@ -175,18 +181,26 @@ resolve_compositor_engine() {
   esac
 }
 
-resolve_compositor_next() {
+resolve_compositor_bin() {
   local candidate
+  # Prefer new name; keep proteus-compositor-next as one-release guest fallback.
+  if command -v proteus-compositor >/dev/null 2>&1; then
+    command -v proteus-compositor
+    return 0
+  fi
   if command -v proteus-compositor-next >/dev/null 2>&1; then
     command -v proteus-compositor-next
     return 0
   fi
   for candidate in \
+    /usr/local/bin/proteus-compositor \
+    /usr/local/libexec/proteus/proteus-compositor \
     /usr/local/bin/proteus-compositor-next \
-    "${PROTEUS_ROOT}/target/release/proteus-compositor-next" \
-    "${PROTEUS_ROOT}/target/debug/proteus-compositor-next" \
-    "${PROTEUS_ROOT}/compositor-next/target/release/proteus-compositor-next" \
-    "${PROTEUS_ROOT}/compositor-next/target/debug/proteus-compositor-next"
+    /usr/local/libexec/proteus/proteus-compositor-next \
+    "${PROTEUS_ROOT}/target/release/proteus-compositor" \
+    "${PROTEUS_ROOT}/target/debug/proteus-compositor" \
+    "${PROTEUS_ROOT}/compositor/target/release/proteus-compositor" \
+    "${PROTEUS_ROOT}/compositor/target/debug/proteus-compositor"
   do
     if [[ -x "${candidate}" ]]; then
       printf '%s\n' "${candidate}"
@@ -226,8 +240,8 @@ if [[ -n "${WAYLAND_DISPLAY:-}" || -n "${DISPLAY:-}" ]]; then
   exit 1
 fi
 
-if ! COMP_NEXT="$(resolve_compositor_next)"; then
-  echo "proteus-session: proteus-compositor-next missing — refuse (Hyprland purged)" >&2
+if ! COMP_BIN="$(resolve_compositor_bin)"; then
+  echo "proteus-session: proteus-compositor missing — refuse (Hyprland purged)" >&2
   exit 1
 fi
 
@@ -243,9 +257,9 @@ export PROTEUS_COMPOSITOR_ENGINE=smithay
 _sm_start="$(date +%s)"
 set +e
 if [[ -n "${CHROME_BIN}" ]]; then
-  "${COMP_NEXT}" --backend drm -c "${CHROME_BIN}"
+  "${COMP_BIN}" --backend drm -c "${CHROME_BIN}"
 else
-  "${COMP_NEXT}" --backend drm
+  "${COMP_BIN}" --backend drm
 fi
 _sm_rc=$?
 set -e
@@ -253,5 +267,5 @@ _sm_ran=$(( $(date +%s) - _sm_start ))
 if [[ "${_sm_rc}" -eq 0 || "${_sm_ran}" -ge 10 ]]; then
   exit "${_sm_rc}"
 fi
-echo "proteus-session: proteus-compositor-next DRM failed fast (rc=${_sm_rc}) — refuse (Hyprland purged)" >&2
+echo "proteus-session: proteus-compositor DRM failed fast (rc=${_sm_rc}) — refuse (Hyprland purged)" >&2
 exit 1

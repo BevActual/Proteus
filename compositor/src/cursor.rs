@@ -45,7 +45,7 @@ impl Default for CursorState {
             },
             None => {
                 eprintln!(
-                    "proteus-compositor-next: no XCursor left_ptr found — pointer will be blank"
+                    "proteus-compositor: no XCursor left_ptr found — pointer will be blank"
                 );
                 // 1×1 transparent placeholder so render path stays valid.
                 let pixels = [0u8, 0, 0, 0];
@@ -133,7 +133,7 @@ fn load_theme_left_ptr() -> Option<(MemoryRenderBuffer, (f64, f64), Size<i32, Lo
             None,
         );
         eprintln!(
-            "proteus-compositor-next: cursor theme={name} file={} {}x{} hot=({},{})",
+            "proteus-compositor: cursor theme={name} file={} {}x{} hot=({},{})",
             path.display(),
             w,
             h,

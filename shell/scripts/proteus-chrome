@@ -47,7 +47,7 @@ case "${MODE}" in
     ;;
 esac
 
-# Session env — hypr instance + wayland (needed when launched outside exec-once)
+# Session env — Wayland display when launched outside session -c
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 if [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
   if [[ -S "${XDG_RUNTIME_DIR}/wayland-1" ]]; then
@@ -56,27 +56,19 @@ if [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
     export WAYLAND_DISPLAY=wayland-0
   fi
 fi
-if [[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" && -d "${XDG_RUNTIME_DIR}/hypr" ]]; then
-  his=""
-  for d in "${XDG_RUNTIME_DIR}/hypr"/*/; do
-    his="$(basename "${d}")"
-    break
-  done
-  [[ -n "${his}" ]] && export HYPRLAND_INSTANCE_SIGNATURE="${his}"
-fi
 FACE="${PROTEUS_SURFACE:-desktop}"
 case "${FACE}" in console|couch) FACE=console ;; host) FACE=host ;; *) FACE=desktop ;; esac
 
 # Owned shell renders wallpaper on the BG layer — stop any leftover wallpaper helper.
 pkill -x proteus-bg 2>/dev/null || true
 
-# Polkit agent (was hypr exec-once; Hyprland purged).
+# Polkit agent (session helper; package name may still say hypr*).
 if [[ -x /usr/lib/hyprpolkitagent/hyprpolkitagent ]] \
   && ! pgrep -f hyprpolkitagent >/dev/null 2>&1; then
   /usr/lib/hyprpolkitagent/hyprpolkitagent >/dev/null 2>&1 &
 fi
 
-# Cliphist watchers (was hypr exec-once).
+# Cliphist watchers.
 if command -v wl-paste >/dev/null 2>&1 && command -v cliphist >/dev/null 2>&1; then
   if ! pgrep -f 'wl-paste --type text --watch cliphist' >/dev/null 2>&1; then
     wl-paste --type text --watch cliphist store >/dev/null 2>&1 &

@@ -45,7 +45,7 @@ pub fn init_xwayland(
         Ok(pair) => pair,
         Err(e) => {
             eprintln!(
-                "proteus-compositor-next: Xwayland unavailable ({e}) — Wayland-only mode"
+                "proteus-compositor: Xwayland unavailable ({e}) — Wayland-only mode"
             );
             return;
         }
@@ -62,23 +62,23 @@ pub fn init_xwayland(
             data.state.x11_display = Some(display_number);
             let display = format!(":{display_number}");
             std::env::set_var("DISPLAY", &display);
-            eprintln!("proteus-compositor-next: Xwayland ready DISPLAY={display}");
+            eprintln!("proteus-compositor: Xwayland ready DISPLAY={display}");
 
             match X11Wm::start_wm(handle_for_wm.clone(), x11_socket, client.clone()) {
                 Ok(wm) => {
                     data.state.xwm = Some(wm);
-                    eprintln!("proteus-compositor-next: X11Wm attached");
+                    eprintln!("proteus-compositor: X11Wm attached");
                 }
                 Err(e) => {
-                    eprintln!("proteus-compositor-next: X11Wm failed: {e}");
+                    eprintln!("proteus-compositor: X11Wm failed: {e}");
                 }
             }
         }
         XWaylandEvent::Error => {
-            eprintln!("proteus-compositor-next: Xwayland failed to start");
+            eprintln!("proteus-compositor: Xwayland failed to start");
         }
     }) {
-        eprintln!("proteus-compositor-next: insert Xwayland source: {e}");
+        eprintln!("proteus-compositor: insert Xwayland source: {e}");
     }
 }
 
@@ -138,7 +138,7 @@ impl CompositorNext {
         }
         self.broadcast_event(&format!("openwindow>>{address}"));
         eprintln!(
-            "proteus-compositor-next: x11 toplevel mapped: {address}{}",
+            "proteus-compositor: x11 toplevel mapped: {address}{}",
             if override_redirect {
                 " (override-redirect)"
             } else {

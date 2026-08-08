@@ -101,7 +101,7 @@ pub fn screencopy_should_flip_y() -> bool {
                 "0" | "false" | "off" | "no" | "none" => false,
                 other => {
                     eprintln!(
-                        "proteus-compositor-next: unknown PROTEUS_SCREENCOPY_FLIP_Y={other} — auto"
+                        "proteus-compositor: unknown PROTEUS_SCREENCOPY_FLIP_Y={other} — auto"
                     );
                     !virtio_gpu_present()
                 }

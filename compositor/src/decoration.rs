@@ -453,9 +453,9 @@ impl CompositorNext {
     pub fn ssd_hit_at(&self, pos: Point<f64, Logical>) -> Option<SsdHit> {
         let px = pos.x.round() as i32;
         let py = pos.y.round() as i32;
-        let active = self.wm.active_workspace;
+        let primary = self.primary_output_name();
         for t in self.wm.toplevels.iter().rev() {
-            if !t.ssd || t.workspace != active || t.workspace <= 0 {
+            if !t.ssd || !self.wm.window_on_active_board(t, &primary) {
                 continue;
             }
             let Some(window) = self.windows.get(&t.address) else {
@@ -515,14 +515,17 @@ impl CompositorNext {
         };
         let scale = output.current_scale().fractional_scale();
         let focused = self.wm.focused.clone();
-        let active = self.wm.active_workspace;
+        let out_name = output.name();
+        let active = self.wm.active_for_output(&out_name);
+        let primary = self.primary_output_name();
         let mut out = Vec::new();
         let mut keep: Vec<String> = Vec::new();
 
         // Collect draw list first (avoids borrow fights with chrome cache).
         let mut jobs: Vec<(String, String, Rectangle<i32, Logical>, bool, bool)> = Vec::new();
         for t in &self.wm.toplevels {
-            if !t.ssd || t.workspace != active || t.workspace <= 0 {
+            let assigned = self.wm.effective_output(t, &primary);
+            if !t.ssd || assigned != out_name || t.workspace != active || t.workspace <= 0 {
                 continue;
             }
             let Some(window) = self.windows.get(&t.address) else {
@@ -632,12 +635,12 @@ impl CompositorNext {
             self.ssd_chrome.focus_rings.clear();
             return Vec::new();
         };
-        let active = self.wm.active_workspace;
+        let primary = self.primary_output_name();
         let Some(t) = self.wm.toplevels.iter().find(|t| t.address == focused) else {
             return Vec::new();
         };
         // SSD already paints a focused titlebar — ring is for CSD-first path.
-        if t.ssd || t.workspace != active || t.workspace <= 0 || t.fullscreen {
+        if t.ssd || !self.wm.window_on_active_board(t, &primary) || t.fullscreen {
             self.ssd_chrome.focus_rings.clear();
             return Vec::new();
         }

@@ -84,7 +84,7 @@ impl InputConfig {
 
     pub fn from_settings_json(raw: &str) -> Self {
         let Ok(v) = serde_json::from_str::<Value>(raw) else {
-            eprintln!("proteus-compositor-next: settings.json: invalid JSON (input)");
+            eprintln!("proteus-compositor: settings.json: invalid JSON (input)");
             return Self::default();
         };
         Self::from_value(&v)

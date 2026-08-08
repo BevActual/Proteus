@@ -18,7 +18,7 @@ pub fn init_dmabuf_global(
     }
     let formats: Vec<_> = renderer.dmabuf_formats().iter().copied().collect();
     if formats.is_empty() {
-        eprintln!("proteus-compositor-next: dmabuf formats empty — SHM screencopy only");
+        eprintln!("proteus-compositor: dmabuf formats empty — SHM screencopy only");
         return Ok(());
     }
 
@@ -34,7 +34,7 @@ pub fn init_dmabuf_global(
         }
         None => {
             eprintln!(
-                "proteus-compositor-next: no EGL render node — dmabuf global v3 without feedback"
+                "proteus-compositor: no EGL render node — dmabuf global v3 without feedback"
             );
             state
                 .dmabuf_state

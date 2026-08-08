@@ -229,7 +229,7 @@ impl CompositorNext {
     pub fn start_identify(&mut self, secs: Duration) {
         self.identify_until = Some(Instant::now() + secs);
         eprintln!(
-            "proteus-compositor-next: identify for {}s",
+            "proteus-compositor: identify for {}s",
             secs.as_secs().max(1)
         );
     }

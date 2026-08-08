@@ -8,9 +8,9 @@ members = [
     "services/proteus-shell-core",
     "services/proteus-ui",
     "shell",
-    "compositor-next",
+    "compositor",
 ]
-# compositor-next (Smithay rung-2 spike) is opt-in: build with -p compositor-next.
+# compositor (Smithay rung-2 spike) is opt-in: build with -p compositor.
 default-members = [
     "services/proteus-shell-core",
     "services/proteus-ui",

@@ -36,6 +36,9 @@ impl CompositorNext {
                     serial,
                     time,
                     |state, modifiers, handle| {
+                        if state.session_lock_active() {
+                            return FilterResult::Forward;
+                        }
                         if !pressed {
                             return FilterResult::Forward;
                         }
@@ -52,12 +55,15 @@ impl CompositorNext {
                     },
                 );
                 if let Some(Some(action)) = action {
+                    if self.session_lock_active() {
+                        return;
+                    }
                     match &action {
                         BindAction::Dispatch(verb) => {
                             match self.wm.dispatch(verb) {
                                 Ok(ops) => self.apply_wm_ops(ops),
                                 Err(e) => {
-                                    eprintln!("proteus-compositor-next: bind dispatch: {e}")
+                                    eprintln!("proteus-compositor: bind dispatch: {e}")
                                 }
                             }
                         }
@@ -141,6 +147,25 @@ impl CompositorNext {
                 let location = pointer.current_location();
 
                 if ButtonState::Pressed == button_state && !pointer.is_grabbed() {
+                    if self.session_lock_active() {
+                        if let Some((surface, _)) = self.surface_under(location) {
+                            keyboard.set_focus(self, Some(surface), serial);
+                        } else {
+                            keyboard.set_focus(self, Option::<WlSurface>::None, serial);
+                        }
+                        pointer.button(
+                            self,
+                            &ButtonEvent {
+                                button,
+                                state: button_state,
+                                serial,
+                                time: event.time_msec(),
+                            },
+                        );
+                        pointer.frame(self);
+                        return;
+                    }
+
                     // SSD chrome takes precedence over client surfaces under the bar.
                     if let Some(hit) = self.ssd_hit_at(location) {
                         match hit {

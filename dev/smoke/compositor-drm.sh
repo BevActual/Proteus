@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# compositor-next-drm.sh — opt-in live DRM/session prove for compositor-next.
+# compositor-drm.sh — opt-in live DRM/session prove for compositor.
 #
 # DANGER: `--backend drm` claims the seat / modesets. Never run on an active
 # Hyprland graphical session unless you intend to steal the display.
 #
 # Env:
 #   PROTEUS_COMPOSITOR_DRM=1  — required; without it exit 2 SKIP
-#   PROTEUS_COMPOSITOR_NEXT   — optional path to proteus-compositor-next
+#   PROTEUS_COMPOSITOR   — optional path to proteus-compositor
 #   PROTEUS_COMPOSITORCTL     — optional path to proteus-compositorctl
 #
 # Exit 0 — drm spike started, ctl workspaces ok, then stopped
@@ -15,20 +15,20 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-COMP="${PROTEUS_COMPOSITOR_NEXT:-${ROOT}/target/debug/proteus-compositor-next}"
+COMP="${PROTEUS_COMPOSITOR:-${ROOT}/target/debug/proteus-compositor}"
 CTL="${PROTEUS_COMPOSITORCTL:-${ROOT}/target/debug/proteus-compositorctl}"
 
 if [[ "${PROTEUS_COMPOSITOR_DRM:-}" != "1" ]]; then
-  echo "compositor-next-drm: PROTEUS_COMPOSITOR_DRM!=1 — skip live DRM" >&2
+  echo "compositor-drm: PROTEUS_COMPOSITOR_DRM!=1 — skip live DRM" >&2
   exit 2
 fi
 
 if [[ ! -x "${COMP}" ]]; then
-  echo "compositor-next-drm: missing binary ${COMP}" >&2
+  echo "compositor-drm: missing binary ${COMP}" >&2
   exit 1
 fi
 if [[ ! -x "${CTL}" ]]; then
-  echo "compositor-next-drm: missing ctl ${CTL}" >&2
+  echo "compositor-drm: missing ctl ${CTL}" >&2
   exit 1
 fi
 
@@ -52,7 +52,7 @@ PID=$!
 saw=""
 for _ in $(seq 1 50); do
   if ! kill -0 "${PID}" 2>/dev/null; then
-    echo "compositor-next-drm: process exited early" >&2
+    echo "compositor-drm: process exited early" >&2
     cat "${LOG}" >&2 || true
     # Soft-skip when seat/GPU unavailable (typical nested host).
     if grep -qiE 'libseat|no DRM GPU|no connected DRM|session' "${LOG}" 2>/dev/null; then
@@ -68,7 +68,7 @@ for _ in $(seq 1 50); do
 done
 
 if [[ -z "${saw}" ]]; then
-  echo "compositor-next-drm: no drm spike log line" >&2
+  echo "compositor-drm: no drm spike log line" >&2
   cat "${LOG}" >&2 || true
   exit 2
 fi
@@ -84,15 +84,15 @@ for _ in $(seq 1 30); do
 done
 
 if [[ -z "${sock}" || ! -S "${sock}" ]]; then
-  echo "compositor-next-drm: ctl socket missing for ${nested_wd}" >&2
+  echo "compositor-drm: ctl socket missing for ${nested_wd}" >&2
   exit 1
 fi
 
 ws="$(PROTEUS_COMPOSITOR_SOCK="${sock}" "${CTL}" workspaces 2>/dev/null || true)"
 if ! echo "${ws}" | grep -q '\['; then
-  echo "compositor-next-drm: workspaces query failed: ${ws}" >&2
+  echo "compositor-drm: workspaces query failed: ${ws}" >&2
   exit 1
 fi
 
-echo "compositor-next-drm: OK WAYLAND_DISPLAY=${nested_wd}"
+echo "compositor-drm: OK WAYLAND_DISPLAY=${nested_wd}"
 exit 0

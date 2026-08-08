@@ -40,11 +40,11 @@ pub fn load_displays_fact() -> Vec<DisplayFact> {
 
 pub fn parse_displays_fact(raw: &str) -> Vec<DisplayFact> {
     let Ok(v) = serde_json::from_str::<Value>(raw) else {
-        eprintln!("proteus-compositor-next: displays.json: invalid JSON");
+        eprintln!("proteus-compositor: displays.json: invalid JSON");
         return Vec::new();
     };
     let Some(arr) = v.as_array() else {
-        eprintln!("proteus-compositor-next: displays.json: expected array");
+        eprintln!("proteus-compositor: displays.json: expected array");
         return Vec::new();
     };
     arr.iter()

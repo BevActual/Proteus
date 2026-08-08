@@ -4,31 +4,13 @@
 # Skip if SSH unreachable unless PROTEUS_GUEST=1 (then fail closed).
 set -euo pipefail
 
-HOST="${PROTEUS_GUEST_HOST:-127.0.0.1}"
-PORT="${PROTEUS_GUEST_PORT:-2222}"
-USER="${PROTEUS_GUEST_USER:-andrew}"
-REQUIRE="${PROTEUS_GUEST:-0}"
-
-ssh_opts=(
-  -o StrictHostKeyChecking=no
-  -o UserKnownHostsFile=/dev/null
-  -o BatchMode=yes
-  -o ConnectTimeout=3
-  -p "${PORT}"
-)
-
-if ! ssh "${ssh_opts[@]}" "${USER}@${HOST}" 'echo SSH_OK' >/dev/null 2>&1; then
-  if [[ "${REQUIRE}" == "1" ]]; then
-    echo "owned-guest-smoke: FAIL SSH ${USER}@${HOST}:${PORT} unreachable (PROTEUS_GUEST=1)" >&2
-    exit 1
-  fi
-  echo "owned-guest-smoke: SKIP guest SSH unreachable (set PROTEUS_GUEST=1 to require)"
-  exit 0
-fi
+# shellcheck source=dev/smoke/_guest_ssh.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_guest_ssh.sh"
+proteus_guest_ssh_require_or_skip "owned-guest-smoke"
 
 echo "owned-guest-smoke: guest SSH OK — assert owned chrome live"
 
-out="$(ssh "${ssh_opts[@]}" "${USER}@${HOST}" 'bash -s' <<'EOF'
+out="$(proteus_guest_ssh 'bash -s' <<'EOF'
 set -uo pipefail
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
@@ -86,41 +68,39 @@ else
   echo "SETTINGS_BIN_MISSING"
 fi
 
-# hypr exec-once uses proteus-chrome (Hyprland fallback path)
-if grep -qE 'exec-once[[:space:]]*=[[:space:]].*proteus-chrome' \
-  "${XDG_CONFIG_HOME:-$HOME/.config}/hypr/hyprland.conf" 2>/dev/null; then
-  echo "HYPR_CHROME_OK"
-else
-  echo "HYPR_CHROME_FAIL"
-fi
-
-# smithay session markers (shipping default)
+# smithay session (only shipping path — Hyprland purged)
 comp_eng="$(tr -d '[:space:]' <"${XDG_CONFIG_HOME:-$HOME/.config}/proteus/compositor-engine" 2>/dev/null || true)"
 comp_eng="$(printf '%s' "${comp_eng}" | tr '[:upper:]' '[:lower:]')"
 echo "COMPOSITOR_ENGINE=${comp_eng:-empty}"
-if [[ "${comp_eng}" == "smithay" || "${comp_eng}" == "compositor-next" ]]; then
+if [[ "${comp_eng}" == "smithay" || "${comp_eng}" == "compositor" || "${comp_eng}" == "compositor-next" || -z "${comp_eng}" ]]; then
+  # empty Fact is treated as smithay by proteus-session
   echo "COMPOSITOR_ENGINE_SMITHAY"
 fi
-if command -v proteus-compositor-next >/dev/null 2>&1 \
-  || [[ -x /usr/local/bin/proteus-compositor-next ]] \
-  || [[ -x /usr/local/libexec/proteus/proteus-compositor-next ]]; then
+if command -v proteus-compositor >/dev/null 2>&1 \
+  || [[ -x /usr/local/bin/proteus-compositor ]] \
+  || [[ -x /usr/local/libexec/proteus/proteus-compositor ]]; then
   echo "COMPOSITOR_BIN_OK"
 else
   echo "COMPOSITOR_BIN_MISSING"
 fi
-if pgrep -x proteus-compositor-next >/dev/null 2>&1; then
+if pgrep -x proteus-compositor >/dev/null 2>&1; then
   echo "COMPOSITOR_LIVE"
 fi
-# Chrome path: hypr exec-once OR smithay engine+binary (session -c proteus-chrome)
-if [[ "${comp_eng}" == "smithay" || "${comp_eng}" == "compositor-next" ]]; then
-  if command -v proteus-compositor-next >/dev/null 2>&1 \
-    || [[ -x /usr/local/bin/proteus-compositor-next ]] \
-    || [[ -x /usr/local/libexec/proteus/proteus-compositor-next ]]; then
+# Chrome path: smithay Fact (or empty) + compositor binary (session -c proteus-chrome)
+if command -v proteus-compositor >/dev/null 2>&1 \
+  || [[ -x /usr/local/bin/proteus-compositor ]] \
+  || [[ -x /usr/local/libexec/proteus/proteus-compositor ]]; then
+  if [[ "${comp_eng}" == "smithay" || "${comp_eng}" == "compositor" \
+     || "${comp_eng}" == "compositor-next" || -z "${comp_eng}" ]]; then
     echo "CHROME_PATH_OK"
   fi
-elif grep -qE 'exec-once[[:space:]]*=[[:space:]].*proteus-chrome' \
-  "${XDG_CONFIG_HOME:-$HOME/.config}/hypr/hyprland.conf" 2>/dev/null; then
-  echo "CHROME_PATH_OK"
+fi
+# Refuse lingering Hyprland session engine
+if [[ "${comp_eng}" == "hyprland" ]]; then
+  echo "COMPOSITOR_ENGINE_HYPRLAND"
+fi
+if pgrep -x Hyprland >/dev/null 2>&1; then
+  echo "HYPRLAND_STILL_RUNNING"
 fi
 
 # HUD / lock ctl verbs
@@ -188,20 +168,14 @@ echo "${out}" | grep -q '^SHELL_LIVE$' || { echo "owned-guest-smoke: FAIL proteu
 echo "${out}" | grep -q '^QS_CHROME_CLEAR$' || { echo "owned-guest-smoke: FAIL Quickshell/proteus-qs still primary chrome" >&2; fail=1; }
 echo "${out}" | grep -q '^CTL_OK$' || { echo "owned-guest-smoke: FAIL proteus-shellctl" >&2; fail=1; }
 echo "${out}" | grep -q '^SETTINGS_BIN_OK$' || { echo "owned-guest-smoke: FAIL proteus-settings bin missing" >&2; fail=1; }
-# Dual-path chrome: hypr exec-once OR smithay Fact+binary (session -c proteus-chrome)
-if ! echo "${out}" | grep -q '^CHROME_PATH_OK$'; then
-  if echo "${out}" | grep -q '^HYPR_CHROME_OK$'; then
-    : # legacy marker alone is enough
-  else
-    echo "owned-guest-smoke: FAIL chrome path (need hypr proteus-chrome or smithay+binary)" >&2
-    fail=1
-  fi
-fi
-# When Fact is smithay, binary must exist (soft on COMP_LIVE — SSH may lack seat)
-if echo "${out}" | grep -q '^COMPOSITOR_ENGINE_SMITHAY$'; then
-  echo "${out}" | grep -q '^COMPOSITOR_BIN_OK$' \
-    || { echo "owned-guest-smoke: FAIL smithay Fact but proteus-compositor-next missing" >&2; fail=1; }
-fi
+echo "${out}" | grep -q '^CHROME_PATH_OK$' \
+  || { echo "owned-guest-smoke: FAIL chrome path (need smithay Fact + proteus-compositor)" >&2; fail=1; }
+echo "${out}" | grep -q '^COMPOSITOR_BIN_OK$' \
+  || { echo "owned-guest-smoke: FAIL proteus-compositor missing" >&2; fail=1; }
+echo "${out}" | grep -q '^COMPOSITOR_ENGINE_HYPRLAND$' \
+  && { echo "owned-guest-smoke: FAIL compositor-engine=hyprland (purged)" >&2; fail=1; }
+echo "${out}" | grep -q '^HYPRLAND_STILL_RUNNING$' \
+  && { echo "owned-guest-smoke: FAIL Hyprland still running" >&2; fail=1; }
 echo "${out}" | grep -q '^HUD_OK$' || { echo "owned-guest-smoke: FAIL hud ctl" >&2; fail=1; }
 echo "${out}" | grep -q '^LOCK_OK$' || { echo "owned-guest-smoke: FAIL lock ctl" >&2; fail=1; }
 echo "${out}" | grep -q '^BEACON_OK$' || { echo "owned-guest-smoke: FAIL beacon ctl" >&2; fail=1; }

@@ -89,7 +89,7 @@ impl BindsState {
     pub fn reload(&mut self) {
         *self = Self::load();
         eprintln!(
-            "proteus-compositor-next: reloaded keybinds ({} entries)",
+            "proteus-compositor: reloaded keybinds ({} entries)",
             self.entries.len()
         );
     }
@@ -350,7 +350,7 @@ fn merge_fact_overrides(entries: &mut Vec<BindEntry>) {
     };
     let Ok(v) = serde_json::from_str::<Value>(&raw) else {
         eprintln!(
-            "proteus-compositor-next: keybinds.json invalid JSON ({})",
+            "proteus-compositor: keybinds.json invalid JSON ({})",
             path.display()
         );
         return;
@@ -367,7 +367,7 @@ fn merge_fact_overrides(entries: &mut Vec<BindEntry>) {
         };
         let mods = parse_mods(item.get("mods"));
         let Some(action) = parse_action(item.get("action")) else {
-            eprintln!("proteus-compositor-next: keybinds override {id}: bad action");
+            eprintln!("proteus-compositor: keybinds override {id}: bad action");
             continue;
         };
         let entry = BindEntry {
@@ -499,7 +499,7 @@ pub fn spawn_action(action: &BindAction) {
                 cmd.args(&args[1..]);
             }
             if let Err(e) = cmd.spawn() {
-                eprintln!("proteus-compositor-next: exec {bin}: {e}");
+                eprintln!("proteus-compositor: exec {bin}: {e}");
             }
         }
     }

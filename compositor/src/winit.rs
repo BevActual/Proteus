@@ -47,7 +47,7 @@ pub fn init_winit(
             size: (0, 0).into(),
             subpixel: Subpixel::Unknown,
             make: "Proteus".into(),
-            model: "compositor-next".into(),
+            model: "compositor".into(),
         },
     );
     let _global = output.create_global::<CompositorNext>(&display_handle);
@@ -55,6 +55,7 @@ pub fn init_winit(
     output.set_preferred(mode);
 
     state.space.map_output(&output, (0, 0));
+    state.wm.ensure_output(&output.name());
 
     // Apply Displays Fact (scale/pos; mode soft-SKIP on winit).
     state.apply_displays_fact();
@@ -88,12 +89,19 @@ pub fn init_winit(
             WinitEvent::Redraw => {
                 let size = backend.window_size();
                 let damage = Rectangle::from_size(size);
+                let clear = state.render_clear_color();
 
                 {
                     let (renderer, mut framebuffer) = backend.bind().unwrap();
-                    let mut custom = state.ssd_render_elements(renderer, &output);
-                    custom.extend(state.focus_ring_render_elements(renderer, &output));
-                    custom.extend(state.identify_render_elements(renderer, &output));
+                    let mut custom = if state.session_lock_active() {
+                        Vec::new()
+                    } else {
+                        state.ssd_render_elements(renderer, &output)
+                    };
+                    if !state.session_lock_active() {
+                        custom.extend(state.focus_ring_render_elements(renderer, &output));
+                        custom.extend(state.identify_render_elements(renderer, &output));
+                    }
                     custom.extend(state.cursor_render_elements(renderer, &output));
                     let _ = smithay::desktop::space::render_output::<
                         _,
@@ -106,15 +114,18 @@ pub fn init_winit(
                         &mut framebuffer,
                         1.0,
                         0,
-                        [&state.space],
+                        state.render_space_iter(),
                         &custom,
                         &mut damage_tracker,
-                        [0.06, 0.07, 0.09, 1.0],
+                        clear,
                     );
+                    let _ = state.draw_session_lock_surfaces(renderer, &mut framebuffer, &output);
                 }
                 if let Err(e) = backend.submit(Some(&[damage])) {
-                    eprintln!("proteus-compositor-next: submit: {e:?}");
+                    eprintln!("proteus-compositor: submit: {e:?}");
                 }
+
+                state.session_lock_after_output_render(&output);
 
                 // Offscreen readback for zwlr_screencopy — avoids poking the
                 // window EGL surface (ReadPixels there poisoned submit).
@@ -127,9 +138,15 @@ pub fn init_winit(
                         buf_size,
                     ) {
                         if let Ok(mut fb) = renderer.bind(&mut tex) {
-                            let mut custom = state.ssd_render_elements(renderer, &output);
-                            custom.extend(state.focus_ring_render_elements(renderer, &output));
-                            custom.extend(state.identify_render_elements(renderer, &output));
+                            let mut custom = if state.session_lock_active() {
+                                Vec::new()
+                            } else {
+                                state.ssd_render_elements(renderer, &output)
+                            };
+                            if !state.session_lock_active() {
+                                custom.extend(state.focus_ring_render_elements(renderer, &output));
+                                custom.extend(state.identify_render_elements(renderer, &output));
+                            }
                             custom.extend(state.cursor_render_elements(renderer, &output));
                             let _ = smithay::desktop::space::render_output::<
                                 _,
@@ -142,11 +159,12 @@ pub fn init_winit(
                                 &mut fb,
                                 1.0,
                                 0,
-                                [&state.space],
+                                state.render_space_iter(),
                                 &custom,
                                 &mut capture_damage,
-                                [0.06, 0.07, 0.09, 1.0],
+                                clear,
                             );
+                            let _ = state.draw_session_lock_surfaces(renderer, &mut fb, &output);
                             let rect = Rectangle::from_size(buf_size);
                             if let Ok(mapping) =
                                 renderer.copy_framebuffer(&fb, rect, Fourcc::Abgr8888)
@@ -166,25 +184,30 @@ pub fn init_winit(
 
                 state.drain_pending_screencopies(backend.renderer());
 
+                let frame_time = state.start_time.elapsed().as_millis() as u32;
+                state.send_lock_surface_frames(&output, frame_time);
+
                 // Frame callbacks: space windows + layer surfaces.
-                state.space.elements().for_each(|window| {
-                    window.send_frame(
-                        &output,
-                        state.start_time.elapsed(),
-                        Some(Duration::ZERO),
-                        |_, _| Some(output.clone()),
-                    )
-                });
-                let map = layer_map_for_output(&output);
-                for layer in map.layers() {
-                    layer.send_frame(
-                        &output,
-                        state.start_time.elapsed(),
-                        Some(Duration::ZERO),
-                        |_, _| Some(output.clone()),
-                    );
+                if !state.session_lock_active() {
+                    state.space.elements().for_each(|window| {
+                        window.send_frame(
+                            &output,
+                            state.start_time.elapsed(),
+                            Some(Duration::ZERO),
+                            |_, _| Some(output.clone()),
+                        )
+                    });
+                    let map = layer_map_for_output(&output);
+                    for layer in map.layers() {
+                        layer.send_frame(
+                            &output,
+                            state.start_time.elapsed(),
+                            Some(Duration::ZERO),
+                            |_, _| Some(output.clone()),
+                        );
+                    }
+                    drop(map);
                 }
-                drop(map);
 
                 state.space.refresh();
                 state.popups.cleanup();
@@ -212,7 +235,7 @@ fn init_dmabuf_global(
     }
     let formats: Vec<_> = renderer.dmabuf_formats().iter().copied().collect();
     if formats.is_empty() {
-        eprintln!("proteus-compositor-next: dmabuf formats empty — SHM screencopy only");
+        eprintln!("proteus-compositor: dmabuf formats empty — SHM screencopy only");
         return Ok(());
     }
 
@@ -228,7 +251,7 @@ fn init_dmabuf_global(
         }
         None => {
             eprintln!(
-                "proteus-compositor-next: no EGL render node — dmabuf global v3 without feedback"
+                "proteus-compositor: no EGL render node — dmabuf global v3 without feedback"
             );
             state
                 .dmabuf_state

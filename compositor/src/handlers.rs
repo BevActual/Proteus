@@ -206,7 +206,7 @@ impl XdgShellHandler for CompositorNext {
         self.relayout_active();
         self.focus_address(&address);
         self.broadcast_event(&format!("openwindow>>{address}"));
-        eprintln!("proteus-compositor-next: toplevel mapped: {address}");
+        eprintln!("proteus-compositor: toplevel mapped: {address}");
     }
 
     fn new_popup(&mut self, surface: PopupSurface, _positioner: PositionerState) {
@@ -411,7 +411,7 @@ impl XdgShellHandler for CompositorNext {
                 }
             }
             Err(err) => {
-                eprintln!("proteus-compositor-next: popup grab denied: {err:?}");
+                eprintln!("proteus-compositor: popup grab denied: {err:?}");
             }
         }
     }
@@ -614,8 +614,8 @@ impl WlrLayerShellHandler for CompositorNext {
         let layer_surface = LayerSurface::new(surface, namespace.clone());
         match map.map_layer(&layer_surface) {
             // Prove marker for the nested spike gate ("bar+dock map").
-            Ok(()) => eprintln!("proteus-compositor-next: layer mapped: {namespace}"),
-            Err(e) => eprintln!("proteus-compositor-next: map_layer failed ({namespace}): {e}"),
+            Ok(()) => eprintln!("proteus-compositor: layer mapped: {namespace}"),
+            Err(e) => eprintln!("proteus-compositor: map_layer failed ({namespace}): {e}"),
         }
         drop(map);
         self.relayout_active();

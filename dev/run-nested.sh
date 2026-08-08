@@ -1,27 +1,38 @@
 #!/usr/bin/env bash
-# Launch Proteus nested under an existing Wayland/X11 session via compositor-next
+# Launch Proteus nested under an existing Wayland/X11 session via compositor
 # (winit). Leaves your host session alone — close the nested window to exit.
 #
-# Wave 4: chrome defaults to owned iced (`proteus-chrome` → `proteus-shell`).
-# Override: PROTEUS_SHELL_ENGINE=quickshell ./dev/run-nested.sh
-# Hyprland purged — this path never execs Hyprland.
+# Chrome: owned iced only (`proteus-chrome` → `proteus-shell`).
+# Hyprland / Quickshell purged — this path never execs them.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Ensure owned shell + compositor binaries exist.
-if [[ ! -x "${ROOT}/target/debug/proteus-shell" && ! -x "${ROOT}/target/release/proteus-shell" ]] \
-  && ! command -v proteus-shell >/dev/null 2>&1; then
-  if command -v cargo >/dev/null 2>&1; then
+need_build_shell=0
+need_build_comp=0
+[[ -x "${ROOT}/target/debug/proteus-shell" || -x "${ROOT}/target/release/proteus-shell" ]] \
+  || command -v proteus-shell >/dev/null 2>&1 || need_build_shell=1
+[[ -x "${ROOT}/target/debug/proteus-compositor" || -x "${ROOT}/target/release/proteus-compositor" ]] \
+  || command -v proteus-compositor >/dev/null 2>&1 || need_build_comp=1
+
+if [[ "${need_build_shell}" -eq 1 || "${need_build_comp}" -eq 1 ]]; then
+  command -v cargo >/dev/null 2>&1 || {
+    echo "run-nested: cargo not found and binaries missing" >&2
+    exit 1
+  }
+  if [[ "${need_build_shell}" -eq 1 ]]; then
     echo "Building proteus-shell (owned chrome)…"
-    (cd "${ROOT}" && cargo build -p proteus-shell -q) || true
+    (cd "${ROOT}" && cargo build -p proteus-shell -q) || {
+      echo "run-nested: proteus-shell build failed" >&2
+      exit 1
+    }
   fi
-fi
-if [[ ! -x "${ROOT}/target/debug/proteus-compositor-next" && ! -x "${ROOT}/target/release/proteus-compositor-next" ]] \
-  && ! command -v proteus-compositor-next >/dev/null 2>&1; then
-  if command -v cargo >/dev/null 2>&1; then
-    echo "Building compositor-next…"
-    (cd "${ROOT}" && cargo build -p compositor-next -q) || true
+  if [[ "${need_build_comp}" -eq 1 ]]; then
+    echo "Building compositor…"
+    (cd "${ROOT}" && cargo build -p compositor -q) || {
+      echo "run-nested: compositor build failed" >&2
+      exit 1
+    }
   fi
 fi
 
@@ -29,19 +40,19 @@ export PATH="${ROOT}/target/debug:${ROOT}/target/release:${ROOT}/shell/scripts:$
 
 COMP=""
 for c in \
-  "${ROOT}/target/debug/proteus-compositor-next" \
-  "${ROOT}/target/release/proteus-compositor-next"
+  "${ROOT}/target/debug/proteus-compositor" \
+  "${ROOT}/target/release/proteus-compositor"
 do
   if [[ -x "${c}" ]]; then
     COMP="${c}"
     break
   fi
 done
-if [[ -z "${COMP}" ]] && command -v proteus-compositor-next >/dev/null 2>&1; then
-  COMP="$(command -v proteus-compositor-next)"
+if [[ -z "${COMP}" ]] && command -v proteus-compositor >/dev/null 2>&1; then
+  COMP="$(command -v proteus-compositor)"
 fi
 [[ -n "${COMP}" && -x "${COMP}" ]] || {
-  echo "proteus-compositor-next not found — cargo build -p compositor-next" >&2
+  echo "proteus-compositor not found — cargo build -p compositor" >&2
   exit 1
 }
 
@@ -56,18 +67,21 @@ fi
   exit 1
 }
 
-# Ghostty + fastfetch (DNA helix) for nested dogfood
+# Ghostty + fastfetch seeds for nested dogfood (opt-in bashrc: PROTEUS_NESTED_BASHRC=1)
 mkdir -p "${HOME}/.config/ghostty" "${HOME}/.config/fastfetch" "${HOME}/.config/proteus"
 [[ -f "${HOME}/.config/ghostty/config" ]] || install -m 644 "${ROOT}/env/ghostty/config" "${HOME}/.config/ghostty/config"
 [[ -f "${HOME}/.config/fastfetch/config.jsonc" ]] || install -m 644 "${ROOT}/env/fastfetch/config.jsonc" "${HOME}/.config/fastfetch/config.jsonc"
 [[ -f "${HOME}/.config/fastfetch/proteus-helix.txt" ]] || install -m 644 "${ROOT}/env/fastfetch/proteus-helix.txt" "${HOME}/.config/fastfetch/proteus-helix.txt"
 [[ -f "${HOME}/.config/proteus/proteus-bashrc.sh" ]] || install -m 644 "${ROOT}/env/bash/proteus-bashrc.sh" "${HOME}/.config/proteus/proteus-bashrc.sh"
-if [[ -f "${HOME}/.bashrc" ]] && ! grep -qF "# Proteus terminal fetch" "${HOME}/.bashrc" 2>/dev/null; then
+if [[ "${PROTEUS_NESTED_BASHRC:-0}" == "1" ]] \
+  && [[ -f "${HOME}/.bashrc" ]] \
+  && ! grep -qF "# Proteus terminal fetch" "${HOME}/.bashrc" 2>/dev/null; then
   {
     echo ""
     echo "# Proteus terminal fetch"
     echo "[[ -f \"\${HOME}/.config/proteus/proteus-bashrc.sh\" ]] && source \"\${HOME}/.config/proteus/proteus-bashrc.sh\""
   } >> "${HOME}/.bashrc"
+  echo "run-nested: appended Proteus fetch hook to ~/.bashrc (PROTEUS_NESTED_BASHRC=1)"
 fi
 
 export PROTEUS_ROOT="${ROOT}"
@@ -76,7 +90,7 @@ export PROTEUS_SHELL_ENGINE="${PROTEUS_SHELL_ENGINE:-owned}"
 export PROTEUS_COMPOSITOR_ENGINE=smithay
 export XDG_CURRENT_DESKTOP=wlroots
 
-echo "Starting nested Proteus (compositor-next winit)…"
+echo "Starting nested Proteus (compositor winit)…"
 echo "  compositor: ${COMP}"
 echo "  chrome:     ${CHROME}"
 echo "  engine:     ${PROTEUS_SHELL_ENGINE}"

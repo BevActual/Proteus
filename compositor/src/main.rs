@@ -1,8 +1,8 @@
-//! proteus-compositor-next — Smithay rung-2 spike (OWNED-STACK).
+//! proteus-compositor — owned Smithay session compositor (OWNED-STACK).
 //!
-//! Nested winit by default; opt-in `--backend drm` for libseat/TTY prove.
-//! Explicit opt-in via `PROTEUS_COMPOSITOR_ENGINE=smithay`; Hyprland stays
-//! the shipping compositor. Honest status: docs/proteus/COMPOSITOR-SPIKE.md.
+//! Nested winit by default; `--backend drm` for libseat/TTY sessions via
+//! `proteus-session`. Hyprland purged. Depth checklist:
+//! docs/proteus/COMPOSITOR-SPIKE.md.
 
 mod binds;
 mod ctl;
@@ -18,6 +18,7 @@ mod input;
 mod input_config;
 mod layout;
 mod screencopy;
+mod session_lock;
 mod state;
 mod wm;
 mod winit;
@@ -43,8 +44,7 @@ enum BackendKind {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Match xdg-desktop-portal-wlr UseIn=wlroots (Screenshot over zwlr_screencopy).
-    // Hyprland shipping sessions keep their own XDG_CURRENT_DESKTOP; this only
-    // applies to the opt-in smithay spike process and its -c children.
+    // Applies to this compositor process and its -c children.
     std::env::set_var("XDG_CURRENT_DESKTOP", "wlroots");
 
     let (backend_kind, command) = parse_cli()?;
@@ -64,7 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = CompositorNext::new(&mut event_loop, display, &seat_name);
     state.init_screencopy_global();
     eprintln!(
-        "proteus-compositor-next: screencopy flip_y={} (PROTEUS_SCREENCOPY_FLIP_Y / virtio auto)",
+        "proteus-compositor: screencopy flip_y={} (PROTEUS_SCREENCOPY_FLIP_Y / virtio auto)",
         crate::screencopy::screencopy_should_flip_y()
     );
 
@@ -78,7 +78,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         BackendKind::Winit => {
             crate::winit::init_winit(&mut event_loop, &mut data)?;
             eprintln!(
-                "proteus-compositor-next: nested spike on WAYLAND_DISPLAY={}",
+                "proteus-compositor: nested on WAYLAND_DISPLAY={}",
                 socket.to_string_lossy()
             );
         }
@@ -86,7 +86,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let (session, notifier) = session_pair.expect("drm session");
             crate::drm::init_drm(&mut event_loop, &mut data, session, notifier)?;
             eprintln!(
-                "proteus-compositor-next: drm spike on WAYLAND_DISPLAY={}",
+                "proteus-compositor: drm spike on WAYLAND_DISPLAY={}",
                 socket.to_string_lossy()
             );
         }
@@ -109,7 +109,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         match cmd.spawn() {
             Ok(_) => {}
-            Err(e) => eprintln!("proteus-compositor-next: spawn {command}: {e}"),
+            Err(e) => eprintln!("proteus-compositor: spawn {command}: {e}"),
         }
     }
 

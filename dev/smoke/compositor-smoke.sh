@@ -1,16 +1,27 @@
 #!/usr/bin/env bash
-# compositor-next-smoke — owned Smithay spike IPC contract (OWNED-STACK rung 2).
+# compositor-smoke — owned Smithay compositor IPC contract (OWNED-STACK rung 2).
 #
 # Always-on: crate layout, cargo test (wm roster), build ctl client.
 # Optional nested: if DISPLAY/WAYLAND_DISPLAY present, round-trip ctl socket.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-CRATE="${ROOT}/compositor-next"
+CRATE="${ROOT}/compositor"
 fail=0
-ok() { echo "compositor-next-smoke: OK $*"; }
-die() { echo "compositor-next-smoke: FAIL $*" >&2; fail=1; }
+ok() { echo "compositor-smoke: OK $*"; }
+bad() { echo "compositor-smoke: FAIL $*" >&2; fail=1; }
+# Accumulate checks (do not exit early) — alias for readability at call sites.
+die() { bad "$*"; }
+tmp_dir="$(mktemp -d)"
+comp_pid=""
+log=""
+cleanup() {
+  kill "${comp_pid:-}" 2>/dev/null || true
+  [[ -n "${log:-}" ]] && rm -f "${log}"
+  rm -rf "${tmp_dir}"
+}
+trap cleanup EXIT
 
-[[ -f "${CRATE}/Cargo.toml" ]] || die "missing compositor-next/Cargo.toml"
+[[ -f "${CRATE}/Cargo.toml" ]] || die "missing compositor/Cargo.toml"
 [[ -f "${CRATE}/src/wm.rs" ]] || die "missing wm.rs"
 [[ -f "${CRATE}/src/ctl.rs" ]] || die "missing ctl.rs"
 [[ -f "${CRATE}/src/grabs.rs" ]] || die "missing grabs.rs"
@@ -75,6 +86,11 @@ grep -q 'id: "files"' "${CRATE}/src/binds.rs" \
 grep -q 'input-reload\|InputConfig\|sensitivity_scale' \
   "${CRATE}/src/ctl.rs" "${CRATE}/src/input_config.rs" "${CRATE}/src/input.rs" \
   || die "input-reload / InputConfig missing"
+grep -q 'SessionLockManagerState\|delegate_session_lock\|session_lock' \
+  "${CRATE}/src/session_lock.rs" "${CRATE}/src/state.rs" \
+  || die "ext-session-lock module missing"
+grep -q 'session-lock' "${CRATE}/src/ctl.rs" \
+  || die "ctl session-lock probe missing"
 grep -q 'beacon\|workspace_1\|FilterResult::Intercept' "${CRATE}/src/binds.rs" "${CRATE}/src/input.rs" \
   || die "beacon/workspace intercept missing"
 [[ -f "${ROOT}/env/settings/keybinds.defaults.json" ]] \
@@ -169,15 +185,15 @@ grep -q 'XWayland::spawn\|init_xwayland' "${CRATE}/src/xwayland.rs" \
 grep -q 'impl XwmHandler for CompositorNext' "${CRATE}/src/xwayland.rs" \
   || die "XwmHandler on CompositorNext missing"
 grep -q 'XDG_CURRENT_DESKTOP.*wlroots\|"wlroots"' "${CRATE}/src/main.rs" \
-  || die "compositor-next must set XDG_CURRENT_DESKTOP=wlroots for xdp-wlr"
-[[ -f "${ROOT}/dev/smoke/compositor-next-gamescope.sh" ]] \
-  || die "missing compositor-next-gamescope.sh"
-[[ -f "${ROOT}/dev/smoke/compositor-next-portal-screenshot.sh" ]] \
-  || die "missing compositor-next-portal-screenshot.sh"
-[[ -f "${ROOT}/dev/smoke/compositor-next-screencast.sh" ]] \
-  || die "missing compositor-next-screencast.sh"
-[[ -f "${ROOT}/dev/smoke/compositor-next-drm.sh" ]] \
-  || die "missing compositor-next-drm.sh"
+  || die "compositor must set XDG_CURRENT_DESKTOP=wlroots for xdp-wlr"
+[[ -f "${ROOT}/dev/smoke/compositor-gamescope.sh" ]] \
+  || die "missing compositor-gamescope.sh"
+[[ -f "${ROOT}/dev/smoke/compositor-portal-screenshot.sh" ]] \
+  || die "missing compositor-portal-screenshot.sh"
+[[ -f "${ROOT}/dev/smoke/compositor-screencast.sh" ]] \
+  || die "missing compositor-screencast.sh"
+[[ -f "${ROOT}/dev/smoke/compositor-drm.sh" ]] \
+  || die "missing compositor-drm.sh"
 grep -q 'CopyWithDamage\|with_damage' "${CRATE}/src/screencopy.rs" \
   || die "screencopy must implement copy_with_damage"
 grep -q 'XdgDecorationState' "${CRATE}/src/state.rs" \
@@ -216,51 +232,60 @@ grep -q 'movewindow output' "${CRATE}/src/wm.rs" \
   || die "movewindow output: dispatch missing"
 grep -q 'focusoutput' "${CRATE}/src/wm.rs" \
   || die "focusoutput dispatch missing"
+grep -q 'active_by_output\|workspace N,output' "${CRATE}/src/wm.rs" \
+  || grep -q 'output:' "${CRATE}/src/wm.rs" \
+  || die "per-output workspace boards missing"
+grep -q ',output:' "${CRATE}/src/wm.rs" \
+  || die "workspace N,output:NAME dispatch missing"
+grep -q 'activeWorkspace' "${CRATE}/src/ctl.rs" \
+  || die "monitors JSON must include activeWorkspace"
+grep -q 'focused_output' "${CRATE}/src/wm.rs" \
+  || die "focused_output tracking missing"
 grep -q 'effective_output\|FocusOutput\|focus_output_named' "${CRATE}/src/ctl.rs" \
   || die "per-output relayout / FocusOutput apply missing"
 grep -q 'for output in outputs\|outputs:' "${CRATE}/src/ctl.rs" \
   || die "relayout_active must iterate per output"
 SESSION="${ROOT}/shell/scripts/proteus-session"
 [[ -f "${SESSION}" ]] || die "missing proteus-session"
-grep -q 'smithay\|compositor-next' "${SESSION}" \
+grep -q 'smithay\|compositor' "${SESSION}" \
   || die "proteus-session must mention smithay"
-grep -qE '""\|smithay\|compositor-next\)|Hyprland purged|smithay DRM only' "${SESSION}" \
+grep -qE '""\|smithay\|compositor\|compositor-next\)|Hyprland purged|smithay DRM only' "${SESSION}" \
   || die "proteus-session must be smithay-only"
-grep -q 'proteus-compositor-next' "${SESSION}" \
-  || die "proteus-session must resolve proteus-compositor-next"
+grep -q 'proteus-compositor' "${SESSION}" \
+  || die "proteus-session must resolve proteus-compositor"
 grep -q 'Hyprland purged\|refuse (Hyprland purged)' "${SESSION}" \
   || die "proteus-session must refuse without Hyprland fallthrough"
 grep -qE 'hyprland\|hypr\)' "${SESSION}" \
   || die "proteus-session must refuse Fact=hyprland"
 grep -q -- '--backend drm' "${SESSION}" \
   || die "proteus-session smithay path must use --backend drm"
-[[ -f "${ROOT}/dev/smoke/compositor-next-dogfood.sh" ]] \
-  || die "missing compositor-next-dogfood.sh"
+[[ -f "${ROOT}/dev/smoke/compositor-dogfood.sh" ]] \
+  || die "missing compositor-dogfood.sh"
 ok "crate + IPC + grabs + xwayland + screencopy + portal-env + gamescope + tiling + screencast + drm + decoration + session-wire + output-assign helpers present"
 
-if ! (cd "${ROOT}" && cargo test -p compositor-next --bin proteus-compositor-next -q 2>/dev/null); then
-  die "cargo test -p compositor-next (wm+grabs)"
+if ! (cd "${ROOT}" && cargo test -p compositor --bin proteus-compositor -q 2>/dev/null); then
+  die "cargo test -p compositor (wm+grabs)"
 else
   ok "wm + grabs unit tests"
 fi
 
-if ! (cd "${ROOT}" && cargo build -p compositor-next -q 2>/dev/null); then
-  die "cargo build -p compositor-next"
+if ! (cd "${ROOT}" && cargo build -p compositor -q 2>/dev/null); then
+  die "cargo build -p compositor"
 else
-  ok "compositor-next builds"
+  ok "compositor builds"
 fi
 
-COMP="$(ls -1 "${ROOT}/target/debug/proteus-compositor-next" 2>/dev/null || true)"
+COMP="$(ls -1 "${ROOT}/target/debug/proteus-compositor" 2>/dev/null || true)"
 CTL="$(ls -1 "${ROOT}/target/debug/proteus-compositorctl" 2>/dev/null || true)"
-[[ -x "${COMP}" ]] || die "proteus-compositor-next binary missing"
+[[ -x "${COMP}" ]] || die "proteus-compositor binary missing"
 [[ -x "${CTL}" ]] || die "proteus-compositorctl binary missing"
 ok "binaries present"
 
 # Live DRM never runs by default (would steal the graphical seat). Helper SKIPs
 # unless PROTEUS_COMPOSITOR_DRM=1 (VT/VM dogfood).
-drm_helper="${ROOT}/dev/smoke/compositor-next-drm.sh"
+drm_helper="${ROOT}/dev/smoke/compositor-drm.sh"
 set +e
-bash "${drm_helper}" >/tmp/proteus-drm-smoke.out 2>/tmp/proteus-drm-smoke.err
+bash "${drm_helper}" >"${tmp_dir}/drm.out" 2>"${tmp_dir}/drm.err"
 drm_rc=$?
 set -e
 if [[ "${drm_rc}" -eq 0 ]]; then
@@ -268,20 +293,18 @@ if [[ "${drm_rc}" -eq 0 ]]; then
 elif [[ "${drm_rc}" -eq 2 ]]; then
   ok "drm live skipped (set PROTEUS_COMPOSITOR_DRM=1 on free VT/VM)"
 else
-  die "drm helper failed (rc=${drm_rc}): $(tr '\n' ' ' </tmp/proteus-drm-smoke.err | head -c 300)"
+  die "drm helper failed (rc=${drm_rc}): $(tr '\n' ' ' <"${tmp_dir}/drm.err" | head -c 300)"
 fi
-rm -f /tmp/proteus-drm-smoke.out /tmp/proteus-drm-smoke.err
 
 # Nested ctl round-trip needs a winit display (nested under host Wayland/X11).
 if [[ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
   ok "no DISPLAY/WAYLAND_DISPLAY — nested ctl round-trip skipped"
-  [[ $fail -eq 0 ]] || { echo "compositor-next-smoke: FAILED" >&2; exit 1; }
-  echo "compositor-next-smoke: OK"
+  [[ $fail -eq 0 ]] || { echo "compositor-smoke: FAILED" >&2; exit 1; }
+  echo "compositor-smoke: OK"
   exit 0
 fi
 
-log="$(mktemp)"
-trap 'rm -f "${log}"; kill "${comp_pid:-}" 2>/dev/null || true' EXIT
+log="$(mktemp "${tmp_dir}/nested.XXXXXX")"
 # Keep host XDG_RUNTIME_DIR so winit can nest under the parent compositor.
 # Isolate engine fact so shell path is irrelevant here.
 unset PROTEUS_COMPOSITOR_ENGINE || true
@@ -394,8 +417,8 @@ except Exception:
   # Optional portal Screenshot via xdg-desktop-portal-wlr (isolated dbus session).
   # Does not touch the host Hyprland portal units. SKIP if xdp-wlr missing.
   nested_wd="$(sed -n 's/.*nested spike on WAYLAND_DISPLAY=//p' "${log}" | head -1)"
-  portal_helper="${ROOT}/dev/smoke/compositor-next-portal-screenshot.sh"
-  [[ -f "${portal_helper}" ]] || die "missing compositor-next-portal-screenshot.sh"
+  portal_helper="${ROOT}/dev/smoke/compositor-portal-screenshot.sh"
+  [[ -f "${portal_helper}" ]] || die "missing compositor-portal-screenshot.sh"
   xdp_wlr=""
   for cand in /usr/lib/xdg-desktop-portal-wlr /usr/libexec/xdg-desktop-portal-wlr; do
     if [[ -x "${cand}" ]]; then
@@ -410,7 +433,7 @@ except Exception:
   else
     portal_png="$(mktemp --suffix=.png)"
     set +e
-    WAYLAND_DISPLAY="${nested_wd}" bash "${portal_helper}" "${portal_png}" >/tmp/proteus-portal-smoke.out 2>/tmp/proteus-portal-smoke.err
+    WAYLAND_DISPLAY="${nested_wd}" bash "${portal_helper}" "${portal_png}" >"${tmp_dir}/portal.out" 2>"${tmp_dir}/portal.err"
     portal_rc=$?
     set -e
     if [[ "${portal_rc}" -eq 0 && -s "${portal_png}" ]]; then
@@ -421,18 +444,18 @@ except Exception:
       # Soft skip: nested isolate can fail on some hosts without failing the suite.
       ok "portal Screenshot inconclusive (rc=${portal_rc}) — skipped"
     fi
-    rm -f "${portal_png}" /tmp/proteus-portal-smoke.out /tmp/proteus-portal-smoke.err
+    rm -f "${portal_png}"
   fi
 
-  # Optional gamescope nesting under the spike (OWNED-STACK hard gate prove).
-  gs_helper="${ROOT}/dev/smoke/compositor-next-gamescope.sh"
+  # Optional gamescope nesting under the compositor (OWNED-STACK hard gate prove).
+  gs_helper="${ROOT}/dev/smoke/compositor-gamescope.sh"
   if [[ -z "${nested_wd}" ]]; then
     ok "gamescope nesting skipped — nested WAYLAND_DISPLAY unknown"
   else
     set +e
     WAYLAND_DISPLAY="${nested_wd}" PROTEUS_COMPOSITOR_SOCK="${sock}" \
       PROTEUS_COMPOSITORCTL="${CTL}" \
-      bash "${gs_helper}" >/tmp/proteus-gs-smoke.out 2>/tmp/proteus-gs-smoke.err
+      bash "${gs_helper}" >"${tmp_dir}/gs.out" 2>"${tmp_dir}/gs.err"
     gs_rc=$?
     set -e
     if [[ "${gs_rc}" -eq 0 ]]; then
@@ -440,19 +463,18 @@ except Exception:
     elif [[ "${gs_rc}" -eq 2 ]]; then
       ok "gamescope nesting skipped (missing binary or no usable backend)"
     else
-      die "gamescope nesting failed (rc=${gs_rc}): $(tr '\n' ' ' </tmp/proteus-gs-smoke.err | head -c 300)"
+      die "gamescope nesting failed (rc=${gs_rc}): $(tr '\n' ' ' <"${tmp_dir}/gs.err" | head -c 300)"
     fi
-    rm -f /tmp/proteus-gs-smoke.out /tmp/proteus-gs-smoke.err
   fi
 
   # Optional short screencast via wf-recorder (copy_with_damage path).
-  scast_helper="${ROOT}/dev/smoke/compositor-next-screencast.sh"
+  scast_helper="${ROOT}/dev/smoke/compositor-screencast.sh"
   if [[ -z "${nested_wd}" ]]; then
     ok "screencast skipped — nested WAYLAND_DISPLAY unknown"
   else
     set +e
     WAYLAND_DISPLAY="${nested_wd}" bash "${scast_helper}" \
-      >/tmp/proteus-scast-smoke.out 2>/tmp/proteus-scast-smoke.err
+      >"${tmp_dir}/scast.out" 2>"${tmp_dir}/scast.err"
     scast_rc=$?
     set -e
     if [[ "${scast_rc}" -eq 0 ]]; then
@@ -460,9 +482,8 @@ except Exception:
     elif [[ "${scast_rc}" -eq 2 ]]; then
       ok "screencast skipped (wf-recorder not installed)"
     else
-      die "screencast failed (rc=${scast_rc}): $(tr '\n' ' ' </tmp/proteus-scast-smoke.err | head -c 300)"
+      die "screencast failed (rc=${scast_rc}): $(tr '\n' ' ' <"${tmp_dir}/scast.err" | head -c 300)"
     fi
-    rm -f /tmp/proteus-scast-smoke.out /tmp/proteus-scast-smoke.err
   fi
 
   # Optional X11 client round-trip when Xwayland binary + an X11 client exist.
@@ -518,7 +539,7 @@ comp_pid=""
 
 # Dogfood gate helper — static + optional nested/DRM/guest (SKIP is OK).
 set +e
-bash "${ROOT}/dev/smoke/compositor-next-dogfood.sh" >/tmp/proteus-dogfood.out 2>/tmp/proteus-dogfood.err
+bash "${ROOT}/dev/smoke/compositor-dogfood.sh" >"${tmp_dir}/dogfood.out" 2>"${tmp_dir}/dogfood.err"
 dog_rc=$?
 set -e
 if [[ "${dog_rc}" -eq 0 ]]; then
@@ -526,9 +547,8 @@ if [[ "${dog_rc}" -eq 0 ]]; then
 elif [[ "${dog_rc}" -eq 2 ]]; then
   ok "dogfood gate soft-skip"
 else
-  die "dogfood gate failed (rc=${dog_rc}): $(tr '\n' ' ' </tmp/proteus-dogfood.err | head -c 300)"
+  die "dogfood gate failed (rc=${dog_rc}): $(tr '\n' ' ' <"${tmp_dir}/dogfood.err" | head -c 300)"
 fi
-rm -f /tmp/proteus-dogfood.out /tmp/proteus-dogfood.err
 
-[[ $fail -eq 0 ]] || { echo "compositor-next-smoke: FAILED" >&2; exit 1; }
-echo "compositor-next-smoke: OK"
+[[ $fail -eq 0 ]] || { echo "compositor-smoke: FAILED" >&2; exit 1; }
+echo "compositor-smoke: OK"

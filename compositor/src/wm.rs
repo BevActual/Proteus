@@ -2,6 +2,12 @@
 //!
 //! Pure state (no Space mutations). Compositor applies visibility / focus
 //! after dispatch. JSON shapes mirror the hyprctl fields proteus-shell parses.
+//!
+//! Spaces are logical `1..=10` per output (per-monitor boards). Synced
+//! `workspace N` sets every head; `workspace N,output:NAME` is local.
+//! Physical band ids (`logical + index×10`) stay a script/UI convention.
+
+use std::collections::HashMap;
 
 use serde_json::{json, Value};
 
@@ -92,7 +98,14 @@ impl LayoutKind {
 
 #[derive(Debug)]
 pub struct Wm {
+    /// Active Space on the focused output (hypr-shaped `activeworkspace`).
     pub active_workspace: i64,
+    /// Default Space for outputs not yet in `active_by_output` (synced writes).
+    pub default_active: i64,
+    /// Per-output active Space (`Output::name()` → `1..=10`).
+    pub active_by_output: HashMap<String, i64>,
+    /// Last focused output name (`focusoutput` / pointer); drives local goto.
+    pub focused_output: Option<String>,
     pub layout: LayoutKind,
     /// Outer gap around the work area (logical px).
     pub gaps_out: i32,
@@ -118,6 +131,9 @@ impl Wm {
     pub fn new() -> Self {
         Self {
             active_workspace: 1,
+            default_active: 1,
+            active_by_output: HashMap::new(),
+            focused_output: None,
             layout: LayoutKind::Dwindle,
             gaps_out: 10,
             gaps_in: 6,
@@ -128,6 +144,87 @@ impl Wm {
             next_id: 1,
             cascade: 0,
         }
+    }
+
+    /// Register an output so local/synced boards stay coherent.
+    pub fn ensure_output(&mut self, name: &str) {
+        if name.is_empty() {
+            return;
+        }
+        self.active_by_output
+            .entry(name.to_string())
+            .or_insert(self.default_active);
+        if self.focused_output.is_none() {
+            self.focused_output = Some(name.to_string());
+            self.sync_active_workspace();
+        }
+    }
+
+    pub fn active_for_output(&self, output: &str) -> i64 {
+        if output.is_empty() {
+            return self.default_active;
+        }
+        self.active_by_output
+            .get(output)
+            .copied()
+            .unwrap_or(self.default_active)
+    }
+
+    pub fn sync_active_workspace(&mut self) {
+        let id = match &self.focused_output {
+            Some(name) => self.active_for_output(name),
+            None => self.default_active,
+        };
+        self.active_workspace = id;
+    }
+
+    /// Window is on its output's currently active board.
+    pub fn window_on_active_board(&self, t: &ToplevelRecord, primary: &str) -> bool {
+        if t.workspace <= 0 {
+            return false;
+        }
+        let out = self.effective_output(t, primary);
+        t.workspace == self.active_for_output(out)
+    }
+
+    fn clamp_workspace(id: i64) -> Result<i64, String> {
+        if (1..=10).contains(&id) {
+            Ok(id)
+        } else {
+            Err(format!("workspace out of range: {id}"))
+        }
+    }
+
+    fn set_workspace_synced(&mut self, id: i64) {
+        self.default_active = id;
+        for v in self.active_by_output.values_mut() {
+            *v = id;
+        }
+        self.sync_active_workspace();
+    }
+
+    fn set_workspace_local(&mut self, id: i64, output: &str) {
+        self.ensure_output(output);
+        if let Some(v) = self.active_by_output.get_mut(output) {
+            *v = id;
+        }
+        self.focused_output = Some(output.to_string());
+        self.sync_active_workspace();
+    }
+
+    fn focus_candidate_for_workspace(&self, id: i64, output: Option<&str>) -> Option<String> {
+        self.toplevels
+            .iter()
+            .rev()
+            .find(|t| {
+                t.workspace == id
+                    && t.workspace > 0
+                    && match output {
+                        Some(name) => t.output.is_empty() || t.output == name,
+                        None => true,
+                    }
+            })
+            .map(|t| t.address.clone())
     }
 
     pub fn alloc_address(&mut self) -> String {
@@ -173,7 +270,19 @@ impl Wm {
         output: String,
         ssd: bool,
     ) {
-        let ws = self.active_workspace;
+        let out = if output.is_empty() {
+            self.focused_output.clone().unwrap_or_default()
+        } else {
+            output
+        };
+        if !out.is_empty() {
+            self.ensure_output(&out);
+        }
+        let ws = if out.is_empty() {
+            self.active_workspace
+        } else {
+            self.active_for_output(&out)
+        };
         self.toplevels.push(ToplevelRecord {
             address: address.clone(),
             class,
@@ -186,7 +295,7 @@ impl Wm {
             restore_w: 0,
             restore_h: 0,
             floating: false,
-            output,
+            output: out,
             ssd,
             loc_x: loc.0,
             loc_y: loc.1,
@@ -235,12 +344,9 @@ impl Wm {
     pub fn remove_toplevel(&mut self, address: &str) {
         self.toplevels.retain(|t| t.address != address);
         if self.focused.as_deref() == Some(address) {
-            self.focused = self
-                .toplevels
-                .iter()
-                .rev()
-                .find(|t| t.workspace == self.active_workspace)
-                .map(|t| t.address.clone());
+            let ws = self.active_workspace;
+            let out = self.focused_output.clone();
+            self.focused = self.focus_candidate_for_workspace(ws, out.as_deref());
         }
     }
 
@@ -361,22 +467,36 @@ impl Wm {
         }
 
         if let Some(rest) = verb.strip_prefix("workspace ") {
-            let id: i64 = rest
-                .trim()
+            let rest = rest.trim();
+            // Forms: `N` (synced all heads) | `N,output:NAME` (local board)
+            let (id_tok, out_opt) = if let Some((id, out)) = rest.split_once(",output:") {
+                (id.trim(), Some(out.trim()))
+            } else {
+                (rest, None)
+            };
+            let id: i64 = id_tok
                 .parse()
-                .map_err(|_| format!("bad workspace id: {rest}"))?;
-            if !(1..=10).contains(&id) {
-                return Err(format!("workspace out of range: {id}"));
-            }
-            self.active_workspace = id;
-            let focus = self
-                .toplevels
-                .iter()
-                .rev()
-                .find(|t| t.workspace == id)
-                .map(|t| t.address.clone());
+                .map_err(|_| format!("bad workspace id: {id_tok}"))?;
+            let id = Self::clamp_workspace(id)?;
+            let (focus_out, local) = if let Some(name) = out_opt {
+                if name.is_empty() {
+                    return Err("workspace output: requires a name".into());
+                }
+                self.set_workspace_local(id, name);
+                (Some(name.to_string()), true)
+            } else {
+                self.set_workspace_synced(id);
+                (self.focused_output.clone(), false)
+            };
+            let focus = self.focus_candidate_for_workspace(id, focus_out.as_deref());
             self.focused = focus.clone();
             let mut ops = vec![WmOp::RefreshVisibility];
+            // Local goto warps seat; synced Super+N keeps pointer put.
+            if local {
+                if let Some(name) = focus_out {
+                    ops.push(WmOp::FocusOutput(name));
+                }
+            }
             if let Some(addr) = focus {
                 ops.push(WmOp::Focus(addr));
             }
@@ -405,10 +525,15 @@ impl Wm {
         }
 
         if verb == "cyclenext" {
+            let primary = self
+                .focused_output
+                .clone()
+                .or_else(|| self.active_by_output.keys().next().cloned())
+                .unwrap_or_default();
             let visible: Vec<String> = self
                 .toplevels
                 .iter()
-                .filter(|t| t.workspace == self.active_workspace)
+                .filter(|t| self.window_on_active_board(t, &primary))
                 .map(|t| t.address.clone())
                 .collect();
             if visible.is_empty() {
@@ -582,16 +707,11 @@ impl Wm {
             if name.is_empty() {
                 return Err("focusoutput requires an output name".into());
             }
-            let focus = self
-                .toplevels
-                .iter()
-                .rev()
-                .find(|t| {
-                    t.workspace == self.active_workspace
-                        && t.workspace > 0
-                        && t.output == name
-                })
-                .map(|t| t.address.clone());
+            self.ensure_output(&name);
+            self.focused_output = Some(name.clone());
+            self.sync_active_workspace();
+            let ws = self.active_workspace;
+            let focus = self.focus_candidate_for_workspace(ws, Some(&name));
             self.focused = focus.clone();
             let mut ops = vec![WmOp::FocusOutput(name)];
             if let Some(addr) = focus {
@@ -678,10 +798,41 @@ mod tests {
         assert_eq!(wm.active_workspace, 1);
         let ops = wm.dispatch("workspace 2").unwrap();
         assert_eq!(wm.active_workspace, 2);
+        assert_eq!(wm.default_active, 2);
         assert!(ops.contains(&WmOp::RefreshVisibility));
         let ws = wm.workspaces_json();
         assert_eq!(ws.as_array().unwrap().len(), 10);
         assert_eq!(wm.activeworkspace_json()["id"], 2);
+    }
+
+    #[test]
+    fn per_output_local_vs_synced() {
+        let mut wm = Wm::new();
+        wm.ensure_output("eDP-1");
+        wm.ensure_output("HDMI-A-1");
+        wm.dispatch("focusoutput eDP-1").unwrap();
+        wm.dispatch("workspace 2").unwrap();
+        assert_eq!(wm.active_for_output("eDP-1"), 2);
+        assert_eq!(wm.active_for_output("HDMI-A-1"), 2);
+
+        wm.dispatch("workspace 5,output:HDMI-A-1").unwrap();
+        assert_eq!(wm.active_for_output("HDMI-A-1"), 5);
+        assert_eq!(wm.active_for_output("eDP-1"), 2);
+        assert_eq!(wm.focused_output.as_deref(), Some("HDMI-A-1"));
+        assert_eq!(wm.active_workspace, 5);
+
+        wm.dispatch("focusoutput eDP-1").unwrap();
+        assert_eq!(wm.active_workspace, 2);
+
+        let a = wm.alloc_address();
+        wm.add_toplevel_on(a.clone(), "a".into(), "A".into(), (0, 0), "eDP-1".into());
+        assert_eq!(wm.find(&a).unwrap().workspace, 2);
+        let b = wm.alloc_address();
+        wm.add_toplevel_on(b.clone(), "b".into(), "B".into(), (0, 0), "HDMI-A-1".into());
+        // New window on HDMI joins that head's active board (5).
+        assert_eq!(wm.find(&b).unwrap().workspace, 5);
+        assert!(wm.window_on_active_board(wm.find(&a).unwrap(), "eDP-1"));
+        assert!(wm.window_on_active_board(wm.find(&b).unwrap(), "eDP-1"));
     }
 
     #[test]
