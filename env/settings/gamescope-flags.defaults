@@ -1,0 +1,3 @@
+# Default gamescope argv for proteus-gamescope (desktop nest).
+# Space-separated tokens before `--`. Example: -f -w 1920 -h 1080
+-f

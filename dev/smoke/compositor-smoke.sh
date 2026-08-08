@@ -213,6 +213,20 @@ grep -q 'XDG_CURRENT_DESKTOP.*wlroots\|"wlroots"' "${CRATE}/src/main.rs" \
   || die "compositor must set XDG_CURRENT_DESKTOP=wlroots for xdp-wlr"
 [[ -f "${ROOT}/dev/smoke/compositor-gamescope.sh" ]] \
   || die "missing compositor-gamescope.sh"
+[[ -x "${ROOT}/shell/scripts/proteus-gamescope" ]] \
+  || die "missing proteus-gamescope (desktop nest wrapper)"
+grep -q 'gamescope-flags\|PROTEUS_GAMESCOPE_FLAGS\|already_inside_gamescope' \
+  "${ROOT}/shell/scripts/proteus-gamescope" \
+  || die "proteus-gamescope missing flags Fact / no-double-nest"
+bash -n "${ROOT}/shell/scripts/proteus-gamescope" \
+  || die "proteus-gamescope bash -n failed"
+# Docs: desktop nest In; console-home swap still Out.
+grep -qE 'proteus-gamescope|desktop.*gamescope nest|Steam.*%command%' \
+  "${ROOT}/docs/proteus/CURRENT.md" \
+  || die "CURRENT missing desktop gamescope nest / Steam launch-options note"
+grep -q 'console-home.*not swapped\|gamescope console-home not swapped' \
+  "${ROOT}/docs/proteus/CURRENT.md" "${ROOT}/docs/proteus/COMPOSITOR-SPIKE.md" \
+  || die "docs must keep console-home swap Out"
 [[ -f "${ROOT}/dev/smoke/compositor-portal-screenshot.sh" ]] \
   || die "missing compositor-portal-screenshot.sh"
 [[ -f "${ROOT}/dev/smoke/compositor-screencast.sh" ]] \

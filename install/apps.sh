@@ -42,6 +42,7 @@ for s in proteus-screenshot proteus-clipboard proteus-colorpick proteus-terminal
          proteus-console-launch proteus-console-seat proteus-console-capabilities \
          proteus-console-session proteus-console-gs-session proteus-console-focus \
          proteus-console-games.py \
+         proteus-gamescope \
          proteus-permissions.py privacy-indicators.py \
          proteus-calendar-events.py proteus-calendar-mutate.py \
          proteus-mail-glance.py proteus-mail-send.py \

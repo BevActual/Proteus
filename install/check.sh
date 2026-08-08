@@ -451,6 +451,9 @@ grep -q 'guest-install.sh' "${ROOT}/docs/proteus/INSTALL.md" 2>/dev/null \
 [[ -x "${ROOT}/dev/dogfood/dogfood-host.sh" ]] && ok dev/dogfood/dogfood-host.sh || bad dev/dogfood/dogfood-host.sh
 [[ -x "${ROOT}/install/machine/apply-console-kit.sh" ]] && ok install/machine/apply-console-kit.sh || bad install/machine/apply-console-kit.sh
 [[ -x "${ROOT}/shell/scripts/proteus-console-launch" ]] && ok shell/scripts/proteus-console-launch || bad shell/scripts/proteus-console-launch
+[[ -x "${ROOT}/shell/scripts/proteus-gamescope" ]] && ok shell/scripts/proteus-gamescope || bad shell/scripts/proteus-gamescope
+[[ -f "${ROOT}/env/settings/gamescope-flags.defaults" ]] && ok "gamescope-flags defaults" || bad "gamescope-flags.defaults missing"
+grep -q 'gamescope-flags' "${ROOT}/install/config.sh" && ok "config seeds gamescope-flags" || bad "config missing gamescope-flags seed"
 [[ -x "${ROOT}/shell/scripts/proteus-console-seat" ]] && ok shell/scripts/proteus-console-seat || bad shell/scripts/proteus-console-seat
 # console-seat: smithay ctl only (no hyprctl)
 if grep -qE 'hyprctl\b' "${ROOT}/shell/scripts/proteus-console-seat"; then
@@ -472,6 +475,7 @@ grep -q 'proteus-compositorctl\|compositorctl' "${ROOT}/shell/scripts/proteus-co
 grep -q 'proteus-console-seat' "${ROOT}/install/apps.sh" && ok "apps.sh installs proteus-console-seat" || bad "apps.sh missing proteus-console-seat"
 grep -q 'proteus-console-capabilities' "${ROOT}/install/apps.sh" && ok "apps.sh installs proteus-console-capabilities" || bad "apps.sh missing proteus-console-capabilities"
 grep -q 'proteus-console-launch' "${ROOT}/install/apps.sh" && ok "apps.sh installs proteus-console-launch" || bad "apps.sh missing proteus-console-launch"
+grep -q 'proteus-gamescope' "${ROOT}/install/apps.sh" && ok "apps.sh installs proteus-gamescope" || bad "apps.sh missing proteus-gamescope"
 grep -q 'proteus-console-session' "${ROOT}/install/apps.sh" && ok "apps.sh installs proteus-console-session" || bad "apps.sh missing proteus-console-session"
 grep -q 'proteus-console-gs-session' "${ROOT}/install/apps.sh" && ok "apps.sh installs proteus-console-gs-session" || bad "apps.sh missing proteus-console-gs-session"
 grep -q 'proteus-console-focus' "${ROOT}/install/apps.sh" && ok "apps.sh installs proteus-console-focus" || bad "apps.sh missing proteus-console-focus"
@@ -503,6 +507,11 @@ if bash -n "${ROOT}/shell/scripts/proteus-console-launch" 2>/dev/null; then
   ok "proteus-console-launch bash -n"
 else
   bad "proteus-console-launch (bash -n)"
+fi
+if bash -n "${ROOT}/shell/scripts/proteus-gamescope" 2>/dev/null; then
+  ok "proteus-gamescope bash -n"
+else
+  bad "proteus-gamescope (bash -n)"
 fi
 if bash -n "${ROOT}/shell/scripts/proteus-console-seat" 2>/dev/null; then
   ok "proteus-console-seat bash -n"

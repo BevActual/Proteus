@@ -82,7 +82,7 @@ Desktop (owned iced — `shell/src/app/` session + `platform/` helpers + shared 
 | Hardware probe at session start | `shipped` — Wave A (`proteus-hw-probe` + shell/shell-core cache) |
 | Env gate (Beacon / Settings / dock) | `shipped` — shell-core gate (+ `env/apps` manifests); **postures** + **device_classes** hard allow-lists · **prefers** soft hint/boost · **adapts** soft profile (input/nav/panes via Focus) + **`PROTEUS_ADAPT_*` launch env** on Dock/Beacon/`openSettings`; **Focus minimal hard-hides** non-allowlisted Settings panes; **`adapts.input` remote** via probe CEC/IR/lirc / Bluetooth HID + `PROTEUS_REMOTE_PROBE` stub; Settings About may surface adapt env + remote status + Focus density; app icon resolve + Proteus brand marks |
 | Chrome design lock (`CHROME.md`) | `shipped` — principles + token tables + Settings patterns; sibling export `env/chrome/` `shipped` |
-| Owned-stack ladder ([OWNED-STACK.md](./OWNED-STACK.md)) | `partial` — iced chrome + smithay compositor **shipped** (thin); Settings iced sibling; polish holdouts remain; **gamescope console-home not swapped** |
+| Owned-stack ladder ([OWNED-STACK.md](./OWNED-STACK.md)) | `partial` — iced chrome + smithay compositor **shipped** (thin); Settings iced sibling; polish holdouts remain; **desktop gamescope nest** via `proteus-gamescope` (Steam `%command%`); **gamescope console-home not swapped** |
 | Theme tokens | `shipped` — space/radius scale + accent/font from Config; company lock [CHROME.md](./CHROME.md) |
 | Themed controls (`theme_slider` / `theme_switch`) | `shipped` — `proteus-ui` kit; QML ThemeSlider/ThemeSwitch retired |
 | Shared package layout | `shipped` — `shell/{src,scripts,pam,assets}` + `app/` (session + `handlers/{overlays,spaces,dock,…}`) + `platform/{power,network,notifs,…}` + `faces/{desktop,console,host}/` + `surfaces/{bar,dock,…}`; `main.rs` boot + App seed, session logic in `app/`; QML `shared/` deleted |
@@ -252,7 +252,7 @@ Locked product set: [POSTURES.md](./POSTURES.md).
 | Posture | Status |
 |---------|--------|
 | desktop | `partial` — primary focus spine |
-| console | `partial` — list IA + owned console face stub: Games/Media/Apps + **Console Settings face thin** (Wi‑Fi/Sound/Privacy jumps). **gamescope console-home not swapped**. Detail: [§4a](#4a-console-detail) |
+| console | `partial` — list IA + owned console face stub: Games/Media/Apps + **Console Settings face thin** (Wi‑Fi/Sound/Privacy jumps). **gamescope console-home not swapped** (desktop nest is separate — `proteus-gamescope`). Detail: [§4a](#4a-console-detail) |
 | host | `partial` — seat-driven headless default; owned host face Glance **HexOS cards** (`proteus-host-metrics.py`); Workloads mutation surface; graphical-remote attach Out |
 | home · wearable · xr · vehicle | `parked` — thesis only; not in proof order |
 
@@ -310,7 +310,8 @@ BTN_DPAD/HAT dual-report dedupe, hold-repeat delay. Kit: `apply-console-kit.sh`.
 |------|------|
 | `~/.config/proteus/settings.json` | Theme/desktop prefs (shell-core / iced Settings); wallpaper keys; widgets; DND — [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md) |
 | `~/.config/proteus/keybinds.json` | Shortcut overrides for compositor (defaults baked in `binds.rs`) |
-| `~/.config/proteus/displays.json` | Output scale/pos/mode for compositor |
+| `~/.config/proteus/displays.json` | Output scale/pos/mode/transform for compositor |
+| `~/.config/proteus/gamescope-flags` | Desktop nest argv for `proteus-gamescope` (Steam: `proteus-gamescope %command%`) |
 | `~/.config/proteus/permissions.json` | App permission categories + per-app Allow/Ask/Deny (0600; `proteus-permissions.py`) — not in settings.json |
 | `~/.local/share/proteus/auth/pin` | Lock-screen unlock PIN hash (0600; `proteus-pin.py` / `check-unlock.py` / `proteus_auth.py`) — not in settings.json; apps install helpers + optional `proteus-lock` PAM (`login` fallback); [CONFIG-SCHEMA.md](./CONFIG-SCHEMA.md) · [INSTALL.md](./INSTALL.md) |
 | `~/.config/proteus/hw-probe.json` | Cached Wave A hardware probe |

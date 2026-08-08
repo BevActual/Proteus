@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+# proteus-gamescope — nest gamescope around a command on the desktop seat.
+#
+# Session compositor stays smithay; gamescope is a Wayland client. Use for
+# Steam launch options:  proteus-gamescope %command%
+#
+# Usage:
+#   proteus-gamescope [--] <command...>
+#   proteus-gamescope -h|--help
+#
+# Flags Fact (optional): ~/.config/proteus/gamescope-flags
+#   Space-separated gamescope argv before `--` (default: -f).
+# Env:
+#   PROTEUS_FORCE_GAMESCOPE=1  — allow nest in VMs without Vulkan probe
+#   PROTEUS_GAMESCOPE_FLAGS    — override Fact / default flags (shell-words)
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+
+usage() {
+  echo "usage: proteus-gamescope [--] <command...>" >&2
+  echo "  Nest gamescope under the current WAYLAND_DISPLAY (desktop seat)." >&2
+  echo "  Steam: set launch options to: proteus-gamescope %command%" >&2
+  echo "  Flags: ~/.config/proteus/gamescope-flags or PROTEUS_GAMESCOPE_FLAGS" >&2
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      echo "proteus-gamescope: unknown option: $1 (pass game args after --)" >&2
+      usage
+      exit 2
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+if [[ $# -eq 0 ]]; then
+  usage
+  exit 2
+fi
+
+is_vm() {
+  local vendor product
+  vendor="$(tr -d '\0' </sys/class/dmi/id/sys_vendor 2>/dev/null || true)"
+  product="$(tr -d '\0' </sys/class/dmi/id/product_name 2>/dev/null || true)"
+  [[ "${vendor}${product}" =~ [Qq][Ee][Mm][Uu]|[Vv]irtual|[Vv]Mware|[Bb]ox|[Xx]en|[Bb]ochs ]]
+}
+
+already_inside_gamescope() {
+  # Gamescope-as-session (console) or nested child display.
+  if [[ "${PROTEUS_CONSOLE_SESSION:-}" == "gamescope" ]]; then
+    return 0
+  fi
+  case "${WAYLAND_DISPLAY:-}" in
+    gamescope-*|gamescope) return 0 ;;
+  esac
+  # Parent process name heuristic (Steam may wrap oddly — best-effort).
+  if [[ -r /proc/$PPID/comm ]]; then
+    local parent
+    parent="$(tr -d '\0' </proc/$PPID/comm 2>/dev/null || true)"
+    [[ "${parent}" == "gamescope" ]] && return 0
+  fi
+  return 1
+}
+
+gamescope_usable() {
+  command -v gamescope >/dev/null 2>&1 || return 1
+  if is_vm && [[ "${PROTEUS_FORCE_GAMESCOPE:-}" != "1" ]]; then
+    return 1
+  fi
+  local caps=""
+  for c in "${HERE}/proteus-console-capabilities" \
+    /usr/local/bin/proteus-console-capabilities; do
+    if [[ -x "${c}" ]]; then
+      caps="${c}"
+      break
+    fi
+  done
+  if [[ -n "${caps}" ]]; then
+    "${caps}" 2>/dev/null | grep -q '"gamescopeUsable": true' && return 0
+    return 1
+  fi
+  if command -v vulkaninfo >/dev/null 2>&1; then
+    vulkaninfo --summary 2>/dev/null | grep -qE 'GPU[0-9]+|deviceName' || return 1
+  fi
+  return 0
+}
+
+resolve_flags() {
+  # Prefer env override, then Fact file, then -f (fullscreen nest).
+  if [[ -n "${PROTEUS_GAMESCOPE_FLAGS:-}" ]]; then
+    # shellcheck disable=SC2206
+    GS_FLAGS=(${PROTEUS_GAMESCOPE_FLAGS})
+    return
+  fi
+  local fact=""
+  if [[ -n "${XDG_CONFIG_HOME:-}" ]]; then
+    fact="${XDG_CONFIG_HOME}/proteus/gamescope-flags"
+  else
+    fact="${HOME:-/tmp}/.config/proteus/gamescope-flags"
+  fi
+  if [[ -f "${fact}" ]]; then
+    local raw
+    raw="$(tr '\n' ' ' <"${fact}" | sed 's/#.*//g' | xargs 2>/dev/null || true)"
+    if [[ -n "${raw}" ]]; then
+      # shellcheck disable=SC2206
+      GS_FLAGS=(${raw})
+      return
+    fi
+  fi
+  GS_FLAGS=(-f)
+}
+
+run_bare() {
+  exec "$@"
+}
+
+if already_inside_gamescope; then
+  echo "proteus-gamescope: already inside gamescope — running bare (no nest)" >&2
+  run_bare "$@"
+fi
+
+if ! gamescope_usable; then
+  echo "proteus-gamescope: gamescope unavailable (no Vulkan / VM) — running bare" >&2
+  echo "proteus-gamescope: tip: install gamescope + Vulkan ICD, or PROTEUS_FORCE_GAMESCOPE=1" >&2
+  run_bare "$@"
+fi
+
+if [[ -z "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]]; then
+  echo "proteus-gamescope: no WAYLAND_DISPLAY/DISPLAY — running bare" >&2
+  run_bare "$@"
+fi
+
+resolve_flags
+exec gamescope "${GS_FLAGS[@]}" -- "$@"

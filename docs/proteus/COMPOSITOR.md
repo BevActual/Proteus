@@ -49,7 +49,7 @@ Proteus **owns** the shipping Wayland session: Smithay compositor
 | **`proteus-compositor`** | Wayland session — tiling, outputs, keybinds, layer-shell, IPC |
 | **`proteus-shell`** | Presence chrome (bar, dock, Beacon, lock, overlays) |
 | **`proteus-settings-next`** | System control center (sibling iced app) |
-| **Gamescope** *(console, partial)* | Optional session compositor when `game_scope` is usable |
+| **Gamescope** *(console session partial · desktop nest thin)* | Console: optional session compositor when `game_scope` is usable. Desktop: nest client via `proteus-gamescope` (Steam `%command%`) — smithay stays session |
 
 ```
 capabilities + role  →  hard-switch posture  →  proteus-session engine + chrome + Settings

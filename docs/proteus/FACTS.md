@@ -36,6 +36,7 @@ inventing a second store.
 | `~/.config/proteus/posture` | `proteus-posture` | Hard-switch Fact (`desktop` \| `console` \| `host`); mid-session flips may set `PROTEUS_SKIP_SESSION_LOCK=1` outside managed sessions |
 | `~/.config/proteus/host-chrome` | `proteus-posture host` (defaults `none`) / `--chrome` / `proteus-host-seat attach\|detach` | Host **seat chrome** Fact (`full` \| `none`); `none` = no seat / quiet wallpaper; `full` = ops UI attached |
 | `~/.config/proteus/console-session-mode` | `proteus-console-session` | Console preference (`seat` \| `gamescope`); launch wraps when `gamescopeUsable` |
+| `~/.config/proteus/gamescope-flags` | install seed / operator | Space-separated argv for desktop nest helper `proteus-gamescope` (default `-f`); override with `PROTEUS_GAMESCOPE_FLAGS` |
 | `/run/user/$UID/proteus-console-seat.log` | `proteus-console-seat` | Console seat map/fullscreen trail (runtime) |
 | `~/.local/share/proteus/backgrounds/` | wallpaper daily/album flows | `proteus-bg` / wallpaper runner |
 | `~/.config/hypr/proteus-*.conf` | — | **Retired** (Hyprland purged; may linger on old disks — ignore) |

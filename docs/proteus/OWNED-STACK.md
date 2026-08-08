@@ -43,7 +43,7 @@ carried as patched copies.
 | Tier | Layers | Notes |
 |------|--------|-------|
 | **Owned endgame** | Facts/state core (`proteus-shell-core`) · shell chrome (iced layer-shell widgets) · compositor (Smithay-based, posture-native) · XR face (own clients on Monado/Stardust model) · app chrome toolkit (post-Tauri) | Each replaces its borrowed layer only after passing the same gates |
-| **Borrowed interim** (behind contracts) | Tauri/WebKit (app runtime) · gamescope (console session) | Hyprland + Quickshell **retired**; owned `proteus-compositor` + `proteus-shell` ship |
+| **Borrowed interim** (behind contracts) | Tauri/WebKit (app runtime) · gamescope (console session · desktop nest via `proteus-gamescope`) | Hyprland + Quickshell **retired**; owned `proteus-compositor` + `proteus-shell` ship |
 | **Never own** | Kernel · Mesa · PipeWire · Wayland protocol · Monado (OpenXR runtime) · greetd/polkit | Extend and configure only |
 
 ## 2. Sequencing
