@@ -290,7 +290,7 @@ pages via lazy leaf loaders (`DesktopGapsLeaf`, `DesktopChromeLeaf`,
 | Borders & rounding | Border size + window rounding; live via `proteus-settings-apply` |
 | Motion | Window animations switch |
 | Dock & menu bar | Show; layout Center/Span/Left/Right; icon size; rounding; autohide; menu bar height/rounding/autohide → `settings.json` (shell mtime). Monitor Facts Out |
-| Spaces | Displays share Spaces (`workspaceMode` synced \| perDisplay); **Named Spaces** (`workspaceNames` + compositor `renameworkspace`); Super+**1–10** synced · **Super+Ctrl+1–10** local (`workspace N,local`); Super+Shift move still Out; strip drag `workspaceOrder` + wheel; **Scratchpad** Super+S / Super+Alt+S + strip ◇ pill (`special:scratch` ≠ dock minimize) Out/thin; **custom specials** (`specialWorkspaces` CRUD · strip pills ≤8 · Super+Alt+1–8 / Super+Alt+Shift+1–8 index + optional per-slug toggle + move chords); bands via `proteus-workspace`; multi-head `status`/`ensure` + disconnect `migrate-disconnect`; spaces-smoke |
+| Spaces | Displays share Spaces (`workspaceMode` synced \| perDisplay); **Named Spaces** (`workspaceNames` + compositor `renameworkspace`); Super+**1–10** synced · **Super+Ctrl+1–10** local (`workspace N,local`); Super+Shift move still Out; strip drag `workspaceOrder` + wheel; **Scratchpad ◇** menu-bar pill → `special:scratch` park/restore In (`proteus-workspace scratch-toggle` parity; Smithay park id still shared with dock minimize); Super+S / overview Scratchpad Out; **custom specials** (`specialWorkspaces` CRUD · strip pills ≤8 · Super+Alt+1–8 / Super+Alt+Shift+1–8 index + optional per-slug toggle + move chords); bands via `proteus-workspace`; multi-head `status`/`ensure` + disconnect `migrate-disconnect`; shell-smoke ◇ gate |
 | Default apps | Browser / Files / Images / Music / Video / PDF / Text / Archives / Mail / Calendar via `proteus-defaults.py` + `xdg-mime`; mimeapps.list escape |
 | Focus | Soft quiet profiles (seed Work/Personal + **add/rename/delete** In thin); keywordAllow/Deny CSV In; **allowedApps** CSV In; **schedule** `{enabled, days[1–7], start, end}` In + shell edge auto-apply; critical · RRULE Out; active chips + enable; CC menu + Desktop → Focus leaf |
 | Control Center | Plates + tile visibility/size/span/order + **columns 2\|3** + reset (`ControlCenterLayout`); Settings → Desktop → Control Center |
@@ -461,7 +461,7 @@ rows shipped.)*
 *(Spaces catch-up + multi-head + Named Spaces + keyboard 1–10 + disconnect
 migration + strip drag: spaces-smoke · band selftest · status/migrate fixtures ·
 ensure/`apply-names`/`migrate-disconnect` · `workspaceOrder` · SpacesNames ·
-Super+1–10 logical SoT + Scratchpad (keys + strip ◇ pill) + custom special CRUD
+Super+1–10 logical SoT + Scratchpad ◇ menu-bar pill + custom special CRUD
 + strip pills / Super+Alt+1–4 (`specialWorkspaces`) shipped; Spaces row stays
 `partial` until live 2-head is routine.)*
 *(Focus profile CRUD thin In: Desktop → Focus add/rename/delete · keyword

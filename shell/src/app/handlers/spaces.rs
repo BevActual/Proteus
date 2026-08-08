@@ -50,6 +50,9 @@ pub(crate) fn handle(app: &mut App, m: SurfaceMsg) -> Task<Message> {
                 }
             }
         }
+        SurfaceMsg::ScratchToggle => {
+            let _ = wm_ipc::scratch_toggle(&app.wm);
+        }
         SurfaceMsg::SpacesCycle(dir) => {
             if dir == 0 {
                 return Task::none();

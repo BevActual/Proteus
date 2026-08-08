@@ -116,6 +116,29 @@ pub fn window_minimize() -> Result<(), String> {
     dispatch("movetoworkspacesilent special:minimized")
 }
 
+/// Toggle Scratchpad: park focused window on `special:scratch`, or restore
+/// a parked focused window to the current active Space.
+///
+/// On the Smithay spike, all `special:*` targets share the minimized park id
+/// (same bucket as dock minimize) — distinct scratch workspace remains Out.
+pub fn scratch_toggle(wm: &WmState) -> Result<(), String> {
+    let focused_ws = wm
+        .toplevels
+        .iter()
+        .find(|t| t.address == wm.active_address)
+        .map(|t| t.workspace)
+        .unwrap_or(wm.active_workspace);
+    if focused_ws < 0 {
+        let restore = wm.active_workspace.max(1);
+        dispatch(&format!("movetoworkspacesilent {restore}"))
+    } else {
+        if wm.active_address.is_empty() {
+            return Err("no focused window".into());
+        }
+        dispatch("movetoworkspacesilent special:scratch")
+    }
+}
+
 /// Toggle maximize (fullscreen 1) on focused toplevel.
 pub fn window_maximize() -> Result<(), String> {
     dispatch("fullscreen 1")

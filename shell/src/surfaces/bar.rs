@@ -70,7 +70,7 @@ pub fn bar_exclusive(height: u32) -> u32 {
 pub fn bar_view<'a>(
     theme: &'a Theme,
     chrome: &'a ChromeState,
-    _wm: &'a WmState,
+    wm: &'a WmState,
     power: &'a PowerStatus,
     tray: &'a [crate::platform::TrayItem],
     privacy: &'a PrivacyDots,
@@ -115,7 +115,7 @@ pub fn bar_view<'a>(
             }
         })
         .on_press(Message::ToggleSpaces);
-    let ws: Element<'a, Message> = iced::widget::mouse_area(spaces_btn)
+    let spaces_el: Element<'a, Message> = iced::widget::mouse_area(spaces_btn)
         .on_scroll(|delta| {
             let y = match delta {
                 iced::mouse::ScrollDelta::Lines { y, .. } => y,
@@ -129,6 +129,36 @@ pub fn bar_view<'a>(
                 Message::SpacesCycle(0)
             }
         })
+        .into();
+
+    // Scratchpad ◇ — park/restore focused window (`special:scratch`).
+    // Occupied/active share the Smithay minimized park bucket (honest thin).
+    let scratch_active = !wm.active_address.is_empty()
+        && wm
+            .toplevels
+            .iter()
+            .any(|t| t.address == wm.active_address && t.workspace < 0);
+    let scratch_occupied = wm.toplevels.iter().any(|t| t.workspace < 0);
+    let scratch_color = if scratch_active {
+        accent
+    } else if scratch_occupied {
+        theme.text
+    } else {
+        theme.text_dim
+    };
+    let scratch_btn = button(
+        text("◇")
+            .size(15)
+            .font(semibold())
+            .color(scratch_color),
+    )
+    .padding(Padding::new(3.0).left(7.0).right(7.0))
+    .style(bar_chip_style(theme, scratch_active))
+    .on_press(Message::ScratchToggle);
+
+    let ws: Element<'a, Message> = row![spaces_el, scratch_btn]
+        .spacing(2)
+        .align_y(Alignment::Center)
         .into();
 
     let mut tray_row = row![].spacing(4).align_y(Alignment::Center);

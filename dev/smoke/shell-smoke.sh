@@ -60,6 +60,10 @@ grep -rq --include='*.rs' 'move_window_to_workspace\|SpacesDrop\|SpacesDragStart
 grep -rq --include='*.rs' 'struct Monitor\|occupied_space_ids_for_output\|windows_on_space_for_output' \
   "${ROOT}/shell/src/wm_ipc.rs" "${ROOT}/shell/src/spaces.rs" \
   && ok "Spaces per-head helpers" || bad "Spaces per-head helpers missing"
+grep -rq --include='*.rs' 'ScratchToggle\|scratch_toggle\|special:scratch' \
+  "${SURFACES}" "${APP}" "${ROOT}/shell/src/wm_ipc.rs" \
+  && grep -q '◇' "${SURFACES}/bar.rs" \
+  && ok "Scratchpad ◇ strip pill" || bad "Scratchpad ◇ strip missing"
 for t in lock chrome widgets hud; do
   grep -q "\"${t}\"" "${ROOT}/shell/src/lib.rs" \
     && ok "ipc target ${t}" || bad "ipc target ${t}"

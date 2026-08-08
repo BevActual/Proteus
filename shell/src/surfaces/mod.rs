@@ -52,6 +52,8 @@ pub enum Message {
     ToggleSpaces,
     /// Scroll over the bar Spaces icon (±1 within visible set).
     SpacesCycle(i32),
+    /// Menu-bar Scratchpad ◇ — park/restore via `special:scratch`.
+    ScratchToggle,
     SpacesSelect(i64, Option<String>),
     SpacesAdd,
     SpacesRenameStart(i64),

@@ -44,6 +44,7 @@ pub(crate) fn handle_surface(app: &mut App, m: SurfaceMsg) -> Task<Message> {
             SurfaceMsg::ToggleSpaces
             | SurfaceMsg::SpacesEscape
             | SurfaceMsg::SpacesCycle(_)
+            | SurfaceMsg::ScratchToggle
             | SurfaceMsg::SpacesSelect(_, _)
             | SurfaceMsg::SpacesAdd
             | SurfaceMsg::SpacesRenameStart(_)
