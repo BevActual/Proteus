@@ -341,6 +341,14 @@ else
     && ok "activeworkspace=1" \
     || die "activeworkspace: ${active}"
 
+  # session-lock probe — compositor advertises ext-session-lock; shell default
+  # Fact remains overlay (protocol opt-in via PROTEUS_SESSION_LOCK / session-lock).
+  slock="$("${CTL}" session-lock 2>/dev/null || true)"
+  echo "${slock}" | grep -q '"ok": *true' \
+    && echo "${slock}" | grep -q '"supported": *true' \
+    && ok "ctl session-lock supported" \
+    || die "session-lock probe failed: ${slock}"
+
   disp="$("${CTL}" dispatch workspace 2 2>/dev/null || true)"
   echo "${disp}" | grep -q '"ok": *true' \
     && ok "dispatch workspace 2" \

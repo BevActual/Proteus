@@ -38,7 +38,7 @@
 | VirGL / virtio transform | `thin` — prefers **card** node; `PROTEUS_DRM_TRANSFORM` (`normal`/`180`/`flipped`/…) for host-GL orientation quirks (no auto flip — VirGL hosts differ) |
 | Displays Fact + modeset | `works` (thin) — load `displays.json`; `dispatch output` scale/pos/mode; **Identify** flash; Settings **10s Revert** |
 | Session keybinds | `works` (thin) — Super chords in compositor (`binds.rs`); Fact `keybinds.json`; `reloadbinds` |
-| `ext-session-lock-v1` | `partial` (thin) — global advertised; blank xdg windows while locked; LockSurfaces drawn; ctl `session-lock` probe; Overlay remains default Fact |
+| `ext-session-lock-v1` | `partial` (thin) — `session_lock.rs` tracked; global advertised; blank xdg windows while locked; LockSurfaces drawn; ctl `session-lock` probe (`supported`); **Overlay remains default** shell Fact — protocol is opt-in only |
 
 ### Supported ctl dispatches
 
