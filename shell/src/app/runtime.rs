@@ -240,6 +240,11 @@ pub(crate) fn refresh_heavy(app: &mut App) {
         }
     }
     apply_settings_if_changed(app);
+    // Focus schedule auto-apply (edge-triggered; schedule.enabled on active profile).
+    app.focus_schedule_last = platform::apply_focus_schedule(app.focus_schedule_last);
+    if app.focus_schedule_last.is_some() {
+        app.focus_on = platform::focus_active();
+    }
     if app.locked {
         // Values only — widgets list is cached (reload on Customize / settings).
         app.lock_ui.refresh_applets(&app.mpris, &app.power);

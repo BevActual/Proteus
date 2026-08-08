@@ -218,6 +218,7 @@ fn main() -> Result<(), iced_layershell::Error> {
                 beacon_hits: default_beacon_hits(),
                 lock_ui: LockUiState::default(),
                 focus_on: false,
+                focus_schedule_last: None,
                 focus_profiles: Vec::new(),
                 focus_active_id: String::new(),
                 face: face_boot,

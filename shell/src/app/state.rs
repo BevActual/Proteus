@@ -184,6 +184,8 @@ pub(crate) struct App {
     pub(crate) beacon_hits: Vec<String>,
     pub(crate) lock_ui: LockUiState,
     pub(crate) focus_on: bool,
+    /// Last Focus schedule window membership (`None` = schedule inactive).
+    pub(crate) focus_schedule_last: Option<bool>,
     pub(crate) focus_profiles: Vec<platform::FocusProfile>,
     pub(crate) focus_active_id: String,
     pub(crate) face: Face,

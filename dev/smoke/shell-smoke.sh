@@ -258,6 +258,9 @@ grep -rq --include='*.rs' 'ToggleDnd\|wifi_list_thin\|bt_list_thin' "${SURFACES}
   && ok "CC DND/WiFi/BT" || bad "CC tiles missing"
 grep -rq --include='*.rs' 'ToggleFocus\|focus_profiles\|Focus Mode' "${SURFACES}" "${PLATFORM}" \
   && ok "CC Focus Mode thin" || bad "CC Focus missing"
+grep -q 'apply_focus_schedule\|schedule_window_active\|focus_schedule_last' \
+  "${PLATFORM}/focus.rs" "${APP}/runtime.rs" "${APP}/state.rs" \
+  && ok "Focus schedule auto-apply thin" || bad "Focus schedule auto-apply missing"
 grep -rq --include='*.rs' 'DOCK_MAG_CELLS\|dock_mag_falloff\|dock_mag_strength' \
   "${SURFACES}" "${APP}" "${MAIN}" \
   && bad "dock magnify helpers must be removed" \
