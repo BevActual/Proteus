@@ -250,6 +250,9 @@ grep -q 'SetTransform\|transform_label' "${ST_ROOT}/src/panes/displays.rs" \
   && grep -q 'transform' "${ST_ROOT}/src/backend.rs" "${ROOT}/shell/scripts/proteus-settings-apply" \
   && ok "Displays orientation/transform UI + apply" \
   || bad "Displays orientation/transform missing"
+grep -q 'SetTransform(.*4)\|SetTransform(.*7)\|Flip 90' "${ST_ROOT}/src/panes/displays.rs" \
+  && grep -q 'flipped\|Flipped\|0–7\|0-7' "${ROOT}/docs/proteus/CURRENT.md" "${ROOT}/docs/proteus/SETTINGS-IA.md" \
+  && ok "Displays flipped transforms In" || bad "Displays flipped transforms missing"
 grep -q 'Wave Link grid\|MixRoute\|MixVolume' "${ST_ROOT}/src/panes/sound.rs" \
   && ok "Mixer Wave Link grid" || bad "Mixer grid missing"
 grep -q 'row peaks\|ch.peak\|audio_mix_peaks' "${ST_ROOT}/src/panes/sound.rs" "${ST_ROOT}/src/backend.rs" \

@@ -139,7 +139,7 @@ Examples:
 | Keyboard shortcuts | `~/.config/proteus/keybinds.json` + compositor defaults (`binds.rs`) |
 | Mouse sensitivity / accel | `settings.json` + `proteus-settings-apply input` → compositor `input-reload` |
 | Displays (list) | compositorctl / `displays.json` (name-merge on refresh) |
-| Displays scale / mode / orientation / layout | `proteus-compositorctl` `output` scale/pos/mode/transform + `~/.config/proteus/displays.json`; Identify flash; 10s full-snapshot Revert (Settings); compositor/Fact + Settings orientation UI **In** (Normal/90/180/270; flipped Out) |
+| Displays scale / mode / orientation / layout | `proteus-compositorctl` `output` scale/pos/mode/transform + `~/.config/proteus/displays.json`; Identify flash; 10s full-snapshot Revert (Settings); compositor/Fact + Settings orientation UI **In** (Normal/90/180/270 · Flipped / Flip 90/180/270 · wl 0–7) |
 | Volume / mute / default sink | `pactl` |
 | Input volume / mute / default source | `pactl` |
 | Audio matrix (node routing) | `pw-link` via `shell/scripts/audio-matrix.py` (Omnibus-style grid) |
@@ -188,7 +188,7 @@ Left-nav + content pane (macOS System Settings style).
 |----------|-------|---------|--------|
 | **Appearance** (`style`) | Category → Accent, Background, Lock screen, Icons (style compare + dock pins), Font (searchable + Add) | `settings.json`, Theme, `proteus-bg`; shared Kind/color/font/icon kit | `shipped` |
 | **Desktop** (`desktop`) | Category → Gaps, Borders & rounding, Motion, Dock & menu bar, Spaces, Default apps, **Focus**, **Control Center** layout, Beacon | `settings.json` + `proteus-settings-apply` · Focus · CC layout · `proteus-defaults.py` · launcher* | `shipped` |
-| **Displays** (`displays`) | Layout canvas + per-monitor scale/orientation; Identify; 10s Revert; Refresh/topology honesty; Fact `displays.json` (incl. transform) | compositorctl + `displays.json` | `shipped` (thin; orientation UI In · flipped Out) |
+| **Displays** (`displays`) | Layout canvas + per-monitor scale/orientation; Identify; 10s Revert; Refresh/topology honesty; Fact `displays.json` (incl. transform) | compositorctl + `displays.json` | `shipped` (thin; orientation + flipped transforms In) |
 | **Sound** (`sound`) | Category → Output / Input / Applications / Mixer / Latency | pactl + `proteus-audio-mix` / `audio-peak.py` + `pw-metadata` + `pw-link` | `shipped` |
 | **Network** (`network`) | Category → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN / Headscale — password Wi‑Fi · BT pair · **TS thin usable** (peers · exit-node · login-server · up/down; deep ACL Out) · VPN up/down · **WG/OpenVPN import thin** · Headscale admin thin (nodes · users · policy text + structured ACL groups thin; visual graph Out) | hostnamectl / nmcli / bluetoothctl / localsend / tailscale / `proteus-headscale.py` | `shipped` |
 | **Peripherals** (`peripherals`) | Category → Keyboard, Mouse, Touchpad, Tablet, Gamepads (Guide Facts In · device list Out) | keybinds thin rebind + `proteus-settings-apply input` (`mouse*` · `touchpad*` · `tabletPressure*` · tip/eraser curves); `gamepadsGuideSingle`/`Double` Facts (`proteus-guide`); gestures / `inputDeviceOverrides` Out | `shipped` (thin) |
@@ -312,12 +312,12 @@ mega-inline pane body.
 Displays: iced sibling pane (`ProteusSettings` `panes/displays.rs`) — layout
 canvas + per-monitor scale/orientation + Identify + 10s Revert. Apply writes
 `transform` on Fact and live-dispatches (`output … transform`). Flipped
-transforms still Out. Not a leaf-split hub.
+transforms **In** (wl 0–7). Not a leaf-split hub.
 
 | Concern | Role |
 |---------|------|
 | Layout canvas | Drag + edge snap; Apply layout |
-| Scale / orientation / Identify | Scale presets; Normal/90/180/270; Identify → `dispatch identify` |
+| Scale / orientation / Identify | Scale presets; Normal/90/180/270 · Flip / Flip 90/180/270; Identify → `dispatch identify` |
 | Revert | 10s full-snapshot (incl. transform); connector-name key; cancel on Refresh, leave pane, topology drift, or timeout |
 | List honesty | Live list via `proteus-settings-apply monitors` / compositorctl |
 | Fact | `~/.config/proteus/displays.json` |
