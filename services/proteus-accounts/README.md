@@ -23,6 +23,8 @@ User-scoped online-account seats for Proteus Settings.
   (not Sign in with Apple OAuth)
 - Seat metadata: `~/.config/proteus/accounts.json`
 - Tokens: `~/.local/share/proteus/accounts/tokens/*.token.json` (0600) — **not** `settings.json`
+- Multi-seat: `connect` upserts by identity (or `PROTEUS_ACCOUNTS_REPLACE_SEAT`) —
+  does **not** wipe sibling seats for the same provider
 - `token <seat|provider>` — access token JSON with refresh (Google/MS calendar + mail scopes);
   Nextcloud/IMAP/CalDAV/CardDAV return vault password as `accessToken` + `baseUrl`/`username`;
   Apple also emits `caldavUrl` / `carddavUrl` / `imapHost` / `imapPort`

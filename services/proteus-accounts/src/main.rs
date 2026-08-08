@@ -658,24 +658,42 @@ fn email_from_id_token(id_token: &str) -> String {
     String::new()
 }
 
-fn replace_provider_seat(
-    provider: &str,
-    seat: Seat,
-    blob: &TokenBlob,
-) -> Result<Value, String> {
-    save_token(&seat.id, blob)?;
+/// Upsert one seat without wiping sibling seats for the same provider.
+/// Prefer `PROTEUS_ACCOUNTS_REPLACE_SEAT` (edit path); else match
+/// provider + email + baseUrl identity; else append a new seat.
+fn upsert_seat(mut seat: Seat, blob: &TokenBlob) -> Result<Value, String> {
     let mut idx = load_index();
-    let old: Vec<_> = idx
-        .seats
-        .iter()
-        .filter(|s| s.provider == provider)
-        .map(|s| s.id.clone())
-        .collect();
-    for id in &old {
-        clear_token(id);
+    let replace_env = env::var("PROTEUS_ACCOUNTS_REPLACE_SEAT")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let match_pos = replace_env
+        .as_deref()
+        .and_then(|id| {
+            idx.seats
+                .iter()
+                .position(|s| s.id == id && s.provider == seat.provider)
+        })
+        .or_else(|| {
+            let email = seat.email.trim().to_ascii_lowercase();
+            let base = seat.base_url.trim().trim_end_matches('/').to_string();
+            idx.seats.iter().position(|s| {
+                s.provider == seat.provider
+                    && s.email.trim().eq_ignore_ascii_case(&email)
+                    && s.base_url.trim().trim_end_matches('/') == base
+            })
+        });
+
+    if let Some(i) = match_pos {
+        let old_id = idx.seats[i].id.clone();
+        seat.id = old_id;
+        idx.seats[i] = seat.clone();
+    } else {
+        idx.seats.push(seat.clone());
     }
-    idx.seats.retain(|s| s.provider != provider);
-    let out = json!({
+    save_token(&seat.id, blob)?;
+    save_index(&idx)?;
+    Ok(json!({
         "ok": true,
         "seat": {
             "id": seat.id,
@@ -684,10 +702,7 @@ fn replace_provider_seat(
             "email": seat.email,
             "baseUrl": seat.base_url,
         }
-    });
-    idx.seats.push(seat);
-    save_index(&idx)?;
-    Ok(out)
+    }))
 }
 
 fn connect_google() -> Result<Value, String> {
@@ -726,8 +741,7 @@ fn connect_google() -> Result<Value, String> {
         email.clone()
     };
     let seat_id = format!("google-{}", now_secs());
-    replace_provider_seat(
-        "google",
+    upsert_seat(
         Seat {
             id: seat_id,
             provider: "google".into(),
@@ -775,8 +789,7 @@ fn connect_microsoft() -> Result<Value, String> {
         email.clone()
     };
     let seat_id = format!("microsoft-{}", now_secs());
-    replace_provider_seat(
-        "microsoft",
+    upsert_seat(
         Seat {
             id: seat_id,
             provider: "microsoft".into(),
@@ -827,8 +840,7 @@ fn connect_exchange() -> Result<Value, String> {
         format!("{email} · Exchange")
     };
     let seat_id = format!("exchange-{}", now_secs());
-    replace_provider_seat(
-        "exchange",
+    upsert_seat(
         Seat {
             id: seat_id,
             provider: "exchange".into(),
@@ -922,8 +934,7 @@ fn connect_nextcloud(base_url: &str, username: &str, app_password: &str) -> Resu
         imap_host: String::new(),
         imap_port: 0,
     };
-    replace_provider_seat(
-        "nextcloud",
+    upsert_seat(
         Seat {
             id: seat_id,
             provider: "nextcloud".into(),
@@ -1050,8 +1061,7 @@ fn connect_caldav(base_url: &str, username: &str, password: &str) -> Result<Valu
         imap_host: String::new(),
         imap_port: 0,
     };
-    replace_provider_seat(
-        "caldav",
+    upsert_seat(
         Seat {
             id: seat_id,
             provider: "caldav".into(),
@@ -1137,8 +1147,7 @@ fn connect_carddav(base_url: &str, username: &str, password: &str) -> Result<Val
         imap_host: String::new(),
         imap_port: 0,
     };
-    replace_provider_seat(
-        "carddav",
+    upsert_seat(
         Seat {
             id: seat_id,
             provider: "carddav".into(),
@@ -1184,8 +1193,7 @@ fn connect_apple(apple_id: &str, app_password: &str) -> Result<Value, String> {
         imap_host: imap_host.into(),
         imap_port,
     };
-    replace_provider_seat(
-        "apple",
+    upsert_seat(
         Seat {
             id: seat_id,
             provider: "apple".into(),
@@ -1238,8 +1246,7 @@ fn connect_imap(host: &str, port_s: &str, username: &str, password: &str) -> Res
         imap_host: String::new(),
         imap_port: 0,
     };
-    replace_provider_seat(
-        "imap",
+    upsert_seat(
         Seat {
             id: seat_id,
             provider: "imap".into(),
