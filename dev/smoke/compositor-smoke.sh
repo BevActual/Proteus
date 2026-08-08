@@ -97,6 +97,12 @@ grep -q 'id: "files"' "${CRATE}/src/binds.rs" \
 grep -q 'input-reload\|InputConfig\|sensitivity_scale' \
   "${CRATE}/src/ctl.rs" "${CRATE}/src/input_config.rs" "${CRATE}/src/input.rs" \
   || die "input-reload / InputConfig missing"
+grep -q 'tabletTipPressureCurve\|remap_tablet_pressure\|TabletToolAxis' \
+  "${CRATE}/src/input_config.rs" "${CRATE}/src/input.rs" \
+  || die "tablet pressure curve remap missing"
+grep -q 'tabletTipPressureCurve\|tabletEraserPressureCurve' \
+  "${ROOT}/shell/scripts/proteus-settings-apply" \
+  || die "proteus-settings-apply input missing tablet curve keys"
 grep -q 'SessionLockManagerState\|delegate_session_lock\|session_lock' \
   "${CRATE}/src/session_lock.rs" "${CRATE}/src/state.rs" \
   || die "ext-session-lock module missing"

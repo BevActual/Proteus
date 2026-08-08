@@ -124,12 +124,16 @@ impl CompositorNext {
             if rest == "input-reload" || rest == "reload input" {
                 self.input_config.reload();
                 eprintln!(
-                    "proteus-compositor: input-reload sensitivity={} scale={:.3} natural={} tap={} scroll={}",
+                    "proteus-compositor: input-reload sensitivity={} scale={:.3} natural={} tap={} scroll={} tip_curve={} eraser_curve={} pmin={} pmax={}",
                     self.input_config.sensitivity,
                     self.input_config.sensitivity_scale(),
                     self.input_config.natural_scroll,
                     self.input_config.tap_to_click,
-                    self.input_config.scroll_factor
+                    self.input_config.scroll_factor,
+                    self.input_config.tip_pressure_curve.len(),
+                    self.input_config.eraser_pressure_curve.len(),
+                    self.input_config.tablet_pressure_min,
+                    self.input_config.tablet_pressure_max
                 );
                 return serde_json::json!({"ok": true}).to_string();
             }

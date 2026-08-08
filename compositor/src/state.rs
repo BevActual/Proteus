@@ -35,6 +35,7 @@ use smithay::{
         session_lock::SessionLockManagerState,
         shm::ShmState,
         socket::ListeningSocketSource,
+        tablet_manager::TabletManagerState,
         viewporter::ViewporterState,
         xwayland_shell::XWaylandShellState,
     },
@@ -103,8 +104,11 @@ pub struct CompositorNext {
     pub(crate) drm_runtime: Option<std::rc::Rc<std::cell::RefCell<crate::drm::DrmRuntime>>>,
     /// Session keybind table (defaults + keybinds.json).
     pub binds: crate::binds::BindsState,
-    /// Pointer / touchpad Facts (`settings.json`); live via `input-reload`.
+    /// Pointer / touchpad / tablet Facts (`settings.json`); live via `input-reload`.
     pub input_config: crate::input_config::InputConfig,
+
+    /// zwp_tablet_manager_v2 — tip/eraser pressure remap path.
+    pub tablet_manager_state: TabletManagerState,
 
     /// ext-session-lock-v1 global + locked output list (Smithay).
     pub session_lock_state: SessionLockManagerState,
@@ -150,6 +154,7 @@ impl CompositorNext {
         let xwayland_shell_state = XWaylandShellState::new::<Self>(&dh);
         let session_lock_state = SessionLockManagerState::new::<Self, _>(&dh, |_| true);
         let idle_inhibit_state = IdleInhibitManagerState::new::<Self>(&dh);
+        let tablet_manager_state = TabletManagerState::new::<Self>(&dh);
 
         let mut seat: Seat<Self> = seat_state.new_wl_seat(&dh, seat_name);
         // Repeat delay/rate — slightly conservative so iced text fields and
@@ -208,6 +213,7 @@ impl CompositorNext {
             drm_runtime: None,
             binds: crate::binds::BindsState::load(),
             input_config: crate::input_config::InputConfig::load(),
+            tablet_manager_state,
             session_lock_state,
             lock_surfaces: Vec::new(),
             session_locked: false,

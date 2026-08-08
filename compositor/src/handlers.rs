@@ -151,6 +151,18 @@ impl SeatHandler for CompositorNext {
 
 delegate_seat!(CompositorNext);
 
+impl smithay::wayland::tablet_manager::TabletSeatHandler for CompositorNext {
+    fn tablet_tool_image(
+        &mut self,
+        _tool: &smithay::backend::input::TabletToolDescriptor,
+        image: smithay::input::pointer::CursorImageStatus,
+    ) {
+        self.set_cursor_status(image);
+    }
+}
+
+smithay::delegate_tablet_manager!(CompositorNext);
+
 impl SelectionHandler for CompositorNext {
     type SelectionUserData = ();
 }

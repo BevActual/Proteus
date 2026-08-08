@@ -110,8 +110,11 @@ grep -q 'peripherals-mouse\|SetMouseSensitivity' "${ST_ROOT}/src/panes/periphera
   && ok "peripherals-mouse leaf" || bad "peripherals-mouse missing"
 grep -q 'peripherals-touchpad\|SetTouchpadNatural' "${ST_ROOT}/src/panes/peripherals.rs" \
   && ok "peripherals-touchpad leaf" || bad "peripherals-touchpad missing"
-grep -q 'hypr_apply_pointer\|hypr_apply_touchpad' "${ST_ROOT}/src/backend.rs" \
-  && ok "pointer/touchpad apply helpers" || bad "pointer/touchpad apply helpers missing"
+grep -q 'peripherals-tablet\|SetTipCurvePreset\|tabletTipPressureCurve' \
+  "${ST_ROOT}/src/panes/peripherals.rs" \
+  && ok "peripherals-tablet leaf" || bad "peripherals-tablet missing"
+grep -q 'hypr_apply_pointer\|hypr_apply_touchpad\|hypr_apply_tablet' "${ST_ROOT}/src/backend.rs" \
+  && ok "pointer/touchpad/tablet apply helpers" || bad "pointer/touchpad/tablet apply helpers missing"
 if grep -q 'proteus-settings-apply' "${ST_ROOT}/src/backend.rs" \
   && grep -q '\["input"\]' "${ST_ROOT}/src/backend.rs"; then
   ok "pointer/touchpad live apply (proteus-settings-apply input)"

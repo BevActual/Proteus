@@ -201,6 +201,8 @@ pub const SETTINGS_SCHEMA: &[(&str, Kind, &str)] = &[
     ("tabletActiveAreaSizeY", Kind::Real, "0"),
     ("tabletPressureMin", Kind::Real, "-1"),
     ("tabletPressureMax", Kind::Real, "-1"),
+    ("tabletTipPressureCurve", Kind::List, "[]"),
+    ("tabletEraserPressureCurve", Kind::List, "[]"),
     ("tabletEraserButtonMode", Kind::Int, "0"),
     ("tabletEraserButtonOverride", Kind::Int, "0"),
     ("tabletRegionPosX", Kind::Real, "0"),
@@ -444,7 +446,7 @@ mod tests {
 
     #[test]
     fn schema_has_all_config_keys_count() {
-        assert_eq!(SETTINGS_SCHEMA.len(), 126, "settings.json Fact key count");
+        assert_eq!(SETTINGS_SCHEMA.len(), 128, "settings.json Fact key count");
         // No duplicates.
         let keys = schema_keys();
         let mut dedup = keys.clone();

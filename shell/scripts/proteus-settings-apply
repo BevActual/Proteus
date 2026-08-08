@@ -7,7 +7,7 @@
 #   proteus-settings-apply gaps <in> <out>
 #   proteus-settings-apply displays-save <json-file>   # persist Fact only
 #   proteus-settings-apply apply-displays [json-file]  # Fact → live output dispatch
-#   proteus-settings-apply input                      # settings.json pointer/touchpad → input-reload
+#   proteus-settings-apply input                      # settings.json pointer/touchpad/tablet → input-reload
 set -euo pipefail
 
 CTL="${PROTEUS_COMPOSITORCTL:-}"
@@ -49,7 +49,7 @@ settings_fact_path() {
   fi
 }
 
-# Read pointer/touchpad keys from settings.json (best-effort) then dispatch reload.
+# Read pointer/touchpad/tablet keys from settings.json (best-effort) then dispatch reload.
 apply_input() {
   need_ctl
   local file
@@ -66,6 +66,10 @@ keys = {
     "touchpadTapToClick": True,
     "touchpadDisableWhileTyping": True,
     "touchpadScrollFactor": 1.0,
+    "tabletPressureMin": -1,
+    "tabletPressureMax": -1,
+    "tabletTipPressureCurve": [],
+    "tabletEraserPressureCurve": [],
 }
 data = {}
 if os.path.isfile(path):

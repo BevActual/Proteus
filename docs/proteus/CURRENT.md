@@ -185,10 +185,10 @@ Ported thin: Appearance · Software · Sound (Mixer grid thin) · Notifications 
 Users · Privacy (activity + categories + Flatpak/Diagnostics thin) · Network
 (machine/wifi/BT/Devices/Diagnostics/LocalSend · VPN · Tailscale · Headscale
 HuJSON) · Desktop (gaps live-apply · defaults/focus CRUD thin/beacon) · Power ·
-Date/Time · About · Virtualization · Peripherals (mouse/touchpad →
+Date/Time · About · Virtualization · Peripherals (mouse/touchpad/tablet →
 `proteus-settings-apply input`) · Accounts · Displays. Holdouts: Mixer
 peaks/drag-reorder polish, Headscale structured ACL editor, Accounts multi-seat
-glance megas, peripherals tablet/gamepads, Focus schedules/app allowlist.
+glance megas, peripherals gamepads, Focus schedules/app allowlist.
 ([STACK.md](./STACK.md) §6).
 
 | Pane | Status |
@@ -196,7 +196,7 @@ glance megas, peripherals tablet/gamepads, Focus schedules/app allowlist.
 | Appearance → Accent / Background / Lock / Icons / Font (`style`) | `shipped` (iced) — Accent/mode/font; lock wallpaper/dim; daily/slideshow/`proteus-bg`; Font picker + userFonts; Icons; chrome apply via tokens / settings-apply |
 | Desktop → Gaps / Borders / Motion / Dock & menu bar / Spaces / Default apps / Focus / Control Center / Beacon | `shipped` (thin iced) — Gaps live via `proteus-settings-apply`; Spaces `workspaceMode` Fact; **Default apps** picker (`proteus-defaults.py`); **Focus** enable + active picker + **profile CRUD** (add/rename/delete · keywordAllow/Deny; schedules/app allowlist Out); CC columns 2|3; Beacon blurb + Clear recents; **Dock & menu bar** layout/size/rounding/autohide Facts → shell mtime reload |
 | Displays (scale / mode / orientation, Identify; layout canvas) | `shipped` (thin) — iced list + layout canvas; Apply writes `~/.config/proteus/displays.json` + live `proteus-settings-apply apply-displays` (`output` scale/pos/mode/**transform**); Fact loads transform at compositor start; monitors JSON reports live wl transform; **Identify** (`dispatch identify`); **10s snapshot Revert** (Keep / timeout / Refresh / leave / topology); Settings orientation UI **In** (Normal/90/180/270 · flipped Out) |
-| Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) / Touchpad / Tablet / Gamepads | `shipped` (thin) — mouse/touchpad Facts → `proteus-settings-apply input` → compositor `dispatch input-reload` (sensitivity scale on motion · natural scroll invert · scroll factor; tap/accel/DWT held on InputConfig); keyboard thin rebind UI → `keybinds.json` overrides + `reloadbinds` (bindm preserved); tablet/gamepads Facts only; **per-device** `inputDeviceOverrides` Out |
+| Peripherals → Keyboard (shortcuts) / Mouse (sensitivity, accel) / Touchpad / Tablet / Gamepads | `shipped` (thin) — mouse/touchpad/tablet Facts → `proteus-settings-apply input` → compositor `dispatch input-reload` (sensitivity scale · natural scroll · scroll factor; tip/eraser piecewise-linear pressure curves + linear min/max on `TabletToolAxis`; tap/accel/DWT held on InputConfig); keyboard thin rebind UI → `keybinds.json` + `reloadbinds`; tablet gestures Out; gamepads Facts only; **per-device** `inputDeviceOverrides` Out |
 | Software → Updates / Repos / AUR / Flathub / AppImages / Web apps / Orphans (`packages`) | `shipped` — iced hub + leaves; Install\|Installed mode-safe loads; sticky action bar; live `$` op + Cancel + last error; empty Installed / orphans / AppImages honesty; **Web apps** (`proteus-webapp` → user `.desktop`, no polkit); hub Needs yay/paru · flatpak; AppImages user-only; escape **Install…** → seeded Software leaf; gated via `settings-next-smoke` (guest `software-guest-smoke` deferred); dep graphs / Snap Out |
 | Sound → Output / Input / Applications / Mixer / Latency (`sound`) | `shipped` — iced hub + leaves; **Mixer** Wave Link–style grid (channels/inputs × mixes; Speakers/mix listen; rename; peaks; drag-reorder); expand/listen; dump-pause while dragging levels; honest setup CTA; graph editor escape (`qpwgraph` Install… → Repos); resident `proteus-audio-mix serve` (Python mutations + fallback); Output/Input/Apps/Latency; pactl + `pw-metadata` |
 | Network → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN / Headscale (`network`) | `shipped` (thin iced) — machine/wifi/BT; **Devices** link+IPv4; **Diagnostics** route/DNS/`ss`/ping; LocalSend detect/open; Tailscale up/down; VPN nmcli up/down; Headscale users + HuJSON check/save. Out: WireGuard import polish · Wireshark · structured ACL editor |
@@ -410,7 +410,7 @@ Install path SoT (three layers, knobs, repair, failures): [INSTALL.md](./INSTALL
 
 - First-party Tauri app under `apps/`  
 - More Rust helper CLIs under `services/` (Wave A probe is Python; `proteus-pkg` + `proteus-logind` mutators + `proteus-audio-mix` resident dump/peaks shipped; mixer mutations still Python)  
-- Tablet bezier per-tool pressure curves · gesture maps (active-area mm + pressure range + eraser-as-button + monitor region shipped)  
+- Tablet gesture maps (tip/eraser pressure curves + linear min/max remap shipped thin; active-area mm + eraser-as-button + monitor region Facts remain)  
 - ISO / installer productization — bare metal now runs the same overlay against a manual Arch base, but there is no unattended installer for real hardware ([INSTALL.md](./INSTALL.md))
 - Bare-metal proof: nothing in the tree has been booted on real hardware yet. `game_scope`, charge thresholds, `/sys/class/backlight`, SMART and multi-head hotplug are all **unexercised** — the VM cannot reach them
 - Second user: nothing here has been installed by anyone who did not write it  

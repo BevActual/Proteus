@@ -38,6 +38,8 @@
   "tabletActiveAreaSizeY": 0,
   "tabletPressureMin": -1,
   "tabletPressureMax": -1,
+  "tabletTipPressureCurve": [],
+  "tabletEraserPressureCurve": [],
   "tabletEraserButtonMode": 0,
   "tabletEraserButtonOverride": 0,
   "tabletRegionPosX": 0,

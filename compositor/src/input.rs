@@ -4,8 +4,11 @@
 
 use smithay::{
     backend::input::{
-        AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event, InputBackend, InputEvent,
-        KeyState, KeyboardKeyEvent, PointerAxisEvent, PointerButtonEvent, PointerMotionEvent,
+        AbsolutePositionEvent, Axis, AxisSource, ButtonState, Device, DeviceCapability, Event,
+        InputBackend, InputEvent, KeyState, KeyboardKeyEvent, PointerAxisEvent,
+        PointerButtonEvent, PointerMotionEvent, ProximityState, TabletToolButtonEvent,
+        TabletToolEvent, TabletToolProximityEvent, TabletToolTipEvent, TabletToolTipState,
+        TabletToolType,
     },
     input::{
         keyboard::FilterResult,
@@ -15,6 +18,7 @@ use smithay::{
     },
     reexports::wayland_server::protocol::wl_surface::WlSurface,
     utils::SERIAL_COUNTER,
+    wayland::tablet_manager::{TabletDescriptor, TabletSeatTrait},
 };
 
 use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel;
@@ -351,8 +355,141 @@ impl CompositorNext {
                 pointer.axis(self, frame);
                 pointer.frame(self);
             }
+            InputEvent::DeviceAdded { device } => {
+                if device.has_capability(DeviceCapability::TabletTool) {
+                    let tablet_seat = self.seat.tablet_seat();
+                    tablet_seat.add_tablet::<Self>(
+                        &self.display_handle,
+                        &TabletDescriptor::from(&device),
+                    );
+                }
+            }
+            InputEvent::DeviceRemoved { device } => {
+                if device.has_capability(DeviceCapability::TabletTool) {
+                    let tablet_seat = self.seat.tablet_seat();
+                    tablet_seat.remove_tablet(&TabletDescriptor::from(&device));
+                    if tablet_seat.count_tablets() == 0 {
+                        tablet_seat.clear_tools();
+                    }
+                }
+            }
+            InputEvent::TabletToolAxis { event } => {
+                self.on_tablet_tool_axis::<I>(&event);
+            }
+            InputEvent::TabletToolProximity { event } => {
+                self.on_tablet_tool_proximity::<I>(&event);
+            }
+            InputEvent::TabletToolTip { event } => {
+                self.on_tablet_tool_tip::<I>(&event);
+            }
+            InputEvent::TabletToolButton { event } => {
+                let tablet_seat = self.seat.tablet_seat();
+                if let Some(tool) = tablet_seat.get_tool(&event.tool()) {
+                    tool.button(
+                        event.button(),
+                        event.button_state(),
+                        SERIAL_COUNTER.next_serial(),
+                        event.time_msec(),
+                    );
+                }
+            }
             _ => {}
         }
+    }
+
+    fn tablet_position<I: InputBackend>(
+        &self,
+        event: &impl AbsolutePositionEvent<I>,
+    ) -> Option<Point<f64, Logical>> {
+        let output = self.space.outputs().next()?;
+        let output_geo = self.space.output_geometry(output)?;
+        Some(event.position_transformed(output_geo.size) + output_geo.loc.to_f64())
+    }
+
+    fn on_tablet_tool_proximity<I: InputBackend>(
+        &mut self,
+        event: &I::TabletToolProximityEvent,
+    ) {
+        let Some(pos) = self.tablet_position(event) else {
+            return;
+        };
+        let under = self.surface_under(pos);
+        let tablet_seat = self.seat.tablet_seat();
+        let display_handle = self.display_handle.clone();
+        let tool = tablet_seat.add_tool::<Self>(self, &display_handle, &event.tool());
+        let Some(tablet) = tablet_seat.get_tablet(&TabletDescriptor::from(&event.device())) else {
+            return;
+        };
+        match event.state() {
+            ProximityState::In => {
+                if let Some(under) = under {
+                    tool.proximity_in(
+                        pos,
+                        under,
+                        &tablet,
+                        SERIAL_COUNTER.next_serial(),
+                        event.time_msec(),
+                    );
+                }
+            }
+            ProximityState::Out => {
+                tool.proximity_out(event.time_msec());
+            }
+        }
+    }
+
+    fn on_tablet_tool_tip<I: InputBackend>(&mut self, event: &I::TabletToolTipEvent) {
+        let Some(tool) = self.seat.tablet_seat().get_tool(&event.tool()) else {
+            return;
+        };
+        match event.tip_state() {
+            TabletToolTipState::Down => {
+                tool.tip_down(SERIAL_COUNTER.next_serial(), event.time_msec());
+            }
+            TabletToolTipState::Up => {
+                tool.tip_up(event.time_msec());
+            }
+        }
+    }
+
+    fn on_tablet_tool_axis<I: InputBackend>(&mut self, event: &I::TabletToolAxisEvent) {
+        let Some(pos) = self.tablet_position(event) else {
+            return;
+        };
+        let under = self.surface_under(pos);
+        let tablet_seat = self.seat.tablet_seat();
+        let tablet = tablet_seat.get_tablet(&TabletDescriptor::from(&event.device()));
+        let tool = tablet_seat.get_tool(&event.tool());
+        let Some((tablet, tool)) = tablet.zip(tool) else {
+            return;
+        };
+        if event.pressure_has_changed() {
+            let eraser = matches!(event.tool().tool_type, TabletToolType::Eraser);
+            let pressure = self.input_config.remap_tablet_pressure(event.pressure(), eraser);
+            tool.pressure(pressure);
+        }
+        if event.distance_has_changed() {
+            tool.distance(event.distance());
+        }
+        if event.tilt_has_changed() {
+            tool.tilt(event.tilt());
+        }
+        if event.slider_has_changed() {
+            tool.slider_position(event.slider_position());
+        }
+        if event.rotation_has_changed() {
+            tool.rotation(event.rotation());
+        }
+        if event.wheel_has_changed() {
+            tool.wheel(event.wheel_delta(), event.wheel_delta_discrete());
+        }
+        tool.motion(
+            pos,
+            under,
+            &tablet,
+            SERIAL_COUNTER.next_serial(),
+            event.time_msec(),
+        );
     }
 
     fn update_ssd_pointer_chrome(&mut self, pos: Point<f64, Logical>) {

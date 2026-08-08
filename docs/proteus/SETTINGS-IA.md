@@ -191,7 +191,7 @@ Left-nav + content pane (macOS System Settings style).
 | **Displays** (`displays`) | Layout canvas + per-monitor scale/orientation; Identify; 10s Revert; Refresh/topology honesty; Fact `displays.json` (incl. transform) | compositorctl + `displays.json` | `shipped` (thin; orientation UI In · flipped Out) |
 | **Sound** (`sound`) | Category → Output / Input / Applications / Mixer / Latency | pactl + `proteus-audio-mix` / `audio-peak.py` + `pw-metadata` + `pw-link` | `shipped` |
 | **Network** (`network`) | Category → This machine / Devices / Diagnostics / Wi‑Fi / Bluetooth / LocalSend / Tailscale / VPN / Headscale — password Wi‑Fi · BT pair · TS peers/exit/login-server · VPN up/down · WG/OpenVPN import · Headscale admin thin (nodes · users · policy text) | hostnamectl / nmcli / bluetoothctl / localsend / tailscale / `proteus-headscale.py` | `shipped` |
-| **Peripherals** (`peripherals`) | Category → Keyboard, Mouse, Touchpad, Tablet, Gamepads (Guide Facts) | keybinds thin rebind + `proteus-settings-apply input` (`mouse*` · `touchpad*`); tablet/gamepad Facts; `inputDeviceOverrides` Out | `shipped` (thin) |
+| **Peripherals** (`peripherals`) | Category → Keyboard, Mouse, Touchpad, Tablet, Gamepads (Guide Facts) | keybinds thin rebind + `proteus-settings-apply input` (`mouse*` · `touchpad*` · `tabletPressure*` · tip/eraser curves); gamepad Facts; gestures / `inputDeviceOverrides` Out | `shipped` (thin) |
 | **Power** (`power`) | Power mode segmented (PPD); battery (UPower); **Charge limits** (sysfs `charge_control_*` when present); idle / lid via `proteus-logind` drop-in + conf escape | `powerprofilesctl` / UPower / `proteus-logind` / `proteus-battery-threshold` | `shipped` |
 | **Users** (`users`) | Session Lock/Logout + confirm Reboot/Shutdown; lock screen PIN set/change/clear; current user (GECOS/home) + other local users read-only; Online accounts jump; greetd status + autologin write + conf escape | session Facts · `proteus-pin.py` · id/getent · `proteus-greetd` (pkexec `[initial_session]`) | `shipped` |
 | **Online accounts** (`accounts`) | Hub → per-provider leaves (Google / Microsoft / Exchange / Nextcloud / IMAP / CalDAV / CardDAV / Apple); PKCE + app-password seats (`proteus-accounts` vault); calendar + mail + contacts glances; **calendar event create/edit/delete**; **recurrence thin**; **mail compose thin**; **contacts create/edit/delete thin** | `proteus-accounts` + iced Accounts panes + calendar/mail/contacts helpers (HTML/drafts/multi-file · photos/groups/apps Out) | `partial` |
@@ -265,9 +265,10 @@ Reference hybrid leaf under **Peripherals → Keyboard**:
 
 **Peripherals** category (same drill-in as Appearance): Keyboard · Mouse ·
 Touchpad · Tablet · Gamepads. Headphones/speakers stay under **Sound**, not
-Peripherals. Mouse/touchpad Facts live in `settings.json` and live-apply via
-`proteus-settings-apply input` → `dispatch input-reload` (sensitivity · natural
-scroll · scroll factor). Tablet Facts stay Fact-only; per-device overrides Out.
+Peripherals. Mouse/touchpad/tablet Facts live in `settings.json` and live-apply
+via `proteus-settings-apply input` → `dispatch input-reload` (sensitivity ·
+natural scroll · scroll factor · tip/eraser pressure curves + min/max). Tablet
+gestures Out; per-device overrides Out.
 
 Defaults include Beacon (`Super+Space` / `Super+D`), Settings (`Super+,`),
 terminal (`Super+Return`), lock (`Super+L`), workspaces (`Super+1…0`).
@@ -419,7 +420,7 @@ Depth order for what’s left:
 2. ~~Online accounts depth~~ — hub → provider leaves + Microsoft / Exchange / Nextcloud / IMAP / CalDAV / CardDAV / Apple (app-specific password) connect shipped; ~~calendar + mail + contacts glances~~ + ~~CalDAV + Google/MS/Exchange create/edit/delete~~ + ~~mail compose thin~~ + ~~one-file attach~~ + ~~recurrence thin create+edit + COUNT end~~ + ~~CardDAV + Google/MS/Exchange contacts write thin~~ shipped; HTML/drafts/reply/multi-file · UNTIL date · this-vs-all · photos/groups · EWS/NTLM + Sign in with Apple OAuth + mail/contacts apps Out  
 3. ~~**Privacy native enforcement**~~ — portal PermissionStore sync + capture enforce (Deny + Ask) mic/camera/**screen** shipped; ~~**Ask UI**~~ launch + mid-session mic/camera/screen prompt shipped; ~~**fail-closed until ready**~~ shipped; ~~**kill screencast streams**~~ best-effort PW destroy shipped; ~~**portal Session.Close**~~ best-effort shipped; full OS sandbox / v4l2 ACL / perfect screencast attribution Out  
 4. ~~**Network polish**~~ — largely shipped (IPv4 on Devices · Diagnostics ss/firewall · OpenVPN `.ovpn` import + cert path attach · Headscale admin thin + users/policy text); OpenVPN PKI/PKCS#11 · Headscale preauth/structured ACL stay Out  
-5. ~~**Peripherals** — touchpad / tablet / per-device `device {}` / active-area / pressure / region / eraser~~ — Touchpad + Tablet + Mouse per-device sensitivity/accel + active-area mm + pressure range + eraser-as-button + monitor region shipped; bezier per-tool curves / gestures Out  
+5. ~~**Peripherals** — touchpad / tablet / per-device `device {}` / active-area / pressure / region / eraser~~ — Touchpad + Tablet tip/eraser pressure curves (piecewise-linear thin) + pressure min/max + Mouse per-device sensitivity/accel + active-area mm + eraser-as-button + monitor region Facts shipped; gestures / full per-device matrix Out  
 6. **Software depth** — dependency graphs later; Snap stays Out (hub + six leaves + smoke matrix shipped)  
 7. ~~Settings Notifications pane~~ — shipped (prefs-only; CC remains live list)  
 
