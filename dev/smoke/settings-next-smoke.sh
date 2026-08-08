@@ -245,11 +245,21 @@ grep -q 'SetTransform\|transform_label' "${ST_ROOT}/src/panes/displays.rs" \
   || bad "Displays orientation/transform missing"
 grep -q 'Wave Link grid\|MixRoute\|MixVolume' "${ST_ROOT}/src/panes/sound.rs" \
   && ok "Mixer Wave Link grid" || bad "Mixer grid missing"
-grep -q 'Glances\|EditSeat\|Connect / Save' "${ST_ROOT}/src/panes/accounts.rs" \
+grep -q 'peaks/drag-reorder stay Out\|peaks.*Out\|drag-reorder.*Out' "${ST_ROOT}/src/panes/sound.rs" \
+  && ok "Mixer peaks/drag-reorder honesty Out" || bad "Mixer peaks/reorder still claimed In"
+grep -q 'MixEnsure\|MixVolume\|MixRoute' "${ST_ROOT}/src/panes/sound.rs" \
+  && ok "Mixer route/volume/ensure In" || bad "Mixer route/volume/ensure missing"
+grep -q 'Glances\|EditSeat\|Connect / Save\|Save seat\|Multi-seat glances thin' "${ST_ROOT}/src/panes/accounts.rs" \
   && ok "Accounts glances create/edit" || bad "Accounts glances missing"
+grep -q 'accounts_edit_seat_id\|PROTEUS_ACCOUNTS_REPLACE_SEAT\|multi-seat thin' \
+  "${ST_ROOT}/src/panes/accounts.rs" "${ST_ROOT}/src/main.rs" "${ST_ROOT}/src/backend.rs" \
+  && ok "Accounts multi-seat edit/upsert wire" || bad "Accounts multi-seat wire missing"
 grep -q 'HeadscalePolicyCheck\|HeadscalePolicySave\|policy HuJSON\|headscale_policy_check\|headscale_user_create' \
   "${ST_ROOT}/src/panes/network.rs" "${ST_ROOT}/src/backend.rs" "${ST_ROOT}/src/main.rs" \
   && ok "Headscale policy/users" || bad "Headscale policy missing"
+grep -q 'HeadscaleAclAddMember\|headscale_policy_groups\|structured ACL groups thin' \
+  "${ST_ROOT}/src/panes/network.rs" "${ST_ROOT}/src/backend.rs" "${ST_ROOT}/src/main.rs" \
+  && ok "Headscale structured ACL groups thin" || bad "Headscale ACL groups missing"
 
 # Wave 4+: iced is the only Settings install path (QML retired).
 INSTALL="${ROOT}/install/machine/install-settings-app.sh"
